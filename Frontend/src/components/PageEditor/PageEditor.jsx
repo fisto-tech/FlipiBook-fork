@@ -215,7 +215,7 @@ const PageEditor = () => {
     if (
       curPage &&
       curPage.html &&
-      (!curPage.layers || curPage.layers.length === 0)
+      curPage.layers === undefined
     ) {
       pageCacheManager.prioritizePage(activePageIndex);
       const parser = new DOMParser();
@@ -230,8 +230,7 @@ const PageEditor = () => {
       setPages((prev) => {
         if (
           !prev[activePageIndex] ||
-          (prev[activePageIndex].layers &&
-            prev[activePageIndex].layers.length > 0)
+          prev[activePageIndex].layers !== undefined
         )
           return prev;
         const next = [...prev];

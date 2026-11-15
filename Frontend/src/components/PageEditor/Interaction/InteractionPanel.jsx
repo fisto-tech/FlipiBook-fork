@@ -887,6 +887,8 @@ const InteractionPanel = ({
   const [activeTemplateSelectionId, setActiveTemplateSelectionId] = useState(null);
   const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', type: 'warning', showCancel: false, confirmText: 'Okay', cancelText: 'Cancel', onConfirm: null });
   const [openCardIds, setOpenCardIds] = useState({});
+  const openCardIdsRef = useRef(openCardIds);
+  openCardIdsRef.current = openCardIds;
   const [activeLayerId, setActiveLayerId] = useState(selectedLayerId || null);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [collapsedCardIds, setCollapsedCardIds] = useState({});
@@ -1517,13 +1519,10 @@ const InteractionPanel = ({
 
       setCollapsedCardIds(prev => {
         const next = { ...prev };
-        setOpenCardIds(openPrev => {
-          Object.keys(openPrev).forEach(id => {
-            next[id] = true;
-          });
-          next[selectedLayerId] = false;
-          return openPrev;
+        Object.keys(openCardIdsRef.current).forEach(id => {
+          next[id] = true;
         });
+        next[selectedLayerId] = false;
         return next;
       });
     } else {
@@ -1674,6 +1673,7 @@ const InteractionPanel = ({
       try {
         const parser = new DOMParser();
         doc = parser.parseFromString(page.html, 'image/svg+xml');
+        parsedPagesDOMsRef.current[activePageIndex] = { html: page.html, doc };
       } catch {
         return;
       }
@@ -1690,16 +1690,21 @@ const InteractionPanel = ({
 
     setOpenCardIds(prev => {
       let hasChanges = false;
-      const next = {};
+      const next = { ...prev };
       newlyFoundIds.forEach(id => {
-        next[id] = true;
-        if (!prev[id]) {
+        if (!next[id]) {
+          next[id] = true;
           hasChanges = true;
         }
       });
+      // Do NOT prune selectedLayerId to prevent infinite loop ping-pong with selection effects
       Object.keys(prev).forEach(id => {
-        if (prev[id] && !next[id]) {
-          hasChanges = true;
+        if (id !== selectedLayerId && prev[id] && !newlyFoundIds.includes(id)) {
+          const existsInOtherPage = pages.some((p, idx) => idx !== activePageIndex && p?.html && (p.html.includes(`id="${id}"`) || p.html.includes(`id='${id}'`)));
+          if (!existsInOtherPage) {
+            delete next[id];
+            hasChanges = true;
+          }
         }
       });
       return hasChanges ? next : prev;

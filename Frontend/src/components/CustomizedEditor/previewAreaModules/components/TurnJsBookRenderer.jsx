@@ -54,7 +54,7 @@ const TurnJsBookRenderer = React.memo(({
 
     const zoomStyle = useMemo(() => {
         if (!interactionZoom) {
-            return { transition: 'transform 0.3s ease' };
+            return {};
         }
 
         const { rect, pageNumber, scale } = interactionZoom;
@@ -90,7 +90,7 @@ const TurnJsBookRenderer = React.memo(({
                 ...zoomStyle,
                 zIndex: isZoomedIn ? 50 : 1,
                 filter: computedShadow,
-                transition: 'filter 0.5s ease, transform 0.3s ease'
+                transition: isZoomedIn ? 'filter 0.5s ease, transform 0.3s ease' : 'filter 0.5s ease'
             }}
         >
             <FlipBookEngine

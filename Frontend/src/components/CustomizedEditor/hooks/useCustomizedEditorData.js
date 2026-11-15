@@ -683,11 +683,17 @@ export const useCustomizedEditorData = ({
               const idx = pNum - 1;
               if (idx >= 0 && idx < updated.length) {
                 const current = updated[idx];
-                const fpContent = fp.content || fp.html || '';
+                let fpContent = fp.content || fp.html || '';
+                // Safety: If payload is raw binary WebP (starts with RIFF), convert it to clean SVG pointing to the image URL
+                if (fpContent && fpContent.startsWith('RIFF')) {
+                  const webpUrl = fp.imageUrl || `/storage/${fp.userId || 'FLIPI0001'}/books/${v_id}/pages/${pNum}.webp`;
+                  fpContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 210 297" width="100%" height="100%" style="overflow: visible"><g id="g-page-${pNum}" data-name="Page ${pNum}"><image id="img-page-${pNum}" x="0" y="0" width="210" height="297" href="${webpUrl}" xlink:href="${webpUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
+                }
                 const isFpReal = fpContent && 
                   !fpContent.includes('generateSkeletonPageSvg') && 
                   !fpContent.includes('data-skeleton') && 
                   !fpContent.includes('createDefaultPageData') &&
+                  !fpContent.startsWith('RIFF') &&
                   fpContent.trim().length > 20;
 
                 const isCurrentPlaceholder = current.isPlaceholder || 
