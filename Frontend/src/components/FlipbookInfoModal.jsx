@@ -46,12 +46,10 @@ const scrollbarStyles = `
 `;
 
 export const COVER_TEMPLATES = [
-  { id: 1, label: 'Dual Hardcover', defaultText1: 'Hard.Cover Book', defaultText2: 'Free .psd Mockup' },
-  { id: 2, label: 'Single Hardcover', defaultText1: 'Premium Edition', defaultText2: 'Classic Minimal Design' },
-  { id: 3, label: 'Landscape Catalog', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
-  { id: 4, label: 'Modern Magazine', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
-  { id: 5, label: 'Stacked Trio', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
-  { id: 6, label: 'Isometric Floating', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
+  { id: 1, label: 'Open Brochure Spread', defaultText1: 'FREE A4 BROCHURE', defaultText2: 'Mockup Presentation' },
+  { id: 2, label: 'Open Spread & Standing Cover', defaultText1: 'PERFECT BINDING', defaultText2: 'Brochure Mockup' },
+  { id: 3, label: 'Overhead Angle Spread', defaultText1: 'CORPORATE SHOWCASE', defaultText2: 'Annual Brochure & Report' },
+
 ];
 
 export const extractPageBgColor = (page) => {
@@ -60,8 +58,8 @@ export const extractPageBgColor = (page) => {
   if (page.bg && page.bg !== 'transparent') return page.bg;
   if (typeof page.html === 'string') {
     const bgMatch = page.html.match(/data-type=["']background["'][^>]*fill=["']([^"']+)["']/i) ||
-                    page.html.match(/data-name=["']Overlay["'][^>]*fill=["']([^"']+)["']/i) ||
-                    page.html.match(/<rect[^>]*fill=["'](#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))["']/i);
+      page.html.match(/data-name=["']Overlay["'][^>]*fill=["']([^"']+)["']/i) ||
+      page.html.match(/<rect[^>]*fill=["'](#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))["']/i);
     if (bgMatch && bgMatch[1] && bgMatch[1] !== 'none' && bgMatch[1] !== 'transparent') {
       return bgMatch[1];
     }
@@ -99,8 +97,10 @@ export const normalizePageHtml = (htmlStr) => {
       } else {
         newAttrs += ' height="100%"';
       }
-      if (!/\bpreserveAspectRatio=["'][^"']*["']/i.test(newAttrs)) {
-        newAttrs += ' preserveAspectRatio="xMidYMid meet"';
+      if (/\bpreserveAspectRatio=["'][^"']*["']/i.test(newAttrs)) {
+        newAttrs = newAttrs.replace(/\bpreserveAspectRatio=["'][^"']*["']/i, 'preserveAspectRatio="none"');
+      } else {
+        newAttrs += ' preserveAspectRatio="none"';
       }
       return `<svg${newAttrs}>`;
     });
@@ -111,8 +111,8 @@ export const normalizePageHtml = (htmlStr) => {
 
 export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], scaleClass = "scale-[1.05]", customTitle = null, customSubtitle = null) => {
   const page1 = selectedPages[0] && pages[selectedPages[0] - 1] ? pages[selectedPages[0] - 1] : null;
-  const page2 = selectedPages[1] && pages[selectedPages[1] - 1] ? pages[selectedPages[1] - 1] : page1;
-  const page3 = selectedPages[2] && pages[selectedPages[2] - 1] ? pages[selectedPages[2] - 1] : page2;
+  const page2 = selectedPages[1] && pages[selectedPages[1] - 1] ? pages[selectedPages[1] - 1] : null;
+  const page3 = selectedPages[2] && pages[selectedPages[2] - 1] ? pages[selectedPages[2] - 1] : null;
 
   const page1Html = page1?.html ? normalizePageHtml(page1.html) : '';
   const page2Html = page2?.html ? normalizePageHtml(page2.html) : '';
@@ -122,240 +122,315 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
 
   switch (templateId) {
     case 1:
-      // Dual Hardcover Mockup
+      // Template 1: Open A4 Brochure Spread (matching Reference Image 1)
+      // Realistic perspective, center binding crease, curved spine depth, soft ambient drop shadow
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          {/* Back book */}
-          <div className={`absolute w-[10vw] h-[13.5vw] ${page1 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-orange-500 to-amber-600 border-orange-400 p-[0.7vw]'} rounded-[0.6vw] transform -rotate-6 border flex flex-col justify-between text-white overflow-hidden`}>
-            <div className="absolute top-0 right-0 w-[4vw] h-[14vw] bg-white opacity-10 transform rotate-12 -translate-y-[1vw] translate-x-[1vw] z-10 pointer-events-none"></div>
-            {page1 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+
+
+          {/* Perspective Container */}
+          <div className="relative flex items-center justify-center transform rotate-[-7deg] skew-y-[1.5deg]">
+            {/* The Open Book Body with realistic center spine depth */}
+            <div className="relative flex shadow-[0_1vw_2.2vw_rgba(0,0,0,0.18),0_0.3vw_0.6vw_rgba(0,0,0,0.1)] rounded-[0.25vw] bg-neutral-200 p-[0.08vw]">
+              
+              {/* Left Page (Curved upward at spine) */}
+              <div className="relative w-[6.8vw] h-[9.6vw] bg-white rounded-l-[0.2vw] overflow-hidden border-y border-l border-neutral-300 shadow-[inset_-0.8vw_0_1.2vw_rgba(0,0,0,0.18),inset_0_0.2vw_0.4vw_rgba(255,255,255,0.8)]">
+                {/* Book page edge thickness layered bottom */}
+                <div className="absolute bottom-0 inset-x-0 h-[0.12vw] bg-gradient-to-r from-neutral-300 to-neutral-400" />
+                
+                {/* Content */}
+                {page1 ? (
+                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
+                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page1Html }} />
+                  </div>
+                ) : (
+                  <div className="w-full h-full p-[1.1vw] flex flex-col justify-between text-neutral-800 bg-gradient-to-br from-white via-neutral-50 to-neutral-100">
+                    <div className="flex items-center justify-between border-b border-neutral-200 pb-[0.4vw]">
+                      <span className="text-[0.45vw] font-mono tracking-widest text-neutral-400 uppercase">2026 / EDITION</span>
+                      <div className="w-[1.2vw] h-[1.2vw] bg-blue-600 rounded-[0.2vw] flex items-center justify-center text-white text-[0.6vw] font-black">M</div>
+                    </div>
+                    <div className="my-auto py-[0.5vw]">
+                      <h3 className="text-[0.95vw] font-black tracking-tight leading-tight uppercase font-serif text-neutral-900 break-words">
+                        {customTitle || "FREE A4 BROCHURE"}
+                      </h3>
+                      <p className="text-[0.55vw] text-neutral-500 font-medium mt-[0.3vw] leading-relaxed break-words">
+                        {customSubtitle || "Mockup Presentation"}
+                      </p>
+                      <div className="space-y-[0.2vw] mt-[0.6vw] opacity-40">
+                        <div className="w-full h-[0.18vw] bg-neutral-400 rounded-full" />
+                        <div className="w-4/5 h-[0.18vw] bg-neutral-400 rounded-full" />
+                        <div className="w-3/5 h-[0.18vw] bg-neutral-400 rounded-full" />
+                      </div>
+                    </div>
+                    <div className="text-[0.42vw] text-neutral-400 font-mono tracking-wider">
+                      Page 01
+                    </div>
+                  </div>
+                )}
+                {/* Left Inner Crease shadow gradient */}
+                <div className="absolute right-0 top-0 bottom-0 w-[1.2vw] bg-gradient-to-l from-black/15 via-black/5 to-transparent pointer-events-none z-20" />
+                {/* Soft Page curvature highlight */}
+                <div className="absolute left-[2vw] top-0 bottom-0 w-[3vw] bg-gradient-to-r from-white/30 via-white/50 to-transparent pointer-events-none z-20" />
               </div>
-            ) : (
-              <>
-                <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85 relative z-10">HARD.COVER</span>
-                <div className="relative z-10">
-                  <h3 className="text-[0.85vw] font-black leading-tight break-words">{customTitle || "Hard.Cover Book"}</h3>
-                  <p className="text-[0.6vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Free .psd Mockup"}</p>
-                </div>
-              </>
-            )}
-          </div>
-          
-          {/* Front book */}
-          <div className={`absolute w-[10vw] h-[13.5vw] ${page2 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-amber-600 to-orange-500 border-amber-400 p-[0.7vw]'} rounded-[0.6vw] shadow-sm transform rotate-6 border flex flex-col justify-between text-white overflow-hidden`}>
-            <div className="absolute top-0 left-0 w-[3vw] h-[14vw] bg-black opacity-10 filter blur-[0.2vw] -translate-x-[0.5vw] z-10 pointer-events-none"></div>
-            <div className="absolute top-0 right-0 w-[5vw] h-[14vw] bg-white opacity-20 transform rotate-12 -translate-y-[1vw] translate-x-[2vw] z-10 pointer-events-none"></div>
-            {page2 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page2Html }} />
+
+              {/* Center Spine Crease Simulation */}
+              <div className="relative w-[0.1vw] h-[9.6vw] bg-neutral-400/80 shadow-[0_0_0.1vw_rgba(0,0,0,0.15)] z-30" />
+
+              {/* Right Page (Curved gently outward) */}
+              <div className="relative w-[6.8vw] h-[9.6vw] bg-white rounded-r-[0.2vw] overflow-hidden border-y border-r border-neutral-300 shadow-[inset_0.8vw_0_1.2vw_rgba(0,0,0,0.18),inset_0_0.2vw_0.4vw_rgba(255,255,255,0.8)]">
+                {/* Book page edge thickness layered bottom */}
+                <div className="absolute bottom-0 inset-x-0 h-[0.12vw] bg-gradient-to-r from-neutral-400 to-neutral-300" />
+                
+                {/* Content */}
+                {page2 ? (
+                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
+                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page2Html }} />
+                  </div>
+                ) : (
+                  <div className="w-full h-full p-[1.1vw] flex flex-col justify-between text-neutral-800 bg-gradient-to-br from-neutral-50 via-white to-neutral-100">
+                    {/* Realistic sample magazine content block */}
+                    <div className="w-full h-[5.5vw] bg-gradient-to-br from-cyan-600 via-teal-600 to-blue-700 rounded-[0.3vw] shadow-inner overflow-hidden relative flex items-end p-[0.5vw]">
+                      <span className="text-[0.45vw] text-white/90 font-semibold tracking-wider uppercase">Editorial Feature</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-[0.4vw] my-[0.3vw]">
+                      <div className="h-[3.8vw] bg-gradient-to-tr from-sky-700 to-indigo-800 rounded-[0.25vw]" />
+                      <div className="space-y-[0.2vw] pt-[0.2vw]">
+                        <div className="w-full h-[0.2vw] bg-neutral-300 rounded-full" />
+                        <div className="w-4/5 h-[0.2vw] bg-neutral-300 rounded-full" />
+                        <div className="w-full h-[0.2vw] bg-neutral-300 rounded-full" />
+                        <div className="w-2/3 h-[0.2vw] bg-neutral-300 rounded-full" />
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-[0.42vw] text-neutral-400 font-mono">
+                      <span>Mockup Edition</span>
+                      <span>Page 02</span>
+                    </div>
+                  </div>
+                )}
+                {/* Right Inner Crease shadow gradient */}
+                <div className="absolute left-0 top-0 bottom-0 w-[1.2vw] bg-gradient-to-r from-black/15 via-black/5 to-transparent pointer-events-none z-20" />
+                {/* Soft Page curvature highlight */}
+                <div className="absolute right-[2vw] top-0 bottom-0 w-[3vw] bg-gradient-to-l from-white/30 via-white/50 to-transparent pointer-events-none z-20" />
               </div>
-            ) : (
-              <>
-                <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85 relative z-10">HARD.COVER</span>
-                <div className="relative z-10">
-                  <h3 className="text-[0.85vw] font-black leading-tight break-words">{customTitle || "Hard.Cover Book"}</h3>
-                  <p className="text-[0.6vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Free .psd Mockup"}</p>
-                </div>
-              </>
-            )}
+
+            </div>
           </div>
         </div>
       );
 
     case 2:
-      // Single Minimalist Standing Hardcover
+      // Template 2: Open Spread with Standing Closed Cover (matching Reference Image 2)
+      // Left/Center: Angled open brochure spread. Right: Clean standing closed brochure with thick spine & cast shadow.
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          {/* Depth / Side spine effect */}
-          <div className="relative w-[11.2vw] h-[14.8vw] rounded-[0.5vw] border border-black/10 overflow-hidden bg-white flex">
-            {/* Book spine simulation strip */}
-            <div 
-              className={`w-[0.9vw] h-full ${!page1 ? 'bg-gradient-to-r from-gray-700 via-gray-600 to-gray-800' : ''} shrink-0 relative shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.5)] z-20 flex items-center justify-center`}
-              style={page1Color ? { backgroundColor: page1Color } : {}}
-            >
-              {!page1 && (
-                <span className="text-[0.45vw] text-white/70 font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">EDITION</span>
-              )}
-            </div>
-            {/* Book cover area */}
-            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white flex flex-col justify-between p-[0.9vw]">
-              <div className="absolute top-0 right-0 w-[6vw] h-full bg-gradient-to-l from-white/10 to-transparent pointer-events-none z-10" />
-              <div className="absolute inset-y-0 left-0 w-[0.3vw] bg-black/30 z-10 pointer-events-none" />
-              {page1 ? (
-                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
-                </div>
-              ) : (
-                <>
-                  <div className="relative z-10 flex items-center gap-[0.4vw]">
-                    <div className="w-[1.2vw] h-[0.15vw] bg-amber-400" />
-                    <span className="text-[0.6vw] tracking-wider uppercase font-semibold text-amber-300">HARDCOVER</span>
+
+          
+          <div className="relative w-[18vw] h-[12.5vw] flex items-center justify-center">
+            
+            {/* Background Open Brochure Spread */}
+            <div className="absolute left-0 transform rotate-[-12deg] skew-y-[3deg] z-10 flex shadow-[0_1.5vw_3vw_rgba(0,0,0,0.22)] rounded-[0.2vw] bg-neutral-200 p-[0.06vw]">
+              {/* Spread Left */}
+              <div className="relative w-[6.2vw] h-[9.2vw] bg-white rounded-l-[0.2vw] overflow-hidden border border-neutral-300 shadow-[inset_-0.6vw_0_0.9vw_rgba(0,0,0,0.15)]">
+                {page2 ? (
+                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
+                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page2Html }} />
                   </div>
-                  <div className="relative z-10">
-                    <h3 className="text-[1vw] font-bold tracking-tight leading-snug break-words">{customTitle || 'Title'}</h3>
-                    <p className="text-[0.6vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || 'Supporting Text'}</p>
+                ) : (
+                  <div className="w-full h-full p-[0.8vw] flex flex-col justify-between text-neutral-800 bg-neutral-50">
+                    <div className="flex justify-between items-center text-[0.4vw] text-neutral-400 font-mono">
+                      <span>2026/EDITION</span>
+                      <div className="w-[0.9vw] h-[0.9vw] bg-blue-600 rounded-[0.15vw] text-white flex items-center justify-center font-bold text-[0.45vw]">M</div>
+                    </div>
+                    <div>
+                      <span className="text-[0.65vw] font-black uppercase text-neutral-900 leading-tight block">PERFECT BINDING</span>
+                      <span className="text-[0.45vw] text-neutral-500">Brochure Mockup</span>
+                      <div className="space-y-[0.18vw] mt-[0.4vw] opacity-40">
+                        <div className="w-full h-[0.15vw] bg-neutral-400 rounded-full" />
+                        <div className="w-4/5 h-[0.15vw] bg-neutral-400 rounded-full" />
+                      </div>
+                    </div>
+                    <span className="text-[0.38vw] text-neutral-400 font-mono">Page 01</span>
                   </div>
-                </>
-              )}
+                )}
+                <div className="absolute right-0 top-0 bottom-0 w-[0.8vw] bg-gradient-to-l from-black/15 to-transparent pointer-events-none z-20" />
+              </div>
+
+              {/* Spine Line */}
+              <div className="w-[0.1vw] h-[9.2vw] bg-neutral-400/80 z-20 shadow-xs" />
+
+              {/* Spread Right */}
+              <div className="relative w-[6.2vw] h-[9.2vw] bg-white rounded-r-[0.2vw] overflow-hidden border border-neutral-300 shadow-[inset_0.6vw_0_0.9vw_rgba(0,0,0,0.15)]">
+                {page3 ? (
+                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
+                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page3Html }} />
+                  </div>
+                ) : (
+                  <div className="w-full h-full p-[0.8vw] flex flex-col justify-between text-neutral-800 bg-neutral-50">
+                    <div className="w-full h-[4.2vw] bg-gradient-to-br from-teal-500 to-blue-600 rounded-[0.2vw]" />
+                    <div className="space-y-[0.18vw]">
+                      <div className="w-full h-[0.15vw] bg-neutral-300 rounded-full" />
+                      <div className="w-3/4 h-[0.15vw] bg-neutral-300 rounded-full" />
+                    </div>
+                    <span className="text-[0.38vw] text-neutral-400 font-mono text-right">Page 02</span>
+                  </div>
+                )}
+                <div className="absolute left-0 top-0 bottom-0 w-[0.8vw] bg-gradient-to-r from-black/15 to-transparent pointer-events-none z-20" />
+              </div>
             </div>
+
+            {/* Foreground Closed Front Cover Book (angled slightly to the right with sharp realism) */}
+            <div className="absolute right-[0.5vw] top-[1.2vw] z-30 transform rotate-[4deg] skew-y-[-2deg] filter drop-shadow-[-1.2vw_1.5vw_2vw_rgba(0,0,0,0.35)]">
+              {/* Realistic Book with Spine edge depth */}
+              <div className="relative w-[7.2vw] h-[10.4vw] rounded-[0.3vw] overflow-hidden bg-white border border-black/10 flex flex-col justify-between shadow-[0_0.4vw_1.2vw_rgba(0,0,0,0.15)]">
+                {/* Book spine crease line */}
+                <div className="absolute left-0 inset-y-0 w-[0.5vw] bg-gradient-to-r from-black/30 via-black/10 to-transparent z-20 pointer-events-none" />
+                <div className="absolute left-[0.45vw] inset-y-0 w-[0.06vw] bg-black/20 z-20 pointer-events-none" />
+
+                {/* Cover Glossy subtle sheen */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/25 pointer-events-none z-20" />
+
+                {page1 ? (
+                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
+                    <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-b from-[#2563EB] to-[#1D4ED8] text-white flex flex-col justify-between p-[0.9vw]">
+                    <div>
+                      <div className="w-[1.4vw] h-[1.4vw] bg-white rounded-[0.2vw] text-[#2563EB] flex items-center justify-center font-black text-[0.8vw] mb-[0.8vw]">
+                        M
+                      </div>
+                      <span className="text-[0.42vw] tracking-widest uppercase font-bold text-blue-200 block">
+                        PERFECT BINDING
+                      </span>
+                      <h3 className="text-[0.95vw] font-black uppercase tracking-tight leading-tight mt-[0.2vw] break-words">
+                        {customTitle || "BROCHURE MOCKUP"}
+                      </h3>
+                    </div>
+
+                    {/* Bottom A4 Tag container */}
+                    <div className="bg-white text-neutral-900 -mx-[0.9vw] -mb-[0.9vw] p-[0.7vw] border-t border-blue-400/30">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[0.65vw] font-black uppercase text-neutral-900 tracking-wider">A4</span>
+                        <span className="text-[0.38vw] text-neutral-400 font-mono">EDITION 2026</span>
+                      </div>
+                      <p className="text-[0.45vw] text-neutral-500 font-medium truncate mt-[0.1vw]">
+                        {customSubtitle || "Premium Presentation"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
         </div>
       );
 
     case 3:
-      // Landscape Catalog / Wide Brochure Mockup
+      // Template 3: Overhead Flat-Lay Open Spread (matching Reference Image 3)
+      // Realistic overhead perspective view with natural center gutter shadow & crisp paper edge
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          <div className="relative w-[18.5vw] h-[12vw] bg-white rounded-[0.5vw] flex overflow-hidden border border-gray-300">
-            {/* Spine Left Edge */}
-            <div 
-              className={`w-[0.8vw] h-full ${!page1 ? 'bg-gradient-to-r from-gray-800 to-gray-700' : ''} shrink-0 shadow-[inset_-0.15vw_0_0.3vw_rgba(0,0,0,0.4)] z-20 flex items-center justify-center`}
-              style={page1Color ? { backgroundColor: page1Color } : {}}
-            >
-              {!page1 && (
-                <span className="text-[0.4vw] text-white/70 font-bold uppercase tracking-wider transform -rotate-90 whitespace-nowrap">CATALOG</span>
-              )}
-            </div>
-            {/* Front Cover Area */}
-            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-zinc-950 text-white p-[1.1vw] flex flex-col justify-between">
-              {/* Glossy sheen */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/20 pointer-events-none z-10" />
-              {page1 ? (
-                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
-                </div>
-              ) : (
-                <>
-                  <div className="relative z-10 flex items-center justify-between">
-                    <span className="text-[0.6vw] font-black uppercase tracking-widest text-sky-400">LANDSCAPE EDITION</span>
-                    <span className="text-[0.55vw] text-gray-400 font-mono">2026</span>
+
+
+          {/* Perspective Container */}
+          <div className="relative flex items-center justify-center transform rotate-[-9deg] skew-y-[3deg]">
+            <div className="relative flex shadow-[0_1.8vw_3.5vw_rgba(0,0,0,0.25),0_0.5vw_1vw_rgba(0,0,0,0.12)] rounded-[0.25vw] bg-neutral-300 p-[0.08vw]">
+              
+              {/* Left Spread Page */}
+              <div className="relative w-[7.8vw] h-[10.8vw] bg-white rounded-l-[0.25vw] overflow-hidden border-y border-l border-neutral-300 shadow-[inset_-0.9vw_0_1.2vw_rgba(0,0,0,0.2)]">
+                {/* Book page edge layered thickness */}
+                <div className="absolute bottom-0 inset-x-0 h-[0.15vw] bg-neutral-300" />
+                
+                {page1 ? (
+                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
+                    <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
                   </div>
-                  <div className="relative z-10">
-                    <h3 className="text-[1.15vw] font-black tracking-tight leading-snug break-words">{customTitle || "Corporate Showcase"}</h3>
-                    <p className="text-[0.65vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || "Annual Brochure & Catalog"}</p>
+                ) : (
+                  <div className="w-full h-full flex flex-col bg-white text-neutral-800">
+                    {/* Dark Blue Header Banner */}
+                    <div className="bg-[#1E293B] text-white p-[0.9vw]">
+                      <span className="text-[0.45vw] font-mono tracking-widest text-sky-400 uppercase block">OVERVIEW</span>
+                      <h3 className="text-[0.9vw] font-black uppercase tracking-tight break-words">{customTitle || "CORPORATE SHOWCASE"}</h3>
+                    </div>
+                    {/* Red Highlights Section */}
+                    <div className="p-[0.9vw] flex-1 flex flex-col justify-between">
+                      <div className="grid grid-cols-2 gap-[0.4vw]">
+                        <div className="bg-rose-500/10 border border-rose-500/30 rounded-[0.25vw] p-[0.4vw]">
+                          <span className="text-[0.48vw] font-bold text-rose-600 block">STRATEGY</span>
+                          <div className="w-full h-[0.15vw] bg-rose-200 rounded-full mt-[0.3vw]" />
+                        </div>
+                        <div className="bg-rose-500/10 border border-rose-500/30 rounded-[0.25vw] p-[0.4vw]">
+                          <span className="text-[0.48vw] font-bold text-rose-600 block">ANALYSIS</span>
+                          <div className="w-full h-[0.15vw] bg-rose-200 rounded-full mt-[0.3vw]" />
+                        </div>
+                      </div>
+                      <div className="space-y-[0.2vw] mt-[0.5vw]">
+                        <div className="w-full h-[0.2vw] bg-neutral-200 rounded-full" />
+                        <div className="w-5/6 h-[0.2vw] bg-neutral-200 rounded-full" />
+                        <div className="w-4/6 h-[0.2vw] bg-neutral-200 rounded-full" />
+                      </div>
+                      <span className="text-[0.4vw] text-neutral-400 font-mono mt-auto">Page 01</span>
+                    </div>
                   </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-
-    case 4:
-      // Modern Glossy Magazine Mockup (Slight tilt with glossy reflection sheen)
-      return (
-        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          <div className="relative w-[11.5vw] h-[15vw] rounded-[0.3vw] transform -rotate-3 overflow-hidden bg-white border border-gray-200">
-            {/* Magazine spine crease */}
-            <div className="absolute left-[0.4vw] inset-y-0 w-[0.1vw] bg-black/20 z-20 pointer-events-none" />
-            <div className="absolute left-0 inset-y-0 w-[0.4vw] bg-gradient-to-r from-black/20 to-transparent z-20 pointer-events-none" />
-            {/* Glossy sheen */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/25 to-white/40 z-20 pointer-events-none" />
-            {page1 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+                )}
+                {/* Left Inner gutter gradient */}
+                <div className="absolute right-0 top-0 bottom-0 w-[1.2vw] bg-gradient-to-l from-black/15 via-black/5 to-transparent pointer-events-none z-20" />
               </div>
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-emerald-600 to-teal-800 text-white p-[1vw] flex flex-col justify-between">
-                <div>
-                  <span className="text-[0.6vw] font-black tracking-widest uppercase bg-black/40 px-[0.4vw] py-[0.15vw] rounded-[0.2vw]">MAGAZINE</span>
-                  <h3 className="text-[1.1vw] font-black leading-tight mt-[0.5vw] break-words">{customTitle || "LOOKBOOK"}</h3>
-                </div>
-                <div>
-                  <p className="text-[0.6vw] opacity-90 font-medium break-words">{customSubtitle || "Vol. 24 / Summer Edition"}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      );
 
-    case 5:
-      // Stacked Trio Mockup (Three staggered hardcover books)
-      return (
-        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          {/* Bottom Book */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page3 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-violet-600 to-indigo-700 border-violet-500'} rounded-[0.5vw] transform -rotate-12 -translate-x-[1.5vw] border flex overflow-hidden`}>
-            {page3 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page3Html }} />
-              </div>
-            ) : (
-              <div className="p-[0.6vw] text-white/80 font-bold text-[0.6vw]">VOL. 3</div>
-            )}
-          </div>
+              {/* Spine Gutter Line */}
+              <div className="relative w-[0.1vw] h-[10.8vw] bg-neutral-400/80 shadow-[0_0_0.1vw_rgba(0,0,0,0.15)] z-30" />
 
-          {/* Middle Book */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page2 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-sky-500 to-blue-600 border-sky-400'} rounded-[0.5vw] shadow-sm transform rotate-2 border flex overflow-hidden`}>
-            {page2 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page2Html }} />
-              </div>
-            ) : (
-              <div className="p-[0.6vw] text-white/80 font-bold text-[0.6vw]">VOL. 2</div>
-            )}
-          </div>
-
-          {/* Top Front Book */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page1 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400'} rounded-[0.5vw] shadow-sm transform rotate-12 translate-x-[1.4vw] border flex flex-col justify-between text-white p-[0.6vw] overflow-hidden`}>
-            <div className="absolute top-0 right-0 w-[4vw] h-[14vw] bg-white opacity-20 transform rotate-12 -translate-y-[1vw] translate-x-[2vw] z-10 pointer-events-none" />
-            {page1 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
-              </div>
-            ) : (
-              <>
-                <span className="text-[0.6vw] font-bold tracking-widest uppercase">SERIES</span>
-                <div>
-                  <h3 className="text-[0.8vw] font-black leading-tight break-words">{customTitle || "Master Collection"}</h3>
-                  <p className="text-[0.55vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Vol. 1"}</p>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      );
-
-    case 6:
-      // Isometric Floating Hardcover Mockup
-      return (
-        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          {/* Isometric Perspective Book */}
-          <div className="relative w-[11.8vw] h-[15.2vw] rounded-[0.4vw] transform rotate-[-8deg] skew-y-[3deg] overflow-hidden bg-white border border-black/10 flex">
-            {/* Book Spine Simulation */}
-            <div 
-              className={`w-[0.9vw] h-full ${!page1 ? 'bg-gradient-to-r from-amber-800 via-amber-700 to-amber-900' : ''} shrink-0 shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.5)] z-20 flex items-center justify-center`}
-              style={page1Color ? { backgroundColor: page1Color } : {}}
-            >
-              {!page1 && (
-                <span className="text-[0.45vw] text-amber-200/80 font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">PREMIUM</span>
-              )}
-            </div>
-            {/* Front Cover Body */}
-            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-950 to-slate-950 text-white p-[1vw] flex flex-col justify-between">
-              {/* Glossy angled highlight */}
-              <div className="absolute top-0 right-0 w-[5vw] h-full bg-gradient-to-l from-white/15 to-transparent pointer-events-none z-10" />
-              {page1 ? (
-                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
-                </div>
-              ) : (
-                <>
-                  <div className="relative z-10">
-                    <span className="text-[0.55vw] font-bold uppercase tracking-widest bg-white/10 px-[0.4vw] py-[0.15vw] rounded-[0.2vw] text-amber-300">LIMITED EDITION</span>
+              {/* Right Spread Page */}
+              <div className="relative w-[7.8vw] h-[10.8vw] bg-white rounded-r-[0.25vw] overflow-hidden border-y border-r border-neutral-300 shadow-[inset_0.9vw_0_1.2vw_rgba(0,0,0,0.2)]">
+                {/* Book page edge layered thickness */}
+                <div className="absolute bottom-0 inset-x-0 h-[0.15vw] bg-neutral-300" />
+                
+                {page2 ? (
+                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
+                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page2Html }} />
                   </div>
-                  <div className="relative z-10">
-                    <h3 className="text-[1vw] font-black tracking-tight leading-tight break-words">{customTitle || "Minimalist Journal"}</h3>
-                    <p className="text-[0.6vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || "Special Edition Portfolio"}</p>
+                ) : (
+                  <div className="w-full h-full p-[0.9vw] flex flex-col justify-between bg-white text-neutral-800">
+                    <div>
+                      <span className="text-[0.5vw] font-mono tracking-widest text-neutral-400 uppercase">ANALYSIS & RESULTS</span>
+                      <h4 className="text-[0.75vw] font-bold text-neutral-900 mt-[0.2vw] break-words">{customSubtitle || "Annual Brochure & Report"}</h4>
+                      
+                      {/* Metric Stat Pillars */}
+                      <div className="grid grid-cols-3 gap-[0.3vw] mt-[0.8vw]">
+                        <div className="bg-slate-100 rounded-[0.25vw] p-[0.4vw] text-center border border-slate-200">
+                          <span className="text-[0.55vw] font-black text-blue-600 block">100+</span>
+                          <span className="text-[0.35vw] text-neutral-500 uppercase">Projects</span>
+                        </div>
+                        <div className="bg-slate-100 rounded-[0.25vw] p-[0.4vw] text-center border border-slate-200">
+                          <span className="text-[0.55vw] font-black text-rose-600 block">98%</span>
+                          <span className="text-[0.35vw] text-neutral-500 uppercase">Success</span>
+                        </div>
+                        <div className="bg-slate-100 rounded-[0.25vw] p-[0.4vw] text-center border border-slate-200">
+                          <span className="text-[0.55vw] font-black text-emerald-600 block">24/7</span>
+                          <span className="text-[0.35vw] text-neutral-500 uppercase">Support</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-[0.2vw]">
+                      <div className="w-full h-[0.2vw] bg-neutral-200 rounded-full" />
+                      <div className="w-5/6 h-[0.2vw] bg-neutral-200 rounded-full" />
+                      <div className="w-3/4 h-[0.2vw] bg-neutral-200 rounded-full" />
+                    </div>
+
+                    <span className="text-[0.4vw] text-neutral-400 font-mono text-right">Page 02</span>
                   </div>
-                </>
-              )}
+                )}
+                {/* Right Inner gutter gradient */}
+                <div className="absolute left-0 top-0 bottom-0 w-[1.2vw] bg-gradient-to-r from-black/15 via-black/5 to-transparent pointer-events-none z-20" />
+              </div>
+
             </div>
           </div>
         </div>
       );
+
 
     default:
       return null;
@@ -376,76 +451,76 @@ export const getShadowRgba = (hex = '#000000', opacity = 80) => {
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 };
 
-const TemplatePreview = ({ 
-    selectedTemplate, 
-    bgColor, bgOpacity, 
-    shadowX, shadowY, shadowBlur, shadowColor, shadowOpacity,
-    logoUrl,
-    text1, text1FontFamily, text1FontSize, text1FontWeight, text1LetterSpacing, text1LineHeight, text1Align, text1Color, text1ColorOpacity, text1Italic, text1Underline, text1Linethrough,
-    text2, text2FontFamily, text2FontSize, text2FontWeight, text2LetterSpacing, text2LineHeight, text2Align, text2Color, text2ColorOpacity, text2Italic, text2Underline, text2Linethrough,
-    selectedPages = [], pages = []
+export const TemplatePreview = ({
+  selectedTemplate,
+  bgColor, bgOpacity,
+  shadowX, shadowY, shadowBlur, shadowColor, shadowOpacity,
+  logoUrl,
+  text1, text1FontFamily, text1FontSize, text1FontWeight, text1LetterSpacing, text1LineHeight, text1Align, text1Color, text1ColorOpacity, text1Italic, text1Underline, text1Linethrough,
+  text2, text2FontFamily, text2FontSize, text2FontWeight, text2LetterSpacing, text2LineHeight, text2Align, text2Color, text2ColorOpacity, text2Italic, text2Underline, text2Linethrough,
+  selectedPages = [], pages = []
 }) => {
-    const shadowRgba = getShadowRgba(shadowColor, shadowOpacity);
-    const dropShadowFilter = `drop-shadow(${shadowX || 0}px ${shadowY || 0}px ${(shadowBlur !== undefined ? shadowBlur : 35) / 10}px ${shadowRgba})`;
+  const shadowRgba = getShadowRgba(shadowColor, shadowOpacity);
+  const dropShadowFilter = `drop-shadow(${shadowX || 0}px ${shadowY || 0}px ${(shadowBlur !== undefined ? shadowBlur : 35) / 10}px ${shadowRgba})`;
 
-    return (
+  return (
     <div className="relative w-full h-full bg-gray-100 overflow-hidden" style={{ backgroundColor: bgColor }}>
-        {selectedTemplate?.id ? (
-            <div 
-              className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none transition-all duration-150"
-              style={{ 
-                opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, 
-                filter: dropShadowFilter 
-              }}
-            >
-              {renderTemplateBooks(selectedTemplate.id, selectedPages, pages, "scale-[0.95]", text1, text2)}
-            </div>
-        ) : (
-            <img
-              src={selectedTemplate?.src}
-              className="absolute inset-0 pointer-events-none transition-all duration-300 z-0 w-full h-full object-cover"
-              style={{ opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, filter: dropShadowFilter }}
-              alt={selectedTemplate?.label || 'Template'}
-            />
-        )}
-        
-        {logoUrl && (
-            <img 
-                src={logoUrl} 
-                alt="Logo" 
-                className="absolute top-[1vw] left-[1vw] z-[20] rounded-[0.5vw] w-[4vw] h-[4vw] object-contain" 
-            />
-        )}
-
-        <div className={`absolute left-0 right-0 text-center z-10 flex flex-col items-center ${selectedTemplate?.id && selectedPages.length === 0 ? 'hidden' : ''}`} style={{ bottom: '1.5vw', paddingLeft: '0.8vw', paddingRight: '0.8vw' }}>
-            <h4 className="leading-tight break-words w-full" style={{
-                fontFamily: text1FontFamily,
-                fontSize: typeof text1FontSize === 'number' ? `${(text1FontSize / 15) * 1.1}vw` : '1.3vw',
-                fontWeight: text1FontWeight === 'Regular' ? '400' : text1FontWeight === 'Medium' ? '500' : text1FontWeight === 'Semi Bold' ? '600' : text1FontWeight === 'Bold' ? '700' : '900',
-                letterSpacing: text1LetterSpacing === 'Auto' ? 'normal' : `${(text1LetterSpacing || 0) / 10}em`,
-                lineHeight: text1LineHeight === 'Auto' ? '1.1' : String(text1LineHeight || 1.1),
-                textAlign: text1Align || 'center',
-                color: text1Color || '#000000',
-                opacity: (text1ColorOpacity !== undefined ? text1ColorOpacity : 100) / 100,
-                fontStyle: text1Italic ? 'italic' : 'normal',
-                textDecoration: [text1Underline ? 'underline' : '', text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-            }}>{text1 || 'Title'}</h4>
-            <p className="whitespace-pre-wrap break-words w-full" style={{
-                marginTop: '0.2vw',
-                fontFamily: text2FontFamily,
-                fontSize: typeof text2FontSize === 'number' ? `${(text2FontSize / 15) * 1.1}vw` : '0.7vw',
-                fontWeight: text2FontWeight === 'Regular' ? '400' : text2FontWeight === 'Medium' ? '500' : text2FontWeight === 'Semi Bold' ? '600' : text2FontWeight === 'Bold' ? '700' : '900',
-                letterSpacing: text2LetterSpacing === 'Auto' ? '0.2em' : `${(text2LetterSpacing || 0) / 10}em`,
-                lineHeight: text2LineHeight === 'Auto' ? 'normal' : String(text2LineHeight || 'normal'),
-                textAlign: text2Align || 'center',
-                color: text2Color || '#000000',
-                opacity: (text2ColorOpacity !== undefined ? text2ColorOpacity : 100) / 100,
-                fontStyle: text2Italic ? 'italic' : 'normal',
-                textDecoration: [text2Underline ? 'underline' : '', text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-            }}>{text2 || 'Supporting Text'}</p>
+      {selectedTemplate?.id ? (
+        <div
+          className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none transition-all duration-150"
+          style={{
+            opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100,
+            filter: dropShadowFilter
+          }}
+        >
+          {renderTemplateBooks(selectedTemplate.id, selectedPages, pages, "scale-[0.95]", text1, text2)}
         </div>
+      ) : (
+        <img
+          src={selectedTemplate?.src}
+          className="absolute inset-0 pointer-events-none transition-all duration-300 z-0 w-full h-full object-cover"
+          style={{ opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, filter: dropShadowFilter }}
+          alt={selectedTemplate?.label || 'Template'}
+        />
+      )}
+
+      {logoUrl && (
+        <img
+          src={logoUrl}
+          alt="Logo"
+          className="absolute top-[1vw] left-[1vw] z-[20] rounded-[0.5vw] w-[4vw] h-[4vw] object-contain"
+        />
+      )}
+
+      <div className={`absolute left-0 right-0 text-center z-10 flex flex-col items-center ${selectedTemplate?.id ? 'hidden' : ''}`} style={{ bottom: '1.5vw', paddingLeft: '0.8vw', paddingRight: '0.8vw' }}>
+        <h4 className="leading-tight break-words w-full" style={{
+          fontFamily: text1FontFamily,
+          fontSize: typeof text1FontSize === 'number' ? `${(text1FontSize / 15) * 1.1}vw` : '1.3vw',
+          fontWeight: text1FontWeight === 'Regular' ? '400' : text1FontWeight === 'Medium' ? '500' : text1FontWeight === 'Semi Bold' ? '600' : text1FontWeight === 'Bold' ? '700' : '900',
+          letterSpacing: text1LetterSpacing === 'Auto' ? 'normal' : `${(text1LetterSpacing || 0) / 10}em`,
+          lineHeight: text1LineHeight === 'Auto' ? '1.1' : String(text1LineHeight || 1.1),
+          textAlign: text1Align || 'center',
+          color: text1Color || '#000000',
+          opacity: (text1ColorOpacity !== undefined ? text1ColorOpacity : 100) / 100,
+          fontStyle: text1Italic ? 'italic' : 'normal',
+          textDecoration: [text1Underline ? 'underline' : '', text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
+        }}>{text1 || 'Title'}</h4>
+        <p className="whitespace-pre-wrap break-words w-full" style={{
+          marginTop: '0.2vw',
+          fontFamily: text2FontFamily,
+          fontSize: typeof text2FontSize === 'number' ? `${(text2FontSize / 15) * 1.1}vw` : '0.7vw',
+          fontWeight: text2FontWeight === 'Regular' ? '400' : text2FontWeight === 'Medium' ? '500' : text2FontWeight === 'Semi Bold' ? '600' : text2FontWeight === 'Bold' ? '700' : '900',
+          letterSpacing: text2LetterSpacing === 'Auto' ? '0.2em' : `${(text2LetterSpacing || 0) / 10}em`,
+          lineHeight: text2LineHeight === 'Auto' ? 'normal' : String(text2LineHeight || 'normal'),
+          textAlign: text2Align || 'center',
+          color: text2Color || '#000000',
+          opacity: (text2ColorOpacity !== undefined ? text2ColorOpacity : 100) / 100,
+          fontStyle: text2Italic ? 'italic' : 'normal',
+          textDecoration: [text2Underline ? 'underline' : '', text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
+        }}>{text2 || 'Supporting Text'}</p>
+      </div>
     </div>
-    );
+  );
 };
 
 export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages = [], zIndex = 'z-[200]', inline = false }) => {
@@ -467,10 +542,10 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [bgColor, setBgColor] = useState(settings.coverPicture?.bgColor || '#D7D8E8');
   const [bgOpacity, setBgOpacity] = useState(settings.coverPicture?.bgOpacity || 100);
   const [shadowColor, setShadowColor] = useState(settings.coverPicture?.shadowColor || '#000000');
-  const [shadowOpacity, setShadowOpacity] = useState(settings.coverPicture?.shadowOpacity || 80);
+  const [shadowOpacity, setShadowOpacity] = useState(settings.coverPicture?.shadowOpacity !== undefined ? settings.coverPicture.shadowOpacity : 0);
   const [shadowX, setShadowX] = useState(settings.coverPicture?.shadowX || 0);
   const [shadowY, setShadowY] = useState(settings.coverPicture?.shadowY || 0);
-  const [shadowBlur, setShadowBlur] = useState(settings.coverPicture?.shadowBlur || 35);
+  const [shadowBlur, setShadowBlur] = useState(settings.coverPicture?.shadowBlur !== undefined ? settings.coverPicture.shadowBlur : 0);
   const [logoUrl, setLogoUrl] = useState(settings.coverPicture?.logoUrl || null);
   const logoInputRef = React.useRef(null);
 
@@ -586,424 +661,423 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
 
   const handleCoverUpload = (e) => {
     if (e.target.files && e.target.files[0]) {
-       const file = e.target.files[0];
-       setRawFile(file);
-       const url = URL.createObjectURL(file);
-       setUploadedImage(url);
-       setOriginalImage(url);
-       setShowMenu(false);
+      const file = e.target.files[0];
+      setRawFile(file);
+      const url = URL.createObjectURL(file);
+      setUploadedImage(url);
+      setOriginalImage(url);
+      setShowMenu(false);
     }
   };
 
   const handleLogoUpload = (e) => {
     if (e.target.files && e.target.files[0]) {
-       const file = e.target.files[0];
-       const url = URL.createObjectURL(file);
-       setLogoUrl(url);
+      const file = e.target.files[0];
+      const url = URL.createObjectURL(file);
+      setLogoUrl(url);
     }
   };
   const togglePageSelection = (pageNum) => {
-     setSelectedPages(prev => 
-       prev.includes(pageNum) 
-         ? prev.filter(p => p !== pageNum) 
-         : [...prev, pageNum]
-     );
+    setSelectedPages(prev =>
+      prev.includes(pageNum)
+        ? prev.filter(p => p !== pageNum)
+        : [...prev, pageNum]
+    );
   };
-    const innerContent = (
+  const innerContent = (
     <div className={`${inline ? 'px-[0.2vw] pt-[0.2vw]' : 'px-[1.5vw]'} pb-[1vw] flex flex-col h-[32.2vw] overflow-hidden`}>
       {/* Options */}
       <div className="flex items-center gap-[0.8vw] mb-[0.8vw] shrink-0">
-        <button 
+        <button
           onClick={() => setOption('template')}
           className={`px-[1.2vw] py-[0.5vw] rounded-[0.5vw] font-semibold text-[0.75vw] transition-all cursor-pointer ${option === 'template' ? 'bg-white text-gray-900 shadow-[0_2px_10px_rgba(0,0,0,0.08)] border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
         >
           Add from Templates
         </button>
-        <button 
+        <button
           onClick={() => setOption('upload')}
           className={`px-[1.2vw] py-[0.5vw] rounded-[0.5vw] font-semibold text-[0.75vw] transition-all cursor-pointer ${option === 'upload' ? 'bg-white text-gray-900 shadow-[0_2px_10px_rgba(0,0,0,0.08)] border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
         >
           Upload cover picture
         </button>
 
-         {option === 'upload' && (
+        {option === 'upload' && (
           <div className="flex items-center gap-[0.8vw] ml-[2vw]">
-             <label className="text-[0.75vw] font-semibold text-gray-700">Image fix type : </label>
-      <PremiumDropdown 
-        options={['Fit', 'Fill', 'Stretch', 'Crop']}
-        value={imageFixType || 'Fit'}
-        onChange={(val) => {
-            setImageFixType(val);
-            if (val === 'Crop' && uploadedImage) {
-                setIsCropping(true);
-            }
-        }}
-        width="6vw"
-        align="right"
-      />
+            <label className="text-[0.75vw] font-semibold text-gray-700">Image fix type : </label>
+            <PremiumDropdown
+              options={['Fit', 'Fill', 'Stretch', 'Crop']}
+              value={imageFixType || 'Fit'}
+              onChange={(val) => {
+                setImageFixType(val);
+                if (val === 'Crop' && uploadedImage) {
+                  setIsCropping(true);
+                }
+              }}
+              width="6vw"
+              align="right"
+            />
           </div>
         )}
       </div>
 
       {option === 'upload' ? (
-          <div className="flex gap-[2vw] flex-1 min-h-0">
-            {/* Left Upload/Preview Area */}
-            <div className="w-[50%] flex items-start justify-center pt-[0.5vw] relative">
-               {!uploadedImage ? (
-                  <div className="w-full aspect-[4/3] max-w-[24vw] border-[0.15vw] border-dashed border-gray-300 rounded-[0.9vw] flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors relative">
-                     <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleCoverUpload} />
-                     <span className="text-[0.75vw] text-gray-400 font-semibold mb-[1vw]">Drag & Drop or <span className="text-[#4A3AFF] font-bold">Upload</span></span>
-                     <Upload size="1.8vw" className="text-gray-400 mb-[1vw]" strokeWidth={1.5} />
-                     <span className="text-[0.6vw] text-gray-400 mb-[0.3vw]">Dimensions 1200 X 900 px (4:3)</span>
-                     <span className="text-[0.6vw] text-gray-400">Supported File Format : JPG, PNG</span>
-                  </div>
-               ) : (
-                  <div className="w-full aspect-[4/3] max-w-[24vw] bg-[#edd8cd] rounded-[0.9vw] overflow-hidden relative group shadow-inner flex items-center justify-center border border-amber-100/40">
-                     <img 
-                         ref={previewImgRef}
-                         src={uploadedImage} 
-                         className="w-full h-full object-cover" 
-                         alt="Uploaded Cover" 
-                     />
-                     <button 
-                         onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-                         className="absolute top-[0.8vw] right-[0.8vw] w-[2.2vw] h-[2.2vw] bg-white rounded-full flex items-center justify-center text-gray-600 shadow-lg hover:bg-gray-100 transition-all z-30"
-                         title="More Options"
-                     >
-                         <MoreVertical size="1.2vw" />
-                     </button>
-
-                     {showMenu && (
-                         <div className="absolute top-[2vw] right-[0.8vw] bg-white rounded-[0.4vw] shadow-[0_4px_15px_rgba(0,0,0,0.1)] flex flex-col items-center justify-center py-[0.5vw] border border-gray-100 z-20 overflow-hidden">
-                            <button 
-                               className="px-[1.2vw] py-[0.5vw] hover:bg-gray-50 text-[0.75vw] font-semibold text-gray-700 w-full text-center border-b border-gray-100 whitespace-nowrap" 
-                               onClick={() => {
-                                   document.getElementById('replace-cover-input').click();
-                                   setShowMenu(false);
-                               }}
-                            >
-                               Replace Image
-                            </button>
-                            <button 
-                               className="px-[1.2vw] py-[0.5vw] hover:bg-gray-50 text-[0.75vw] font-semibold text-red-500 w-full text-center whitespace-nowrap" 
-                               onClick={() => { 
-                                   setUploadedImage(null); 
-                                   setOriginalImage(null); 
-                                   setRawFile(null); 
-                                   setShowMenu(false); 
-                               }}
-                            >
-                               Delete Image
-                            </button>
-                         </div>
-                     )}
-                     <input type="file" id="replace-cover-input" className="hidden" accept="image/*" onChange={handleCoverUpload} />
-                  </div>
-               )}
-            </div>
-
-            {/* Right Area */}
-            <div className="w-[50%] flex flex-col justify-end mb-[2.5vw] pl-[1vw]">
-              <p className="text-[0.65vw] text-gray-500 font-medium mb-[1vw] pr-[0.5vw]">
-                 <span className="text-red-500">*</span> Your selected or uploaded image will be saved as the flipbook cover after clicking <strong>"Change Cover"</strong>
-              </p>
-              <div className="flex gap-[0.8vw] ">
-                 <button 
-                     onClick={onClose} 
-                     className="flex-1 py-[0.6vw] border border-gray-900 rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-center gap-[0.4vw] shadow-sm"
-                 >
-                    <X size="1vw" strokeWidth={2.5} /> Cancel
-                 </button>
-                 <button 
-                     onClick={() => { 
-                         onSave({ 
-                             type: 'upload', 
-                             url: uploadedImage, 
-                             fit: imageFixType,
-                             rawFile: rawFile
-                         }); 
-                         onClose(); 
-                     }} 
-                     className="flex-1 py-[0.6vw] bg-black text-white rounded-[0.5vw] text-[0.8vw] font-semibold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-[0.4vw] shadow-sm"
-                 >
-                    <Check size="1vw" strokeWidth={3} /> Change Cover
-                 </button>
+        <div className="flex gap-[2vw] flex-1 min-h-0">
+          {/* Left Upload/Preview Area */}
+          <div className="w-[50%] flex items-start justify-center pt-[0.5vw] relative">
+            {!uploadedImage ? (
+              <div className="w-full aspect-[4/3] max-w-[24vw] border-[0.15vw] border-dashed border-gray-300 rounded-[0.9vw] flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors relative">
+                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleCoverUpload} />
+                <span className="text-[0.75vw] text-gray-400 font-semibold mb-[1vw]">Drag & Drop or <span className="text-[#4A3AFF] font-bold">Upload</span></span>
+                <Upload size="1.8vw" className="text-gray-400 mb-[1vw]" strokeWidth={1.5} />
+                <span className="text-[0.6vw] text-gray-400 mb-[0.3vw]">Dimensions 1200 X 900 px (4:3)</span>
+                <span className="text-[0.6vw] text-gray-400">Supported File Format : JPG, PNG</span>
               </div>
+            ) : (
+              <div className="w-full aspect-[4/3] max-w-[24vw] bg-[#edd8cd] rounded-[0.9vw] overflow-hidden relative group shadow-inner flex items-center justify-center border border-amber-100/40">
+                <img
+                  ref={previewImgRef}
+                  src={uploadedImage}
+                  className="w-full h-full object-cover"
+                  alt="Uploaded Cover"
+                />
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                  className="absolute top-[0.8vw] right-[0.8vw] w-[2.2vw] h-[2.2vw] bg-white rounded-full flex items-center justify-center text-gray-600 shadow-lg hover:bg-gray-100 transition-all z-30"
+                  title="More Options"
+                >
+                  <MoreVertical size="1.2vw" />
+                </button>
+
+                {showMenu && (
+                  <div className="absolute top-[2vw] right-[0.8vw] bg-white rounded-[0.4vw] shadow-[0_4px_15px_rgba(0,0,0,0.1)] flex flex-col items-center justify-center py-[0.5vw] border border-gray-100 z-20 overflow-hidden">
+                    <button
+                      className="px-[1.2vw] py-[0.5vw] hover:bg-gray-50 text-[0.75vw] font-semibold text-gray-700 w-full text-center border-b border-gray-100 whitespace-nowrap"
+                      onClick={() => {
+                        document.getElementById('replace-cover-input').click();
+                        setShowMenu(false);
+                      }}
+                    >
+                      Replace Image
+                    </button>
+                    <button
+                      className="px-[1.2vw] py-[0.5vw] hover:bg-gray-50 text-[0.75vw] font-semibold text-red-500 w-full text-center whitespace-nowrap"
+                      onClick={() => {
+                        setUploadedImage(null);
+                        setOriginalImage(null);
+                        setRawFile(null);
+                        setShowMenu(false);
+                      }}
+                    >
+                      Delete Image
+                    </button>
+                  </div>
+                )}
+                <input type="file" id="replace-cover-input" className="hidden" accept="image/*" onChange={handleCoverUpload} />
+              </div>
+            )}
+          </div>
+
+          {/* Right Area */}
+          <div className="w-[50%] flex flex-col justify-end mb-[2.5vw] pl-[1vw]">
+            <p className="text-[0.65vw] text-gray-500 font-medium mb-[1vw] pr-[0.5vw]">
+              <span className="text-red-500">*</span> Your selected or uploaded image will be saved as the flipbook cover after clicking <strong>"Change Cover"</strong>
+            </p>
+            <div className="flex gap-[0.8vw] ">
+              <button
+                onClick={onClose}
+                className="flex-1 py-[0.6vw] border border-gray-900 rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-center gap-[0.4vw] shadow-sm"
+              >
+                <X size="1vw" strokeWidth={2.5} /> Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onSave({
+                    type: 'upload',
+                    url: uploadedImage,
+                    fit: imageFixType,
+                    rawFile: rawFile
+                  });
+                  onClose();
+                }}
+                className="flex-1 py-[0.6vw] bg-black text-white rounded-[0.5vw] text-[0.8vw] font-semibold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-[0.4vw] shadow-sm"
+              >
+                <Check size="1vw" strokeWidth={3} /> Change Cover
+              </button>
             </div>
-         </div>
+          </div>
+        </div>
       ) : (
-      <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex flex-col flex-1 min-h-0">
           <div className="flex gap-[1vw] flex-1 min-h-0">
             {/* Left Preview */}
             <div className="w-[45%] flex items-start justify-center pt-[0.5vw] relative">
-               <div className="relative group rounded-[0.9vw] bg-[#edd8cd] w-full aspect-[4/3] max-w-[24vw] flex items-center justify-center shadow-inner overflow-hidden border border-amber-100/40">
-                  {option === 'template' && selectedTemplate ? (
-                     <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
-                        <TemplatePreview 
-                            selectedTemplate={selectedTemplate}
-                            bgColor={bgColor} bgOpacity={bgOpacity}
-                            shadowX={shadowX} shadowY={shadowY} shadowBlur={shadowBlur} shadowColor={shadowColor} shadowOpacity={shadowOpacity}
-                            logoUrl={logoUrl}
-                            text1={text1} text1FontFamily={text1FontFamily} text1FontSize={text1FontSize} text1FontWeight={text1FontWeight} text1LetterSpacing={text1LetterSpacing} text1LineHeight={text1LineHeight} text1Align={text1Align} text1Color={text1Color} text1ColorOpacity={text1ColorOpacity} text1Italic={text1Italic} text1Underline={text1Underline} text1Linethrough={text1Linethrough}
-                            text2={text2} text2FontFamily={text2FontFamily} text2FontSize={text2FontSize} text2FontWeight={text2FontWeight} text2LetterSpacing={text2LetterSpacing} text2LineHeight={text2LineHeight} text2Align={text2Align} text2Color={text2Color} text2ColorOpacity={text2ColorOpacity} text2Italic={text2Italic} text2Underline={text2Underline} text2Linethrough={text2Linethrough}
-                            selectedPages={selectedPages} pages={pages}
-                        />
-                     </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-[0.75vw] font-medium">
-                      No preview
-                    </div>
-                  )}
-               </div>
+              <div className="relative group rounded-[0.9vw] bg-[#edd8cd] w-full aspect-[4/3] max-w-[24vw] flex items-center justify-center shadow-inner overflow-hidden border border-amber-100/40">
+                {option === 'template' && selectedTemplate ? (
+                  <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
+                    <TemplatePreview
+                      selectedTemplate={selectedTemplate}
+                      bgColor={bgColor} bgOpacity={bgOpacity}
+                      shadowX={shadowX} shadowY={shadowY} shadowBlur={shadowBlur} shadowColor={shadowColor} shadowOpacity={shadowOpacity}
+                      logoUrl={logoUrl}
+                      text1={text1} text1FontFamily={text1FontFamily} text1FontSize={text1FontSize} text1FontWeight={text1FontWeight} text1LetterSpacing={text1LetterSpacing} text1LineHeight={text1LineHeight} text1Align={text1Align} text1Color={text1Color} text1ColorOpacity={text1ColorOpacity} text1Italic={text1Italic} text1Underline={text1Underline} text1Linethrough={text1Linethrough}
+                      text2={text2} text2FontFamily={text2FontFamily} text2FontSize={text2FontSize} text2FontWeight={text2FontWeight} text2LetterSpacing={text2LetterSpacing} text2LineHeight={text2LineHeight} text2Align={text2Align} text2Color={text2Color} text2ColorOpacity={text2ColorOpacity} text2Italic={text2Italic} text2Underline={text2Underline} text2Linethrough={text2Linethrough}
+                      selectedPages={selectedPages} pages={pages}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-[0.75vw] font-medium">
+                    No preview
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Controls */}
             <div className="w-[55%] flex flex-col bg-gray-200/60 rounded-[1.2vw] border-[0.12vw] border-gray-300 overflow-hidden relative">
-               {/* Tabs Header */}
-               <div className="flex bg-gray-200/90 border-b border-gray-300 shrink-0">
-                  <button 
-                    onClick={() => setActiveTab('cover')} 
-                    className={`flex-1 py-[0.5vw] text-[0.75vw] font-semibold transition-all relative ${activeTab === 'cover' ? 'text-gray-900 bg-white/20' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                    Cover Template
-                    {activeTab === 'cover' && <div className="absolute bottom-0 left-0 right-0 h-[0.1vw] bg-black rounded-full" />}
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab('edit')} 
-                    className={`flex-1 py-[0.5vw] text-[0.75vw] font-semibold transition-all relative ${activeTab === 'edit' ? 'text-gray-900 bg-white/20' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                    Edit Template
-                    {activeTab === 'edit' && <div className="absolute bottom-0 left-0 right-0 h-[0.1vw] bg-black rounded-full" />}
-                  </button>
-               </div>
+              {/* Tabs Header */}
+              <div className="flex bg-gray-200/90 border-b border-gray-300 shrink-0">
+                <button
+                  onClick={() => setActiveTab('cover')}
+                  className={`flex-1 py-[0.5vw] text-[0.75vw] font-semibold transition-all relative ${activeTab === 'cover' ? 'text-gray-900 bg-white/20' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Cover Template
+                  {activeTab === 'cover' && <div className="absolute bottom-0 left-0 right-0 h-[0.1vw] bg-black rounded-full" />}
+                </button>
+                <button
+                  onClick={() => setActiveTab('edit')}
+                  className={`flex-1 py-[0.5vw] text-[0.75vw] font-semibold transition-all relative ${activeTab === 'edit' ? 'text-gray-900 bg-white/20' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Edit Template
+                  {activeTab === 'edit' && <div className="absolute bottom-0 left-0 right-0 h-[0.1vw] bg-black rounded-full" />}
+                </button>
+              </div>
 
-               {/* White Content Container */}
-               <div className="flex-1 bg-white overflow-hidden m-[0.1vw] rounded-b-[1.1vw] relative shadow-inner flex flex-col">
-                  <div className="flex-1 overflow-y-auto px-[1vw] py-[1.2vw] pr-[1.2vw] custom-popup-scrollbar">
-                     {activeTab === 'cover' ? (
-                        <div className="grid grid-cols-3 gap-[0.5vw]">
-                           {COVER_TEMPLATES.map((tpl) => (
-                              <div
-                                 key={tpl.id}
-                                 onClick={() => {
-                                     setSelectedTemplate(tpl);
-                                     if (tpl.defaultText1) setText1(tpl.defaultText1);
-                                     if (tpl.defaultText2) setText2(tpl.defaultText2);
-                                  }}
-                                 className={`aspect-[4/3] rounded-[0.4vw] cursor-pointer overflow-hidden border-[0.15vw] transition-all hover:scale-[1.03] hover:shadow-md relative group ${
-                                 selectedTemplate?.id === tpl.id
-                                    ? 'border-[#4A3AFF] shadow-[0_0_0_0.15vw_rgba(74,58,255,0.3)]'
-                                    : 'border-transparent hover:border-gray-400'
-                                 }`}
-                                 title={tpl.label}
-                              >
-                                 {tpl.id ? (
-                                     <div className="w-full h-full bg-[#edd8cd] relative overflow-hidden pointer-events-none">
-                                        <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left transform scale-[0.25]">
-                                           <TemplatePreview 
-                                              selectedTemplate={tpl}
-                                              bgColor="#edd8cd"
-                                              bgOpacity={100}
-                                              text1={tpl.defaultText1}
-                                              text2={tpl.defaultText2}
-                                              selectedPages={[]}
-                                              pages={pages}
-                                           />
-                                        </div>
-                                     </div>
-                                  ) : (
-                                    <img src={tpl.src} alt={tpl.label} className="w-full h-full object-cover" />
-                                 )}
-                                 {selectedTemplate?.id === tpl.id && (
-                                    <div className="absolute inset-0 bg-[#4A3AFF]/15 flex items-start justify-end p-[0.3vw]">
-                                    <div className="w-[1vw] h-[1vw] bg-[#4A3AFF] rounded-full flex items-center justify-center shadow-md">
-                                       <svg viewBox="0 0 10 10" className="w-[0.6vw] h-[0.6vw]" fill="none">
-                                          <polyline points="2,5 4.5,7.5 8,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                                       </svg>
-                                    </div>
-                                    </div>
-                                 )}
-                                 <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[0.5vw] font-semibold text-center py-[0.2vw] opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {tpl.label}
-                                 </div>
+              {/* White Content Container */}
+              <div className="flex-1 bg-white overflow-hidden m-[0.1vw] rounded-b-[1.1vw] relative shadow-inner flex flex-col">
+                <div className="flex-1 overflow-y-auto px-[1vw] py-[1.2vw] pr-[1.2vw] custom-popup-scrollbar">
+                  {activeTab === 'cover' ? (
+                    <div className="grid grid-cols-3 gap-[0.5vw]">
+                      {COVER_TEMPLATES.map((tpl) => (
+                        <div
+                          key={tpl.id}
+                          onClick={() => {
+                            setSelectedTemplate(tpl);
+                            if (tpl.defaultText1) setText1(tpl.defaultText1);
+                            if (tpl.defaultText2) setText2(tpl.defaultText2);
+                          }}
+                          className={`aspect-[4/3] rounded-[0.4vw] cursor-pointer overflow-hidden border-[0.15vw] transition-all hover:scale-[1.03] hover:shadow-md relative group ${selectedTemplate?.id === tpl.id
+                            ? 'border-[#4A3AFF] shadow-[0_0_0_0.15vw_rgba(74,58,255,0.3)]'
+                            : 'border-transparent hover:border-gray-400'
+                            }`}
+                          title={tpl.label}
+                        >
+                          {tpl.id ? (
+                            <div className="w-full h-full bg-[#edd8cd] relative overflow-hidden pointer-events-none">
+                              <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left transform scale-[0.25]">
+                                <TemplatePreview
+                                  selectedTemplate={tpl}
+                                  bgColor="#edd8cd"
+                                  bgOpacity={100}
+                                  text1={tpl.defaultText1}
+                                  text2={tpl.defaultText2}
+                                  selectedPages={[]}
+                                  pages={pages}
+                                />
                               </div>
-                           ))}
+                            </div>
+                          ) : (
+                            <img src={tpl.src} alt={tpl.label} className="w-full h-full object-cover" />
+                          )}
+                          {selectedTemplate?.id === tpl.id && (
+                            <div className="absolute inset-0 bg-[#4A3AFF]/15 flex items-start justify-end p-[0.3vw]">
+                              <div className="w-[1vw] h-[1vw] bg-[#4A3AFF] rounded-full flex items-center justify-center shadow-md">
+                                <svg viewBox="0 0 10 10" className="w-[0.6vw] h-[0.6vw]" fill="none">
+                                  <polyline points="2,5 4.5,7.5 8,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </div>
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[0.5vw] font-semibold text-center py-[0.2vw] opacity-0 group-hover:opacity-100 transition-opacity">
+                            {tpl.label}
+                          </div>
                         </div>
-                     ) : (
-                        <div className="space-y-[1.2vw]">
-                           {/* Text 1 Row */}
-                           <div className="flex items-center gap-[0.5vw] min-w-0">
-                              <span className="text-[0.7vw] font-semibold text-gray-700 w-[6vw] shrink-0">Enter Text 1 :</span>
-                              <div className="flex-1 flex gap-[0.5vw] items-center relative">
-                                 <div className="flex-1 bg-white border border-gray-400 rounded-[0.6vw] flex items-center px-[0.8vw] h-[2.2vw] relative">
-                                    <input type="text" value={text1} onChange={e => setText1(e.target.value)} className="flex-1 bg-transparent text-[0.8vw] outline-none text-gray-700 font-medium focus:border-black transition-colors pr-[1.8vw]" placeholder="Title" />
-                                    <Edit2 size="0.8vw" className="text-gray-400 absolute right-[0.6vw]" />
-                                 </div>
-                                 <button 
-                                    onClick={() => setActiveTextEditor(activeTextEditor === 'text1' ? null : 'text1')}
-                                    className={`p-[0.4vw] rounded-[0.4vw] transition-colors cursor-pointer ${activeTextEditor === 'text1' ? 'bg-[#4A3AFF] text-white hover:bg-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-                                 >
-                                    <Sliders size="1vw" />
-                                 </button>
-                                 {activeTextEditor === 'text1' && (
-                                     <TypographyPanel
-                                         isT1={true}
-                                         fontFamily={text1FontFamily} setFontFamily={setText1FontFamily}
-                                         fontSize={text1FontSize} setFontSize={setText1FontSize}
-                                         fontWeight={text1FontWeight} setFontWeight={setText1FontWeight}
-                                         letterSpacing={text1LetterSpacing} setLetterSpacing={setText1LetterSpacing}
-                                         lineHeight={text1LineHeight} setLineHeight={setText1LineHeight}
-                                         align={text1Align} setAlign={setText1Align}
-                                         italic={text1Italic} setItalic={setText1Italic}
-                                         underline={text1Underline} setUnderline={setText1Underline}
-                                         linethrough={text1Linethrough} setLinethrough={setText1Linethrough}
-                                         color={text1Color} setColor={setText1Color}
-                                         opacity={text1ColorOpacity} setOpacity={setText1ColorOpacity}
-                                         onClose={() => setActiveTextEditor(null)}
-                                     />
-                                 )}
-                              </div>
-                           </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-[1.2vw]">
+                      {/* Text 1 Row */}
+                      <div className="flex items-center gap-[0.5vw] min-w-0">
+                        <span className="text-[0.7vw] font-semibold text-gray-700 w-[6vw] shrink-0">Enter Text 1 :</span>
+                        <div className="flex-1 flex gap-[0.5vw] items-center relative">
+                          <div className="flex-1 bg-white border border-gray-400 rounded-[0.6vw] flex items-center px-[0.8vw] h-[2.2vw] relative">
+                            <input type="text" value={text1} onChange={e => setText1(e.target.value)} className="flex-1 bg-transparent text-[0.8vw] outline-none text-gray-700 font-medium focus:border-black transition-colors pr-[1.8vw]" placeholder="Title" />
+                            <Edit2 size="0.8vw" className="text-gray-400 absolute right-[0.6vw]" />
+                          </div>
+                          <button
+                            onClick={() => setActiveTextEditor(activeTextEditor === 'text1' ? null : 'text1')}
+                            className={`p-[0.4vw] rounded-[0.4vw] transition-colors cursor-pointer ${activeTextEditor === 'text1' ? 'bg-[#4A3AFF] text-white hover:bg-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+                          >
+                            <Sliders size="1vw" />
+                          </button>
+                          {activeTextEditor === 'text1' && (
+                            <TypographyPanel
+                              isT1={true}
+                              fontFamily={text1FontFamily} setFontFamily={setText1FontFamily}
+                              fontSize={text1FontSize} setFontSize={setText1FontSize}
+                              fontWeight={text1FontWeight} setFontWeight={setText1FontWeight}
+                              letterSpacing={text1LetterSpacing} setLetterSpacing={setText1LetterSpacing}
+                              lineHeight={text1LineHeight} setLineHeight={setText1LineHeight}
+                              align={text1Align} setAlign={setText1Align}
+                              italic={text1Italic} setItalic={setText1Italic}
+                              underline={text1Underline} setUnderline={setText1Underline}
+                              linethrough={text1Linethrough} setLinethrough={setText1Linethrough}
+                              color={text1Color} setColor={setText1Color}
+                              opacity={text1ColorOpacity} setOpacity={setText1ColorOpacity}
+                              onClose={() => setActiveTextEditor(null)}
+                            />
+                          )}
+                        </div>
+                      </div>
 
-                           {/* Text 2 Row */}
-                           <div className="flex items-start gap-[0.5vw] min-w-0">
-                              <span className="text-[0.7vw] font-semibold text-gray-700 w-[6vw] shrink-0 mt-[0.5vw]">Enter Text 2 :</span>
-                              <div className="flex-1 flex gap-[0.5vw] items-start relative">
-                                 <div className="flex-1 bg-white border border-gray-400 rounded-[0.6vw] flex flex-col p-[0.7vw] min-h-[5.5vw] relative">
-                                    <textarea value={text2} onChange={e => setText2(e.target.value)} className="flex-1 bg-transparent text-[0.8vw] outline-none text-gray-700 resize-none h-full font-medium pr-[1.8vw]" placeholder="Supporting Text" />
-                                    <Edit2 size="0.8vw" className="text-gray-400 absolute bottom-[0.7vw] right-[0.7vw]" />
-                                 </div>
-                                 <button 
-                                    onClick={() => setActiveTextEditor(activeTextEditor === 'text2' ? null : 'text2')}
-                                    className={`p-[0.4vw] rounded-[0.4vw] transition-colors cursor-pointer ${activeTextEditor === 'text2' ? 'bg-[#4A3AFF] text-white hover:bg-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
-                                 >
-                                    <Sliders size="1vw" />
-                                 </button>
-                                 {activeTextEditor === 'text2' && (
-                                     <TypographyPanel
-                                         isT1={false}
-                                         fontFamily={text2FontFamily} setFontFamily={setText2FontFamily}
-                                         fontSize={text2FontSize} setFontSize={setText2FontSize}
-                                         fontWeight={text2FontWeight} setFontWeight={setText2FontWeight}
-                                         letterSpacing={text2LetterSpacing} setLetterSpacing={setText2LetterSpacing}
-                                         lineHeight={text2LineHeight} setLineHeight={setText2LineHeight}
-                                         align={text2Align} setAlign={setText2Align}
-                                         italic={text2Italic} setItalic={setText2Italic}
-                                         underline={text2Underline} setUnderline={setText2Underline}
-                                         linethrough={text2Linethrough} setLinethrough={setText2Linethrough}
-                                         color={text2Color} setColor={setText2Color}
-                                         opacity={text2ColorOpacity} setOpacity={setText2ColorOpacity}
-                                         onClose={() => setActiveTextEditor(null)}
-                                     />
-                                 )}
-                              </div>
-                           </div>
+                      {/* Text 2 Row */}
+                      <div className="flex items-start gap-[0.5vw] min-w-0">
+                        <span className="text-[0.7vw] font-semibold text-gray-700 w-[6vw] shrink-0 mt-[0.5vw]">Enter Text 2 :</span>
+                        <div className="flex-1 flex gap-[0.5vw] items-start relative">
+                          <div className="flex-1 bg-white border border-gray-400 rounded-[0.6vw] flex flex-col p-[0.7vw] min-h-[5.5vw] relative">
+                            <textarea value={text2} onChange={e => setText2(e.target.value)} className="flex-1 bg-transparent text-[0.8vw] outline-none text-gray-700 resize-none h-full font-medium pr-[1.8vw]" placeholder="Supporting Text" />
+                            <Edit2 size="0.8vw" className="text-gray-400 absolute bottom-[0.7vw] right-[0.7vw]" />
+                          </div>
+                          <button
+                            onClick={() => setActiveTextEditor(activeTextEditor === 'text2' ? null : 'text2')}
+                            className={`p-[0.4vw] rounded-[0.4vw] transition-colors cursor-pointer ${activeTextEditor === 'text2' ? 'bg-[#4A3AFF] text-white hover:bg-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'}`}
+                          >
+                            <Sliders size="1vw" />
+                          </button>
+                          {activeTextEditor === 'text2' && (
+                            <TypographyPanel
+                              isT1={false}
+                              fontFamily={text2FontFamily} setFontFamily={setText2FontFamily}
+                              fontSize={text2FontSize} setFontSize={setText2FontSize}
+                              fontWeight={text2FontWeight} setFontWeight={setText2FontWeight}
+                              letterSpacing={text2LetterSpacing} setLetterSpacing={setText2LetterSpacing}
+                              lineHeight={text2LineHeight} setLineHeight={setText2LineHeight}
+                              align={text2Align} setAlign={setText2Align}
+                              italic={text2Italic} setItalic={setText2Italic}
+                              underline={text2Underline} setUnderline={setText2Underline}
+                              linethrough={text2Linethrough} setLinethrough={setText2Linethrough}
+                              color={text2Color} setColor={setText2Color}
+                              opacity={text2ColorOpacity} setOpacity={setText2ColorOpacity}
+                              onClose={() => setActiveTextEditor(null)}
+                            />
+                          )}
+                        </div>
+                      </div>
 
-                           {/* Background Color Row */}
-                           <div className="flex items-center gap-[0.5vw] min-w-0">
-                              <span className="text-[0.7vw] font-semibold text-gray-700 w-[6vw] shrink-0">Background :</span>
-                              <div className="flex gap-[0.5vw] items-center flex-1">
-                                 <div className="relative">
-                                    <div 
-                                      onClick={() => setShowBgColorPicker(!showBgColorPicker)}
-                                      className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] shadow-[0_2px_4px_rgba(0,0,0,0.06)] cursor-pointer hover:border-indigo-400 transition-colors shrink-0"
-                                      style={{ backgroundColor: bgColor }}
-                                    ></div>
-                                    {showBgColorPicker && createPortal(
-                                        <>
-                                            <div className="fixed inset-0 z-[999990]" onClick={() => setShowBgColorPicker(false)} />
-                                            <div className="fixed top-1/2 -translate-y-1/2 left-[calc(50%+16.5vw)] z-[999999] w-[14vw]">
-                                                <ColorPicker 
-                                                    color={bgColor}
-                                                    onChange={(newCol) => setBgColor(newCol)}
-                                                    opacity={bgOpacity}
-                                                    onOpacityChange={(newOp) => setBgOpacity(newOp)}
-                                                    onClose={() => setShowBgColorPicker(false)}
-                                                    className="w-full"
-                                                    smallMode={true}
-                                                    inline={true}
-                                                />
-                                            </div>
-                                        </>, document.body
-                                    )}
-                                 </div>
-                                 <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-                                    <span className="text-[0.85vw] font-medium text-[#2563EB] font-mono uppercase">{bgColor}</span>
-                                    <span className="text-[0.85vw] font-medium text-gray-400 font-mono">{bgOpacity}%</span>
-                                 </div>
-                                 {window.EyeDropper && (
-                                   <button
-                                     onClick={async () => {
-                                       try {
-                                         const eyeDropper = new window.EyeDropper();
-                                         const result = await eyeDropper.open();
-                                         setBgColor(result.sRGBHex.toUpperCase());
-                                       } catch (e) {
-                                         console.log(e);
-                                       }
-                                     }}
-                                     className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center justify-center bg-white shadow-sm hover:border-indigo-400 hover:bg-gray-50 transition-all cursor-pointer shrink-0"
-                                     title="Eye Dropper"
-                                   >
-                                     <Icon icon="lucide:pipette" className="w-[1vw] h-[1vw] text-gray-500 hover:text-gray-800" />
-                                   </button>
-                                 )}
-                              </div>
-                           </div>
+                      {/* Background Color Row */}
+                      <div className="flex items-center gap-[0.5vw] min-w-0">
+                        <span className="text-[0.7vw] font-semibold text-gray-700 w-[6vw] shrink-0">Background :</span>
+                        <div className="flex gap-[0.5vw] items-center flex-1">
+                          <div className="relative">
+                            <div
+                              onClick={() => setShowBgColorPicker(!showBgColorPicker)}
+                              className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] shadow-[0_2px_4px_rgba(0,0,0,0.06)] cursor-pointer hover:border-indigo-400 transition-colors shrink-0"
+                              style={{ backgroundColor: bgColor }}
+                            ></div>
+                            {showBgColorPicker && createPortal(
+                              <>
+                                <div className="fixed inset-0 z-[999990]" onClick={() => setShowBgColorPicker(false)} />
+                                <div className="fixed top-1/2 -translate-y-1/2 left-[calc(50%+16.5vw)] z-[999999] w-[14vw]">
+                                  <ColorPicker
+                                    color={bgColor}
+                                    onChange={(newCol) => setBgColor(newCol)}
+                                    opacity={bgOpacity}
+                                    onOpacityChange={(newOp) => setBgOpacity(newOp)}
+                                    onClose={() => setShowBgColorPicker(false)}
+                                    className="w-full"
+                                    smallMode={true}
+                                    inline={true}
+                                  />
+                                </div>
+                              </>, document.body
+                            )}
+                          </div>
+                          <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
+                            <span className="text-[0.85vw] font-medium text-[#2563EB] font-mono uppercase">{bgColor}</span>
+                            <span className="text-[0.85vw] font-medium text-gray-400 font-mono">{bgOpacity}%</span>
+                          </div>
+                          {window.EyeDropper && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const eyeDropper = new window.EyeDropper();
+                                  const result = await eyeDropper.open();
+                                  setBgColor(result.sRGBHex.toUpperCase());
+                                } catch (e) {
+                                  console.log(e);
+                                }
+                              }}
+                              className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center justify-center bg-white shadow-sm hover:border-indigo-400 hover:bg-gray-50 transition-all cursor-pointer shrink-0"
+                              title="Eye Dropper"
+                            >
+                              <Icon icon="lucide:pipette" className="w-[1vw] h-[1vw] text-gray-500 hover:text-gray-800" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
 
-                    {/* Shadow Color & Sliders */}
-                     <div className="space-y-[1.2vw]">
+                      {/* Shadow Color & Sliders */}
+                      <div className="space-y-[1.2vw]">
                         <div className="flex items-center gap-[0.5vw] min-w-0">
-                           <span className="text-[0.7vw] font-semibold text-gray-700 w-[6vw] shrink-0">Shadow :</span>
-                           <div className="flex gap-[0.5vw] items-center flex-1">
-                              <div className="relative">
-                                 <div 
-                                    onClick={() => setShowShadowColorPicker(!showShadowColorPicker)}
-                                    className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] shadow-[0_2px_4px_rgba(0,0,0,0.06)] cursor-pointer hover:border-indigo-400 transition-colors shrink-0" 
-                                    style={{ backgroundColor: shadowColor }}
-                                 ></div>
-                                 {showShadowColorPicker && createPortal(
-                                     <>
-                                         <div className="fixed inset-0 z-[999990]" onClick={() => setShowShadowColorPicker(false)} />
-                                         <div className="fixed top-1/2 -translate-y-1/2 left-[calc(50%+16.5vw)] z-[999999] w-[14vw]">
-                                             <ColorPicker 
-                                                 color={shadowColor}
-                                                 onChange={(newCol) => setShadowColor(newCol)}
-                                                 opacity={shadowOpacity}
-                                                 onOpacityChange={(newOp) => setShadowOpacity(newOp)}
-                                                 onClose={() => setShowShadowColorPicker(false)}
-                                                 className="w-full"
-                                                 smallMode={true}
-                                                 inline={true}
-                                             />
-                                         </div>
-                                     </>, document.body
-                                 )}
-                              </div>
-                              <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-                                 <span className="text-[0.85vw] font-medium text-[#2563EB] font-mono uppercase">{shadowColor}</span>
-                                 <span className="text-[0.85vw] font-medium text-gray-400 font-mono">{shadowOpacity}%</span>
-                              </div>
-                              {window.EyeDropper && (
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      const eyeDropper = new window.EyeDropper();
-                                      const result = await eyeDropper.open();
-                                      setShadowColor(result.sRGBHex.toUpperCase());
-                                    } catch (e) {
-                                      console.log(e);
-                                    }
-                                  }}
-                                  className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center justify-center bg-white shadow-sm hover:border-indigo-400 hover:bg-gray-50 transition-all cursor-pointer shrink-0"
-                                  title="Eye Dropper"
-                                >
-                                  <Icon icon="lucide:pipette" className="w-[1vw] h-[1vw] text-gray-500 hover:text-gray-800" />
-                                </button>
+                          <span className="text-[0.7vw] font-semibold text-gray-700 w-[6vw] shrink-0">Shadow :</span>
+                          <div className="flex gap-[0.5vw] items-center flex-1">
+                            <div className="relative">
+                              <div
+                                onClick={() => setShowShadowColorPicker(!showShadowColorPicker)}
+                                className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] shadow-[0_2px_4px_rgba(0,0,0,0.06)] cursor-pointer hover:border-indigo-400 transition-colors shrink-0"
+                                style={{ backgroundColor: shadowColor }}
+                              ></div>
+                              {showShadowColorPicker && createPortal(
+                                <>
+                                  <div className="fixed inset-0 z-[999990]" onClick={() => setShowShadowColorPicker(false)} />
+                                  <div className="fixed top-1/2 -translate-y-1/2 left-[calc(50%+16.5vw)] z-[999999] w-[14vw]">
+                                    <ColorPicker
+                                      color={shadowColor}
+                                      onChange={(newCol) => setShadowColor(newCol)}
+                                      opacity={shadowOpacity}
+                                      onOpacityChange={(newOp) => setShadowOpacity(newOp)}
+                                      onClose={() => setShowShadowColorPicker(false)}
+                                      className="w-full"
+                                      smallMode={true}
+                                      inline={true}
+                                    />
+                                  </div>
+                                </>, document.body
                               )}
-                           </div>
+                            </div>
+                            <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
+                              <span className="text-[0.85vw] font-medium text-[#2563EB] font-mono uppercase">{shadowColor}</span>
+                              <span className="text-[0.85vw] font-medium text-gray-400 font-mono">{shadowOpacity}%</span>
+                            </div>
+                            {window.EyeDropper && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const eyeDropper = new window.EyeDropper();
+                                    const result = await eyeDropper.open();
+                                    setShadowColor(result.sRGBHex.toUpperCase());
+                                  } catch (e) {
+                                    console.log(e);
+                                  }
+                                }}
+                                className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center justify-center bg-white shadow-sm hover:border-indigo-400 hover:bg-gray-50 transition-all cursor-pointer shrink-0"
+                                title="Eye Dropper"
+                              >
+                                <Icon icon="lucide:pipette" className="w-[1vw] h-[1vw] text-gray-500 hover:text-gray-800" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        
+
                         <style>{`
                            .custom-range-slider { -webkit-appearance: none; width: 100%; background: transparent; position: relative; }
                            .custom-range-slider::before { content: ""; position: absolute; top: -0.75vw; bottom: -0.75vw; left: 0; right: 0; cursor: pointer; z-index: 1; }
@@ -1015,251 +1089,288 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                            .custom-range-slider::-moz-range-thumb:hover { box-shadow: 0 0.15vw 0.75vw rgba(77,71,255,0.6); }
                         `}</style>
                         <div className="space-y-[0.8vw] pl-[6.5vw] pr-[0.5vw]">
-                           <div className="flex items-center gap-[0.8vw]">
-                              <span className="text-[0.7vw] font-semibold text-gray-700 w-[2vw] shrink-0 text-left">X Axis </span>
-                              <div className="flex-1 flex items-center h-[1.5vw] gap-[0.8vw]">
-                                 <input 
-                                    type="range" 
-                                    min="-50" 
-                                    max="50" 
-                                    value={shadowX}
-                                    onChange={(e) => setShadowX(parseInt(e.target.value))}
-                                    className="flex-1 cursor-pointer custom-range-slider"
-                                    style={{
-                                      backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${shadowX + 50}%, #E2E8F0 ${shadowX + 50}%, #E2E8F0 100%)`
-                                    }}
-                                 />
-                                 <span className="text-[0.7vw] font-bold text-gray-500 w-[1vw] text-right">{shadowX}</span>
-                              </div>
-                           </div>
-                           <div className="flex items-center gap-[0.8vw]">
-                              <span className="text-[0.7vw] font-semibold text-gray-700 w-[2vw] shrink-0 text-left">Y Axis </span>
-                              <div className="flex-1 flex items-center h-[1.5vw] gap-[0.8vw]">
-                                 <input 
-                                    type="range" 
-                                    min="-50" 
-                                    max="50" 
-                                    value={shadowY}
-                                    onChange={(e) => setShadowY(parseInt(e.target.value))}
-                                    className="flex-1 cursor-pointer custom-range-slider"
-                                    style={{
-                                      backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${shadowY + 50}%, #E2E8F0 ${shadowY + 50}%, #E2E8F0 100%)`
-                                    }}
-                                 />
-                                 <span className="text-[0.7vw] font-bold text-gray-500 w-[1vw] text-right">{shadowY}</span>
-                              </div>
-                           </div>
-                           <div className="flex items-center gap-[0.8vw]">
-                              <span className="text-[0.7vw] font-semibold text-gray-700 w-[2vw] shrink-0 text-left">Blur </span>
-                              <div className="flex-1 flex items-center h-[1.5vw] gap-[0.8vw]">
-                                 <input 
-                                    type="range" 
-                                    min="0" 
-                                    max="100" 
-                                    value={shadowBlur}
-                                    onChange={(e) => setShadowBlur(parseInt(e.target.value))}
-                                    className="flex-1 cursor-pointer custom-range-slider"
-                                    style={{
-                                      backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${shadowBlur}%, #E2E8F0 ${shadowBlur}%, #E2E8F0 100%)`
-                                    }}
-                                 />
-                                 <span className="text-[0.7vw] font-bold text-gray-500 w-[1vw] text-right">{shadowBlur}%</span>
-                              </div>
-                           </div>
+                          <div className="flex items-center gap-[0.8vw]">
+                            <span className="text-[0.7vw] font-semibold text-gray-700 w-[2vw] shrink-0 text-left">X Axis </span>
+                            <div className="flex-1 flex items-center h-[1.5vw] gap-[0.8vw]">
+                              <input
+                                type="range"
+                                min="-50"
+                                max="50"
+                                value={shadowX}
+                                onChange={(e) => setShadowX(parseInt(e.target.value))}
+                                className="flex-1 cursor-pointer custom-range-slider"
+                                style={{
+                                  backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${shadowX + 50}%, #E2E8F0 ${shadowX + 50}%, #E2E8F0 100%)`
+                                }}
+                              />
+                              <span className="text-[0.7vw] font-bold text-gray-500 w-[1vw] text-right">{shadowX}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-[0.8vw]">
+                            <span className="text-[0.7vw] font-semibold text-gray-700 w-[2vw] shrink-0 text-left">Y Axis </span>
+                            <div className="flex-1 flex items-center h-[1.5vw] gap-[0.8vw]">
+                              <input
+                                type="range"
+                                min="-50"
+                                max="50"
+                                value={shadowY}
+                                onChange={(e) => setShadowY(parseInt(e.target.value))}
+                                className="flex-1 cursor-pointer custom-range-slider"
+                                style={{
+                                  backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${shadowY + 50}%, #E2E8F0 ${shadowY + 50}%, #E2E8F0 100%)`
+                                }}
+                              />
+                              <span className="text-[0.7vw] font-bold text-gray-500 w-[1vw] text-right">{shadowY}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-[0.8vw]">
+                            <span className="text-[0.7vw] font-semibold text-gray-700 w-[2vw] shrink-0 text-left">Blur </span>
+                            <div className="flex-1 flex items-center h-[1.5vw] gap-[0.8vw]">
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={shadowBlur}
+                                onChange={(e) => setShadowBlur(parseInt(e.target.value))}
+                                className="flex-1 cursor-pointer custom-range-slider"
+                                style={{
+                                  backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${shadowBlur}%, #E2E8F0 ${shadowBlur}%, #E2E8F0 100%)`
+                                }}
+                              />
+                              <span className="text-[0.7vw] font-bold text-gray-500 w-[1vw] text-right">{shadowBlur}%</span>
+                            </div>
+                          </div>
                         </div>
-                     </div>
+                      </div>
 
-                    {/* Upload Logo Box */}
-                    <div className="flex items-start gap-[0.5vw]">
-                       <div className="w-[6.5vw] flex items-start justify-between shrink-0 pt-[0.5vw]">
-                           <span className="text-[0.75vw] font-semibold text-gray-900">Upload Logo : </span>
-                       </div>
-                       <div className="flex-1 flex flex-col items-center">
-                          <input 
-                              type="file" 
-                              ref={logoInputRef} 
-                              accept="image/png, image/jpeg, image/jpg" 
-                              className="hidden" 
-                              onChange={handleLogoUpload} 
+                      {/* Upload Logo Box */}
+                      <div className="flex items-start gap-[0.5vw]">
+                        <div className="w-[6.5vw] flex items-start justify-between shrink-0 pt-[0.5vw]">
+                          <span className="text-[0.75vw] font-semibold text-gray-900">Upload Logo : </span>
+                        </div>
+                        <div className="flex-1 flex flex-col items-center">
+                          <input
+                            type="file"
+                            ref={logoInputRef}
+                            accept="image/png, image/jpeg, image/jpg"
+                            className="hidden"
+                            onChange={handleLogoUpload}
                           />
                           {logoUrl ? (
-                              <div className="w-full border-[0.15vw] border-solid border-gray-300 rounded-[1vw] flex items-center justify-between p-[1vw] bg-white">
-                                  <img src={logoUrl} alt="Logo" className="h-[2vw] object-contain" />
-                                  <button onClick={() => setLogoUrl(null)} className="p-[0.4vw] bg-red-50 text-red-500 rounded-full hover:bg-red-100 transition-colors">
-                                      <Trash2 size="1vw" />
-                                  </button>
-                              </div>
+                            <div className="w-full border-[0.15vw] border-solid border-gray-300 rounded-[1vw] flex items-center justify-between p-[1vw] bg-white">
+                              <img src={logoUrl} alt="Logo" className="h-[2vw] object-contain" />
+                              <button onClick={() => setLogoUrl(null)} className="p-[0.4vw] bg-red-50 text-red-500 rounded-full hover:bg-red-100 transition-colors">
+                                <Trash2 size="1vw" />
+                              </button>
+                            </div>
                           ) : (
-                              <div onClick={() => logoInputRef.current?.click()} className="w-full border-[0.15vw] border-dashed border-gray-400 rounded-[1vw] flex flex-col items-center justify-center py-[1.5vw] bg-white cursor-pointer hover:bg-gray-50 transition-colors">
-                                 <p className="text-[0.75vw] text-gray-500 font-medium whitespace-nowrap">
-                                  + Add Logo 
-                                 </p>
-                              </div>
+                            <div onClick={() => logoInputRef.current?.click()} className="w-full border-[0.15vw] border-dashed border-gray-400 rounded-[1vw] flex flex-col items-center justify-center py-[1.5vw] bg-white cursor-pointer hover:bg-gray-50 transition-colors">
+                              <p className="text-[0.75vw] text-gray-500 font-medium whitespace-nowrap">
+                                + Add Logo
+                              </p>
+                            </div>
                           )}
+                        </div>
+                      </div>
+
+                      {/* Preview above page selection */}
+                      {pages.length > 0 && (
+                        <div className="flex items-center justify-between bg-slate-50 border border-gray-200 rounded-[0.45vw] p-[0.45vw] shadow-xs">
+                          <div className="flex flex-col pl-[0.2vw]">
+                            <span className="text-[0.62vw] font-bold text-gray-700 uppercase tracking-wider">
+                              Page Preview
+                            </span>
+                            {(() => {
+                              const activeNum = previewHoverPage || middlePageNum || (firstPageSelected ? 1 : (lastPageSelected ? pages.length : 1));
+                              const label = activeNum === 1 ? 'Page 1 (Front Cover)' : activeNum === pages.length ? `Page ${pages.length} (Back Cover)` : `Page ${activeNum} (Middle Page)`;
+                              return (
+                                <span className="text-[0.68vw] font-semibold text-[#5551FF]">
+                                  {label}
+                                </span>
+                              );
+                            })()}
                           </div>
+                          <div className="w-[3.6vw] aspect-[3.5/5] bg-white border border-gray-300 rounded-[0.25vw] overflow-hidden shadow-sm flex items-center justify-center relative shrink-0">
+                            {(() => {
+                              const activeNum = previewHoverPage || middlePageNum || (firstPageSelected ? 1 : (lastPageSelected ? pages.length : 1));
+                              const pageObj = activeNum && pages[activeNum - 1] ? pages[activeNum - 1] : pages[0];
+                              const pageHtml = pageObj?.html ? normalizePageHtml(pageObj.html) : '';
+                              return pageHtml ? (
+                                <div
+                                  className="w-full h-full flex items-center justify-center pointer-events-none [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill"
+                                  dangerouslySetInnerHTML={{ __html: pageHtml }}
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-50 flex items-center justify-center text-[0.48vw] text-gray-400 font-semibold text-center">
+                                  Page {activeNum}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* First & Last Page Checkboxes */}
+                      <div className="border border-gray-200 rounded-[0.45vw] p-[0.5vw] bg-white space-y-[0.3vw]">
+                        <div className="text-[0.62vw] font-semibold text-gray-500 uppercase tracking-wider mb-[0.1vw]">
+                          Cover & Back
+                        </div>
+
+                        {/* First Page Checkbox */}
+                        <div
+                          className="flex items-center justify-between px-[0.3vw] py-[0.25vw] rounded-[0.3vw] hover:bg-gray-50 cursor-pointer group select-none"
+                          onClick={() => setFirstPageSelected(!firstPageSelected)}
+                          onMouseEnter={() => setPreviewHoverPage(1)}
+                          onMouseLeave={() => setPreviewHoverPage(null)}
+                        >
+                          <div className="flex items-center gap-[0.5vw]">
+                            <div
+                              className={`w-[0.9vw] h-[0.9vw] rounded-[0.2vw] border flex items-center justify-center transition-all ${firstPageSelected ? 'bg-[#5551FF] border-[#5551FF]' : 'border-gray-400 bg-white group-hover:border-gray-600'}`}>
+                              {firstPageSelected && <Check size="0.65vw" strokeWidth={3} className="text-white" />}
+                            </div>
+                            <span className={`text-[0.68vw] ${firstPageSelected ? 'text-gray-900 font-semibold' : 'text-gray-600 font-normal'}`}>
+                              First Page (Page 1)
+                            </span>
+                          </div>
+                          <span className="text-[0.58vw] text-gray-400 font-normal">Front Cover</span>
+                        </div>
+
+                        {/* Last Page Checkbox */}
+                        {pages.length > 1 && (
+                          <div
+                            className="flex items-center justify-between px-[0.3vw] py-[0.25vw] rounded-[0.3vw] hover:bg-gray-50 cursor-pointer group border-t border-gray-100 pt-[0.3vw] select-none"
+                            onClick={() => setLastPageSelected(!lastPageSelected)}
+                            onMouseEnter={() => setPreviewHoverPage(pages.length)}
+                            onMouseLeave={() => setPreviewHoverPage(null)}
+                          >
+                            <div className="flex items-center gap-[0.5vw]">
+                              <div
+                                className={`w-[0.9vw] h-[0.9vw] rounded-[0.2vw] border flex items-center justify-center transition-all ${lastPageSelected ? 'bg-[#5551FF] border-[#5551FF]' : 'border-gray-400 bg-white group-hover:border-gray-600'}`}>
+                                {lastPageSelected && <Check size="0.65vw" strokeWidth={3} className="text-white" />}
+                              </div>
+                              <span className={`text-[0.68vw] ${lastPageSelected ? 'text-gray-900 font-semibold' : 'text-gray-600 font-normal'}`}>
+                                Last Page (Page {pages.length})
+                              </span>
+                            </div>
+                            <span className="text-[0.58vw] text-gray-400 font-normal">Back Cover</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Middle Page Selector Dropdown */}
+                      {pages.length > 2 && (
+                        <div className="border border-gray-200 rounded-[0.45vw] p-[0.5vw] bg-white">
+                          <div className="flex items-center justify-between mb-[0.3vw]">
+                            <span className="text-[0.62vw] font-semibold text-gray-500 uppercase tracking-wider">
+                              Middle Page
+                            </span>
+                            {middlePageNum && (
+                              <span className="text-[0.62vw] text-[#5551FF] font-semibold">
+                                Page {middlePageNum} selected
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="relative">
+                            <select
+                              value={middlePageNum || ''}
+                              onChange={(e) => {
+                                const val = e.target.value ? Number(e.target.value) : null;
+                                setMiddlePageNum(val);
+                                if (val) setPreviewHoverPage(val);
+                              }}
+                              onMouseEnter={() => middlePageNum && setPreviewHoverPage(middlePageNum)}
+                              onMouseLeave={() => setPreviewHoverPage(null)}
+                              className="w-full bg-white border border-gray-300 rounded-[0.4vw] px-[0.6vw] py-[0.4vw] text-[0.68vw] text-gray-800 font-semibold outline-none cursor-pointer appearance-none hover:border-gray-400 focus:border-[#5551FF] transition-colors"
+                            >
+                              <option value="">-- None (No middle page) --</option>
+                              {pages.slice(1, -1).map((_, idx) => {
+                                const pageNumber = idx + 2;
+                                return (
+                                  <option key={pageNumber} value={pageNumber}>
+                                    Page {pageNumber}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                            <ChevronDown size="0.75vw" className="text-gray-500 absolute right-[0.6vw] top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                        </div>
+                      )}
                     </div>
-
-                             {/* First & Last Page Checkboxes */}
-                             <div className="border border-gray-200 rounded-[0.45vw] p-[0.5vw] bg-white space-y-[0.3vw]">
-                                <div className="text-[0.62vw] font-semibold text-gray-500 uppercase tracking-wider mb-[0.1vw]">
-                                   Cover & Back
-                                </div>
-                                
-                                {/* First Page Checkbox */}
-                                <label 
-                                   className="flex items-center justify-between px-[0.3vw] py-[0.25vw] rounded-[0.3vw] hover:bg-gray-50 cursor-pointer group"
-                                   onMouseEnter={() => setPreviewHoverPage(1)}
-                                   onMouseLeave={() => setPreviewHoverPage(null)}
-                                >
-                                   <div className="flex items-center gap-[0.5vw]">
-                                      <div 
-                                         onClick={(e) => { e.preventDefault(); setFirstPageSelected(!firstPageSelected); }}
-                                         className={`w-[0.9vw] h-[0.9vw] rounded-[0.2vw] border flex items-center justify-center transition-all \${firstPageSelected ? 'bg-[#5551FF] border-[#5551FF]' : 'border-gray-400 bg-white group-hover:border-gray-600'}`}>
-                                         {firstPageSelected && <Check size="0.65vw" strokeWidth={3} className="text-white" />}
-                                      </div>
-                                      <span className={`text-[0.68vw] \${firstPageSelected ? 'text-gray-900 font-semibold' : 'text-gray-600 font-normal'}`}>
-                                         First Page (Page 1)
-                                      </span>
-                                   </div>
-                                   <span className="text-[0.58vw] text-gray-400 font-normal">Front Cover</span>
-                                </label>
-
-                                {/* Last Page Checkbox */}
-                                {pages.length > 1 && (
-                                   <label 
-                                      className="flex items-center justify-between px-[0.3vw] py-[0.25vw] rounded-[0.3vw] hover:bg-gray-50 cursor-pointer group border-t border-gray-100 pt-[0.3vw]"
-                                      onMouseEnter={() => setPreviewHoverPage(pages.length)}
-                                      onMouseLeave={() => setPreviewHoverPage(null)}
-                                   >
-                                      <div className="flex items-center gap-[0.5vw]">
-                                         <div 
-                                            onClick={(e) => { e.preventDefault(); setLastPageSelected(!lastPageSelected); }}
-                                            className={`w-[0.9vw] h-[0.9vw] rounded-[0.2vw] border flex items-center justify-center transition-all \${lastPageSelected ? 'bg-[#5551FF] border-[#5551FF]' : 'border-gray-400 bg-white group-hover:border-gray-600'}`}>
-                                            {lastPageSelected && <Check size="0.65vw" strokeWidth={3} className="text-white" />}
-                                         </div>
-                                         <span className={`text-[0.68vw] \${lastPageSelected ? 'text-gray-900 font-semibold' : 'text-gray-600 font-normal'}`}>
-                                            Last Page (Page {pages.length})
-                                         </span>
-                                      </div>
-                                      <span className="text-[0.58vw] text-gray-400 font-normal">Back Cover</span>
-                                   </label>
-                                )}
-                             </div>
-
-                             {/* Middle Page Selector Dropdown */}
-                             {pages.length > 2 && (
-                                <div className="border border-gray-200 rounded-[0.45vw] p-[0.5vw] bg-white">
-                                   <div className="flex items-center justify-between mb-[0.3vw]">
-                                      <span className="text-[0.62vw] font-semibold text-gray-500 uppercase tracking-wider">
-                                         Middle Page
-                                      </span>
-                                      {middlePageNum && (
-                                         <span className="text-[0.62vw] text-[#5551FF] font-semibold">
-                                            Page {middlePageNum} selected
-                                         </span>
-                                      )}
-                                   </div>
-
-                                   <div className="relative">
-                                      <select
-                                         value={middlePageNum || ''}
-                                         onChange={(e) => {
-                                            const val = e.target.value ? Number(e.target.value) : null;
-                                            setMiddlePageNum(val);
-                                            if (val) setPreviewHoverPage(val);
-                                         }}
-                                         onMouseEnter={() => middlePageNum && setPreviewHoverPage(middlePageNum)}
-                                         onMouseLeave={() => setPreviewHoverPage(null)}
-                                         className="w-full bg-white border border-gray-300 rounded-[0.4vw] px-[0.6vw] py-[0.4vw] text-[0.68vw] text-gray-800 font-semibold outline-none cursor-pointer appearance-none hover:border-gray-400 focus:border-[#5551FF] transition-colors"
-                                      >
-                                         <option value="">-- None (No middle page) --</option>
-                                         {pages.slice(1, -1).map((_, idx) => {
-                                            const pageNumber = idx + 2;
-                                            return (
-                                               <option key={pageNumber} value={pageNumber}>
-                                                  Page {pageNumber}
-                                               </option>
-                                            );
-                                         })}
-                                      </select>
-                                      <ChevronDown size="0.75vw" className="text-gray-500 absolute right-[0.6vw] top-1/2 -translate-y-1/2 pointer-events-none" />
-                                   </div>
-                                </div>
-                             )}
-                  </div>
-               )}
+                  )}
+                </div>
+              </div>
             </div>
-         </div>
-      </div>
-   </div>
+          </div>
 
-       {/* Template Footer */}
-       <div className="pt-[1vw] mb-[-1vw] flex items-center justify-between mt-[0.5vw] border-t border-gray-200 shrink-0">
-         <p className="text-[0.65vw] text-gray-500 font-medium">
-           <span className="text-red-500">*</span> Choose and customize a template, then click "Change Cover" to save as your flipbook cover
-         </p>
-         <div className="flex gap-[0.8vw]">
-            <button 
-                onClick={onClose} 
+          {/* Template Footer */}
+          <div className="pt-[1vw] mb-[-1vw] flex items-center justify-between mt-[0.5vw] border-t border-gray-200 shrink-0">
+            <p className="text-[0.65vw] text-gray-500 font-medium">
+              <span className="text-red-500">*</span> Choose and customize a template, then click "Change Cover" to save as your flipbook cover
+            </p>
+            <div className="flex gap-[0.8vw]">
+              <button
+                onClick={onClose}
                 className="px-[2vw] py-[0.6vw] border border-gray-400 rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-[0.4vw] shadow-sm"
-            >
-               <X size="1vw" strokeWidth={2.5} /> Cancel
-            </button>
-            <button 
-                onClick={() => { 
-                    onSave({ 
-                        type: 'template',
-                        activeTab,
-                        selectedTemplate,
-                        url: selectedTemplate?.id ? '' : (selectedTemplate?.src || ''),
-                        text1,
-                        text2,
-                        bgColor,
-                        bgOpacity,
-                        shadowColor,
-                        shadowOpacity,
-                        shadowX,
-                        shadowY,
-                        shadowBlur,
-                        logoUrl,
-                        text1FontFamily,
-                        text1FontSize,
-                        text1FontWeight,
-                        text1LetterSpacing,
-                        text1LineHeight,
-                        text1Align,
-                        text1Bold,
-                        text1Italic,
-                        text1Underline,
-                        text1Linethrough,
-                        text1Color,
-                        text1ColorOpacity,
-                        text2FontFamily,
-                        text2FontSize,
-                        text2FontWeight,
-                        text2LetterSpacing,
-                        text2LineHeight,
-                        text2Align,
-                        text2Bold,
-                        text2Italic,
-                        text2Underline,
-                        text2Linethrough,
-                        text2Color,
-                        text2ColorOpacity,
-                        selectedPages
-                    });
-                    onClose(); 
-                }} 
+              >
+                <X size="1vw" strokeWidth={2.5} /> Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onSave({
+                    type: 'template',
+                    activeTab,
+                    selectedTemplate,
+                    url: selectedTemplate?.id ? '' : (selectedTemplate?.src || ''),
+                    text1,
+                    text2,
+                    bgColor,
+                    bgOpacity,
+                    shadowColor,
+                    shadowOpacity,
+                    shadowX,
+                    shadowY,
+                    shadowBlur,
+                    logoUrl,
+                    text1FontFamily,
+                    text1FontSize,
+                    text1FontWeight,
+                    text1LetterSpacing,
+                    text1LineHeight,
+                    text1Align,
+                    text1Bold,
+                    text1Italic,
+                    text1Underline,
+                    text1Linethrough,
+                    text1Color,
+                    text1ColorOpacity,
+                    text2FontFamily,
+                    text2FontSize,
+                    text2FontWeight,
+                    text2LetterSpacing,
+                    text2LineHeight,
+                    text2Align,
+                    text2Bold,
+                    text2Italic,
+                    text2Underline,
+                    text2Linethrough,
+                    text2Color,
+                    text2ColorOpacity,
+                    selectedPages
+                  });
+                  onClose();
+                }}
                 className="px-[3vw] py-[0.6vw] bg-black text-white rounded-[0.5vw] text-[0.8vw] font-semibold hover:bg-zinc-800 transition-colors flex items-center gap-[0.4vw] shadow-sm"
-            >
-               <Check size="1vw" strokeWidth={3} /> Save Changes
-             </button>
+              >
+                <Check size="1vw" strokeWidth={3} /> Save Changes
+              </button>
+            </div>
           </div>
+
+
+
         </div>
-
-
-
-          </div>
       )}
     </div>
   );
@@ -1269,35 +1380,35 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
       <div className="w-full flex flex-col overflow-hidden relative mt-[1vw]" style={{ height: '32.2vw' }}>
         {innerContent}
         {isCropping && (
-          <ImageCropOverlay 
+          <ImageCropOverlay
             imageSrc={originalImage || uploadedImage}
             element={previewImgRef.current}
             onSave={({ crop }) => {
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const sw = (crop.width / 100) * img.naturalWidth;
-                    const sh = (crop.height / 100) * img.naturalHeight;
-                    const sx = (crop.left / 100) * img.naturalWidth;
-                    const sy = (crop.top / 100) * img.naturalHeight;
-                    canvas.width = sw;
-                    canvas.height = sh;
-                    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-                    const croppedSrc = canvas.toDataURL('image/png');
-                    setUploadedImage(croppedSrc);
-                    canvas.toBlob((blob) => {
-                       const file = new File([blob], "cover_cropped.png", { type: "image/png" });
-                       setRawFile(file);
-                    }, 'image/png');
-                    setIsCropping(false);
-                };
-                img.src = originalImage || uploadedImage;
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const sw = (crop.width / 100) * img.naturalWidth;
+                const sh = (crop.height / 100) * img.naturalHeight;
+                const sx = (crop.left / 100) * img.naturalWidth;
+                const sy = (crop.top / 100) * img.naturalHeight;
+                canvas.width = sw;
+                canvas.height = sh;
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+                const croppedSrc = canvas.toDataURL('image/png');
+                setUploadedImage(croppedSrc);
+                canvas.toBlob((blob) => {
+                  const file = new File([blob], "cover_cropped.png", { type: "image/png" });
+                  setRawFile(file);
+                }, 'image/png');
+                setIsCropping(false);
+              };
+              img.src = originalImage || uploadedImage;
             }}
             onCancel={() => {
-                setIsCropping(false);
-                setImageFixType('Fit');
+              setIsCropping(false);
+              setImageFixType('Fit');
             }}
           />
         )}
@@ -1308,12 +1419,12 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   return ReactDOM.createPortal(
     <div className={`fixed inset-0 ${zIndex} bg-black/40 flex items-center justify-center animate-in fade-in duration-200`}>
       <div className="bg-white rounded-[1vw] shadow-2xl max-h-[94vh] w-[65vw] max-w-[700px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-[1.5vw] py-[1.2vw]">
           <div className="flex items-center gap-[1vw] flex-1">
-             <h2 className="text-[1vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">Cover Picture Customization</h2>
-             <div className="h-[0.0925vw] bg-gray-200 w-full"> </div>
+            <h2 className="text-[1vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">Cover Picture Customization</h2>
+            <div className="h-[0.0925vw] bg-gray-200 w-full"> </div>
           </div>
           <button onClick={onClose} className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-50 ml-[1vw] shrink-0 transition-colors">
             <X size="1.2vw" />
@@ -1451,13 +1562,13 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
 
       toast?.success?.("Flipbook information updated successfully!");
       if (onSaveSuccess) {
-        onSaveSuccess({ 
-          bookName: bookName.trim(), 
-          quotes: quotes.trim(), 
-          about: about.trim(), 
-          category: category.trim(), 
-          language: language.trim(), 
-          coverPicture 
+        onSaveSuccess({
+          bookName: bookName.trim(),
+          quotes: quotes.trim(),
+          about: about.trim(),
+          category: category.trim(),
+          language: language.trim(),
+          coverPicture
         });
       }
       onClose();
@@ -1473,13 +1584,13 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
     <div className="fixed inset-0 z-[999999] flex items-center justify-center p-[1vw]">
       <style>{scrollbarStyles}</style>
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" 
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
       {/* Modal Container */}
-      <div 
+      <div
         className="relative bg-white w-[54vw] max-h-[94vh] rounded-[1.2vw] shadow-2xl animate-in fade-in zoom-in-95 duration-300 font-sans p-[1.6vw] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -1504,8 +1615,8 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
         </div>
 
         <p className="text-[0.78vw] text-gray-400 font-medium mb-[0.6vw]">
-          {showCoverPopup 
-            ? "Choose and customize cover template or upload a cover image" 
+          {showCoverPopup
+            ? "Choose and customize cover template or upload a cover image"
             : "Add basic details about your flipbook"}
         </p>
 
@@ -1546,22 +1657,22 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
               <div className="flex flex-col justify-between gap-[0.9vw]">
                 <div className="relative group rounded-[0.9vw] bg-gray-50 w-full aspect-[4/3] flex items-center justify-center shadow-inner overflow-hidden border border-gray-200/50">
                   {coverPicture?.type === 'template' ? (
-                     <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
-                        <TemplatePreview 
-                            {...coverPicture} 
-                            pages={currentBook?.pages || []} 
-                        />
-                     </div>
+                    <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
+                      <TemplatePreview
+                        {...coverPicture}
+                        pages={currentBook?.pages || []}
+                      />
+                    </div>
                   ) : coverPicture?.url ? (
-                    <img 
-                      src={coverPicture.url} 
-                      alt="Flipbook Cover" 
+                    <img
+                      src={coverPicture.url}
+                      alt="Flipbook Cover"
                       className="w-full h-full object-cover"
                     />
                   ) : thumbnailUrl ? (
-                    <img 
-                      src={thumbnailUrl} 
-                      alt="Flipbook Cover" 
+                    <img
+                      src={thumbnailUrl}
+                      alt="Flipbook Cover"
                       className="w-full h-full object-cover"
                     />
                   ) : (

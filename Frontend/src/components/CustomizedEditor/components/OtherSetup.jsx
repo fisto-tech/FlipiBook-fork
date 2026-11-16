@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import NavIconStylesPopup, { NavIconRenderer } from '../popups/NavIconStylesPopup';
 import { ImageCropOverlay } from '../AppearanceShared';
-import { CoverPicturePopup } from '../../FlipbookInfoModal';
+import { CoverPicturePopup, TemplatePreview } from '../../FlipbookInfoModal';
 import BookmarkStylesPopup from './BookmarkStylesPopup';
 import AlertModal from '../../AlertModal';
 import ReplaceMediaModal from '../../PageEditor/modals/ReplaceMediaModal';
@@ -1653,27 +1653,24 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
               {settings.coverPicture?.url ? (
                 <img src={settings.coverPicture.url} className="w-full h-full object-cover" alt="Cover" />
               ) : settings.coverPicture?.type === 'template' ? (
-                <div className="w-full h-full flex flex-col items-center justify-center p-[1vw] text-center" style={{ backgroundColor: settings.coverPicture.bgColor || '#D7D8E8' }}>
-                  <h3 className="text-[0.8vw] font-bold mb-[0.2vw]" style={{ color: settings.coverPicture.shadowColor || '#000000' }}>{settings.coverPicture.text1 || 'Title'}</h3>
-                  <p className="text-[0.6vw]" style={{ color: settings.coverPicture.shadowColor || '#000000', opacity: 0.8 }}>{settings.coverPicture.text2 || 'Supporting Text'}</p>
+                <div className="w-full h-full relative overflow-hidden bg-gray-100 flex items-center justify-center">
+                  <TemplatePreview
+                    {...settings.coverPicture}
+                    pages={pages}
+                  />
                 </div>
               ) : (
                 <div className="w-full h-full bg-[#edd8cd] flex items-center justify-center relative overflow-hidden">
-                  <div className="relative w-[5vw] h-[5.5vw] flex items-center justify-center scale-[0.6]">
-                    <div className="absolute w-[10vw] h-[13.5vw] bg-gradient-to-br from-orange-500 to-amber-600 rounded-[0.6vw] shadow-xl transform -rotate-6 border border-orange-400 p-[0.7vw] flex flex-col justify-between text-white">
-                      <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85">HARD.COVER</span>
-                      <div>
-                        <h3 className="text-[0.85vw] font-black leading-tight">Hard.Cover Book</h3>
-                        <p className="text-[0.6vw] opacity-90 mt-[0.1vw]">Free .psd Mockup</p>
-                      </div>
-                    </div>
-                    <div className="absolute w-[10vw] h-[13.5vw] bg-gradient-to-br from-amber-600 to-orange-500 rounded-[0.6vw] shadow-2xl transform rotate-6 border border-amber-400 p-[0.7vw] flex flex-col justify-between text-white">
-                      <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85">HARD.COVER</span>
-                      <div>
-                        <h3 className="text-[0.85vw] font-black leading-tight">Hard.Cover Book</h3>
-                        <p className="text-[0.6vw] opacity-90 mt-[0.1vw]">Free .psd Mockup</p>
-                      </div>
-                    </div>
+                  <div className="relative w-full h-full flex items-center justify-center scale-[0.75]">
+                    <TemplatePreview
+                      selectedTemplate={{ id: 1 }}
+                      bgColor="#edd8cd"
+                      bgOpacity={100}
+                      text1="FREE A4 BROCHURE"
+                      text2="Mockup Presentation"
+                      selectedPages={[]}
+                      pages={pages}
+                    />
                   </div>
                 </div>
               )}
