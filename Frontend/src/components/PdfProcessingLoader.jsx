@@ -226,12 +226,12 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         }
         let target = 0;
         // If exact current extraction count is reported by worker/stream, show it directly!
-        if (current !== undefined && current !== null && Number(current) > 0) {
-            target = Math.min(totalPagesCount, Number(current));
+        if (current !== undefined && current !== null && Number(current) >= 0) {
+            target = Math.min(totalPagesCount, Math.max(0, Number(current)));
         } else {
             // Fallback: synchronized with the animated progress percentage
             const conversionRatio = Math.min(1, Math.max(0, (animatedDisplayPercent - 15) / 75));
-            target = Math.min(totalPagesCount, Math.max(1, Math.round(conversionRatio * totalPagesCount)));
+            target = Math.min(totalPagesCount, Math.max(0, Math.round(conversionRatio * totalPagesCount)));
         }
         highestCountRef.current = Math.max(highestCountRef.current, target);
         return highestCountRef.current;

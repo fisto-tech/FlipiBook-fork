@@ -91,6 +91,7 @@ exports.extractStream = async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx / Traefik proxy buffering for live SSE progress
   res.flushHeaders?.();
 
   // Send initial state immediately

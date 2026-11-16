@@ -586,7 +586,7 @@ export default function MyFlipbooks() {
                         const resolvedPageCount = (pageCount && pageCount > 0)
                             ? Math.max(pageCount, prev?.pageCount || 0, file._pageCount || 0)
                             : (prev?.pageCount || file._pageCount || 1);
-                        const resolvedCurrent = (current && current > 0) ? current : (prev?.current || 1);
+                        const resolvedCurrent = (current !== undefined && current !== null) ? Number(current) : (prev?.current || 0);
                         return {
                             ...(prev || {}),
                             current: Math.min(resolvedPageCount, resolvedCurrent),
