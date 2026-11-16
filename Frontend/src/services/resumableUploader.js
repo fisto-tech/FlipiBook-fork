@@ -81,80 +81,112 @@ export async function uploadAndExtractDocument({
         stage: 'extracting',
         percent: 20,
         current: 0,
-        total: 1,
+        total: file._pageCount || 1,
         message: 'Upload complete! Starting extraction...'
       });
     }
 
-    // Phase 2: Listen to SSE Extraction Stream
-    const eventSource = new EventSource(`${resolvedBackend}/api/customized-editor/extract-stream/${jobId}`);
+    // Phase 2: Dual SSE Stream + Resilient 1s Poller for Real-Time Extraction Progress
     let initialTriggered = false;
+    let pollInterval = null;
+    let eventSource = null;
 
-    eventSource.onmessage = (event) => {
-      try {
-        const job = JSON.parse(event.data);
-
-        // Progress calculation: 20% upload + up to 72% extraction (maps level-by-level)
-        const progressVal = job.progress || (job.totalPages ? Math.round(((job.availablePages || 0) / job.totalPages) * 100) : 0);
-        const overallPercent = 20 + Math.round(progressVal * 0.72);
-
-        if (onProgress) {
-          onProgress({
-            stage: 'extracting',
-            percent: Math.min(92, overallPercent),
-            current: job.availablePages || 1,
-            total: job.totalPages || 1,
-            message: `Extracting page ${job.availablePages || 1} of ${job.totalPages || 1}...`
-          });
-        }
-
-        // Fast-Launch trigger: Pages 1-10 are ready!
-        if (job.initialPagesReady && !initialTriggered) {
-          initialTriggered = true;
-          // Close SSE stream immediately so background extraction events don't leak into the loader
-          try { eventSource.close(); } catch (_) {}
-          if (onInitialReady) {
-            onInitialReady({
-              bookId: resolvedBookId,
-              userId: job.userId || userId,
-              totalPages: job.totalPages,
-              initialPages: job.pages,
-              width: job.width,
-              height: job.height,
-              aspectRatio: job.aspectRatio
-            });
-          }
-        }
-
-        // Complete trigger: All pages (even 10,000) are extracted!
-        if (job.status === 'completed') {
-          eventSource.close();
-          if (onComplete) {
-            onComplete({
-              bookId: resolvedBookId,
-              userId: job.userId || userId,
-              totalPages: job.totalPages || (job.manifest && job.manifest.totalPages),
-              initialPages: job.pages || (job.manifest && job.manifest.pages),
-              width: job.width || (job.manifest && job.manifest.width),
-              height: job.height || (job.manifest && job.manifest.height),
-              aspectRatio: job.aspectRatio || (job.manifest && job.manifest.aspectRatio),
-              manifest: job.manifest
-            });
-          }
-        } else if (job.status === 'failed') {
-          eventSource.close();
-          if (onError) onError(new Error(job.error || 'Server extraction failed'));
-        }
-      } catch (parseErr) {
-        console.error('[SSE Stream Parse Error]:', parseErr);
+    const cleanup = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      if (eventSource) {
+        try { eventSource.close(); } catch (_) {}
+        eventSource = null;
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.warn('[SSE Connection Closed or Reconnecting]:', err);
-      // Fallback polling if SSE disconnects
-      pollJobStatus(resolvedBackend, jobId, userId, resolvedBookId, onInitialReady, onComplete, onError);
+    const handleJobUpdate = (job) => {
+      if (!job) return;
+
+      const total = job.totalPages || file._pageCount || 1;
+      const available = (job.availablePages !== undefined && job.availablePages !== null) ? job.availablePages : 0;
+      const progressVal = job.progress || (total ? Math.round((available / total) * 100) : 0);
+      const overallPercent = 20 + Math.round(progressVal * 0.72);
+
+      if (onProgress) {
+        onProgress({
+          stage: 'extracting',
+          percent: Math.min(92, overallPercent),
+          current: available,
+          total: total,
+          message: `Extracting page ${available} of ${total}...`
+        });
+      }
+
+      // Fast-Launch trigger: Pages 1-10 are ready!
+      if (job.initialPagesReady && !initialTriggered) {
+        initialTriggered = true;
+        cleanup();
+        if (onInitialReady) {
+          onInitialReady({
+            bookId: resolvedBookId,
+            userId: job.userId || userId,
+            totalPages: job.totalPages || total,
+            initialPages: job.pages,
+            width: job.width,
+            height: job.height,
+            aspectRatio: job.aspectRatio
+          });
+        }
+      }
+
+      // Complete trigger: All pages (even 10,000) are extracted!
+      if (job.status === 'completed') {
+        cleanup();
+        if (onComplete) {
+          onComplete({
+            bookId: resolvedBookId,
+            userId: job.userId || userId,
+            totalPages: job.totalPages || (job.manifest && job.manifest.totalPages) || total,
+            initialPages: job.pages || (job.manifest && job.manifest.pages),
+            width: job.width || (job.manifest && job.manifest.width),
+            height: job.height || (job.manifest && job.manifest.height),
+            aspectRatio: job.aspectRatio || (job.manifest && job.manifest.aspectRatio),
+            manifest: job.manifest
+          });
+        }
+      } else if (job.status === 'failed') {
+        cleanup();
+        if (onError) onError(new Error(job.error || 'Server extraction failed'));
+      }
     };
+
+    // 1. Primary: Server-Sent Events (SSE) with 0ms live latency
+    try {
+      eventSource = new EventSource(`${resolvedBackend}/api/customized-editor/extract-stream/${jobId}`);
+      eventSource.onmessage = (event) => {
+        try {
+          const job = JSON.parse(event.data);
+          handleJobUpdate(job);
+        } catch (parseErr) {
+          console.error('[SSE Stream Parse Error]:', parseErr);
+        }
+      };
+      eventSource.onerror = (err) => {
+        console.warn('[SSE Connection Reconnecting or Buffered]:', err);
+      };
+    } catch (e) {
+      console.warn('[SSE Setup Error]:', e);
+    }
+
+    // 2. Secondary: Resilient 1-second Polling fallback (ensures progress never stalls if SSE is buffered by proxy/CDN)
+    pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`${resolvedBackend}/api/customized-editor/job-status/${jobId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.job) {
+          handleJobUpdate(data.job);
+        }
+      } catch (_) {}
+    }, 1000);
 
   } catch (err) {
     if (onError) onError(err);

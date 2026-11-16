@@ -240,7 +240,9 @@ export const convertPdfToImages = async (file, scale = 2.5, maxPages = Infinity,
     onProgress: (p) => {
       if (onProgress && typeof onProgress === 'function') {
         try {
-          onProgress(p.current || 1, p.total || 1, p.percent || 0, p.stage || 'extracting', p.message || 'Extracting document...');
+          const resolvedCurrent = (p.current !== undefined && p.current !== null) ? p.current : 0;
+          const resolvedTotal = (p.total !== undefined && p.total !== null && p.total > 0) ? p.total : (file._pageCount || 1);
+          onProgress(resolvedCurrent, resolvedTotal, p.percent !== undefined ? p.percent : 0, p.stage || 'extracting', p.message || 'Extracting document...');
         } catch (e) {}
       }
     }

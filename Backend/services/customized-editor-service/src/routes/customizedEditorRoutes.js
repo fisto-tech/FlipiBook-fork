@@ -37,6 +37,22 @@ const chunkUpload = multer({
 const handleUpload = (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err) {
+      if (err.message === 'Request aborted' || req.aborted) {
+        return res.status(499).end();
+      }
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
+
+// Middleware to handle chunk upload error gracefully (e.g. client abort / tab close)
+const handleChunkUploadMiddleware = (req, res, next) => {
+  chunkUpload.single('chunk')(req, res, (err) => {
+    if (err) {
+      if (err.message === 'Request aborted' || req.aborted) {
+        return res.status(499).end();
+      }
       return res.status(400).json({ success: false, message: err.message });
     }
     next();
@@ -46,7 +62,7 @@ const handleUpload = (req, res, next) => {
 // ==========================================
 // 0. Resumable Chunked Ingestion & Redis Extraction Pipeline (10,000+ Pages)
 // ==========================================
-router.post('/upload-chunk', optionalAuth, chunkUpload.single('chunk'), resumableController.uploadChunk);
+router.post('/upload-chunk', optionalAuth, handleChunkUploadMiddleware, resumableController.uploadChunk);
 router.get('/extract-stream/:jobId', optionalAuth, resumableController.extractStream);
 router.get('/job-status/:jobId', optionalAuth, resumableController.getJobStatus);
 router.get('/manifest/:userId/:bookId', optionalAuth, resumableController.getBookManifest);

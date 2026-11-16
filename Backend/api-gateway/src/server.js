@@ -821,6 +821,8 @@ app.use(
     target: `${CUSTOMIZED_EDITOR_SERVICE_URL}/api/customized-editor`,
     changeOrigin: true,
     xfwd: true,
+    timeout: 300000,
+    proxyTimeout: 300000,
     cookieDomainRewrite: '',
     cookiePathRewrite: '/',
     on: {
