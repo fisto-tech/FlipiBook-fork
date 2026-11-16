@@ -556,12 +556,13 @@ export default function MyFlipbooks() {
                     fileName: file.name,
                     stage: 'uploading'
                 });
-                // 50% Fast-Launch: For large PDF documents (>6 pages), extract first 50% for instant editor launch,
-                // and stream remaining balance pages in background Web Workers with zero UI latency.
+                // Fast-Launch Architecture (FlipHTML5 / FlippingBook pattern):
+                // For PDF documents with > 4 pages, extract first 4 pages for instant editor launch in <2s,
+                // and stream remaining balance pages in background with zero UI blocking.
                 // Modern Office documents (.docx, .pptx) are converted client-side in one pass and should not be partitioned.
                 const isOffice = docType === 'word' || docType === 'powerpoint';
-                const isSingleLargeDoc = !isOffice && files.length === 1 && detectedCount > 6;
-                const earlyExtractLimit = isSingleLargeDoc ? Math.max(4, Math.ceil(detectedCount * 0.5)) : Infinity;
+                const isSingleLargeDoc = !isOffice && files.length === 1 && detectedCount > 4;
+                const earlyExtractLimit = isSingleLargeDoc ? 4 : Infinity;
 
                 const images = await convertPdfWithInkscape(file, earlyExtractLimit, backendUrl, (currOrObj, total, pct, stage, msg) => {
                     let current, pageCount, percent, message, currentStage;

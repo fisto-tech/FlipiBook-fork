@@ -134,14 +134,18 @@ async function extractSinglePage(doc, pageIndex, outDir, mupdf) {
   const highPix = page.toPixmap(mupdf.Matrix.scale(highScale, highScale), mupdf.ColorSpace.DeviceRGB, false, true);
   const highPngBytes = highPix.asPNG();
   const webpPath = path.join(outDir, `${pageNum}.webp`);
-  await bufferToWebP(highPngBytes, webpPath, 85);
 
   // 3. Thumbnail 240px Render Scale
   const thumbScale = maxPt > 0 ? 240 / maxPt : 0.3;
   const thumbPix = page.toPixmap(mupdf.Matrix.scale(thumbScale, thumbScale), mupdf.ColorSpace.DeviceRGB, false, true);
   const thumbPngBytes = thumbPix.asPNG();
   const thumbPath = path.join(outDir, `${pageNum}_thumb.webp`);
-  await bufferToWebP(thumbPngBytes, thumbPath, 75);
+
+  // Run high-res and thumbnail encodings concurrently on multi-core CPU
+  await Promise.all([
+    bufferToWebP(highPngBytes, webpPath, 85),
+    bufferToWebP(thumbPngBytes, thumbPath, 75)
+  ]);
 
   return {
     pageNumber: pageNum,
@@ -193,9 +197,9 @@ async function processExtractionJob(job) {
     const allPages = [];
 
     // ==========================================
-    // Phase 1: Fast-Launch (Pages 1 to 10 in <1s)
+    // Phase 1: Fast-Launch (Pages 1 to 4 in <600ms)
     // ==========================================
-    const initialBatchSize = Math.min(10, totalPages);
+    const initialBatchSize = Math.min(4, totalPages);
     for (let p = 0; p < initialBatchSize; p++) {
       const pageInfo = await extractSinglePage(doc, p, pagesDir, mupdf);
       allPages.push(pageInfo);
@@ -215,7 +219,7 @@ async function processExtractionJob(job) {
       availablePages: allPages.length,
       totalPages,
       initialPagesReady: true,
-      stage: totalPages > 10 ? 'streaming_remaining' : 'finalizing',
+      stage: totalPages > 4 ? 'streaming_remaining' : 'finalizing',
       progress: Math.round((allPages.length / totalPages) * 100),
       pages: allPages
     });
