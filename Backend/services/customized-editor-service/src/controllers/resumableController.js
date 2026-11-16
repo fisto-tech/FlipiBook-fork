@@ -38,14 +38,18 @@ exports.uploadDocument = async (req, res) => {
     }
 
     const jobId = clientJobId || `job_${nanoid(12)}`;
-    await queueManager.createJob({
-      jobId,
-      userId,
-      bookId,
-      title: title || originalName || 'My Flipbook',
-      filePath: finalFilePath,
-      fileName: originalName
-    });
+    try {
+      await queueManager.createJob({
+        jobId,
+        userId,
+        bookId,
+        title: title || originalName || 'My Flipbook',
+        filePath: finalFilePath,
+        fileName: originalName
+      });
+    } catch (qErr) {
+      console.error('[Upload Document] Queue warning:', qErr.message);
+    }
 
     return res.json({
       success: true,
