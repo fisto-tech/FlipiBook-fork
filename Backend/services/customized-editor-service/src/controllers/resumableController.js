@@ -147,6 +147,8 @@ exports.uploadChunk = async (req, res) => {
  * POST /api/customized-editor/upload-chunk-binary
  */
 exports.uploadChunkBinary = async (req, res) => {
+  let fileStream = null;
+  let partPath = null;
   try {
     const uploadId = req.headers['x-upload-id'] || `up_${nanoid(12)}`;
     const chunkIndex = parseInt(req.headers['x-chunk-index'], 10) || 0;
@@ -161,81 +163,98 @@ exports.uploadChunkBinary = async (req, res) => {
     const uploadDir = path.join(TEMP_CHUNKS_DIR, uploadId);
     await fs.promises.mkdir(uploadDir, { recursive: true });
 
-    const partPath = path.join(uploadDir, `${String(chunkIndex).padStart(6, '0')}.part`);
-    const fileStream = fs.createWriteStream(partPath);
+    partPath = path.join(uploadDir, `${String(chunkIndex).padStart(6, '0')}.part`);
+    fileStream = fs.createWriteStream(partPath);
 
-    req.pipe(fileStream);
+    req.on('error', (err) => {
+      console.error('[Binary Upload] Request stream error on chunk', chunkIndex, err.message);
+      try { fileStream?.destroy(); } catch (_) {}
+      if (!res.headersSent) res.status(500).json({ success: false, message: 'Request stream aborted' });
+    });
 
     fileStream.on('error', (err) => {
-      console.error('[Binary Upload] Stream write error:', err);
+      console.error('[Binary Upload] File stream error on chunk', chunkIndex, err.message);
       if (!res.headersSent) res.status(500).json({ success: false, message: err.message });
     });
 
     fileStream.on('finish', async () => {
-      const files = await fs.promises.readdir(uploadDir);
-      const partFiles = files.filter(f => f.endsWith('.part')).sort();
-      const progress = Math.min(100, Math.round((partFiles.length / totalChunks) * 100));
-      const completedChunks = partFiles.map(f => parseInt(f.replace('.part', ''), 10));
+      try {
+        const files = await fs.promises.readdir(uploadDir);
+        const partFiles = files.filter(f => f.endsWith('.part')).sort();
+        const progress = Math.min(100, Math.round((partFiles.length / totalChunks) * 100));
+        const completedChunks = partFiles.map(f => parseInt(f.replace('.part', ''), 10));
 
-      if (partFiles.length >= totalChunks && !activeAssemblies.has(uploadId)) {
-        activeAssemblies.add(uploadId);
-        try {
-          const ext = path.extname(fileName) || '.pdf';
-          const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}${ext}`);
-          const finalStream = fs.createWriteStream(finalFilePath);
-          for (const part of partFiles) {
-            const partBuf = await fs.promises.readFile(path.join(uploadDir, part));
-            finalStream.write(partBuf);
-          }
-          await new Promise((resolve, reject) => {
-            finalStream.end(resolve);
-            finalStream.on('error', reject);
-          });
-
-          fs.promises.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
-
-          const jobId = clientJobId || `job_${nanoid(12)}`;
+        if (partFiles.length >= totalChunks && !activeAssemblies.has(uploadId)) {
+          activeAssemblies.add(uploadId);
           try {
-            await queueManager.createJob({
-              jobId,
-              userId,
-              bookId,
-              title,
-              filePath: finalFilePath,
-              fileName
+            const ext = path.extname(fileName) || '.pdf';
+            const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}${ext}`);
+            const finalStream = fs.createWriteStream(finalFilePath);
+            for (const part of partFiles) {
+              const partBuf = await fs.promises.readFile(path.join(uploadDir, part));
+              finalStream.write(partBuf);
+            }
+            await new Promise((resolve, reject) => {
+              finalStream.end(resolve);
+              finalStream.on('error', reject);
             });
-          } catch (qErr) {
-            console.error('[Binary Upload] Queue warning:', qErr.message);
-          }
 
+            fs.promises.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
+
+            const jobId = clientJobId || `job_${nanoid(12)}`;
+            try {
+              await queueManager.createJob({
+                jobId,
+                userId,
+                bookId,
+                title,
+                filePath: finalFilePath,
+                fileName
+              });
+            } catch (qErr) {
+              console.error('[Binary Upload] Queue warning:', qErr.message);
+            }
+
+            if (!res.headersSent) {
+              return res.json({
+                success: true,
+                isComplete: true,
+                state: 'Complete',
+                uploadId,
+                bookId,
+                jobId,
+                completedChunks,
+                progress: 100
+              });
+            }
+          } finally {
+            activeAssemblies.delete(uploadId);
+          }
+        }
+
+        if (!res.headersSent) {
           return res.json({
             success: true,
-            isComplete: true,
-            state: 'Complete',
+            isComplete: false,
+            state: 'WaitingMoreData',
             uploadId,
             bookId,
-            jobId,
+            chunkIndex,
             completedChunks,
-            progress: 100
+            progress
           });
-        } finally {
-          activeAssemblies.delete(uploadId);
+        }
+      } catch (finishErr) {
+        console.error('[Binary Upload] Finish processing error on chunk', chunkIndex, finishErr);
+        if (!res.headersSent) {
+          return res.status(500).json({ success: false, message: finishErr.message });
         }
       }
-
-      return res.json({
-        success: true,
-        isComplete: false,
-        state: 'WaitingMoreData',
-        uploadId,
-        bookId,
-        chunkIndex,
-        completedChunks,
-        progress
-      });
     });
+
+    req.pipe(fileStream);
   } catch (err) {
-    console.error('[Binary Upload Error]:', err);
+    console.error('[Binary Upload Setup Error]:', err);
     if (!res.headersSent) res.status(500).json({ success: false, message: err.message });
   }
 };

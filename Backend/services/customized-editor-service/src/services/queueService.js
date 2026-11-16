@@ -19,7 +19,7 @@ class ExtractionQueueManager extends EventEmitter {
     this.subRedis = null;
     this.inMemoryJobs = new Map();
     this.activeWorkers = 0;
-    this.maxConcurrentWorkers = 4; // Caps CPU/RAM at predictable ceiling
+    this.maxConcurrentWorkers = 1; // Dedicate CPU to 1 extraction job at a time to keep Gateway 100% responsive
     this.pendingQueue = [];
 
     this.setupRedisSubscriber();

@@ -100,38 +100,34 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         return 1;
     }, [totalPagesCount, isSaving, isDone, stage, current, explicitPercent]);
 
-    // Compute accurate target percentage mapped across the 4 stages
+    // Compute accurate target percentage mapped across stages
     const computedTargetPercent = useMemo(() => {
-        // Step 4: Complete -> exactly 100%
+        // Complete -> exactly 100%
         if (isDone) return 100;
 
-        // Step 1: Uploading -> 0% to 20%
+        // Stage 1: Uploading -> 0% to 100% of upload
         if (stage === 'uploading') {
             if (explicitPercent !== undefined && explicitPercent !== null) {
-                const val = explicitPercent > 20 ? (explicitPercent / 100) * 20 : explicitPercent;
-                return Math.min(20, Math.max(1, Math.round(val)));
+                return Math.min(100, Math.max(0, Math.round(explicitPercent)));
             }
             return 10;
         }
 
-        // Step 2: Extracting Pages -> 15% to 90% (Gradually maps to full progress within batch extraction time)
+        // Stage 2: Extracting Pages -> 0% to 99% of extraction
         if (isExtracting) {
             if (explicitPercent !== undefined && explicitPercent !== null && explicitPercent > 0) {
-                return Math.min(90, Math.max(15, Math.round(explicitPercent)));
+                return Math.min(99, Math.max(0, Math.round(explicitPercent)));
             }
             if (totalPagesCount > 0 && extractedPagesCount >= 0) {
                 const ratio = Math.min(1, Math.max(0, extractedPagesCount / totalPagesCount));
-                return Math.min(90, Math.round(15 + ratio * 75));
+                return Math.min(99, Math.round(ratio * 100));
             }
-            return 25;
+            return 15;
         }
 
-        // Step 3: Processing & Saving -> 90% to 98% (Smooth, never freezes at 98%, 100% when stage === 'done')
+        // Stage 3: Processing & Saving -> 98%
         if (isSaving) {
-            if (explicitPercent !== undefined && explicitPercent !== null && explicitPercent > 0) {
-                return Math.min(98, Math.max(90, Math.round(explicitPercent)));
-            }
-            return 94;
+            return 98;
         }
 
         // Fallback default
@@ -141,20 +137,25 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         return 20;
     }, [isDone, explicitPercent, stage, isExtracting, isSaving, totalPagesCount, extractedPagesCount]);
 
-    // Monotonicity reference: highest percentage reached so it strictly NEVER drops down
+    // Monotonicity reference: highest percentage reached so it strictly NEVER drops down within a stage
     const highestPercentRef = useRef(0);
     const highestCountRef = useRef(0);
     const prevFileRef = useRef(fileName);
+    const prevStageRef = useRef(stage);
 
-    // Reset watermark when starting an upload or switching files
+    // Reset watermark when starting an upload or switching stages
     useEffect(() => {
-        if (stage === 'uploading') {
-            if (fileName !== prevFileRef.current) {
-                prevFileRef.current = fileName;
-            }
-            highestPercentRef.current = Math.min(20, highestPercentRef.current);
+        if (stage !== prevStageRef.current) {
+            prevStageRef.current = stage;
+            highestPercentRef.current = 0;
             highestCountRef.current = 0;
-            setFluidPercent(prev => Math.min(20, prev));
+            setFluidPercent(0);
+        }
+        if (stage === 'uploading' && fileName !== prevFileRef.current) {
+            prevFileRef.current = fileName;
+            highestPercentRef.current = 0;
+            highestCountRef.current = 0;
+            setFluidPercent(0);
         }
     }, [fileName, stage]);
 
@@ -258,19 +259,27 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         return 1; // Uploading
     }, [stage, isDone, isExtracting, isSaving]);
 
-    // Live Extraction Stopwatch Timer (e.g. 00:14)
+    // Live Extraction Stopwatch Timer (ticks ONLY during stage === 'extracting')
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const timerRef = useRef(null);
     useEffect(() => {
         if (isDone) {
-            if (timerRef.current) clearInterval(timerRef.current);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
             return;
         }
-        if (isExtracting || stage === 'uploading') {
+        if (isExtracting) {
             if (!timerRef.current) {
                 timerRef.current = setInterval(() => {
                     setElapsedSeconds(prev => prev + 1);
                 }, 1000);
+            }
+        } else {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
             }
         }
         return () => {
@@ -279,7 +288,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                 timerRef.current = null;
             }
         };
-    }, [isDone, isExtracting, stage]);
+    }, [isDone, isExtracting]);
 
     const formattedTime = useMemo(() => {
         const mins = Math.floor(elapsedSeconds / 60);
@@ -325,9 +334,11 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
             if (s.id === 2) {
                 return {
                     ...s,
-                    sublabel: totalPagesCount > 0
+                    sublabel: activeStep === 2 && totalPagesCount > 0
                         ? `${displayedPagesCount}/${totalPagesCount} (${formattedTime})`
-                        : (activeStep > 2 ? 'Extracted' : (isPdf ? 'Reading PDF' : 'Reading pages'))
+                        : activeStep > 2
+                        ? `${totalPagesCount}/${totalPagesCount} Extracted`
+                        : (isPdf ? 'Reading PDF' : 'Reading pages')
                 };
             }
             if (s.id === 3) {

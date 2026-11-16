@@ -34,6 +34,7 @@ export async function uploadAndExtractDocument({
     if (totalSize <= 2 * 1024 * 1024) {
       const uploadResult = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        xhr.timeout = 35000;
         xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk-binary`);
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
         xhr.setRequestHeader('X-Upload-Id', uploadId);
@@ -73,6 +74,7 @@ export async function uploadAndExtractDocument({
           }
         };
 
+        xhr.ontimeout = () => reject(new Error('Upload connection timed out after 35s'));
         xhr.onerror = () => reject(new Error('Network error during file upload'));
         xhr.send(file);
       });
@@ -81,7 +83,7 @@ export async function uploadAndExtractDocument({
       if (uploadResult?.bookId) resolvedBookId = uploadResult.bookId;
     } else {
       // Pure Binary Streaming Chunking (application/octet-stream)
-      // 2MB chunks with 2-lane concurrency: stays safely under 60s proxy timeouts
+      // 2MB chunks with 2-lane concurrency: stays safely under proxy timeouts
       const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
       const concurrency = Math.min(2, totalChunks);
 
@@ -112,6 +114,7 @@ export async function uploadAndExtractDocument({
               const chunkBlob = file.slice(start, end);
 
               const xhr = new XMLHttpRequest();
+              xhr.timeout = 35000;
               xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk-binary`);
               xhr.setRequestHeader('Content-Type', 'application/octet-stream');
               xhr.setRequestHeader('X-Upload-Id', uploadId);
@@ -146,6 +149,7 @@ export async function uploadAndExtractDocument({
                 }
               };
 
+              xhr.ontimeout = () => reject(new Error(`Chunk ${chunkIndex + 1} upload timed out after 35s`));
               xhr.onerror = () => reject(new Error(`Network error on chunk ${chunkIndex + 1}`));
               xhr.send(chunkBlob);
             });

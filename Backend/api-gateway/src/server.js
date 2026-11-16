@@ -1230,4 +1230,11 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[API Gateway] Routing /api/admin -> ${ADMIN_SERVICE_URL}`);
 });
 
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught exception in api-gateway:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled rejection in api-gateway:', reason);
+});
+
 module.exports = app;
