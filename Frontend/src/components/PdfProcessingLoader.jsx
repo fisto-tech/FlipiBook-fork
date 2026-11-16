@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Check, Lightbulb, Bell, ChevronDown, X, Loader2 } from 'lucide-react';
+import { Check, Lightbulb, Bell, ChevronDown, X, Loader2, Minimize2, Maximize2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const FlipibookLogo = '/Login/logo.svg';
@@ -27,6 +27,15 @@ const DEFAULT_STEPS = [
  */
 const PdfProcessingLoader = ({ progress, onCancel }) => {
     const { user } = useAuth() || {};
+
+    const [isMinimized, setIsMinimized] = useState(false);
+
+    // Reset minimized state when a new upload starts
+    useEffect(() => {
+        if (!progress) {
+            setIsMinimized(false);
+        }
+    }, [progress]);
 
     // Keep a "last seen" progress ref so hooks never see stale null and component doesn't remount on null
     const lastProgressRef = useRef(progress);
@@ -274,7 +283,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
 
     return (
         <AnimatePresence>
-            {Boolean(progress) && (
+            {Boolean(progress) && !isMinimized && (
                 <motion.div
                     key="pdf-processing-overlay"
                     className="fixed inset-0 z-[99999] bg-[#F8FAFC] flex flex-col justify-between overflow-x-hidden overflow-y-auto select-none w-screen h-screen"
@@ -314,8 +323,19 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                         />
                     </div>
 
-                    {/* Top Right Controls (Notification Bell & User Profile Avatar Pill) */}
+                    {/* Top Right Controls (Minimize Button + Notification Bell & User Profile Avatar Pill) */}
                     <div className="flex items-center gap-[0.8vw]">
+                        {/* Minimize to Background Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsMinimized(true)}
+                            className="flex items-center gap-[0.35vw] px-[0.9vw] py-[0.45vw] rounded-full bg-white/90 hover:bg-white border border-gray-200 text-gray-700 hover:text-indigo-600 text-[0.78vw] font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer"
+                            title="Minimize to background and continue browsing dashboard"
+                        >
+                            <Minimize2 className="w-[0.9vw] h-[0.9vw]" />
+                            <span>Minimize to Background</span>
+                        </button>
+
                         {/* Notification Bell Button */}
                         <div className="w-[2.4vw] h-[2.4vw] min-w-[2.4vw] min-h-[2.4vw] rounded-full bg-white/90 border border-gray-200/80 shadow-xs flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
                             <Bell className="w-[1vw] h-[1vw] text-gray-600" />
@@ -555,6 +575,23 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                         <span>{displayTip}</span>
                     </motion.div>
 
+                    {/* Minimize to Background Action Button */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="mt-[1.2vw] flex items-center justify-center gap-[0.8vw]"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setIsMinimized(true)}
+                            className="inline-flex items-center gap-[0.45vw] px-[1.2vw] py-[0.55vw] rounded-full bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[0.8vw] font-bold transition-all shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            <Minimize2 className="w-[0.85vw] h-[0.85vw]" />
+                            <span>Continue in Background (Browse Dashboard)</span>
+                        </button>
+                    </motion.div>
+
                     {/* Optional Cancel Upload Action */}
                     {onCancel && (
                         <motion.button
@@ -572,6 +609,74 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
 
                 {/* Footer spacer to maintain balance */}
                 <div className="w-full h-[2vh] pointer-events-none" />
+            </motion.div>
+        )}
+
+        {/* Floating Background Upload Dock (rendered when minimized) */}
+        {Boolean(progress) && isMinimized && (
+            <motion.div
+                key="pdf-processing-minimized"
+                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 30, scale: 0.95 }}
+                className="fixed bottom-6 right-6 z-[99999] w-96 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/90 overflow-hidden select-none p-4"
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8 h-8 rounded-lg ${docBadgeColor} text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs`}>
+                            {docBadgeText}
+                        </div>
+                        <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-gray-900 truncate" title={fileName}>
+                                {fileName || 'Document'}
+                            </h4>
+                            <p className="text-xs text-gray-500 font-medium">
+                                {stage === 'uploading'
+                                    ? `Uploading (${animatedDisplayPercent}%)...`
+                                    : stage === 'extracting'
+                                    ? `Extracting (${displayedPagesCount}/${totalPagesCount})...`
+                                    : stage === 'done'
+                                    ? 'Ready to open'
+                                    : 'Processing pages...'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setIsMinimized(false)}
+                            title="Expand to fullscreen"
+                            className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                        >
+                            <Maximize2 className="w-4 h-4" />
+                        </button>
+                        {onCancel && (
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                title="Cancel upload"
+                                className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2">
+                    <motion.div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+                        style={{ width: `${Math.max(4, animatedDisplayPercent)}%` }}
+                        transition={{ ease: 'easeOut', duration: 0.3 }}
+                    />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-gray-500 font-medium">
+                    <span>{stage === 'uploading' ? 'Step 1 of 4: Uploading' : 'Step 2 of 4: Extracting'}</span>
+                    <span className="font-bold text-indigo-600">{animatedDisplayPercent}%</span>
+                </div>
             </motion.div>
         )}
         </AnimatePresence>

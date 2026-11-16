@@ -75,10 +75,10 @@ export async function uploadAndExtractDocument({
       if (uploadResult?.jobId) jobId = uploadResult.jobId;
       if (uploadResult?.bookId) resolvedBookId = uploadResult.bookId;
     } else {
-      // Turbo 2-Lane Parallel Chunking for files > 2.5MB (each chunk completes in ~12-15s, safely under 60s VPS gateway timeout)
-      const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunk
+      // Turbo 3-Lane Parallel 4MB Chunking for files > 2.5MB (each 4MB chunk completes in ~22-26s, safely under 60s VPS gateway timeout)
+      const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunk (halves total HTTP requests)
       const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
-      const concurrency = Math.min(2, totalChunks); // 2 parallel lanes over HTTP/2 multiplexing (2x faster bandwidth utilization)
+      const concurrency = Math.min(3, totalChunks); // 3 parallel lanes over HTTP/2 multiplexing (3x faster bandwidth utilization)
 
       const chunkProgressBytes = new Array(totalChunks).fill(0);
 
