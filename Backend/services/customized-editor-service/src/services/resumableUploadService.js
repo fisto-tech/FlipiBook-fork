@@ -17,16 +17,19 @@ try {
 } catch (e) {}
 
 /**
- * Handles incoming 5MB binary chunks from client
+ * Handles incoming binary chunks with zero-copy direct byte-offset writing.
+ * Allows out-of-order parallel chunk ingestion with zero assembly latency!
+ *
  * @param {Object} params
  * @param {string} params.uploadId - Unique upload session ID
  * @param {number} params.chunkIndex - Zero-indexed chunk number
  * @param {number} params.totalChunks - Total chunks expected
  * @param {string} params.fileName - Original file name
  * @param {Buffer} params.chunkBuffer - Raw binary chunk data
+ * @param {number} [params.chunkSize] - Standard chunk size in bytes
  * @returns {Promise<{ isComplete: boolean, filePath?: string, uploadId: string, progress: number }>}
  */
-async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, chunkBuffer }) {
+async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, chunkBuffer, chunkSize = 10 * 1024 * 1024 }) {
   if (!uploadId) {
     uploadId = `up_${nanoid(12)}`;
   }
@@ -34,54 +37,48 @@ async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, 
   const uploadDir = path.join(TEMP_CHUNKS_DIR, uploadId);
   await fs.promises.mkdir(uploadDir, { recursive: true });
 
-  const chunkPath = path.join(uploadDir, `chunk_${String(chunkIndex).padStart(6, '0')}`);
-  await fs.promises.writeFile(chunkPath, chunkBuffer);
+  const ext = path.extname(fileName) || '.pdf';
+  const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}${ext}`);
 
-  const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+  // 1. Write chunk directly to destination file at exact byte offset (Zero assembly overhead!)
+  const byteOffset = chunkIndex * chunkSize;
+  const handle = await fs.promises.open(finalFilePath, 'a+');
+  try {
+    await handle.write(chunkBuffer, 0, chunkBuffer.length, byteOffset);
+  } finally {
+    await handle.close();
+  }
 
-  // If not the final chunk, return progress
-  if (chunkIndex < totalChunks - 1) {
+  // 2. Mark this chunk index as completed on disk (crash-safe & supports parallel chunks)
+  const markerPath = path.join(uploadDir, `${String(chunkIndex).padStart(6, '0')}.done`);
+  await fs.promises.writeFile(markerPath, '');
+
+  const doneFiles = await fs.promises.readdir(uploadDir);
+  const doneCount = doneFiles.filter(f => f.endsWith('.done')).length;
+  const progress = Math.min(100, Math.round((doneCount / totalChunks) * 100));
+
+  // 3. If all chunks have arrived, file is ALREADY fully assembled!
+  if (doneCount >= totalChunks) {
+    // Clean up temporary tracking directory in background
+    fs.promises.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
+
+    const stats = await fs.promises.stat(finalFilePath);
     return {
-      isComplete: false,
+      isComplete: true,
       uploadId,
-      chunkIndex,
-      totalChunks,
-      progress
+      filePath: finalFilePath,
+      fileName,
+      fileSize: stats.size,
+      progress: 100
     };
   }
 
-  // All chunks received: Assemble into final file
-  const ext = path.extname(fileName) || '.pdf';
-  const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}_${Date.now()}${ext}`);
-  const writeStream = fs.createWriteStream(finalFilePath);
-
-  for (let i = 0; i < totalChunks; i++) {
-    const partPath = path.join(uploadDir, `chunk_${String(i).padStart(6, '0')}`);
-    if (!fs.existsSync(partPath)) {
-      throw new Error(`Missing chunk index ${i} for upload ${uploadId}`);
-    }
-    const partBuffer = await fs.promises.readFile(partPath);
-    await new Promise((resolve, reject) => {
-      const ok = writeStream.write(partBuffer);
-      if (ok) resolve();
-      else writeStream.once('drain', resolve);
-    });
-  }
-
-  await new Promise((resolve) => writeStream.end(resolve));
-
-  // Clean up chunk files in background
-  fs.promises.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
-
-  const stats = await fs.promises.stat(finalFilePath);
-
   return {
-    isComplete: true,
+    isComplete: false,
     uploadId,
-    filePath: finalFilePath,
-    fileName,
-    fileSize: stats.size,
-    progress: 100
+    chunkIndex,
+    totalChunks,
+    progress
   };
 }
 

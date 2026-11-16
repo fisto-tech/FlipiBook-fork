@@ -41,7 +41,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         pageCount = 0,
         message = '',
         fileName = effectiveProgress?.fileName || '',
-        stage = effectiveProgress?.stage || 'converting',
+        stage = effectiveProgress?.stage || 'uploading',
         percent: explicitPercent
     } = effectiveProgress || {};
 
@@ -99,9 +99,10 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         // Step 1: Uploading -> 0% to 20%
         if (stage === 'uploading') {
             if (explicitPercent !== undefined && explicitPercent !== null) {
-                return Math.min(20, Math.max(1, Math.round((explicitPercent / 100) * 20)));
+                const val = explicitPercent > 20 ? (explicitPercent / 100) * 20 : explicitPercent;
+                return Math.min(20, Math.max(1, Math.round(val)));
             }
-            return 15;
+            return 10;
         }
 
         // Step 2: Extracting Pages -> 15% to 90% (Gradually maps to full progress within batch extraction time)
@@ -128,7 +129,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         if (explicitPercent !== undefined && explicitPercent !== null) {
             return Math.min(99, Math.max(0, Math.round(explicitPercent)));
         }
-        return 68;
+        return 20;
     }, [isDone, explicitPercent, stage, isExtracting, isSaving, totalPagesCount, extractedPagesCount]);
 
     // Monotonicity reference: highest percentage reached so it strictly NEVER drops down
@@ -136,12 +137,15 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
     const highestCountRef = useRef(0);
     const prevFileRef = useRef(fileName);
 
-    // Reset watermark only when a completely new upload begins in uploading stage
+    // Reset watermark when starting an upload or switching files
     useEffect(() => {
-        if (stage === 'uploading' && fileName && fileName !== prevFileRef.current) {
-            prevFileRef.current = fileName;
-            highestPercentRef.current = 0;
+        if (stage === 'uploading') {
+            if (fileName !== prevFileRef.current) {
+                prevFileRef.current = fileName;
+            }
+            highestPercentRef.current = Math.min(20, highestPercentRef.current);
             highestCountRef.current = 0;
+            setFluidPercent(prev => Math.min(20, prev));
         }
     }, [fileName, stage]);
 
