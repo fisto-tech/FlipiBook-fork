@@ -28,6 +28,11 @@ const upload = multer({
   }
 });
 
+const directDocUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB direct upload ceiling
+});
+
 const chunkUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB chunk ceiling
@@ -36,6 +41,19 @@ const chunkUpload = multer({
 // Middleware to handle multer file upload error gracefully
 const handleUpload = (req, res, next) => {
   upload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.message === 'Request aborted' || req.aborted) {
+        return res.status(499).end();
+      }
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
+
+// Middleware to handle direct document upload error gracefully
+const handleDirectDocUpload = (req, res, next) => {
+  directDocUpload.single('file')(req, res, (err) => {
     if (err) {
       if (err.message === 'Request aborted' || req.aborted) {
         return res.status(499).end();
@@ -62,6 +80,7 @@ const handleChunkUploadMiddleware = (req, res, next) => {
 // ==========================================
 // 0. Resumable Chunked Ingestion & Redis Extraction Pipeline (10,000+ Pages)
 // ==========================================
+router.post('/upload-document', optionalAuth, handleDirectDocUpload, resumableController.uploadDocument);
 router.post('/upload-chunk', optionalAuth, handleChunkUploadMiddleware, resumableController.uploadChunk);
 router.get('/extract-stream/:jobId', optionalAuth, resumableController.extractStream);
 router.get('/job-status/:jobId', optionalAuth, resumableController.getJobStatus);
