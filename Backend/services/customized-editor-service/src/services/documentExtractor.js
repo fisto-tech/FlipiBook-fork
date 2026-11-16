@@ -199,10 +199,21 @@ async function processExtractionJob(job) {
     for (let p = 0; p < initialBatchSize; p++) {
       const pageInfo = await extractSinglePage(doc, p, pagesDir, mupdf);
       allPages.push(pageInfo);
+
+      // Report progress on EVERY page so SSE / Redis stream receives live page-by-page updates
+      const progress = Math.round((allPages.length / totalPages) * 100);
+      await queueManager.updateJob(jobId, {
+        availablePages: allPages.length,
+        totalPages,
+        progress,
+        stage: 'extracting',
+        pages: allPages
+      });
     }
 
     await queueManager.updateJob(jobId, {
       availablePages: allPages.length,
+      totalPages,
       initialPagesReady: true,
       stage: totalPages > 10 ? 'streaming_remaining' : 'finalizing',
       progress: Math.round((allPages.length / totalPages) * 100),

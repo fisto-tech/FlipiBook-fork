@@ -150,6 +150,10 @@ export default function Home() {
             message = msg || (pageCount ? `Extracting page ${currOrObj} of ${pageCount} (${pct}%)...` : `Converting ${docLabel} (${pct}%)...`);
           }
           setProcessingProgress(prev => {
+            // Guard: Once reached 'saving' or 'done', never regress back to earlier stages
+            if (prev?.stage === 'saving' || prev?.stage === 'done') {
+              return prev;
+            }
             const resolvedPageCount = (pageCount && pageCount > 0)
               ? Math.max(pageCount, prev?.pageCount || 0, file._pageCount || 0)
               : (prev?.pageCount || file._pageCount || 1);
@@ -339,6 +343,7 @@ export default function Home() {
       const folderVId = (isFolId(createRes?.data?.folder_v_id) ? createRes.data.folder_v_id : null) ||
         (isFolId(createRes?.data?.folder_id) ? createRes.data.folder_id : null) ||
         'default';
+      await new Promise(res => setTimeout(res, 700));
       navigate(`/editor/${encodeURIComponent(folderVId)}/${v_id}`);
 
     } catch (error) {
