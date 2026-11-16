@@ -92,6 +92,8 @@ async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, 
 
 module.exports = {
   handleChunkUpload,
-  TEMP_UPLOADS_DIR
+  TEMP_UPLOADS_DIR,
+  TEMP_CHUNKS_DIR,
+  activeAssemblies
 };
 

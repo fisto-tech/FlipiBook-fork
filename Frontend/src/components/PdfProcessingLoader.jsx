@@ -258,20 +258,93 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         return 1; // Uploading
     }, [stage, isDone, isExtracting, isSaving]);
 
-    const displaySubtitle = "We're analysing your document and extracting the pages, text and images.";
+    // Live Extraction Stopwatch Timer (e.g. 00:14)
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const timerRef = useRef(null);
+    useEffect(() => {
+        if (isDone) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            return;
+        }
+        if (isExtracting || stage === 'uploading') {
+            if (!timerRef.current) {
+                timerRef.current = setInterval(() => {
+                    setElapsedSeconds(prev => prev + 1);
+                }, 1000);
+            }
+        }
+        return () => {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        };
+    }, [isDone, isExtracting, stage]);
+
+    const formattedTime = useMemo(() => {
+        const mins = Math.floor(elapsedSeconds / 60);
+        const secs = elapsedSeconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }, [elapsedSeconds]);
+
+    // Transferred megabytes for Stage 1 (e.g. 22.4 MB / 35.0 MB)
+    const loadedMB = effectiveProgress?.loadedBytes ? (effectiveProgress.loadedBytes / (1024 * 1024)).toFixed(1) : null;
+    const totalMB = effectiveProgress?.totalBytes ? (effectiveProgress.totalBytes / (1024 * 1024)).toFixed(1) : null;
+
+    // Dynamic Live Status Display across both stages
+    const dynamicStatus = useMemo(() => {
+        if (isDone) return "All pages ready! Launching your flipbook...";
+        if (isSaving) return "Finalizing flipbook structure & caching pages...";
+        if (isExtracting) {
+            if (totalPagesCount > 0) {
+                return `Extracting pages: ${displayedPagesCount} / ${totalPagesCount} (${formattedTime})`;
+            }
+            return `Extracting document content (${formattedTime})...`;
+        }
+        if (stage === 'uploading') {
+            if (loadedMB && totalMB) {
+                return `Uploading document: ${loadedMB} MB / ${totalMB} MB (${animatedDisplayPercent}%)`;
+            }
+            return `Uploading document (${animatedDisplayPercent}%)...`;
+        }
+        return "We're analysing your document and extracting the pages, text and images.";
+    }, [isDone, isSaving, isExtracting, totalPagesCount, displayedPagesCount, formattedTime, stage, loadedMB, totalMB, animatedDisplayPercent]);
+
     const displayTip = "Large files may take a little longer. Feel free to stay on this page.";
 
     const steps = useMemo(() => {
         return DEFAULT_STEPS.map(s => {
+            if (s.id === 1) {
+                return {
+                    ...s,
+                    sublabel: (loadedMB && totalMB)
+                        ? `${loadedMB} / ${totalMB} MB`
+                        : (activeStep > 1 ? 'Uploaded' : 'File received')
+                };
+            }
             if (s.id === 2) {
                 return {
                     ...s,
-                    sublabel: isPdf ? 'Reading PDF content' : isPpt ? 'Reading slides' : 'Reading document'
+                    sublabel: totalPagesCount > 0
+                        ? `${displayedPagesCount}/${totalPagesCount} (${formattedTime})`
+                        : (activeStep > 2 ? 'Extracted' : (isPdf ? 'Reading PDF' : 'Reading pages'))
+                };
+            }
+            if (s.id === 3) {
+                return {
+                    ...s,
+                    sublabel: isSaving ? 'Organizing...' : (activeStep > 3 ? 'Organized' : 'Page structure')
+                };
+            }
+            if (s.id === 4) {
+                return {
+                    ...s,
+                    sublabel: isDone ? 'Ready to open' : 'Finalizing'
                 };
             }
             return s;
         });
-    }, [isPdf, isPpt]);
+    }, [isPdf, loadedMB, totalMB, activeStep, totalPagesCount, displayedPagesCount, formattedTime, isSaving, isDone]);
 
     // User Avatar Initials
     const userInitial = useMemo(() => {
@@ -482,8 +555,8 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                     </div>
 
                     {/* Subtitle Line */}
-                    <div className="text-[0.88vw] text-[#64748B] max-w-[34vw] leading-relaxed mb-[2.5vw] font-normal">
-                        <p>{displaySubtitle}</p>
+                    <div className="text-[0.88vw] text-[#475569] max-w-[34vw] leading-relaxed mb-[2.5vw] font-medium">
+                        <p>{dynamicStatus}</p>
                     </div>
 
                     {/* 4-Stage Stepper: Fluid connection lines & smooth step state transitions */}
@@ -633,9 +706,9 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                             </h4>
                             <p className="text-xs text-gray-500 font-medium">
                                 {stage === 'uploading'
-                                    ? `Uploading (${animatedDisplayPercent}%)...`
+                                    ? (loadedMB && totalMB ? `Uploading (${loadedMB} / ${totalMB} MB)...` : `Uploading (${animatedDisplayPercent}%)...`)
                                     : stage === 'extracting'
-                                    ? `Extracting (${displayedPagesCount}/${totalPagesCount})...`
+                                    ? `Extracting (${displayedPagesCount}/${totalPagesCount} pages, ${formattedTime})...`
                                     : stage === 'done'
                                     ? 'Ready to open'
                                     : 'Processing pages...'}

@@ -1,11 +1,13 @@
 /**
  * High-Scale Resumable Uploader for 10,000+ Page Documents
- * - Uses 5MB File.slice() chunks (0ms CPU, <10MB browser RAM)
- * - Server-Sent Events (SSE) for 0ms latency real-time extraction progress
- * - Fast-Launch callback the instant Pages 1-10 are ready (<1 second)
+ * - Pure Binary Streaming (application/octet-stream, 0-copy req.pipe())
+ * - FlippingBook / FlipHTML5 2-Stage Progression:
+ *   Stage 1 (Upload): Live transferred bytes (e.g. 22.4 MB / 35.0 MB)
+ *   Stage 2 (Extraction): Real-time page counter & stopwatch (e.g. 66 / 100 pages, 00:14)
+ *   Stage 3 (Complete): Opens flipbook ONLY when 100% of pages are extracted & verified
  */
 
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunk
+const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunk (safe 10-14s upload per chunk, eliminates Traefik 60s gateway timeouts)
 
 export async function uploadAndExtractDocument({
   file,
@@ -19,7 +21,6 @@ export async function uploadAndExtractDocument({
   onError
 }) {
   const totalSize = file.size;
-  const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
   const uploadId = `up_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
   const resolvedBackend = backendUrl || import.meta.env.VITE_BACKEND_URL || '';
@@ -29,28 +30,32 @@ export async function uploadAndExtractDocument({
     const clientJobId = `job_${uploadId.replace(/^up_/, '')}`;
     let jobId = clientJobId;
 
-    // Fast Path: Direct Streaming Upload for files <= 2.5MB (completes in <15s, safely under 60s gateway timeout)
-    if (totalSize <= 2.5 * 1024 * 1024) {
-      const formData = new FormData();
-      formData.append('userId', userId);
-      formData.append('jobId', clientJobId);
-      if (resolvedBookId) formData.append('bookId', resolvedBookId);
-      if (title) formData.append('title', title);
-      formData.append('file', file, file.name);
-
+    // Fast Path: Direct Streaming Upload for small files <= 2MB
+    if (totalSize <= 2 * 1024 * 1024) {
       const uploadResult = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-document`);
+        xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk-binary`);
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        xhr.setRequestHeader('X-Upload-Id', uploadId);
+        xhr.setRequestHeader('X-Chunk-Index', '0');
+        xhr.setRequestHeader('X-Total-Chunks', '1');
+        xhr.setRequestHeader('X-Chunk-Size', String(totalSize));
+        xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+        xhr.setRequestHeader('X-User-Id', userId);
+        xhr.setRequestHeader('X-Book-Id', resolvedBookId);
+        xhr.setRequestHeader('X-Title', encodeURIComponent(title || file.name));
+        xhr.setRequestHeader('X-Job-Id', clientJobId);
 
         xhr.upload.onprogress = (evt) => {
           if (evt.lengthComputable) {
             const rawPct = Math.round((evt.loaded / evt.total) * 100);
-            const uploadPercent = Math.min(20, Math.max(1, Math.round((rawPct / 100) * 20)));
             if (onProgress) {
               onProgress({
                 stage: 'uploading',
-                percent: uploadPercent,
-                message: `Uploading document (${rawPct}%)...`
+                percent: rawPct,
+                loadedBytes: evt.loaded,
+                totalBytes: evt.total,
+                message: `Uploading document: ${(evt.loaded / (1024 * 1024)).toFixed(1)} MB / ${(evt.total / (1024 * 1024)).toFixed(1)} MB (${rawPct}%)`
               });
             }
           }
@@ -69,16 +74,16 @@ export async function uploadAndExtractDocument({
         };
 
         xhr.onerror = () => reject(new Error('Network error during file upload'));
-        xhr.send(formData);
+        xhr.send(file);
       });
 
       if (uploadResult?.jobId) jobId = uploadResult.jobId;
       if (uploadResult?.bookId) resolvedBookId = uploadResult.bookId;
     } else {
-      // Turbo 3-Lane Parallel 4MB Chunking for files > 2.5MB (each 4MB chunk completes in ~22-26s, safely under 60s VPS gateway timeout)
-      const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunk (halves total HTTP requests)
+      // Pure Binary Streaming Chunking (application/octet-stream)
+      // 2MB chunks with 2-lane concurrency: stays safely under 60s proxy timeouts
       const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
-      const concurrency = Math.min(3, totalChunks); // 3 parallel lanes over HTTP/2 multiplexing (3x faster bandwidth utilization)
+      const concurrency = Math.min(2, totalChunks);
 
       const chunkProgressBytes = new Array(totalChunks).fill(0);
 
@@ -86,12 +91,13 @@ export async function uploadAndExtractDocument({
         const totalUploadedBytes = chunkProgressBytes.reduce((a, b) => a + b, 0);
         const overallRatio = Math.min(1, totalUploadedBytes / totalSize);
         const rawPct = Math.round(overallRatio * 100);
-        const uploadPercent = Math.min(20, Math.max(1, Math.round(overallRatio * 20)));
         if (onProgress) {
           onProgress({
             stage: 'uploading',
-            percent: uploadPercent,
-            message: `Uploading document (${rawPct}%)...`
+            percent: rawPct,
+            loadedBytes: totalUploadedBytes,
+            totalBytes: totalSize,
+            message: `Uploading document: ${(totalUploadedBytes / (1024 * 1024)).toFixed(1)} MB / ${(totalSize / (1024 * 1024)).toFixed(1)} MB (${rawPct}%)`
           });
         }
       };
@@ -105,20 +111,18 @@ export async function uploadAndExtractDocument({
               const end = Math.min(start + CHUNK_SIZE, totalSize);
               const chunkBlob = file.slice(start, end);
 
-              const formData = new FormData();
-              formData.append('userId', userId);
-              formData.append('jobId', clientJobId);
-              if (resolvedBookId) formData.append('bookId', resolvedBookId);
-              if (title) formData.append('title', title);
-              formData.append('uploadId', uploadId);
-              formData.append('chunkIndex', String(chunkIndex));
-              formData.append('totalChunks', String(totalChunks));
-              formData.append('chunkSize', String(CHUNK_SIZE));
-              formData.append('fileName', file.name);
-              formData.append('chunk', chunkBlob, file.name);
-
               const xhr = new XMLHttpRequest();
-              xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk`);
+              xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk-binary`);
+              xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+              xhr.setRequestHeader('X-Upload-Id', uploadId);
+              xhr.setRequestHeader('X-Chunk-Index', String(chunkIndex));
+              xhr.setRequestHeader('X-Total-Chunks', String(totalChunks));
+              xhr.setRequestHeader('X-Chunk-Size', String(CHUNK_SIZE));
+              xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+              xhr.setRequestHeader('X-User-Id', userId);
+              xhr.setRequestHeader('X-Book-Id', resolvedBookId);
+              xhr.setRequestHeader('X-Title', encodeURIComponent(title || file.name));
+              xhr.setRequestHeader('X-Job-Id', clientJobId);
 
               xhr.upload.onprogress = (evt) => {
                 if (evt.lengthComputable) {
@@ -143,7 +147,7 @@ export async function uploadAndExtractDocument({
               };
 
               xhr.onerror = () => reject(new Error(`Network error on chunk ${chunkIndex + 1}`));
-              xhr.send(formData);
+              xhr.send(chunkBlob);
             });
           } catch (err) {
             attempt++;
@@ -167,7 +171,7 @@ export async function uploadAndExtractDocument({
       };
 
       const lanes = [];
-      for (let l = 0; l < Math.min(concurrency, totalChunks); l++) {
+      for (let l = 0; l < concurrency; l++) {
         lanes.push(runLane());
       }
       await Promise.all(lanes);
@@ -178,19 +182,18 @@ export async function uploadAndExtractDocument({
       throw new Error('Failed to retrieve extraction Job ID from server');
     }
 
-    // Signal completion of upload step so UI moves immediately to extraction step
+    // Signal completion of upload step -> UI switches cleanly to Stage 2: Extraction
     if (onProgress) {
       onProgress({
         stage: 'extracting',
-        percent: 20,
+        percent: 0,
         current: 0,
         total: file._pageCount || 1,
-        message: 'Upload complete! Starting extraction...'
+        message: 'Upload complete! Starting page extraction...'
       });
     }
 
-    // Phase 2: Dual SSE Stream + Resilient 1s Poller for Real-Time Extraction Progress
-    let initialTriggered = false;
+    // Phase 2: Dual SSE Stream + Resilient Poller for Real-Time Page Extraction
     let pollInterval = null;
     let eventSource = null;
 
@@ -211,37 +214,19 @@ export async function uploadAndExtractDocument({
       const total = job.totalPages || file._pageCount || 1;
       const available = (job.availablePages !== undefined && job.availablePages !== null) ? job.availablePages : 0;
       const progressVal = job.progress || (total ? Math.round((available / total) * 100) : 0);
-      const overallPercent = 20 + Math.round(progressVal * 0.72);
 
       if (onProgress) {
         onProgress({
           stage: 'extracting',
-          percent: Math.min(92, overallPercent),
+          percent: progressVal,
           current: available,
           total: total,
           message: `Extracting page ${available} of ${total}...`
         });
       }
 
-      // Fast-Launch trigger: Pages 1-10 are ready!
-      if (job.initialPagesReady && !initialTriggered) {
-        initialTriggered = true;
-        cleanup();
-        if (onInitialReady) {
-          onInitialReady({
-            bookId: resolvedBookId,
-            userId: job.userId || userId,
-            totalPages: job.totalPages || total,
-            initialPages: job.pages,
-            width: job.width,
-            height: job.height,
-            aspectRatio: job.aspectRatio
-          });
-        }
-      }
-
-      // Complete trigger: All pages (even 10,000) are extracted!
-      if (job.status === 'completed') {
+      // Complete trigger: opens ONLY when 100% of all pages are extracted and verified
+      if (job.status === 'completed' || (total > 0 && available >= total && job.pages?.length >= total)) {
         cleanup();
         if (onComplete) {
           onComplete({
@@ -279,7 +264,7 @@ export async function uploadAndExtractDocument({
       console.warn('[SSE Setup Error]:', e);
     }
 
-    // 2. Secondary: Resilient 1-second Polling fallback (ensures progress never stalls if SSE is buffered by proxy/CDN)
+    // 2. Secondary: Resilient 1-second Polling fallback
     pollInterval = setInterval(async () => {
       try {
         const res = await fetch(`${resolvedBackend}/api/customized-editor/job-status/${jobId}`);
@@ -297,55 +282,8 @@ export async function uploadAndExtractDocument({
   }
 }
 
-async function pollJobStatus(backendUrl, jobId, userId, bookId, onInitialReady, onComplete, onError) {
-  let initialTriggered = false;
-  const interval = setInterval(async () => {
-    try {
-      const res = await fetch(`${backendUrl}/api/customized-editor/job-status/${jobId}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const job = data.job;
-      if (!job) return;
-
-      if (job.initialPagesReady && !initialTriggered) {
-        initialTriggered = true;
-        if (onInitialReady) {
-          onInitialReady({
-            bookId: job.bookId || bookId,
-            userId: job.userId || userId,
-            totalPages: job.totalPages,
-            initialPages: job.pages,
-            width: job.width,
-            height: job.height,
-            aspectRatio: job.aspectRatio
-          });
-        }
-      }
-
-      if (job.status === 'completed') {
-        clearInterval(interval);
-        if (onComplete) {
-          onComplete({
-            bookId: job.bookId || bookId,
-            userId: job.userId || userId,
-            totalPages: job.totalPages || (job.manifest && job.manifest.totalPages),
-            initialPages: job.pages || (job.manifest && job.manifest.pages),
-            width: job.width || (job.manifest && job.manifest.width),
-            height: job.height || (job.manifest && job.manifest.height),
-            aspectRatio: job.aspectRatio || (job.manifest && job.manifest.aspectRatio),
-            manifest: job.manifest
-          });
-        }
-      } else if (job.status === 'failed') {
-        clearInterval(interval);
-        if (onError) onError(new Error(job.error || 'Extraction failed'));
-      }
-    } catch (e) {}
-  }, 1000);
-}
-
 /**
- * Promise wrapper to extract document via server and return initial pages immediately
+ * Promise wrapper to extract document via server and return all pages when 100% complete
  */
 export function extractDocumentViaServer(file, options = {}) {
   return new Promise((resolve, reject) => {
@@ -375,9 +313,6 @@ export function extractDocumentViaServer(file, options = {}) {
       title: options.title || file.name,
       backendUrl: options.backendUrl || '',
       onProgress: options.onProgress,
-      onInitialReady: (data) => {
-        handleReady(data);
-      },
       onComplete: (data) => {
         handleReady(data);
       },

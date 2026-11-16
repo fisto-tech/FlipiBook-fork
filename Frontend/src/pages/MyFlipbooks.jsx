@@ -556,21 +556,21 @@ export default function MyFlipbooks() {
                     fileName: file.name,
                     stage: 'uploading'
                 });
-                // Fast-Launch Architecture (FlipHTML5 / FlippingBook pattern):
-                // For PDF documents with > 4 pages, extract first 4 pages for instant editor launch in <2s,
-                // and stream remaining balance pages in background with zero UI blocking.
-                // Modern Office documents (.docx, .pptx) are converted client-side in one pass and should not be partitioned.
-                const isOffice = docType === 'word' || docType === 'powerpoint';
-                const isSingleLargeDoc = !isOffice && files.length === 1 && detectedCount > 4;
-                const earlyExtractLimit = isSingleLargeDoc ? 4 : Infinity;
+                // Pure Binary Streaming & Full Extraction Architecture (FlippingBook / FlipHTML5 standard):
+                // 1. Stage 1 (Upload): Pure binary streams (application/octet-stream) with live MB counter
+                // 2. Stage 2 (Extract): Live page counter & stopwatch (e.g. 66 / 100 pages, 00:14)
+                // 3. Stage 3 (Complete): Open flipbook ONLY when 100% of pages are extracted & verified
+                const earlyExtractLimit = Infinity;
 
                 const images = await convertPdfWithInkscape(file, earlyExtractLimit, backendUrl, (currOrObj, total, pct, stage, msg) => {
-                    let current, pageCount, percent, message, currentStage;
+                    let current, pageCount, percent, message, currentStage, loadedBytes, totalBytes;
                     if (typeof currOrObj === 'object' && currOrObj !== null) {
                         percent = currOrObj.percent ?? currOrObj.pct;
                         current = currOrObj.current ?? currOrObj.curr;
                         pageCount = currOrObj.total ?? currOrObj.pageCount ?? file._pageCount;
                         currentStage = currOrObj.stage || 'converting';
+                        loadedBytes = currOrObj.loadedBytes;
+                        totalBytes = currOrObj.totalBytes;
                         message = currOrObj.message || (percent !== undefined ? `Converting ${docLabel} (${percent}%)...` : `Converting ${docLabel}...`);
                     } else {
                         current = currOrObj;
@@ -594,6 +594,8 @@ export default function MyFlipbooks() {
                             total: resolvedPageCount,
                             pageCount: resolvedPageCount,
                             percent: percent !== undefined ? percent : prev?.percent,
+                            loadedBytes: loadedBytes !== undefined ? loadedBytes : prev?.loadedBytes,
+                            totalBytes: totalBytes !== undefined ? totalBytes : (prev?.totalBytes || file.size),
                             message: message || prev?.message,
                             fileName: file.name,
                             stage: currentStage || prev?.stage || 'converting'
@@ -724,10 +726,9 @@ export default function MyFlipbooks() {
 
             const orientation = maxWidth > maxHeight ? 'landscape' : (Math.abs(maxWidth - maxHeight) < 2 ? 'square' : 'portrait');
 
-            // Save initial 2 pages to create the book record on server in <200ms
-            const initialBatchSize = Math.min(allPages.length, 2);
-            const initialBatch = allPages.slice(0, initialBatchSize);
-            const readyRemainingPages = allPages.slice(initialBatchSize).filter(p => !p.isPlaceholder);
+            // Save ALL extracted and verified pages directly to server and DB
+            const initialBatch = allPages;
+            const readyRemainingPages = [];
 
             setProcessingProgress(prev => ({
                 ...(prev || {}),
@@ -735,8 +736,8 @@ export default function MyFlipbooks() {
                 total: totalDocPages,
                 totalFiles: files.length,
                 pageCount: totalDocPages,
-                percent: 94,
-                message: isProgressive ? 'Fast-launching editor...' : 'Preparing flipbook...',
+                percent: 96,
+                message: 'Preparing flipbook...',
                 fileName: uniqueName,
                 stage: 'saving'
             }));
@@ -864,7 +865,7 @@ export default function MyFlipbooks() {
                 totalFiles: files.length,
                 pageCount: totalDocPages,
                 percent: 100,
-                message: isProgressive ? 'Editor ready! Streaming balance pages in background...' : 'Opening flipbook...',
+                message: 'All pages ready! Opening flipbook...',
                 fileName: uniqueName,
                 stage: 'done'
             }));
