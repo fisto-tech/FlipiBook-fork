@@ -240,9 +240,7 @@ export const convertPdfToImages = async (file, scale = 2.5, maxPages = Infinity,
     onProgress: (p) => {
       if (onProgress && typeof onProgress === 'function') {
         try {
-          const resolvedCurrent = (p.current !== undefined && p.current !== null) ? p.current : 0;
-          const resolvedTotal = (p.total !== undefined && p.total !== null && p.total > 0) ? p.total : (file._pageCount || 1);
-          onProgress(resolvedCurrent, resolvedTotal, p.percent !== undefined ? p.percent : 0, p.stage || 'extracting', p.message || 'Extracting document...');
+          onProgress(p);
         } catch (e) {}
       }
     }
@@ -251,7 +249,7 @@ export const convertPdfToImages = async (file, scale = 2.5, maxPages = Infinity,
   const userId = data.userId || 'FLIPI0001';
   const bookId = data.bookId;
   const baseUrl = `/storage/${userId}/books/${bookId}/pages/`;
-  const initialPages = data.initialPages || [];
+  const initialPages = (data.manifest && data.manifest.pages) || data.initialPages || [];
 
   const results = initialPages.map((p) => {
     const webpUrl = `${baseUrl}${p.image}`;
@@ -271,7 +269,7 @@ export const convertPdfToImages = async (file, scale = 2.5, maxPages = Infinity,
   });
 
   results.totalPages = data.totalPages || results.length;
-  results.isPartial = results.totalPages > results.length;
+  results.isPartial = false;
   results.bookId = bookId;
   results.userId = userId;
   return results;

@@ -102,6 +102,7 @@ const handleChunkUploadMiddleware = (req, res, next) => {
 // ==========================================
 router.post('/upload-document', optionalAuth, handleDirectDocUpload, resumableController.uploadDocument);
 router.post('/upload-chunk', optionalAuth, handleChunkUploadMiddleware, resumableController.uploadChunk);
+router.post('/upload-chunk-binary', optionalAuth, resumableController.uploadChunkBinary);
 router.get('/extract-stream/:jobId', optionalAuth, resumableController.extractStream);
 router.get('/job-status/:jobId', optionalAuth, resumableController.getJobStatus);
 router.get('/manifest/:userId/:bookId', optionalAuth, resumableController.getBookManifest);

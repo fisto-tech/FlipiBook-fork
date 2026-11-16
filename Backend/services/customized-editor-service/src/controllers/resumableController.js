@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { nanoid } = require('nanoid');
-const { handleChunkUpload, TEMP_UPLOADS_DIR } = require('../services/resumableUploadService');
+const { handleChunkUpload, TEMP_UPLOADS_DIR, TEMP_CHUNKS_DIR, activeAssemblies } = require('../services/resumableUploadService');
 const queueManager = require('../services/queueService');
 require('../services/documentExtractor'); // Register worker:start listener
 
@@ -136,6 +136,107 @@ exports.uploadChunk = async (req, res) => {
   } catch (err) {
     console.error('[Upload Chunk Error]:', err);
     return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * Pure Binary Zero-Copy Chunk Streaming (FlipHTML5 / FlippingBook Architecture)
+ * - Raw binary body (application/octet-stream) piped directly to disk
+ * - Zero Multer, zero Busboy, zero multipart boundary parsing
+ * - FlippingBook state protocol: returns completedChunks array and state: 'WaitingMoreData'
+ * POST /api/customized-editor/upload-chunk-binary
+ */
+exports.uploadChunkBinary = async (req, res) => {
+  try {
+    const uploadId = req.headers['x-upload-id'] || `up_${nanoid(12)}`;
+    const chunkIndex = parseInt(req.headers['x-chunk-index'], 10) || 0;
+    const totalChunks = parseInt(req.headers['x-total-chunks'], 10) || 1;
+    const chunkSize = parseInt(req.headers['x-chunk-size'], 10) || (2 * 1024 * 1024);
+    const fileName = decodeURIComponent(req.headers['x-file-name'] || 'document.pdf');
+    const userId = req.headers['x-user-id'] || 'FLIPI0001';
+    const bookId = req.headers['x-book-id'] || nanoid(16);
+    const title = decodeURIComponent(req.headers['x-title'] || fileName);
+    const clientJobId = req.headers['x-job-id'];
+
+    const uploadDir = path.join(TEMP_CHUNKS_DIR, uploadId);
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+
+    const partPath = path.join(uploadDir, `${String(chunkIndex).padStart(6, '0')}.part`);
+    const fileStream = fs.createWriteStream(partPath);
+
+    req.pipe(fileStream);
+
+    fileStream.on('error', (err) => {
+      console.error('[Binary Upload] Stream write error:', err);
+      if (!res.headersSent) res.status(500).json({ success: false, message: err.message });
+    });
+
+    fileStream.on('finish', async () => {
+      const files = await fs.promises.readdir(uploadDir);
+      const partFiles = files.filter(f => f.endsWith('.part')).sort();
+      const progress = Math.min(100, Math.round((partFiles.length / totalChunks) * 100));
+      const completedChunks = partFiles.map(f => parseInt(f.replace('.part', ''), 10));
+
+      if (partFiles.length >= totalChunks && !activeAssemblies.has(uploadId)) {
+        activeAssemblies.add(uploadId);
+        try {
+          const ext = path.extname(fileName) || '.pdf';
+          const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}${ext}`);
+          const finalStream = fs.createWriteStream(finalFilePath);
+          for (const part of partFiles) {
+            const partBuf = await fs.promises.readFile(path.join(uploadDir, part));
+            finalStream.write(partBuf);
+          }
+          await new Promise((resolve, reject) => {
+            finalStream.end(resolve);
+            finalStream.on('error', reject);
+          });
+
+          fs.promises.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
+
+          const jobId = clientJobId || `job_${nanoid(12)}`;
+          try {
+            await queueManager.createJob({
+              jobId,
+              userId,
+              bookId,
+              title,
+              filePath: finalFilePath,
+              fileName
+            });
+          } catch (qErr) {
+            console.error('[Binary Upload] Queue warning:', qErr.message);
+          }
+
+          return res.json({
+            success: true,
+            isComplete: true,
+            state: 'Complete',
+            uploadId,
+            bookId,
+            jobId,
+            completedChunks,
+            progress: 100
+          });
+        } finally {
+          activeAssemblies.delete(uploadId);
+        }
+      }
+
+      return res.json({
+        success: true,
+        isComplete: false,
+        state: 'WaitingMoreData',
+        uploadId,
+        bookId,
+        chunkIndex,
+        completedChunks,
+        progress
+      });
+    });
+  } catch (err) {
+    console.error('[Binary Upload Error]:', err);
+    if (!res.headersSent) res.status(500).json({ success: false, message: err.message });
   }
 };
 
