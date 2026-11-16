@@ -44,7 +44,7 @@ export async function uploadAndExtractDocument({
       if (resolvedBookId) formData.append('bookId', resolvedBookId);
       if (title) formData.append('title', title);
 
-      const uploadPercent = Math.round(((chunkIndex + 1) / totalChunks) * 30); // Upload represents first 30%
+      const uploadPercent = Math.round(((chunkIndex + 1) / totalChunks) * 20); // Upload represents first 20%
       if (onProgress) {
         onProgress({
           stage: 'uploading',
@@ -75,6 +75,17 @@ export async function uploadAndExtractDocument({
       throw new Error('Failed to retrieve extraction Job ID from server');
     }
 
+    // Signal completion of upload step so UI moves immediately to extraction step
+    if (onProgress) {
+      onProgress({
+        stage: 'extracting',
+        percent: 20,
+        current: 0,
+        total: 1,
+        message: 'Upload complete! Starting extraction...'
+      });
+    }
+
     // Phase 2: Listen to SSE Extraction Stream
     const eventSource = new EventSource(`${resolvedBackend}/api/customized-editor/extract-stream/${jobId}`);
     let initialTriggered = false;
@@ -83,24 +94,25 @@ export async function uploadAndExtractDocument({
       try {
         const job = JSON.parse(event.data);
 
-        // Progress calculation: 30% upload + 70% extraction
-        const overallPercent = 30 + Math.round((job.progress || 0) * 0.7);
+        // Progress calculation: 20% upload + up to 72% extraction (maps level-by-level)
+        const progressVal = job.progress || (job.totalPages ? Math.round(((job.availablePages || 0) / job.totalPages) * 100) : 0);
+        const overallPercent = 20 + Math.round(progressVal * 0.72);
 
         if (onProgress) {
           onProgress({
-            stage: job.stage || 'extracting',
-            percent: overallPercent,
+            stage: 'extracting',
+            percent: Math.min(92, overallPercent),
             current: job.availablePages || 1,
             total: job.totalPages || 1,
-            message: job.stage === 'extracting_initial'
-              ? 'Fast-extracting first pages for instant preview...'
-              : `Extracting pages: ${job.availablePages || 0} of ${job.totalPages || 0} ready...`
+            message: `Extracting page ${job.availablePages || 1} of ${job.totalPages || 1}...`
           });
         }
 
         // Fast-Launch trigger: Pages 1-10 are ready!
         if (job.initialPagesReady && !initialTriggered) {
           initialTriggered = true;
+          // Close SSE stream immediately so background extraction events don't leak into the loader
+          try { eventSource.close(); } catch (_) {}
           if (onInitialReady) {
             onInitialReady({
               bookId: resolvedBookId,

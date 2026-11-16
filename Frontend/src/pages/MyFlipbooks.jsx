@@ -579,6 +579,10 @@ export default function MyFlipbooks() {
                         message = msg || (pageCount ? `Extracting page ${currOrObj} of ${pageCount} (${pct}%)...` : `Converting ${docLabel} (${pct}%)...`);
                     }
                     setProcessingProgress(prev => {
+                        // Guard: Once reached 'saving' or 'done', never regress back to earlier stages
+                        if (prev?.stage === 'saving' || prev?.stage === 'done') {
+                            return prev;
+                        }
                         const resolvedPageCount = (pageCount && pageCount > 0)
                             ? Math.max(pageCount, prev?.pageCount || 0, file._pageCount || 0)
                             : (prev?.pageCount || file._pageCount || 1);
@@ -870,8 +874,8 @@ export default function MyFlipbooks() {
             fetchLiveStorageSettings();
             window.dispatchEvent(new CustomEvent('flipibook_storage_updated'));
 
-            // Smooth transition: brief delay to let spring physics smoothly glide to 100%
-            await new Promise(res => setTimeout(res, 220));
+            // Smooth transition: brief delay to let spring physics smoothly glide to 100% and show Step 4 complete
+            await new Promise(res => setTimeout(res, 700));
 
             // Navigate to the customized editor IMMEDIATELY (pass initial pages to stay within history quota)
             const safeStatePages = allPages.length > 20 ? allPages.slice(0, 10) : allPages;

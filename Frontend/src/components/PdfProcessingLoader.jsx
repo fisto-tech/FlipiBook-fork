@@ -113,7 +113,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                 const ratio = Math.min(1, Math.max(0, extractedPagesCount / totalPagesCount));
                 return Math.min(90, Math.round(15 + ratio * 75));
             }
-            return 50;
+            return 25;
         }
 
         // Step 3: Processing & Saving -> 90% to 98% (Smooth, never freezes at 98%, 100% when stage === 'done')

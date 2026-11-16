@@ -2860,7 +2860,7 @@ exports.getBook = async (req, res) => {
       const pageObj = p.toObject ? p.toObject() : { ...p };
       let pageContent = "";
 
-      // MUST load page data directly from local storage file on disk first
+      // MUST load page data directly from local storage file on disk first (text markup files only)
       for (const candDir of dirsToSearch) {
         const candidateFiles = [
           pageObj.fileName
@@ -2876,8 +2876,12 @@ exports.getBook = async (req, res) => {
 
         for (const fPath of candidateFiles) {
           try {
+            // NEVER read binary image files as UTF-8 text! (e.g. .webp, .png, .jpg)
+            if (/\.(webp|png|jpe?g|gif|bmp|ico)$/i.test(fPath)) {
+              continue;
+            }
             const str = await fs.promises.readFile(fPath, "utf8");
-            if (str && str.trim()) {
+            if (str && str.trim() && !str.startsWith("RIFF")) {
               pageContent = str;
               break;
             }
@@ -2887,8 +2891,19 @@ exports.getBook = async (req, res) => {
       }
 
       // Fallback to MongoDB only if local storage file does not exist
-      if (!pageContent) {
+      if (!pageContent || pageContent.startsWith("RIFF")) {
         pageContent = pageObj.content || pageObj.html || "";
+      }
+
+      // If pageContent was corrupted with raw RIFF or empty, wrap image in SVG cleanly
+      if (!pageContent || pageContent.startsWith("RIFF")) {
+        const imageFile = pageObj.fileName && /\.(webp|png|jpe?g)$/i.test(pageObj.fileName)
+          ? pageObj.fileName
+          : `${pageObj.pageNumber}.webp`;
+        const webpRel = pageObj.imageUrl || `/storage/${book.userID || customUserId || 'FLIPI0001'}/books/${book.v_id}/pages/${imageFile}`;
+        const w = (book.meta && book.meta.width) || 210;
+        const h = (book.meta && book.meta.height) || 297;
+        pageContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${pageObj.pageNumber}" data-name="Page ${pageObj.pageNumber}"><image id="img-page-${pageObj.pageNumber}" x="0" y="0" width="${w}" height="${h}" href="${webpRel}" xlink:href="${webpRel}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
       }
 
       const cleanName = String(pageObj.name || "")

@@ -37,11 +37,19 @@ class ExtractionQueueManager extends EventEmitter {
         // Silently handle subscriber connection errors without crashing
       });
 
-      this.subRedis.psubscribe('job:update:*', (err) => {
-        if (err) {
-          console.warn('[QueueManager] Redis psubscribe error:', err.message);
-        }
-      });
+      const subscribeToUpdates = () => {
+        this.subRedis.psubscribe('job:update:*', (err) => {
+          if (err) {
+            console.warn('[QueueManager] Redis psubscribe error:', err.message);
+          }
+        });
+      };
+
+      if (this.subRedis.status === 'ready') {
+        subscribeToUpdates();
+      } else {
+        this.subRedis.once('ready', subscribeToUpdates);
+      }
 
       this.subRedis.on('pmessage', (pattern, channel, message) => {
         try {

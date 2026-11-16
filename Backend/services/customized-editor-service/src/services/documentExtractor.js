@@ -13,13 +13,27 @@ const storageRoot = process.env.STORAGE_PATH
 const CANDIDATE_CWEBP = [
   '/opt/homebrew/bin/cwebp',
   '/usr/local/bin/cwebp',
-  '/usr/bin/cwebp',
-  'cwebp'
+  '/usr/bin/cwebp'
 ];
 
 let cachedCwebp = null;
 function getCwebp() {
   if (cachedCwebp) return cachedCwebp;
+
+  if (process.env.CWEBP_PATH && fs.existsSync(process.env.CWEBP_PATH)) {
+    cachedCwebp = process.env.CWEBP_PATH;
+    return cachedCwebp;
+  }
+
+  try {
+    const cwebpBin = require('cwebp-bin');
+    const binPath = typeof cwebpBin === 'string' ? cwebpBin : (cwebpBin && cwebpBin.default);
+    if (binPath && fs.existsSync(binPath)) {
+      cachedCwebp = binPath;
+      return cachedCwebp;
+    }
+  } catch (e) {}
+
   for (const c of CANDIDATE_CWEBP) {
     try {
       if (fs.existsSync(c)) {
@@ -38,9 +52,29 @@ async function getMuPdf() {
   if (!mupdfModule) {
     try {
       mupdfModule = await import('mupdf');
-    } catch (e) {
-      const mupdfPath = path.resolve(__dirname, '../../node_modules/mupdf/dist/mupdf.js');
-      mupdfModule = await import(pathToFileURL(mupdfPath).href);
+      return mupdfModule;
+    } catch (_) {}
+
+    const candidatePaths = [
+      path.resolve(__dirname, '../../../../node_modules/mupdf/dist/mupdf.js'),
+      path.resolve(__dirname, '../../node_modules/mupdf/dist/mupdf.js')
+    ];
+
+    for (const cPath of candidatePaths) {
+      if (fs.existsSync(cPath)) {
+        try {
+          mupdfModule = await import(pathToFileURL(cPath).href);
+          return mupdfModule;
+        } catch (_) {}
+      }
+    }
+
+    try {
+      const resolved = require.resolve('mupdf/dist/mupdf.js');
+      mupdfModule = await import(pathToFileURL(resolved).href);
+      return mupdfModule;
+    } catch (finalErr) {
+      throw new Error(`Failed to load MuPDF module: ${finalErr.message}`);
     }
   }
   return mupdfModule;
@@ -165,10 +199,21 @@ async function processExtractionJob(job) {
     for (let p = 0; p < initialBatchSize; p++) {
       const pageInfo = await extractSinglePage(doc, p, pagesDir, mupdf);
       allPages.push(pageInfo);
+
+      // Report progress on EVERY page so SSE / Redis stream receives live page-by-page updates
+      const progress = Math.round((allPages.length / totalPages) * 100);
+      await queueManager.updateJob(jobId, {
+        availablePages: allPages.length,
+        totalPages,
+        progress,
+        stage: 'extracting',
+        pages: allPages
+      });
     }
 
     await queueManager.updateJob(jobId, {
       availablePages: allPages.length,
+      totalPages,
       initialPagesReady: true,
       stage: totalPages > 10 ? 'streaming_remaining' : 'finalizing',
       progress: Math.round((allPages.length / totalPages) * 100),
@@ -196,16 +241,20 @@ async function processExtractionJob(job) {
           try {
             const mongoose = require('mongoose');
             if (mongoose.connection && mongoose.connection.db) {
-              const currentPagesFormatted = allPages.map(ap => ({
-                id: ap.pageNumber,
-                pageNumber: ap.pageNumber,
-                name: `Page ${ap.pageNumber}`,
-                fileName: `${ap.pageNumber}.webp`,
-                imageUrl: `/storage/${userId}/books/${bookId}/pages/${ap.pageNumber}.webp`,
-                content: `<div style="position:relative;width:100%;height:100%;"><img src="/storage/${userId}/books/${bookId}/pages/${ap.pageNumber}.webp" style="width:100%;height:100%;object-fit:contain;display:block;" alt="Page ${ap.pageNumber}" /></div>`,
-                html: `<div style="position:relative;width:100%;height:100%;"><img src="/storage/${userId}/books/${bookId}/pages/${ap.pageNumber}.webp" style="width:100%;height:100%;object-fit:contain;display:block;" alt="Page ${ap.pageNumber}" /></div>`,
-                isPlaceholder: false
-              }));
+              const currentPagesFormatted = allPages.map(ap => {
+                const webpUrl = `/storage/${userId}/books/${bookId}/pages/${ap.pageNumber}.webp`;
+                const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${widthMm || 210} ${heightMm || 297}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${ap.pageNumber}" data-name="Page ${ap.pageNumber}"><image id="img-page-${ap.pageNumber}" x="0" y="0" width="${widthMm || 210}" height="${heightMm || 297}" href="${webpUrl}" xlink:href="${webpUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
+                return {
+                  id: ap.pageNumber,
+                  pageNumber: ap.pageNumber,
+                  name: `Page ${ap.pageNumber}`,
+                  fileName: `Page ${ap.pageNumber}.svg`,
+                  imageUrl: webpUrl,
+                  content: svgContent,
+                  html: svgContent,
+                  isPlaceholder: false
+                };
+              });
               await mongoose.connection.db.collection('flipbooks').updateOne(
                 { v_id: bookId },
                 { $set: { pages: currentPagesFormatted, pagesCount: totalPages } }
