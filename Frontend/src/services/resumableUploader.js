@@ -32,11 +32,11 @@ export async function uploadAndExtractDocument({
     // Fast Path: Direct High-Speed Streaming Upload for files <= 100MB (Zero socket-stall overhead, finishes in seconds!)
     if (totalSize <= 100 * 1024 * 1024) {
       const formData = new FormData();
-      formData.append('file', file, file.name);
       formData.append('userId', userId);
       formData.append('jobId', clientJobId);
       if (resolvedBookId) formData.append('bookId', resolvedBookId);
       if (title) formData.append('title', title);
+      formData.append('file', file, file.name);
 
       const uploadResult = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();

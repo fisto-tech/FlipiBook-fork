@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 
 const { authenticateUser, optionalAuth } = require('../middlewares/authMiddleware');
 const controller = require('../controllers/customizedEditorController');
@@ -34,6 +35,11 @@ const { TEMP_UPLOADS_DIR } = require('../services/resumableUploadService');
 // Direct streaming to disk storage (0MB RAM heap allocation, zero socket blocking)
 const docDiskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
+    try {
+      if (!fs.existsSync(TEMP_UPLOADS_DIR)) {
+        fs.mkdirSync(TEMP_UPLOADS_DIR, { recursive: true });
+      }
+    } catch (_) {}
     cb(null, TEMP_UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
