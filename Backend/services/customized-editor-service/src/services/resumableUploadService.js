@@ -29,7 +29,7 @@ try {
  * @param {number} [params.chunkSize] - Standard chunk size in bytes
  * @returns {Promise<{ isComplete: boolean, filePath?: string, uploadId: string, progress: number }>}
  */
-async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, chunkBuffer, chunkSize = 10 * 1024 * 1024 }) {
+async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, chunkBuffer, chunkSize = 2 * 1024 * 1024 }) {
   if (!uploadId) {
     uploadId = `up_${nanoid(12)}`;
   }
@@ -40,26 +40,27 @@ async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, 
   const ext = path.extname(fileName) || '.pdf';
   const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}${ext}`);
 
-  // 1. Write chunk directly to destination file at exact byte offset (Zero assembly overhead!)
-  const byteOffset = chunkIndex * chunkSize;
-  const handle = await fs.promises.open(finalFilePath, 'a+');
-  try {
-    await handle.write(chunkBuffer, 0, chunkBuffer.length, byteOffset);
-  } finally {
-    await handle.close();
-  }
+  // 1. Write chunk part directly to disk (100% crash-safe & compatible with all Docker bind mounts)
+  const partPath = path.join(uploadDir, `${String(chunkIndex).padStart(6, '0')}.part`);
+  await fs.promises.writeFile(partPath, chunkBuffer);
 
-  // 2. Mark this chunk index as completed on disk (crash-safe & supports parallel chunks)
-  const markerPath = path.join(uploadDir, `${String(chunkIndex).padStart(6, '0')}.done`);
-  await fs.promises.writeFile(markerPath, '');
+  const files = await fs.promises.readdir(uploadDir);
+  const partFiles = files.filter(f => f.endsWith('.part')).sort();
+  const progress = Math.min(100, Math.round((partFiles.length / totalChunks) * 100));
 
-  const doneFiles = await fs.promises.readdir(uploadDir);
-  const doneCount = doneFiles.filter(f => f.endsWith('.done')).length;
-  const progress = Math.min(100, Math.round((doneCount / totalChunks) * 100));
+  // 2. If all chunks have arrived, assemble parts sequentially into final file
+  if (partFiles.length >= totalChunks) {
+    const finalStream = fs.createWriteStream(finalFilePath);
+    for (const part of partFiles) {
+      const partBuf = await fs.promises.readFile(path.join(uploadDir, part));
+      finalStream.write(partBuf);
+    }
+    await new Promise((resolve, reject) => {
+      finalStream.end(resolve);
+      finalStream.on('error', reject);
+    });
 
-  // 3. If all chunks have arrived, file is ALREADY fully assembled!
-  if (doneCount >= totalChunks) {
-    // Clean up temporary tracking directory in background
+    // Clean up temporary chunks directory
     fs.promises.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
 
     const stats = await fs.promises.stat(finalFilePath);

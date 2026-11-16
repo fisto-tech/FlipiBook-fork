@@ -29,8 +29,8 @@ export async function uploadAndExtractDocument({
     const clientJobId = `job_${uploadId.replace(/^up_/, '')}`;
     let jobId = clientJobId;
 
-    // Fast Path: Direct High-Speed Streaming Upload for files <= 100MB (Zero socket-stall overhead, finishes in seconds!)
-    if (totalSize <= 100 * 1024 * 1024) {
+    // Fast Path: Direct Streaming Upload for files <= 2.5MB (completes in <15s, safely under 60s gateway timeout)
+    if (totalSize <= 2.5 * 1024 * 1024) {
       const formData = new FormData();
       formData.append('userId', userId);
       formData.append('jobId', clientJobId);
@@ -75,11 +75,10 @@ export async function uploadAndExtractDocument({
       if (uploadResult?.jobId) jobId = uploadResult.jobId;
       if (uploadResult?.bookId) resolvedBookId = uploadResult.bookId;
     } else {
-      // Robust Resumable Chunking for massive files (>100MB)
-      // Dedicated single-lane socket prevents Chrome connection pool stalling and avoids 502 gateway timeouts!
-      const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunk
+      // Resilient 2MB Chunking for files > 2.5MB (each chunk completes in ~15s, safely under 60s VPS gateway timeout)
+      const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunk
       const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
-      const concurrency = 1; // 1 dedicated lane to maximize bandwidth without socket saturation
+      const concurrency = 1; // 1 dedicated sequential lane to maximize bandwidth without socket saturation
 
       const chunkProgressBytes = new Array(totalChunks).fill(0);
 
@@ -104,16 +103,16 @@ export async function uploadAndExtractDocument({
           const chunkBlob = file.slice(start, end);
 
           const formData = new FormData();
-          formData.append('chunk', chunkBlob, file.name);
+          formData.append('userId', userId);
+          formData.append('jobId', clientJobId);
+          if (resolvedBookId) formData.append('bookId', resolvedBookId);
+          if (title) formData.append('title', title);
           formData.append('uploadId', uploadId);
           formData.append('chunkIndex', String(chunkIndex));
           formData.append('totalChunks', String(totalChunks));
           formData.append('chunkSize', String(CHUNK_SIZE));
           formData.append('fileName', file.name);
-          formData.append('userId', userId);
-          formData.append('jobId', clientJobId);
-          if (resolvedBookId) formData.append('bookId', resolvedBookId);
-          if (title) formData.append('title', title);
+          formData.append('chunk', chunkBlob, file.name);
 
           const xhr = new XMLHttpRequest();
           xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk`);

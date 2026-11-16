@@ -89,7 +89,7 @@ exports.uploadChunk = async (req, res) => {
 
     const parsedIndex = parseInt(chunkIndex, 10) || 0;
     const parsedTotal = parseInt(totalChunks, 10) || 1;
-    const parsedChunkSize = parseInt(chunkSize, 10) || (10 * 1024 * 1024);
+    const parsedChunkSize = parseInt(chunkSize, 10) || (2 * 1024 * 1024);
 
     const result = await handleChunkUpload({
       uploadId: uploadId || `up_${nanoid(10)}`,
@@ -103,14 +103,18 @@ exports.uploadChunk = async (req, res) => {
     // If upload is finished, trigger the Redis extraction worker
     if (result.isComplete) {
       const jobId = clientJobId || `job_${nanoid(12)}`;
-      await queueManager.createJob({
-        jobId,
-        userId,
-        bookId,
-        title: title || fileName || 'My Flipbook',
-        filePath: result.filePath,
-        fileName: result.fileName
-      });
+      try {
+        await queueManager.createJob({
+          jobId,
+          userId,
+          bookId,
+          title: title || fileName || 'My Flipbook',
+          filePath: result.filePath,
+          fileName: result.fileName
+        });
+      } catch (qErr) {
+        console.error('[Upload Chunk] Queue warning:', qErr.message);
+      }
 
       return res.json({
         success: true,
