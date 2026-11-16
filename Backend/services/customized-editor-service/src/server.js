@@ -73,6 +73,14 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found on customized-editor-service' });
 });
 
+// Process-Level Crash Protection (ensures service never dies from uncaught stream exceptions)
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught exception in customized-editor-service:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled rejection in customized-editor-service:', reason);
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Customized Editor Service] Running on port ${PORT} (active: ${Date.now()})`);
 });
