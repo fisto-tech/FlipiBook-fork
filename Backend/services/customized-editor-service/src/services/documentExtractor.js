@@ -52,9 +52,29 @@ async function getMuPdf() {
   if (!mupdfModule) {
     try {
       mupdfModule = await import('mupdf');
-    } catch (e) {
-      const mupdfPath = path.resolve(__dirname, '../../node_modules/mupdf/dist/mupdf.js');
-      mupdfModule = await import(pathToFileURL(mupdfPath).href);
+      return mupdfModule;
+    } catch (_) {}
+
+    const candidatePaths = [
+      path.resolve(__dirname, '../../../../node_modules/mupdf/dist/mupdf.js'),
+      path.resolve(__dirname, '../../node_modules/mupdf/dist/mupdf.js')
+    ];
+
+    for (const cPath of candidatePaths) {
+      if (fs.existsSync(cPath)) {
+        try {
+          mupdfModule = await import(pathToFileURL(cPath).href);
+          return mupdfModule;
+        } catch (_) {}
+      }
+    }
+
+    try {
+      const resolved = require.resolve('mupdf/dist/mupdf.js');
+      mupdfModule = await import(pathToFileURL(resolved).href);
+      return mupdfModule;
+    } catch (finalErr) {
+      throw new Error(`Failed to load MuPDF module: ${finalErr.message}`);
     }
   }
   return mupdfModule;
