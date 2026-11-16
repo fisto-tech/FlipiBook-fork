@@ -29,9 +29,13 @@ exports.uploadDocument = async (req, res) => {
     } = req.body;
 
     const originalName = file.originalname || 'document.pdf';
-    const ext = path.extname(originalName) || '.pdf';
-    const finalFilePath = path.join(TEMP_UPLOADS_DIR, `direct_${nanoid(12)}_${Date.now()}${ext}`);
-    await fs.promises.writeFile(finalFilePath, file.buffer);
+    // file.path is already written directly to disk by multer diskStorage (0MB RAM heap allocation)
+    let finalFilePath = file.path;
+    if (!finalFilePath && file.buffer) {
+      const ext = path.extname(originalName) || '.pdf';
+      finalFilePath = path.join(TEMP_UPLOADS_DIR, `direct_${nanoid(12)}_${Date.now()}${ext}`);
+      await fs.promises.writeFile(finalFilePath, file.buffer);
+    }
 
     const jobId = clientJobId || `job_${nanoid(12)}`;
     await queueManager.createJob({

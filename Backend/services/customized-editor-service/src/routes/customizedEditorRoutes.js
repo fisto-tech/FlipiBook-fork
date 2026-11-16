@@ -28,9 +28,23 @@ const upload = multer({
   }
 });
 
+const { nanoid } = require('nanoid');
+const { TEMP_UPLOADS_DIR } = require('../services/resumableUploadService');
+
+// Direct streaming to disk storage (0MB RAM heap allocation, zero socket blocking)
+const docDiskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, TEMP_UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.pdf';
+    cb(null, `direct_${nanoid(12)}_${Date.now()}${ext}`);
+  }
+});
+
 const directDocUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB direct upload ceiling
+  storage: docDiskStorage,
+  limits: { fileSize: 250 * 1024 * 1024 } // 250MB direct upload ceiling
 });
 
 const chunkUpload = multer({
