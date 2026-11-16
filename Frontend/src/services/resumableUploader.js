@@ -75,10 +75,10 @@ export async function uploadAndExtractDocument({
       if (uploadResult?.jobId) jobId = uploadResult.jobId;
       if (uploadResult?.bookId) resolvedBookId = uploadResult.bookId;
     } else {
-      // Resilient 2MB Chunking for files > 2.5MB (each chunk completes in ~15s, safely under 60s VPS gateway timeout)
+      // Turbo 2-Lane Parallel Chunking for files > 2.5MB (each chunk completes in ~12-15s, safely under 60s VPS gateway timeout)
       const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunk
       const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
-      const concurrency = 1; // 1 dedicated sequential lane to maximize bandwidth without socket saturation
+      const concurrency = Math.min(2, totalChunks); // 2 parallel lanes over HTTP/2 multiplexing (2x faster bandwidth utilization)
 
       const chunkProgressBytes = new Array(totalChunks).fill(0);
 
@@ -96,52 +96,61 @@ export async function uploadAndExtractDocument({
         }
       };
 
-      const uploadSingleChunk = (chunkIndex) => {
-        return new Promise((resolve, reject) => {
-          const start = chunkIndex * CHUNK_SIZE;
-          const end = Math.min(start + CHUNK_SIZE, totalSize);
-          const chunkBlob = file.slice(start, end);
+      const uploadSingleChunkWithRetry = async (chunkIndex, maxRetries = 2) => {
+        let attempt = 0;
+        while (attempt <= maxRetries) {
+          try {
+            return await new Promise((resolve, reject) => {
+              const start = chunkIndex * CHUNK_SIZE;
+              const end = Math.min(start + CHUNK_SIZE, totalSize);
+              const chunkBlob = file.slice(start, end);
 
-          const formData = new FormData();
-          formData.append('userId', userId);
-          formData.append('jobId', clientJobId);
-          if (resolvedBookId) formData.append('bookId', resolvedBookId);
-          if (title) formData.append('title', title);
-          formData.append('uploadId', uploadId);
-          formData.append('chunkIndex', String(chunkIndex));
-          formData.append('totalChunks', String(totalChunks));
-          formData.append('chunkSize', String(CHUNK_SIZE));
-          formData.append('fileName', file.name);
-          formData.append('chunk', chunkBlob, file.name);
+              const formData = new FormData();
+              formData.append('userId', userId);
+              formData.append('jobId', clientJobId);
+              if (resolvedBookId) formData.append('bookId', resolvedBookId);
+              if (title) formData.append('title', title);
+              formData.append('uploadId', uploadId);
+              formData.append('chunkIndex', String(chunkIndex));
+              formData.append('totalChunks', String(totalChunks));
+              formData.append('chunkSize', String(CHUNK_SIZE));
+              formData.append('fileName', file.name);
+              formData.append('chunk', chunkBlob, file.name);
 
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk`);
+              const xhr = new XMLHttpRequest();
+              xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk`);
 
-          xhr.upload.onprogress = (evt) => {
-            if (evt.lengthComputable) {
-              chunkProgressBytes[chunkIndex] = evt.loaded;
-              updateAggregatedProgress();
-            }
-          };
+              xhr.upload.onprogress = (evt) => {
+                if (evt.lengthComputable) {
+                  chunkProgressBytes[chunkIndex] = evt.loaded;
+                  updateAggregatedProgress();
+                }
+              };
 
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                chunkProgressBytes[chunkIndex] = chunkBlob.size;
-                updateAggregatedProgress();
-                const resData = JSON.parse(xhr.responseText);
-                resolve(resData);
-              } catch (e) {
-                reject(new Error('Invalid chunk response'));
-              }
-            } else {
-              reject(new Error(`Chunk ${chunkIndex + 1} upload failed with status ${xhr.status}`));
-            }
-          };
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  try {
+                    chunkProgressBytes[chunkIndex] = chunkBlob.size;
+                    updateAggregatedProgress();
+                    const resData = JSON.parse(xhr.responseText);
+                    resolve(resData);
+                  } catch (e) {
+                    reject(new Error('Invalid chunk response'));
+                  }
+                } else {
+                  reject(new Error(`Chunk ${chunkIndex + 1} upload failed with status ${xhr.status}`));
+                }
+              };
 
-          xhr.onerror = () => reject(new Error(`Network error on chunk ${chunkIndex + 1}`));
-          xhr.send(formData);
-        });
+              xhr.onerror = () => reject(new Error(`Network error on chunk ${chunkIndex + 1}`));
+              xhr.send(formData);
+            });
+          } catch (err) {
+            attempt++;
+            if (attempt > maxRetries) throw err;
+            await new Promise((r) => setTimeout(r, 1000 * attempt));
+          }
+        }
       };
 
       let currentIndex = 0;
@@ -150,7 +159,7 @@ export async function uploadAndExtractDocument({
       const runLane = async () => {
         while (currentIndex < totalChunks) {
           const idx = currentIndex++;
-          const res = await uploadSingleChunk(idx);
+          const res = await uploadSingleChunkWithRetry(idx);
           if (res?.isComplete && res?.jobId) {
             finalJobId = res.jobId;
           }
