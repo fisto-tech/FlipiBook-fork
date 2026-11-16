@@ -29,8 +29,8 @@ export async function uploadAndExtractDocument({
     const clientJobId = `job_${uploadId.replace(/^up_/, '')}`;
     let jobId = clientJobId;
 
-    // Fast Path: Direct High-Speed Streaming Upload for files <= 25MB (Zero chunk overhead, finishes in 2-4s!)
-    if (totalSize <= 25 * 1024 * 1024) {
+    // Fast Path: Direct High-Speed Streaming Upload for files <= 100MB (Zero socket-stall overhead, finishes in seconds!)
+    if (totalSize <= 100 * 1024 * 1024) {
       const formData = new FormData();
       formData.append('file', file, file.name);
       formData.append('userId', userId);
@@ -75,11 +75,11 @@ export async function uploadAndExtractDocument({
       if (uploadResult?.jobId) jobId = uploadResult.jobId;
       if (uploadResult?.bookId) resolvedBookId = uploadResult.bookId;
     } else {
-      // High-Scale Parallel Resumable Chunking for files > 25MB (up to 100MB+)
-      // Uses 3 concurrent parallel lanes and 10MB chunk sizing for 3x - 4x speedup!
+      // Robust Resumable Chunking for massive files (>100MB)
+      // Dedicated single-lane socket prevents Chrome connection pool stalling and avoids 502 gateway timeouts!
       const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunk
       const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
-      const concurrency = 3; // 3 parallel lanes
+      const concurrency = 1; // 1 dedicated lane to maximize bandwidth without socket saturation
 
       const chunkProgressBytes = new Array(totalChunks).fill(0);
 

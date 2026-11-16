@@ -840,6 +840,9 @@ app.use(
         }
       },
       error: (err, req, res) => {
+        if (req.aborted || err.code === 'ECONNRESET' || err.message === 'socket hang up') {
+          return;
+        }
         console.error('[API Gateway] Proxy error to customized-editor-service:', err.message);
         if (!res.headersSent) {
           res.status(502).json({
