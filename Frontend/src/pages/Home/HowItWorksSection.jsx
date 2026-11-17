@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import workImg1 from '../../assets/Home/final-images/how-it-works/step-1.webp';
-import workImg2 from '../../assets/Home/final-images/how-it-works/step-2.webp';
-import workImg3 from '../../assets/Home/final-images/how-it-works/step-3.webp';
-import workImg4 from '../../assets/Home/final-images/how-it-works/step-4.webp';
+import workImg1 from '../../assets/Home/work-img-1.png';
+import workImg2 from '../../assets/Home/work-img-2.png';
+import workImg3 from '../../assets/Home/work-img-3.png';
+import workImg4 from '../../assets/Home/work-img-4.png';
 
 export default function HowItWorksSection() {
   const steps = [
@@ -13,7 +13,7 @@ export default function HowItWorksSection() {
       desc: "Upload your PDF or choose a ready-made template to start building your digital catalogue.",
       image: workImg1,
       textPosition: "bottom",
-      imgClass: "w-[80%] h-auto max-h-[85%] object-contain drop-shadow-md"
+      imgClass: "w-[96%] sm:w-[94%] lg:w-[95%] h-auto max-h-[96%] object-contain drop-shadow-md"
     },
     {
       number: "02",
@@ -21,7 +21,7 @@ export default function HowItWorksSection() {
       desc: "Customize your pages with product videos, 3D models, and clickable links that help customers explore.",
       image: workImg2,
       textPosition: "top",
-      imgClass: "w-[98%] max-w-none h-auto object-contain drop-shadow-md"
+      imgClass: "w-[98%] sm:w-[96%] lg:w-[97%] h-auto max-h-[92%] object-contain drop-shadow-md"
     },
     {
       number: "03",
@@ -29,7 +29,7 @@ export default function HowItWorksSection() {
       desc: "Publish your catalogue and share it through a link, QR code, or website embed.",
       image: workImg3,
       textPosition: "bottom",
-      imgClass: "w-[100%] max-w-none h-auto object-contain drop-shadow-md"
+      imgClass: "w-[94%] sm:w-[92%] lg:w-[93%] h-auto max-h-[96%] object-contain drop-shadow-md"
     },
     {
       number: "04",
@@ -37,7 +37,7 @@ export default function HowItWorksSection() {
       desc: "Review catalogue views and viewer activity to understand engagement and refine your content.",
       image: workImg4,
       textPosition: "top",
-      imgClass: "w-[76%] h-auto max-h-[88%] object-contain drop-shadow-md"
+      imgClass: "w-[94%] sm:w-[92%] lg:w-[93%] h-auto max-h-[96%] object-contain drop-shadow-md"
     }
   ];
 
@@ -99,7 +99,7 @@ export default function HowItWorksSection() {
             >
               <div className="flex items-center justify-center gap-2.5 lg:gap-[0.5vw] w-full mb-1.5 lg:mb-[0.4vw]">
                 <span className="inline-block w-4 sm:w-6 lg:w-[1.2vw] h-[1.5px] lg:h-[0.1vw] bg-[#9ca3af]"></span>
-                <h3 className="text-base sm:text-lg lg:text-[1.1vw] font-medium text-[#1b222c] leading-snug">
+                <h3 className="text-base sm:text-lg lg:text-[1.1vw] font-semibold text-[#1b222c] leading-snug">
                   {step.title}
                 </h3>
                 <span className="inline-block w-4 sm:w-6 lg:w-[1.2vw] h-[1.5px] lg:h-[0.1vw] bg-[#9ca3af]"></span>
@@ -113,17 +113,17 @@ export default function HowItWorksSection() {
           // Card Box: order-1 on mobile/tab (always on top of text), alternating on desktop, slightly reduced width
           const cardBox = (
             <div
-              className={`w-full lg:w-[92%] mx-auto bg-[#e2e4e7] rounded-[22px] lg:rounded-[1.4vw] p-4 sm:p-5 lg:p-[1.1vw] flex flex-col justify-between aspect-[1/1.14] relative shadow-xs group-hover:shadow-md transition-all duration-300 overflow-hidden ${
+              className={`w-full lg:w-[94%] mx-auto bg-[#e2e4e7] rounded-[26px] lg:rounded-[1.6vw] pt-4 px-3 pb-3 sm:pt-5 sm:px-4 sm:pb-4 lg:pt-[1.1vw] lg:px-[0.9vw] lg:pb-[0.9vw] flex flex-col justify-between aspect-[1/1.12] relative shadow-xs group-hover:shadow-md transition-all duration-300 overflow-hidden ${
                 isTopText ? 'order-1 lg:order-2' : 'order-1 lg:order-1'
               }`}
             >
-              {/* Giant Step Number in top left */}
-              <span className="text-4xl sm:text-5xl lg:text-[3.2vw] font-black text-white leading-none select-none block text-left shrink-0">
+              {/* Giant Step Number in top left matching screenshot */}
+              <span className="text-6xl sm:text-7xl lg:text-[4.6vw] font-black text-white leading-none tracking-tight select-none block text-left shrink-0 pl-1">
                 {step.number}
               </span>
               
               {/* Image Centered and Sized */}
-              <div className="flex-1 flex items-center justify-center w-full h-full min-h-0 py-1.5 lg:py-[0.3vw]">
+              <div className="flex-1 flex items-center justify-center w-full h-full min-h-0 pt-0.5">
                 <img
                   src={step.image}
                   alt={step.title}
