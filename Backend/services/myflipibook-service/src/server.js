@@ -49,8 +49,8 @@ app.use(cors({
 }));
 
 app.use(cookieParser());
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '250mb' }));
+app.use(express.urlencoded({ limit: '250mb', extended: true }));
 
 const fs = require('fs');
 const { getStorageRoot } = require('./utils/storageHelper');

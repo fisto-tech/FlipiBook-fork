@@ -214,11 +214,11 @@ export const generatePdfPageSvg = (
 
   const bgGroupName = isPdfBg ? "PDF Background" : `${pageName}-pdf`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${baseWidth} ${baseHeight}" width="100%" height="100%" style="overflow: visible">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${baseWidth} ${baseHeight}" width="100%" height="100%" style="overflow: visible">
   <g id="${rootId}" data-name="${pageName}" data-type="frame">
     <rect id="${overlayId}" x="0" y="0" width="${baseWidth}" height="${baseHeight}" fill="#ffffff" data-name="Overlay" data-type="background" data-locked="true" shape-rendering="crispEdges" />
     <g id="${bgGroupId}" data-name="${bgGroupName}" data-type="pdf-vector-layer" data-locked="true">
-      <image id="${imageId}" x="0" y="0" width="${baseWidth}" height="${baseHeight}" href="${fullImageUrl}" xlink:href="${fullImageUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" />
+      <image id="${imageId}" x="0" y="0" width="${baseWidth}" height="${baseHeight}" href="${fullImageUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" />
     </g>
     <rect id="${shieldId}" data-name="Document Shield" data-type="shield" x="0" y="0" width="${baseWidth}" height="${baseHeight}" fill="none" opacity="0" pointer-events="all" style="pointer-events: all;" />
   </g>
