@@ -20,6 +20,43 @@ export const svgGlobalStyles = `
     text-rendering: geometricPrecision !important;
   }
 
+  /* Free Frame & Interaction Fill Blink (uses existing frame fill, no stroke) */
+  @keyframes interaction-frame-blink {
+    0% {
+      fill: transparent;
+    }
+    20% {
+      fill: rgba(77, 71, 255, 0.28);
+    }
+    40% {
+      fill: rgba(77, 71, 255, 0.04);
+    }
+    60% {
+      fill: rgba(77, 71, 255, 0.28);
+    }
+    80% {
+      fill: rgba(77, 71, 255, 0.04);
+    }
+    100% {
+      fill: transparent;
+    }
+  }
+
+  .interaction-frame-blinking,
+  .page-svg-container svg rect[data-name="Free Frame" i].interaction-frame-blinking,
+  .page-svg-container svg [data-name="Free Frame" i].interaction-frame-blinking,
+  .page-svg-container svg [data-type="free-frame"].interaction-frame-blinking,
+  .page-svg-container svg [id^="free-frame"].interaction-frame-blinking,
+  .page-svg-container svg [data-is-hotspot="true"].interaction-frame-blinking,
+  .page-svg-container svg [data-is-hotspot="true"].interaction-frame-blinking rect,
+  .page-svg-container svg polygon.interaction-frame-blinking,
+  svg polygon[id^="overlay-poly-"].interaction-frame-blinking,
+  svg path[id^="overlay-path-"].interaction-frame-blinking,
+  polygon.interaction-frame-blinking,
+  path.interaction-frame-blinking {
+    animation: interaction-frame-blink 1.2s ease-in-out !important;
+  }
+
   [data-hidden="true"],
   .page-svg-container [data-hidden="true"] {
     display: none !important;
@@ -358,10 +395,10 @@ export const svgGlobalStyles = `
     transition: fill 0.2s ease, stroke 0.2s ease;
   }
 
-  /* By default, hide Free Frame completely (transparent stroke and fill) unless drawing */
-  .page-svg-container svg rect[data-name="Free Frame" i]:not([data-drawing="true"]),
-  .page-svg-container svg [data-type="free-frame"]:not([data-drawing="true"]),
-  .page-svg-container svg [id^="free-frame"]:not([data-drawing="true"]) {
+  /* By default, hide Free Frame completely (transparent stroke and fill) unless drawing or blinking */
+  .page-svg-container svg rect[data-name="Free Frame" i]:not([data-drawing="true"]):not(.interaction-frame-blinking):not([data-blinking="true"]),
+  .page-svg-container svg [data-type="free-frame"]:not([data-drawing="true"]):not(.interaction-frame-blinking):not([data-blinking="true"]),
+  .page-svg-container svg [id^="free-frame"]:not([data-drawing="true"]):not(.interaction-frame-blinking):not([data-blinking="true"]) {
     stroke: transparent !important;
     fill: transparent !important;
   }

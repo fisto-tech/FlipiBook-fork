@@ -54,19 +54,60 @@ const extractPageTexture = (rawContent, pageNum = '') => {
 };
 
 const staticHtmlCache = new Map();
+
+const staticVideoBg = '<div class="video-static-backdrop" style="position: absolute; inset: 0; width: 100%; height: 100%; background: #0f172a; display: flex; align-items: center; justify-content: center; overflow: hidden;"><svg width="44" height="44" viewBox="0 0 24 24" fill="#ffffff" style="opacity: 0.9; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';
+
 const cleanStaticHtml = (html) => {
     if (!html) return '';
     if (staticHtmlCache.has(html)) return staticHtmlCache.get(html);
     try {
         // Ultra-fast regex cleaning without allocating heavy DOMParser documents
         let cleaned = html
+            // Keep real Google Map iframe intact with pointer-events: none during peel/turn and orange loading spinner
+            .replace(/(<div\b[^>]*class=["'][^"']*map-stage[^"']*["'][^>]*>)\s*(<iframe\b[^>]*>[\s\S]*?<\/iframe>)/gi, (match, p1, p2) => {
+                let safeIframe = p2;
+                if (!safeIframe.includes('fbe-map-iframe')) {
+                    safeIframe = safeIframe.replace('<iframe', '<iframe class="fbe-map-iframe"');
+                }
+                safeIframe = safeIframe.replace(/style=["']([^"']*)["']/i, (sMatch, styleVal) => {
+                    return `style="${styleVal}; visibility: visible !important; opacity: 1 !important;"`;
+                });
+                if (!safeIframe.includes('style=')) {
+                    safeIframe = safeIframe.replace('<iframe', '<iframe style="visibility: visible !important; opacity: 1 !important;"');
+                }
+                if (!safeIframe.includes('onload=')) {
+                    safeIframe = safeIframe.replace('<iframe', '<iframe onload="const s=this.previousElementSibling; if(s && s.classList.contains(\'map-loading-spinner\')) s.remove();"');
+                }
+                return `${p1}
+                    <div class="map-loading-spinner" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(244,243,240,0.85); z-index: 2; pointer-events: none; transition: opacity 0.2s ease;">
+                        <div class="fbe-spinner" style="width: 28px; height: 28px; border: 2.5px solid rgba(234,114,51,0.2); border-top-color: #ea7233; border-radius: 50%; animation: fbe-spin 0.7s linear infinite;"></div>
+                    </div>
+                    ${safeIframe}`;
+            })
+            // Keep real 3rd-Party Embed iframe intact with pointer-events: none during peel/turn and orange loading spinner (no dummy SVG globe)
+            .replace(/(<div\b[^>]*class=["'][^"']*embed-root-container[^"']*["'][^>]*>)\s*(<iframe\b[^>]*>[\s\S]*?<\/iframe>)/gi, (match, p1, p2) => {
+                let safeIframe = p2;
+                if (!safeIframe.includes('fbe-embed-iframe')) {
+                    safeIframe = safeIframe.replace('<iframe', '<iframe class="fbe-embed-iframe"');
+                }
+                safeIframe = safeIframe.replace(/style=["']([^"']*)["']/i, (sMatch, styleVal) => {
+                    return `style="${styleVal}; visibility: visible !important; opacity: 1 !important;"`;
+                });
+                if (!safeIframe.includes('style=')) {
+                    safeIframe = safeIframe.replace('<iframe', '<iframe style="visibility: visible !important; opacity: 1 !important;"');
+                }
+                if (!safeIframe.includes('onload=')) {
+                    safeIframe = safeIframe.replace('<iframe', '<iframe onload="const s=this.previousElementSibling; if(s && s.classList.contains(\'embed-loading-spinner\')) s.remove();"');
+                }
+                return `${p1}
+                    <div class="embed-loading-spinner" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(248,250,252,0.85); z-index: 2; pointer-events: none; transition: opacity 0.2s ease;">
+                        <div class="fbe-spinner" style="width: 28px; height: 28px; border: 2.5px solid rgba(234,114,51,0.2); border-top-color: #ea7233; border-radius: 50%; animation: fbe-spin 0.7s linear infinite;"></div>
+                    </div>
+                    ${safeIframe}`;
+            })
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-            .replace(/<video\b[^<]*(?:(?!<\/video>)<[^<]*)*<\/video>/gi, '')
-            .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-            .replace(/<g\b[^>]*data-type=["'](?:map|embed-frame)["'][^>]*>[\s\S]*?<\/g>/gi, '')
-            .replace(/\bvector-effect\s*=\s*["']non-scaling-stroke["']/gi, 'vector-effect="none"')
-            .replace(/\bvectorEffect\s*=\s*["']non-scaling-stroke["']/gi, 'vectorEffect="none"')
-            .replace(/vector-effect\s*:\s*non-scaling-stroke\s*;?/gi, 'vector-effect: none;');
+            .replace(/<video\b[^<]*(?:(?!<\/video>)<[^<]*)*<\/video>/gi, staticVideoBg)
+            .replace(/<iframe\b(?![^>]*class=["'][^"']*(?:fbe-map-iframe|fbe-embed-iframe)[^"']*["'])[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
 
         // Ensure root SVG scales to 100% width and height
         cleaned = cleaned.replace(/<svg\b([^>]*)>/i, (match, attrs) => {
@@ -121,12 +162,8 @@ const sanitizePageHtmlForPreview = (html) => {
             const hideControls = (fo && fo.getAttribute('data-show-controls') === 'false') || iframe.getAttribute('data-show-controls') === 'false';
 
             const currentStyle = iframe.getAttribute('style') || '';
-            if (isMap) {
-                // Keep map iframe non-interactive so scroll/drag flips book pages without triggering "Use ctrl + scroll to zoom the map" overlay
+            if (currentStyle) {
                 const cleanedStyle = currentStyle.replace(/pointer-events\s*:\s*(?:auto|none)\s*(?:!important)?\s*;?/gi, '');
-                iframe.setAttribute('style', cleanedStyle + (cleanedStyle.endsWith(';') || !cleanedStyle ? '' : ';') + ' pointer-events: none !important;');
-            } else if (currentStyle) {
-                const cleanedStyle = currentStyle.replace(/pointer-events\s*:\s*none\s*(?:!important)?\s*;?/gi, '');
                 iframe.setAttribute('style', cleanedStyle + (cleanedStyle.endsWith(';') || !cleanedStyle ? '' : ';') + ' pointer-events: auto !important;');
             }
 
@@ -165,17 +202,13 @@ const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
     backface-visibility: hidden !important;
     -webkit-backface-visibility: hidden !important;
   }
-  body > svg,
-  svg:not(foreignObject svg):not([data-type="icon"]):not([data-type="button"] svg) {
+  body > svg {
     width: 100% !important;
     height: 100% !important;
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
     shape-rendering: geometricPrecision !important;
-  }
-  svg, svg * {
-    vector-effect: none !important;
   }
   * { box-sizing: border-box; outline: none !important; }
 
@@ -229,6 +262,7 @@ const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
     top: 0 !important;
     left: 0 !important;
     overflow: hidden !important;
+    pointer-events: auto !important;
   }
 
   .map-stage iframe,
@@ -242,7 +276,14 @@ const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
     margin: 0 !important;
     padding: 0 !important;
     display: block !important;
+    pointer-events: auto !important;
+  }
+
+  /* Prevent transparent editor selection overlay rect from blocking clicks on the live map in preview */
+  g[data-type="map"] > rect,
+  g[id^="map-"] > rect {
     pointer-events: none !important;
+    display: none !important;
   }
 
   .map-open-maps-btn,
@@ -319,11 +360,6 @@ const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
   [data-scrollable="true"]::-webkit-scrollbar-thumb:active,
   [data-scrollable="true"] *::-webkit-scrollbar-thumb:active {
     background: #1F2937 !important;
-  }
-
-  foreignObject:not([data-scrollable="true"]):not([data-editing="true"])>div:not(.map-root-container):not(.embed-root-container):not(.table-card-wrapper):not(.table-container) {
-    width: 100% !important;
-    height: auto !important;
   }
 
   foreignObject[data-sizing-mode="fixed"]>div {
@@ -570,6 +606,47 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         buildPageDocRef.current = externalBuildPageDoc || buildPageDoc;
     }, [externalBuildPageDoc]);
 
+    // Global Google Fonts Preloader: Preloads all fonts used across pages into document head
+    // so pages during peel/flip render with the exact font immediately without fallback flicker
+    useEffect(() => {
+        if (!pages || pages.length === 0) return;
+        const fontsToLoad = new Set();
+        pages.forEach(p => {
+            const html = p.html || p.content || '';
+            if (!html) return;
+            const cssRegex = /font-family\s*:\s*(?:['"]([^'"]+)['"]|([^;}'"\s]+))/g;
+            const attrRegex = /font-family\s*=\s*['"]([^'"]+)['"]/g;
+            const dataFontRegex = /data-(?:[^"'>]*font-family|font)\s*=\s*['"]([^'"]+)['"]/g;
+            let match;
+            while ((match = cssRegex.exec(html)) !== null) {
+                let f = match[1] || match[2];
+                if (f) f = f.split(',')[0].replace(/['"]/g, '').trim();
+                if (f && !['sans-serif', 'serif', 'monospace', 'inherit', 'initial'].includes(f.toLowerCase())) fontsToLoad.add(f);
+            }
+            while ((match = attrRegex.exec(html)) !== null) {
+                let f = match[1].split(',')[0].replace(/['"]/g, '').trim();
+                if (f && !['sans-serif', 'serif', 'monospace', 'inherit', 'initial'].includes(f.toLowerCase())) fontsToLoad.add(f);
+            }
+            while ((match = dataFontRegex.exec(html)) !== null) {
+                let f = match[1].split(',')[0].replace(/['"]/g, '').trim();
+                if (f && !['sans-serif', 'serif', 'monospace', 'inherit', 'initial'].includes(f.toLowerCase())) fontsToLoad.add(f);
+            }
+        });
+        if (fontsToLoad.size > 0) {
+            const fontId = 'flipibook-global-fonts-preview';
+            let link = document.getElementById(fontId);
+            if (!link) {
+                link = document.createElement('link');
+                link.id = fontId;
+                link.rel = 'stylesheet';
+                document.head.appendChild(link);
+            }
+            const fontArray = Array.from(fontsToLoad).map(f => f.replace(/['"]/g, '').trim()).filter(Boolean);
+            const fontFamilies = fontArray.map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}`).join('&');
+            link.href = `https://fonts.googleapis.com/css2?${fontFamilies}&display=swap`;
+        }
+    }, [pages]);
+
     /* ── Virtual Sliding Window (Strategy 1) ──────────────────────────────
      * PageWindowManager keeps only WINDOW_SIZE pages in RAM.
      * When v_id is available, all pages are saved to IDB individually and
@@ -670,7 +747,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
     const isInteractiveHtml = useCallback((rawHtml) => {
         if (!rawHtml || typeof rawHtml !== 'string') return false;
-        return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link)|data-interaction|hotspot|class=["'][^"']*interactive|<a\s+href/i.test(rawHtml);
+        return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|class=["'][^"']*interactive|<a\s+href/i.test(rawHtml);
     }, []);
 
     const hasInteractiveRight = Boolean(rightIdx !== null && rightIdx >= 0 && pages[rightIdx] && isInteractiveHtml(pages[rightIdx].html || pages[rightIdx].content));
@@ -1378,17 +1455,20 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             duration: (typeof flipTime === 'number' && flipTime > 50) ? flipTime : 600,
             acceleration: true, // GPU compositor handles CSS3 flip — frees the JS main thread during animation
             gradients: true, // Native Turn.js lighting and depth gradients for realistic paper folding
-            cornerSize: 50, // 50px corner target matches basic sample
+            cornerSize: 100, // 100px corner target for reliable auto-peel and drag gestures
             elevation: 50, // 50px elevation ensures authentic 3D paper curl and shadow depth without clipping or z-fighting
             pages: totalPages,
             page: initPage,
             autoCenter: false, // FlipiBook layout containers (Grid1-8) handle centering via GPU-accelerated translateX
             when: {
                 start: (e, pageObject, corner) => {
-                    isFlippingRef.current = true;
-                    setIsTurning(true);
-                    if (containerRef.current) containerRef.current.classList.add('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
-                    if (bookEl.current) bookEl.current.classList.add('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
+                    // Only mark dragging state if an actual corner was grabbed;
+                    // do NOT prematurely set isTurning or hide active overlay on static clicks!
+                    if (corner) {
+                        isFlippingRef.current = true;
+                        if (containerRef.current) containerRef.current.classList.add('fbe-is-dragging');
+                        if (bookEl.current) bookEl.current.classList.add('fbe-is-dragging');
+                    }
 
                     // Prevent peel animation for the last page of an odd-numbered flipbook
                     if (!singlePage && augmented.length % 2 !== 0) {
@@ -1484,7 +1564,21 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         // Warm up initial cover and first spread (Pages 1, 2, 3) from IDB for instant opening
         [initPage, initPage + 1, initPage + 2].forEach(p => preloadPageToDom(p));
 
+        // Auto-peel hint: Gently lift bottom-right corner on initial load to visually demonstrate page flippability
+        let autoPeelTimer = null;
+        if (useMouseEvents) {
+            autoPeelTimer = setTimeout(() => {
+                try {
+                    const isTurnReady = checkTurnReady($book);
+                    if (isTurnReady && !$book.turn('animating') && !isFlippingRef.current) {
+                        $book.turn('peel', 'br');
+                    }
+                } catch (_) {}
+            }, 1000);
+        }
+
         return () => {
+            if (autoPeelTimer) clearTimeout(autoPeelTimer);
             try {
                 $book.find('*').addBack().each(function () {
                     const elData = $(this).data();
@@ -1720,8 +1814,11 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     }, [width, height, showingReactFlip]);
 
     /* ── Sync react-pageflip when startPage changes externally (thumbnails, direct jump) ── */
+    const prevReactStartPageRef = useRef(startPage);
     useEffect(() => {
         if (!showingReactFlip || !reactFlipRef.current) return;
+        if (prevReactStartPageRef.current === startPage) return;
+        prevReactStartPageRef.current = startPage;
         const pageFlip = reactFlipRef.current.pageFlip();
         if (!pageFlip) return;
         const cur = pageFlip.getCurrentPageIndex();
@@ -1790,8 +1887,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     pointer-events: none !important;
                 }
                 .fbe-is-flipping .fbe-active-spread-overlay,
-                .fbe-is-turning .fbe-active-spread-overlay,
-                .fbe-is-dragging .fbe-active-spread-overlay {
+                .fbe-is-turning .fbe-active-spread-overlay {
                     visibility: hidden !important;
                     opacity: 0 !important;
                     pointer-events: none !important;
@@ -1958,10 +2054,14 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             )}
 
             {/* ── Active Spread Interactive Overlay (Layer 2: Only 2 persistent iframes) ── */}
-            {ready && !isTurning && (() => {
+            {ready && (() => {
                 const isInteractive = (rawHtml) => {
                     if (!rawHtml || typeof rawHtml !== 'string') return false;
-                    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link)|data-interaction|hotspot|class=["'][^"']*interactive|<a\s+href/i.test(rawHtml);
+                    // Maps and 3rd-Party Embeds are persistent directly inside .turn-page with direct pointer events,
+                    // so pages with only maps or embeds do NOT mount a redundant overlay iframe!
+                    const htmlClean = rawHtml.replace(/<foreignObject\b[^>]*data-type=["'](?:map|embed-frame)["'][\s\S]*?<\/foreignObject>/gi, '')
+                                             .replace(/<g\b[^>]*data-type=["'](?:map|embed-frame)["'][\s\S]*?<\/g>/gi, '');
+                    return /<video|<audio|<iframe|data-type=["'](video|audio|form|link|slideshow)|slideshow|flipibook-swiper|data-interaction|hotspot|class=["'][^"']*interactive|<a\s+href/i.test(htmlClean);
                 };
 
                 const hasInteractiveLeft = Boolean(!singlePage && leftIdx !== null && leftIdx >= 0 && pages[leftIdx] && isInteractive(pages[leftIdx].html || pages[leftIdx].content));
@@ -1974,9 +2074,18 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                         if (!doc) return;
                         initGifRunner(doc);
 
+                        const interactiveSelector = 'a, button, [data-interaction], [data-type="map"], [data-type="video"], [data-type="audio"], [data-type="embed-frame"], [data-type="slideshow"], [data-type="form"], video, audio, input, select, textarea, .interactive, .fbe-interactive, [data-is-hotspot], .swiper, .swiper-button-prev, .swiper-button-next, .swiper-pagination, .swiper-pagination-bullet, [data-is-slideshow="true"], .slideshow-foreign-object, .map-root-container, .map-card-overlay, .map-stage, foreignObject[data-type="map"], iframe';
+
                         const forwardMouseEvent = (ev, type) => {
-                            const isInteractiveEl = ev.target && ev.target.closest && ev.target.closest('a, button, [data-interaction], [data-type], video, audio, input, .interactive, .fbe-interactive, [data-is-hotspot]');
-                            if (isInteractiveEl && (type === 'mousedown' || type === 'click')) {
+                            const docWidth = doc.documentElement?.clientWidth || window.innerWidth || 800;
+                            const docHeight = doc.documentElement?.clientHeight || window.innerHeight || 600;
+                            const isCornerZone = (
+                                (ev.clientX <= 120 || ev.clientX >= docWidth - 120) &&
+                                (ev.clientY <= 120 || ev.clientY >= docHeight - 120)
+                            );
+
+                            const isInteractiveEl = ev.target && ev.target.closest && ev.target.closest(interactiveSelector);
+                            if (isInteractiveEl && !isCornerZone) {
                                 return;
                             }
 
@@ -2028,7 +2137,13 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                         });
 
                         doc.addEventListener('click', (ev) => {
-                            if (!ev.target.closest('a, button, [data-interaction], [data-type], video, audio, input, .interactive, .fbe-interactive, [data-is-hotspot]')) {
+                            const docWidth = doc.documentElement?.clientWidth || window.innerWidth || 800;
+                            const docHeight = doc.documentElement?.clientHeight || window.innerHeight || 600;
+                            const isCornerZone = (
+                                (ev.clientX <= 120 || ev.clientX >= docWidth - 120) &&
+                                (ev.clientY <= 120 || ev.clientY >= docHeight - 120)
+                            );
+                            if (isCornerZone || !ev.target.closest(interactiveSelector)) {
                                 const rect = doc.documentElement.getBoundingClientRect();
                                 if (ev.clientX > rect.width * 0.75) flipNextFn();
                                 else if (ev.clientX < rect.width * 0.25) flipPrevFn();
@@ -2047,7 +2162,10 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                             zIndex: 110,
                             width: singlePage ? width : width * 2,
                             height,
-                            pointerEvents: anyInteractive ? 'auto' : 'none'
+                            opacity: isTurning ? 0 : 1,
+                            visibility: isTurning ? 'hidden' : 'visible',
+                            pointerEvents: (isTurning || !anyInteractive) ? 'none' : 'auto',
+                            transition: 'opacity 0.25s ease-in-out'
                         }}
                     >
                         {!singlePage && (
@@ -2084,6 +2202,22 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                                         onLoad={(e) => setupIframeForwarding(e.target)}
                                     />
                                 )}
+                                {/* Spread center spine shadow (left page inner seam) */}
+                                {!singlePage && (
+                                    <div
+                                        className="fbe-spread-spine-shadow-left"
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            bottom: 0,
+                                            right: 0,
+                                            width: 24,
+                                            background: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.01) 40%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.08) 100%)',
+                                            pointerEvents: 'none',
+                                            zIndex: 15
+                                        }}
+                                    />
+                                )}
                             </div>
                         )}
                         <div
@@ -2117,6 +2251,22 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                                         transition: 'opacity 0.15s ease'
                                     }}
                                     onLoad={(e) => setupIframeForwarding(e.target)}
+                                />
+                            )}
+                            {/* Spread center spine shadow (right page inner seam) */}
+                            {!singlePage && leftIdx !== null && (
+                                <div
+                                    className="fbe-spread-spine-shadow-right"
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        bottom: 0,
+                                        left: 0,
+                                        width: 24,
+                                        background: 'linear-gradient(to left, transparent 0%, rgba(0,0,0,0.01) 40%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.08) 100%)',
+                                        pointerEvents: 'none',
+                                        zIndex: 15
+                                    }}
                                 />
                             )}
                             {rightIdx === 0 && (
@@ -2384,25 +2534,79 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     cursor: default;
                 }
                 
-                /* While flipping, dragging, or turning, hide all iframes using opacity: 0 (NEVER display: none, which destroys/reloads iframes!).
-                   Turn.js will GPU-fold ONLY the lightweight flat image (.fbe-static-bg),
-                   eliminating 100% of iframe re-parenting, reloads, and 3D compositor stalls! */
-                .fbe-is-turning iframe,
-                .fbe-is-dragging iframe,
-                .fbe-is-flipping iframe,
+                /* While flipping, dragging, or turning, hide background raw iframes to avoid 3D stalls,
+                   while keeping the real map iframe (.fbe-map-iframe) and 3rd-party embed iframe (.fbe-embed-iframe)
+                   visible with pointer-events: none so turn/drag interactions are buttery smooth! */
+                .fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
+                .fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
+                .fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
                 .fbe-is-turning .fbe-active-spread-overlay,
                 .fbe-is-dragging .fbe-active-spread-overlay,
                 .fbe-is-flipping .fbe-active-spread-overlay,
-                .fbe-wrapper.fbe-is-turning iframe,
-                .fbe-wrapper.fbe-is-dragging iframe,
-                .fbe-wrapper.fbe-is-flipping iframe,
-                .fbe-book.fbe-is-turning iframe,
-                .fbe-book.fbe-is-dragging iframe,
-                .fbe-book.fbe-is-flipping iframe {
+                .fbe-wrapper.fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
+                .fbe-wrapper.fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
+                .fbe-wrapper.fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
+                .fbe-book.fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
+                .fbe-book.fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
+                .fbe-book.fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe) {
                     visibility: hidden !important;
                     opacity: 0 !important;
                     pointer-events: none !important;
                     transition: none !important;
+                }
+
+                /* While book is resting, allow interactive clicks/drags directly on persistent map and embed iframes */
+                .fbe-wrapper:not(.fbe-is-turning):not(.fbe-is-dragging):not(.fbe-is-flipping) .fbe-map-iframe,
+                .fbe-book:not(.fbe-is-turning):not(.fbe-is-dragging):not(.fbe-is-flipping) .fbe-map-iframe,
+                .turn-page:not(.turning) .fbe-map-iframe,
+                .fbe-wrapper:not(.fbe-is-turning):not(.fbe-is-dragging):not(.fbe-is-flipping) .fbe-embed-iframe,
+                .fbe-book:not(.fbe-is-turning):not(.fbe-is-dragging):not(.fbe-is-flipping) .fbe-embed-iframe,
+                .turn-page:not(.turning) .fbe-embed-iframe {
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    pointer-events: auto !important;
+                }
+
+                /* While flipping, dragging, or turning, freeze pointer events on map/embed so page drag gestures work */
+                .fbe-is-turning .fbe-map-iframe,
+                .fbe-is-dragging .fbe-map-iframe,
+                .fbe-is-flipping .fbe-map-iframe,
+                .fbe-wrapper.fbe-is-turning .fbe-map-iframe,
+                .fbe-wrapper.fbe-is-dragging .fbe-map-iframe,
+                .fbe-wrapper.fbe-is-flipping .fbe-map-iframe,
+                .fbe-book.fbe-is-turning .fbe-map-iframe,
+                .fbe-book.fbe-is-dragging .fbe-map-iframe,
+                .fbe-book.fbe-is-flipping .fbe-map-iframe,
+                .fbe-is-turning .fbe-embed-iframe,
+                .fbe-is-dragging .fbe-embed-iframe,
+                .fbe-is-flipping .fbe-embed-iframe,
+                .fbe-wrapper.fbe-is-turning .fbe-embed-iframe,
+                .fbe-wrapper.fbe-is-dragging .fbe-embed-iframe,
+                .fbe-wrapper.fbe-is-flipping .fbe-embed-iframe,
+                .fbe-book.fbe-is-turning .fbe-embed-iframe,
+                .fbe-book.fbe-is-dragging .fbe-embed-iframe,
+                .fbe-book.fbe-is-flipping .fbe-embed-iframe {
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    pointer-events: none !important;
+                }
+
+                /* If an active spread overlay ever mounts, keep duplicate map/embed invisible so live persistent page elements show */
+                .fbe-active-spread-overlay .map-stage iframe,
+                .fbe-active-spread-overlay .embed-root-container iframe,
+                .fbe-active-spread-overlay .fbe-map-iframe,
+                .fbe-active-spread-overlay .fbe-embed-iframe {
+                    opacity: 0 !important;
+                    pointer-events: none !important;
+                }
+
+                /* Prevent editor selection overlay rect from blocking clicks on live map or embed */
+                g[data-type="map"] > rect,
+                g[id^="map-"] > rect,
+                g[data-type="embed-frame"] > rect,
+                g[id^="embed-"] > rect {
+                    pointer-events: none !important;
+                    display: none !important;
                 }
 
                 /* Add a global invisible shield over the entire wrapper during a drag to guarantee mousemove tracking */

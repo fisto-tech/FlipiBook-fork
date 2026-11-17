@@ -285,7 +285,7 @@ export const getMapSvgCode = (templateId = 'none', isClick = false, customData =
       <foreignObject data-type="map" x="0" y="0" width="${targetW}" height="${targetH}" style="overflow: hidden; border-radius: 0px;">
         <div xmlns="http://www.w3.org/1999/xhtml" class="map-root-container" style="position: relative; width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; border-radius: 0px; box-shadow: 0 4px 20px rgba(0,0,0,0.12);">
           <div class="map-stage" style="position: absolute; top: 0; left: 0; width: ${innerW}px; height: ${innerH}px; transform: scale(${scale}); transform-origin: 0 0; overflow: hidden;">
-            <iframe src="${defaultUrl.replace(/&/g, '&amp;')}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; pointer-events: none; margin: 0; padding: 0; display: block; ${filterStyle}" allowfullscreen="" loading="lazy"></iframe>
+            <iframe class="fbe-map-iframe" src="${defaultUrl.replace(/&/g, '&amp;')}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; pointer-events: none; margin: 0; padding: 0; display: block; ${filterStyle}" allowfullscreen="" loading="lazy"></iframe>
             <div class="map-overlay-wrapper" style="position: absolute; inset: 0; pointer-events: none;">
               ${overlayHtml}
             </div>

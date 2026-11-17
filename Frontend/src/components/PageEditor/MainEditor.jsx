@@ -1122,8 +1122,9 @@ const getDraggableElement = (target, canvasRoot) => {
     }
 
     // Map elements are single compound elements; always drag/select the whole map group
-    const mapGroup = current && typeof current.closest === 'function' ? current.closest('[data-type="map"], g[id^="map-"]') : null;
-    if (mapGroup) {
+    const mapContainer = current && typeof current.closest === 'function' ? current.closest('[data-type="map"], g[id^="map-"]') : null;
+    if (mapContainer) {
+      const mapGroup = (mapContainer.tagName?.toLowerCase() === 'g' ? mapContainer : mapContainer.closest('g[id^="map-"], g[data-type="map"]')) || mapContainer;
       if (!mapGroup.id) {
         mapGroup.id = `map-${Date.now()}`;
       }

@@ -40,9 +40,122 @@ export const getAnimationScript = (pageNumber) => `  <script>
         'glitch': [{ transform: 'translate(0)' }, { transform: 'translate(-2px, 2px)', offset: 0.2 }, { transform: 'translate(2px, -2px)', offset: 0.4 }, { transform: 'translate(-2px, 2px)', offset: 0.6 }, { transform: 'translate(2px, -2px)', offset: 0.8 }, { transform: 'translate(0)' }],
         'bounce-out': [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.1)', opacity: 0.8, offset: 0.2 }, { transform: 'scale(0.3)', opacity: 0, offset: 1 }],
         'fade-out': [{ opacity: 1 }, { opacity: 0 }],
+        'zoom-out': [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0)', opacity: 0 }],
+        'flash': [
+          { opacity: 1 }, { opacity: 0, offset: 0.25 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.75 }, { opacity: 1 }
+        ],
+        'head-shake': [
+          { transform: 'perspective(400px) translateX(0px) rotateY(0deg)' },
+          { transform: 'perspective(400px) translateX(-6px) rotateY(-9deg)', offset: 0.065 },
+          { transform: 'perspective(400px) translateX(5px) rotateY(7deg)', offset: 0.185 },
+          { transform: 'perspective(400px) translateX(-3px) rotateY(-5deg)', offset: 0.315 },
+          { transform: 'perspective(400px) translateX(2px) rotateY(3deg)', offset: 0.435 },
+          { transform: 'perspective(400px) translateX(0px) rotateY(0deg)' }
+        ],
+        'shake-x': [
+          { transform: 'translateX(0px)' },
+          { transform: 'translateX(-10px)', offset: 0.1 }, { transform: 'translateX(10px)', offset: 0.2 },
+          { transform: 'translateX(-10px)', offset: 0.3 }, { transform: 'translateX(10px)', offset: 0.4 },
+          { transform: 'translateX(-10px)', offset: 0.5 }, { transform: 'translateX(10px)', offset: 0.6 },
+          { transform: 'translateX(-10px)', offset: 0.7 }, { transform: 'translateX(10px)', offset: 0.8 },
+          { transform: 'translateX(-10px)', offset: 0.9 }, { transform: 'translateX(0px)' }
+        ],
+        'shake-y': [
+          { transform: 'translateY(0px)' },
+          { transform: 'translateY(-10px)', offset: 0.1 }, { transform: 'translateY(10px)', offset: 0.2 },
+          { transform: 'translateY(-10px)', offset: 0.3 }, { transform: 'translateY(10px)', offset: 0.4 },
+          { transform: 'translateY(-10px)', offset: 0.5 }, { transform: 'translateY(10px)', offset: 0.6 },
+          { transform: 'translateY(-10px)', offset: 0.7 }, { transform: 'translateY(10px)', offset: 0.8 },
+          { transform: 'translateY(-10px)', offset: 0.9 }, { transform: 'translateY(0px)' }
+        ],
+        'jack-in-the-box': [
+          { transform: 'scale(0.1) rotate(30deg)', transformOrigin: 'center bottom', opacity: 0 },
+          { transform: 'scale(0.5) rotate(-10deg)', transformOrigin: 'center bottom', opacity: 1, offset: 0.5 },
+          { transform: 'scale(0.7) rotate(3deg)', transformOrigin: 'center bottom', opacity: 1, offset: 0.7 },
+          { transform: 'scale(1) rotate(0deg)', transformOrigin: 'center bottom', opacity: 1 }
+        ],
+        'hinge': [
+          { transform: 'translate(0px,0px) rotate(0deg)', transformOrigin: 'left top', opacity: 1 },
+          { transform: 'translate(0px,0px) rotate(80deg)', transformOrigin: 'left top', opacity: 1, offset: 0.2 },
+          { transform: 'translate(0px,0px) rotate(60deg)', transformOrigin: 'left top', opacity: 1, offset: 0.4 },
+          { transform: 'translate(0px,0px) rotate(80deg)', transformOrigin: 'left top', opacity: 1, offset: 0.6 },
+          { transform: 'translate(0px,0px) rotate(60deg)', transformOrigin: 'left top', opacity: 1, offset: 0.8 },
+          { transform: 'translate(0px,700px) rotate(60deg)', transformOrigin: 'left top', opacity: 0 }
+        ],
+        'swing-in': [
+          { transform: 'perspective(400px) rotateX(-100deg)', transformOrigin: 'center top', opacity: 0 },
+          { transform: 'perspective(400px) rotateX(60deg)', transformOrigin: 'center top', opacity: 1, offset: 0.4 },
+          { transform: 'perspective(400px) rotateX(-20deg)', transformOrigin: 'center top', opacity: 1, offset: 0.6 },
+          { transform: 'perspective(400px) rotateX(10deg)', transformOrigin: 'center top', opacity: 1, offset: 0.8 },
+          { transform: 'perspective(400px) rotateX(0deg)', transformOrigin: 'center top', opacity: 1 }
+        ],
+        'spiral-in': [
+          { transform: 'rotate(-720deg) scale(0)', opacity: 0 },
+          { transform: 'rotate(0deg) scale(1)', opacity: 1 }
+        ],
+        'spiral-out': [
+          { transform: 'rotate(0deg) scale(1)', opacity: 1 },
+          { transform: 'rotate(720deg) scale(0)', opacity: 0 }
+        ],
+        'morph': [
+          { transform: 'scale(0.3,1.6) skew(-20deg,0deg) rotate(-15deg)', opacity: 0 },
+          { transform: 'scale(1.3,0.8) skew(12deg,0deg) rotate(8deg)', opacity: 1, offset: 0.4 },
+          { transform: 'scale(0.92,1.06) skew(-5deg,0deg) rotate(-3deg)', opacity: 1, offset: 0.7 },
+          { transform: 'scale(1,1) skew(0deg,0deg) rotate(0deg)', opacity: 1 }
+        ],
+        'skew-in': [
+          { transform: 'translate(-100px,0px) skew(-30deg,0deg)', opacity: 0 },
+          { transform: 'translate(20px,0px) skew(15deg,0deg)', opacity: 1, offset: 0.6 },
+          { transform: 'translate(-5px,0px) skew(-5deg,0deg)', opacity: 1, offset: 0.8 },
+          { transform: 'translate(0px,0px) skew(0deg,0deg)', opacity: 1 }
+        ],
+        'skew-out': [
+          { transform: 'translate(0px,0px) skew(0deg,0deg)', opacity: 1 },
+          { transform: 'translate(-10px,0px) skew(-5deg,0deg)', opacity: 1, offset: 0.2 },
+          { transform: 'translate(100px,0px) skew(30deg,0deg)', opacity: 0 }
+        ],
+        'elastic-in': [
+          { transform: 'scale(0)', opacity: 0 },
+          { transform: 'scale(1.25)', opacity: 1, offset: 0.3 },
+          { transform: 'scale(0.9)', opacity: 1, offset: 0.5 },
+          { transform: 'scale(1.08)', opacity: 1, offset: 0.7 },
+          { transform: 'scale(0.97)', opacity: 1, offset: 0.85 },
+          { transform: 'scale(1)', opacity: 1 }
+        ],
+        'elastic-out': [
+          { transform: 'scale(1)', opacity: 1 },
+          { transform: 'scale(0.88)', opacity: 1, offset: 0.2 },
+          { transform: 'scale(1.18)', opacity: 1, offset: 0.4 },
+          { transform: 'scale(0)', opacity: 0 }
+        ],
+        'expand': [
+          { transform: 'scale(0.001,1)', opacity: 0 },
+          { transform: 'scale(1,1)', opacity: 1 }
+        ],
+        'collapse': [
+          { transform: 'scale(1,1)', opacity: 1 },
+          { transform: 'scale(1,0.001)', opacity: 0 }
+        ],
+        'blur-out': [
+          { filter: 'blur(0px)', opacity: 1 },
+          { filter: 'blur(20px)', opacity: 0 }
+        ],
+        'zoom-out-up': [
+          { transform: 'translate(0px,0px) scale(1)', opacity: 1 },
+          { transform: 'translate(0px,60px) scale(0.475)', opacity: 1, offset: 0.4 },
+          { transform: 'translate(0px,-300px) scale(0.1)', opacity: 0 }
+        ],
+        'zoom-out-down': [
+          { transform: 'translate(0px,0px) scale(1)', opacity: 1 },
+          { transform: 'translate(0px,-60px) scale(0.475)', opacity: 1, offset: 0.4 },
+          { transform: 'translate(0px,300px) scale(0.1)', opacity: 0 }
+        ]
       };
 
-      const LOOP_ANIMATIONS = ['pulse', 'tada', 'rubber-band', 'jello', 'heartbeat', 'glitch', 'neon-glow', 'swing', 'wobble', 'float'];
+      const LOOP_ANIMATIONS = [
+        'pulse', 'tada', 'rubber-band', 'jello', 'heartbeat', 'glitch', 'neon-glow', 'swing', 'wobble', 'float',
+        'flash', 'head-shake', 'shake-x', 'shake-y'
+      ];
 
       const getWaapiEase = (name) => {
         const map = {
@@ -88,10 +201,11 @@ export const getAnimationScript = (pageNumber) => `  <script>
         }
         try {
           let cx = 0, cy = 0, useMathOrigin = false;
+          let bbox = { x: 0, y: 0, width: 0, height: 0 };
           const isSVG = el.namespaceURI === 'http://www.w3.org/2000/svg' || el.ownerSVGElement !== undefined;
           if (isSVG) {
             try {
-              const bbox = el.getBBox();
+              bbox = el.getBBox();
               cx = bbox.x + bbox.width / 2; cy = bbox.y + bbox.height / 2;
               useMathOrigin = true; el.style.transformOrigin = '0 0';
             } catch(e) { el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center'; }
@@ -123,8 +237,17 @@ export const getAnimationScript = (pageNumber) => `  <script>
           const keyframes = WAAPI_ANIMATIONS[type].map(kf => {
             const newKf = Object.assign({}, kf);
             if ((baseTransform || useMathOrigin) && kf.transform) {
+              let px = cx, py = cy;
+              if (useMathOrigin && newKf.transformOrigin) {
+                const origin = newKf.transformOrigin;
+                if (origin.includes('left')) px = bbox.x;
+                if (origin.includes('right')) px = bbox.x + bbox.width;
+                if (origin.includes('top')) py = bbox.y;
+                if (origin.includes('bottom')) py = bbox.y + bbox.height;
+                delete newKf.transformOrigin;
+              }
               newKf.transform = useMathOrigin
-                ? \`\${baseTransform} translate(\${cx}px,\${cy}px) \${kf.transform} translate(-\${cx}px,-\${cy}px)\`
+                ? \`\${baseTransform} translate(\${px}px,\${py}px) \${kf.transform} translate(-\${px}px,-\${py}px)\`
                 : \`\${baseTransform} \${kf.transform}\`;
             } else if (baseTransform) {
               newKf.transform = baseTransform;

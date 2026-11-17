@@ -423,6 +423,27 @@ export const getSlideshowScript = () => `  <link rel="stylesheet" href="https://
             }
 
             var readerSwiper = new Swiper(container, config);
+
+            // Shield sibling iframes (maps, 3rd party embeds) during swiper drag so gestures don't freeze
+            readerSwiper.on('touchStart', function() {
+              document.querySelectorAll('iframe').forEach(function(ifr) {
+                ifr.style.setProperty('pointer-events', 'none', 'important');
+              });
+            });
+            readerSwiper.on('touchEnd', function() {
+              document.querySelectorAll('iframe').forEach(function(ifr) {
+                ifr.style.removeProperty('pointer-events');
+              });
+            });
+
+            // Re-sync layout when external sibling iframes (maps/embeds) complete loading
+            window.addEventListener('load', function() {
+              if (readerSwiper && !readerSwiper.destroyed) readerSwiper.update();
+            });
+            window.addEventListener('resize', function() {
+              if (readerSwiper && !readerSwiper.destroyed) readerSwiper.update();
+            });
+
             requestAnimationFrame(function() {
               if (readerSwiper && !readerSwiper.destroyed) {
                 readerSwiper.update();

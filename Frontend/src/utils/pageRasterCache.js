@@ -43,7 +43,7 @@ const prepareSvgForRaster = (rawSvg, width, height) => {
         .replace(/<video\b[^<]*(?:(?!<\/video>)<[^<]*)*<\/video>/gi, '')
         .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
         .replace(/<foreignObject\b[^<]*(?:(?!<\/foreignObject>)<[^<]*)*<\/foreignObject>/gi, '')
-        .replace(/<g\b[^>]*data-type=["'](?:map|embed-frame)["'][^>]*>[\s\S]*?<\/g>/gi, '')
+        .replace(/<g\b[^>]*data-type=["']embed-frame["'][^>]*>[\s\S]*?<\/g>/gi, '')
         // CRITICAL: Strip external @import and external font URLs that trigger Chrome security blocks in <img>
         .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
         .replace(/@import\s+url\([^)]+\);?/gi, '');
