@@ -237,7 +237,31 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="/analytics"
+                  element={
+                    <Suspense fallback={null}>
+                      <Overview />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/analytics/:bookId"
+                  element={
+                    <Suspense fallback={null}>
+                      <Overview />
+                    </Suspense>
+                  }
+                />
+                <Route
                   path="/overview"
+                  element={
+                    <Suspense fallback={null}>
+                      <Overview />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/overview/:bookId"
                   element={
                     <Suspense fallback={null}>
                       <Overview />
