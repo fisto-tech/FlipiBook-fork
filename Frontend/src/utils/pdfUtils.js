@@ -31,6 +31,7 @@ import {
   getLegacyConverterUrl
 } from '../components/PageEditor/PageEditorModule/extractor/officeExtractor';
 import { extractDocumentViaServer } from '../services/resumableUploader.js';
+import { extractPdfDocument } from '../services/edgePdfPipeline.js';
 
 /**
  * Gets the number of pages in a PDF file.
@@ -234,45 +235,20 @@ const convertPdfToImagesMainThread = async () => [];
  * @param {string} backendUrl - Optional backend URL.
  * @returns {Promise<Array<{blob: Blob, dataUrl: string, svgString: string, content: string, width: number, height: number, isVector: boolean}>>}
  */
-export const convertPdfToImages = async (file, scale = 2.5, maxPages = Infinity, onProgress = null, backendUrl = null) => {
-  const data = await extractDocumentViaServer(file, {
+export const convertPdfToImages = async (file, scale = 2.5, maxPages = Infinity, onProgress = null, backendUrl = null, signal = null) => {
+  return await extractPdfDocument({
+    file,
     backendUrl,
+    signal,
     onProgress: (p) => {
+      if (signal?.aborted) return;
       if (onProgress && typeof onProgress === 'function') {
         try {
-          onProgress(p.current || 1, p.total || 1, p.percent || 0, p.stage || 'extracting', p.message || 'Extracting document...');
+          onProgress(p);
         } catch (e) {}
       }
     }
   });
-
-  const userId = data.userId || 'FLIPI0001';
-  const bookId = data.bookId;
-  const baseUrl = `/storage/${userId}/books/${bookId}/pages/`;
-  const initialPages = data.initialPages || [];
-
-  const results = initialPages.map((p) => {
-    const webpUrl = `${baseUrl}${p.image}`;
-    const svg = generatePdfPageSvg(webpUrl, `Page ${p.pageNumber}`, p.width, p.height, true);
-    return {
-      pageNumber: p.pageNumber,
-      pageName: `Page ${p.pageNumber}`,
-      content: svg,
-      svgString: svg,
-      dataUrl: webpUrl,
-      imageUrl: webpUrl,
-      thumbUrl: `${baseUrl}${p.thumb}`,
-      width: p.width,
-      height: p.height,
-      isVector: true
-    };
-  });
-
-  results.totalPages = data.totalPages || results.length;
-  results.isPartial = results.totalPages > results.length;
-  results.bookId = bookId;
-  results.userId = userId;
-  return results;
 };
 
 /**
@@ -698,7 +674,7 @@ export const convertOfficeDocumentToPdf = async (file, backendUrl = null, onProg
  * @param {Function} [onProgress] - Progress callback.
  * @returns {Promise<Array<{ pageNumber: number, pageName: string, content: string, width: number, height: number, dataUrl: string, isVector: boolean, blob: Blob }>>}
  */
-export const convertDocumentPages = async (file, maxPages = Infinity, backendUrl = null, onProgress = null) => {
+export const convertDocumentPages = async (file, maxPages = Infinity, backendUrl = null, onProgress = null, signal = null) => {
   const resolvedBackendUrl = backendUrl || import.meta.env.VITE_BACKEND_URL || '';
 
   // 1. If Office Document (.doc, .docx, .ppt, .pptx), convert to standard PDF File
@@ -714,7 +690,7 @@ export const convertDocumentPages = async (file, maxPages = Infinity, backendUrl
 
   // 2. High-Performance Customized Editor Extraction Engine (Standard PDF Architecture)
   try {
-    const images = await convertPdfToImages(targetFile, 2.5, maxPages, onProgress, resolvedBackendUrl);
+    const images = await convertPdfToImages(targetFile, 2.5, maxPages, onProgress, resolvedBackendUrl, signal);
     const mapped = images.map((img, idx) => ({
       pageNumber: img.pageNumber || idx + 1,
       pageName: img.pageName || `Page ${idx + 1}`,
@@ -735,6 +711,9 @@ export const convertDocumentPages = async (file, maxPages = Infinity, backendUrl
     mapped.userId = images.userId;
     return mapped;
   } catch (rasterErr) {
+    if (signal?.aborted || rasterErr?.name === 'AbortError') {
+      throw rasterErr;
+    }
     console.error('[MuPDF] Page extraction error, checking fallback pages:', rasterErr);
     // Fallback: If MuPDF cannot process the generated PDF, flatten extractor pages into non-editable PDF background SVGs
     if (targetFile && targetFile.pagesData && Array.isArray(targetFile.pagesData) && targetFile.pagesData.length > 0) {

@@ -175,7 +175,7 @@ export default function ArIntegrationSection() {
           <img
             src={arViewImg}
             alt="AR Real Space Experience"
-            className="w-full max-w-[480px] sm:max-w-[560px] md:max-w-[620px] lg:max-w-none h-auto block object-contain object-bottom"
+            className="w-[94%] sm:w-[95%] lg:w-[94%] xl:w-[93%] max-w-[470px] sm:max-w-[545px] md:max-w-[605px] lg:max-w-none h-auto block object-contain object-bottom"
           />
         </div>
 

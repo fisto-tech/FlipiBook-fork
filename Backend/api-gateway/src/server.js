@@ -821,6 +821,8 @@ app.use(
     target: `${CUSTOMIZED_EDITOR_SERVICE_URL}/api/customized-editor`,
     changeOrigin: true,
     xfwd: true,
+    timeout: 300000,
+    proxyTimeout: 300000,
     cookieDomainRewrite: '',
     cookiePathRewrite: '/',
     on: {
@@ -838,6 +840,9 @@ app.use(
         }
       },
       error: (err, req, res) => {
+        if (req.aborted || err.code === 'ECONNRESET' || err.message === 'socket hang up') {
+          return;
+        }
         console.error('[API Gateway] Proxy error to customized-editor-service:', err.message);
         if (!res.headersSent) {
           res.status(502).json({
@@ -1223,6 +1228,13 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[API Gateway] Routing /api/user -> ${USER_SERVICE_URL}`);
   console.log(`[API Gateway] Routing /api/forum -> ${USER_SERVICE_URL}`);
   console.log(`[API Gateway] Routing /api/admin -> ${ADMIN_SERVICE_URL}`);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught exception in api-gateway:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled rejection in api-gateway:', reason);
 });
 
 module.exports = app;

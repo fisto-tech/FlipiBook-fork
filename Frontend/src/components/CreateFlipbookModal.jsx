@@ -36,6 +36,7 @@ const CreateFlipbookModal = ({
   // Flipbook name and debounced duplicate detection
   const [flipbookName, setFlipbookName] = useState('');
   const [isDuplicate, setIsDuplicate] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter books in the current folder only
   const booksInCurrentFolder = React.useMemo(() => {
@@ -72,6 +73,7 @@ const CreateFlipbookModal = ({
 
   React.useEffect(() => {
     if (isOpen) {
+      setIsSubmitting(false);
       setView(initialView === 'selection' ? 'upload' : initialView);
       setSelectedTemplateId(initialTemplateId);
       if (initialPageCount && initialPageCount >= 4) {
@@ -206,18 +208,12 @@ const CreateFlipbookModal = ({
       event.target.value = '';
     }
 
-    const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB Total
-
     // Calculate current total size
     const currentTotalSize = uploadedFiles.reduce((sum, f) => sum + f.file.size, 0);
     let newTotalSize = currentTotalSize;
 
     const validFiles = [];
     for (const file of files) {
-      if (newTotalSize + file.size > MAX_TOTAL_SIZE) {
-        toast.error(`Total size exceeds 50MB limit. Skipping ${file.name}`);
-        continue;
-      }
       validFiles.push(file);
       newTotalSize += file.size;
     }
@@ -377,6 +373,7 @@ const CreateFlipbookModal = ({
   };
 
   const handleCreateFlipbook = async () => {
+    if (isSubmitting) return;
     const trimmed = flipbookName.trim();
     if (!trimmed) return;
     const isDup = booksInCurrentFolder.some(n => {
@@ -389,30 +386,37 @@ const CreateFlipbookModal = ({
       return;
     }
 
-    // Validate actual storage space before starting flipbook creation
-    const totalBytes = uploadedFiles.reduce((sum, f) => sum + (f.file.size || 0), 0);
-    const validation = await validateStorageBeforeUpload(emailId, totalBytes, storage);
-    if (validation.exceeds) {
-      if (onStorageExceeded) {
-        onStorageExceeded({
-          isOpen: true,
-          storage: { used: validation.used, total: validation.total },
-          requiredSize: totalBytes,
-          isFull: validation.isFull
-        });
-      } else {
-        toast.error('Storage limit exceeded. No more space available. Please upgrade your plan.');
-      }
-      return;
-    }
+    setIsSubmitting(true);
 
-    onUpload(uploadedFiles.map(f => {
-      f.file._pageCount = f.pages;
-      f.file._docWidth = f.width;
-      f.file._docHeight = f.height;
-      f.file._docType = f.docType;
-      return f.file;
-    }), trimmed);
+    try {
+      // Validate actual storage space before starting flipbook creation
+      const totalBytes = uploadedFiles.reduce((sum, f) => sum + (f.file.size || 0), 0);
+      const validation = await validateStorageBeforeUpload(emailId, totalBytes, storage);
+      if (validation.exceeds) {
+        setIsSubmitting(false);
+        if (onStorageExceeded) {
+          onStorageExceeded({
+            isOpen: true,
+            storage: { used: validation.used, total: validation.total },
+            requiredSize: totalBytes,
+            isFull: validation.isFull
+          });
+        } else {
+          toast.error('Storage limit exceeded. No more space available. Please upgrade your plan.');
+        }
+        return;
+      }
+
+      onUpload(uploadedFiles.map(f => {
+        f.file._pageCount = f.pages;
+        f.file._docWidth = f.width;
+        f.file._docHeight = f.height;
+        f.file._docType = f.docType;
+        return f.file;
+      }), trimmed);
+    } catch (err) {
+      setIsSubmitting(false);
+    }
   };
 
   const getTemplateDimensions = (tmplId, orient) => {
@@ -495,7 +499,24 @@ const CreateFlipbookModal = ({
 
   // Render Upload View
   const renderUploadView = () => (
-    <div className="bg-white rounded-[1vw] p-[1.25vw] md:p-[1.5vw] w-full max-w-[26vw] mx-auto flex flex-col shadow-2xl relative border border-gray-100">
+    <div
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (
+            !isSubmitting &&
+            !isProcessingFiles &&
+            uploadedFiles.length > 0 &&
+            uploadedFiles.every(f => f.progress === 100) &&
+            !isDuplicate &&
+            flipbookName.trim()
+          ) {
+            handleCreateFlipbook();
+          }
+        }
+      }}
+      className="bg-white rounded-[1vw] p-[1.25vw] md:p-[1.5vw] w-full max-w-[26vw] mx-auto flex flex-col shadow-2xl relative border border-gray-100"
+    >
 
       {/* Header */}
       <div className="flex items-center justify-between pb-[0.75vw] mb-[0.5vw] border-b border-gray-200">
@@ -567,6 +588,21 @@ const CreateFlipbookModal = ({
           type="text"
           value={flipbookName}
           onChange={handleNameChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (
+                !isSubmitting &&
+                !isProcessingFiles &&
+                uploadedFiles.length > 0 &&
+                uploadedFiles.every(f => f.progress === 100) &&
+                !isDuplicate &&
+                flipbookName.trim()
+              ) {
+                handleCreateFlipbook();
+              }
+            }
+          }}
           placeholder="Enter flipbook name..."
           className={`w-full border rounded-[0.5vw] px-[0.75vw] py-[0.5vw] text-[0.75vw] focus:outline-none transition-colors ${
             isDuplicate 
@@ -661,14 +697,21 @@ const CreateFlipbookModal = ({
         </button>
         <button
           onClick={handleCreateFlipbook}
-          disabled={isProcessingFiles || uploadedFiles.length === 0 || !uploadedFiles.every(f => f.progress === 100) || isDuplicate || !flipbookName.trim()}
-          className={`flex-1 py-[0.6vw] font-semibold cursor-pointer rounded-[0.5vw] text-[0.85vw] transition-all ${
-            !isProcessingFiles && uploadedFiles.length > 0 && uploadedFiles.every(f => f.progress === 100) && !isDuplicate && flipbookName.trim()
+          disabled={isSubmitting || isProcessingFiles || uploadedFiles.length === 0 || !uploadedFiles.every(f => f.progress === 100) || isDuplicate || !flipbookName.trim()}
+          className={`flex-1 py-[0.6vw] font-semibold cursor-pointer rounded-[0.5vw] text-[0.85vw] transition-all flex items-center justify-center gap-[0.5vw] ${
+            !isSubmitting && !isProcessingFiles && uploadedFiles.length > 0 && uploadedFiles.every(f => f.progress === 100) && !isDuplicate && flipbookName.trim()
               ? 'bg-[#ea543a] text-white hover:bg-[#d9482f] shadow-lg shadow-orange-500/20 active:scale-95'
               : 'bg-[#ffedea] text-[#ea543a]/40 cursor-not-allowed'
           }`}
         >
-          Create Flipbook
+          {isSubmitting ? (
+            <>
+              <div className="w-[1vw] h-[1vw] border-[0.14vw] border-white/30 border-t-white rounded-full animate-spin" />
+              <span>Uploading...</span>
+            </>
+          ) : (
+            'Create Flipbook'
+          )}
         </button>
       </div>
 

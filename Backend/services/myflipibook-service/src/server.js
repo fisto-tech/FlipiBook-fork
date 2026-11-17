@@ -49,8 +49,8 @@ app.use(cors({
 }));
 
 app.use(cookieParser());
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '250mb' }));
+app.use(express.urlencoded({ limit: '250mb', extended: true }));
 
 const fs = require('fs');
 const { getStorageRoot } = require('./utils/storageHelper');
@@ -181,6 +181,15 @@ app.use('/api/profile', shelfRoutes);
 app.use('/profile', shelfRoutes);
 app.use('/', userSettingRoutes);
 app.use('/', myflipibookRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  if (err.type === 'request.aborted' || err.message === 'Request aborted' || err.message === 'request aborted' || req.aborted) {
+    return res.status(499).end();
+  }
+  console.error('[FLIPBOOK Error]:', err.message);
+  res.status(err.status || 500).json({ success: false, message: err.message });
+});
 
 // Fallback 404
 app.use((req, res) => {

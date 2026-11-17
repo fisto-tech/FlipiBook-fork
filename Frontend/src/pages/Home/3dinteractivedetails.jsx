@@ -93,7 +93,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       <div className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-4 xl:gap-6 items-start relative">
 
         {/* Left Column (col-span-3) - directly at top */}
-        <div className="lg:col-span-3 flex flex-col justify-start text-left items-start z-20 pt-7 sm:pt-9 lg:pt-12">
+        <div className="lg:col-span-3 flex flex-col justify-start text-left items-start z-20 pt-2 sm:pt-4 lg:pt-12">
           {/* Headline with slide-in & fade */}
           <motion.h2
             initial={{ opacity: 0, x: -30 }}
@@ -114,7 +114,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="text-xs sm:text-sm md:text-[14px] lg:text-[0.84vw] font-normal text-[#9ca3af] leading-[165%] mt-5 sm:mt-6 lg:mt-6 max-w-[340px] sm:max-w-[400px] lg:max-w-none"
+            className="text-xs sm:text-sm md:text-[14px] lg:text-[0.84vw] font-normal text-[#9ca3af] leading-[165%] mt-3 sm:mt-4 lg:mt-6 max-w-[340px] sm:max-w-[400px] lg:max-w-none"
           >
             Bring 3D product models into your FlipiBook catalogue. Let customers rotate products, inspect details, and discover features through clickable hotspots, videos, and audio.
           </motion.p>
@@ -129,7 +129,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
               if (navigate) navigate('/explore');
             }}
             style={{ borderRadius: '12px' }}
-            className="group flex items-center gap-2.5 px-6 py-2.5 sm:px-7 sm:py-3.5 lg:px-[1.6vw] lg:py-[0.65vw] bg-[#EA7233] hover:bg-[#d86224] text-white font-medium text-xs sm:text-sm lg:text-[0.84vw] shadow-[0_6px_20px_rgba(234,114,51,0.35)] transition-all duration-300 active:scale-95 cursor-pointer mt-6 sm:mt-8 lg:mt-7"
+            className="group flex items-center gap-2.5 px-5 py-2.5 sm:px-7 sm:py-3.5 lg:px-[1.6vw] lg:py-[0.65vw] bg-[#EA7233] hover:bg-[#d86224] text-white font-medium text-xs sm:text-sm lg:text-[0.84vw] shadow-[0_6px_20px_rgba(234,114,51,0.35)] transition-all duration-300 active:scale-95 cursor-pointer mt-4 sm:mt-5 lg:mt-7 mb-4 sm:mb-6 lg:mb-0 relative z-30"
           >
             <span>Explore a 3D Catalogue</span>
             <Icon icon="lucide:arrow-right" className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
@@ -142,7 +142,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.9, delay: 0.2 }}
-          className="lg:col-span-6 relative flex items-end justify-center w-full z-10 self-end -mb-1 translate-x-2 sm:translate-x-4 lg:translate-x-6"
+          className="lg:col-span-6 relative flex items-end justify-center w-full z-10 self-end -mb-1 translate-x-0 sm:translate-x-4 lg:translate-x-6 my-1 sm:my-0"
         >
           <div className="relative w-full max-w-[560px] sm:max-w-[700px] lg:max-w-none lg:w-[116%] xl:w-[122%] lg:-ml-[4%] xl:-ml-[6%] flex items-end justify-center">
 
@@ -150,7 +150,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
             <img
               src={homes2Img}
               alt="Interactive 3D Catalogue Floor Plan"
-              className="w-full h-auto max-h-[56vh] sm:max-h-[66vh] lg:max-h-[80vh] xl:max-h-[85vh] object-contain select-none pointer-events-none drop-shadow-[0_20px_45px_rgba(0,0,0,0.9)] scale-x-120 scale-y-124 origin-bottom"
+              className="w-full h-auto max-h-[58vh] sm:max-h-[66vh] lg:max-h-[80vh] xl:max-h-[85vh] object-contain select-none pointer-events-none drop-shadow-[0_20px_45px_rgba(0,0,0,0.9)] scale-110 sm:scale-115 lg:scale-x-120 lg:scale-y-124 origin-bottom"
             />
 
             {/* Arrow Images positioned individually */}

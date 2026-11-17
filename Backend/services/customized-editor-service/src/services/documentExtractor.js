@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const queueManager = require('./queueService');
@@ -9,6 +10,9 @@ const execFileAsync = promisify(execFile);
 const storageRoot = process.env.STORAGE_PATH
   ? path.resolve(process.env.STORAGE_PATH)
   : path.resolve(__dirname, '../../../../storage');
+
+// High-speed RAM disk directory: /dev/shm on Linux VPS (100% RAM tmpfs, zero SSD wear)
+const RAM_DISK_DIR = fs.existsSync('/dev/shm') ? '/dev/shm' : os.tmpdir();
 
 const CANDIDATE_CWEBP = [
   '/opt/homebrew/bin/cwebp',
@@ -52,9 +56,29 @@ async function getMuPdf() {
   if (!mupdfModule) {
     try {
       mupdfModule = await import('mupdf');
-    } catch (e) {
-      const mupdfPath = path.resolve(__dirname, '../../node_modules/mupdf/dist/mupdf.js');
-      mupdfModule = await import(pathToFileURL(mupdfPath).href);
+      return mupdfModule;
+    } catch (_) {}
+
+    const candidatePaths = [
+      path.resolve(__dirname, '../../../../node_modules/mupdf/dist/mupdf.js'),
+      path.resolve(__dirname, '../../node_modules/mupdf/dist/mupdf.js')
+    ];
+
+    for (const cPath of candidatePaths) {
+      if (fs.existsSync(cPath)) {
+        try {
+          mupdfModule = await import(pathToFileURL(cPath).href);
+          return mupdfModule;
+        } catch (_) {}
+      }
+    }
+
+    try {
+      const resolved = require.resolve('mupdf/dist/mupdf.js');
+      mupdfModule = await import(pathToFileURL(resolved).href);
+      return mupdfModule;
+    } catch (finalErr) {
+      throw new Error(`Failed to load MuPDF module: ${finalErr.message}`);
     }
   }
   return mupdfModule;
@@ -62,13 +86,16 @@ async function getMuPdf() {
 
 /**
  * Convert a PNG buffer directly to WebP using Google cwebp binary
+ * Uses RAM-disk /dev/shm for zero physical SSD disk wear and ultra-low latency
  */
 async function bufferToWebP(pngBuffer, outPath, quality = 85, resizeWidth = 0) {
   const cwebp = getCwebp();
-  const tempPng = `${outPath}.temp.png`;
+  const randId = Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+  const tempPng = path.join(RAM_DISK_DIR, `flip_tmp_${randId}.png`);
+
   await fs.promises.writeFile(tempPng, pngBuffer);
 
-  const args = ['-q', String(quality)];
+  const args = ['-q', String(quality), '-mt'];
   if (resizeWidth > 0) {
     args.push('-resize', String(resizeWidth), '0');
   }
@@ -114,14 +141,18 @@ async function extractSinglePage(doc, pageIndex, outDir, mupdf) {
   const highPix = page.toPixmap(mupdf.Matrix.scale(highScale, highScale), mupdf.ColorSpace.DeviceRGB, false, true);
   const highPngBytes = highPix.asPNG();
   const webpPath = path.join(outDir, `${pageNum}.webp`);
-  await bufferToWebP(highPngBytes, webpPath, 85);
 
   // 3. Thumbnail 240px Render Scale
   const thumbScale = maxPt > 0 ? 240 / maxPt : 0.3;
   const thumbPix = page.toPixmap(mupdf.Matrix.scale(thumbScale, thumbScale), mupdf.ColorSpace.DeviceRGB, false, true);
   const thumbPngBytes = thumbPix.asPNG();
   const thumbPath = path.join(outDir, `${pageNum}_thumb.webp`);
-  await bufferToWebP(thumbPngBytes, thumbPath, 75);
+
+  // Run high-res and thumbnail encodings concurrently with multi-threading
+  await Promise.all([
+    bufferToWebP(highPngBytes, webpPath, 85),
+    bufferToWebP(thumbPngBytes, thumbPath, 75)
+  ]);
 
   return {
     pageNumber: pageNum,
@@ -135,7 +166,7 @@ async function extractSinglePage(doc, pageIndex, outDir, mupdf) {
 }
 
 /**
- * Main Extraction Worker for up to 10,000+ Pages
+ * Main Extraction Worker with Multi-Core Parallel Page Sliding Window
  */
 async function processExtractionJob(job) {
   const { jobId, userId, bookId, filePath } = job;
@@ -170,74 +201,111 @@ async function processExtractionJob(job) {
       status: 'extracting'
     });
 
-    const allPages = [];
+    const allPages = new Array(totalPages);
+    let extractedCount = 0;
 
     // ==========================================
-    // Phase 1: Fast-Launch (Pages 1 to 10 in <1s)
+    // Phase 1: Fast-Launch (Pages 1 to 4 in <500ms)
     // ==========================================
-    const initialBatchSize = Math.min(10, totalPages);
+    const initialBatchSize = Math.min(4, totalPages);
     for (let p = 0; p < initialBatchSize; p++) {
       const pageInfo = await extractSinglePage(doc, p, pagesDir, mupdf);
-      allPages.push(pageInfo);
+      allPages[p] = pageInfo;
+      extractedCount++;
+
+      const progress = Math.round((extractedCount / totalPages) * 100);
+      await queueManager.updateJob(jobId, {
+        availablePages: extractedCount,
+        totalPages,
+        progress,
+        stage: 'extracting',
+        pages: allPages.filter(Boolean)
+      });
     }
 
     await queueManager.updateJob(jobId, {
-      availablePages: allPages.length,
+      availablePages: extractedCount,
+      totalPages,
       initialPagesReady: true,
-      stage: totalPages > 10 ? 'streaming_remaining' : 'finalizing',
-      progress: Math.round((allPages.length / totalPages) * 100),
-      pages: allPages
+      stage: totalPages > 4 ? 'streaming_remaining' : 'finalizing',
+      progress: Math.round((extractedCount / totalPages) * 100),
+      pages: allPages.filter(Boolean)
     });
 
     // ==========================================
-    // Phase 2: Background Batching (Pages 11 to 10,000+)
+    // Phase 2: Multi-Core Parallel Sliding Pool
+    // Process remaining pages concurrently across all CPU cores
     // ==========================================
     if (totalPages > initialBatchSize) {
+      const cpuCount = os.cpus().length || 4;
+      // Concurrency: 4 to 8 parallel page workers per job
+      const PAGE_CONCURRENCY = Math.max(2, Math.min(8, Math.floor(cpuCount * 0.8) || 4));
+
+      const remainingPageIndices = [];
       for (let p = initialBatchSize; p < totalPages; p++) {
-        const pageInfo = await extractSinglePage(doc, p, pagesDir, mupdf);
-        allPages.push(pageInfo);
-
-        // Update progress on EVERY extracted page so SSE stream receives exact counts in real time
-        const progress = Math.round((allPages.length / totalPages) * 100);
-        await queueManager.updateJob(jobId, {
-          availablePages: allPages.length,
-          progress,
-          pages: allPages
-        });
-
-        // Sync batch to MongoDB so Editor poller hydrates newly extracted pages immediately
-        if ((p + 1) % 5 === 0 || p === totalPages - 1) {
-          try {
-            const mongoose = require('mongoose');
-            if (mongoose.connection && mongoose.connection.db) {
-              const currentPagesFormatted = allPages.map(ap => {
-                const webpUrl = `/storage/${userId}/books/${bookId}/pages/${ap.pageNumber}.webp`;
-                const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${widthMm || 210} ${heightMm || 297}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${ap.pageNumber}" data-name="Page ${ap.pageNumber}"><image id="img-page-${ap.pageNumber}" x="0" y="0" width="${widthMm || 210}" height="${heightMm || 297}" href="${webpUrl}" xlink:href="${webpUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
-                return {
-                  id: ap.pageNumber,
-                  pageNumber: ap.pageNumber,
-                  name: `Page ${ap.pageNumber}`,
-                  fileName: `Page ${ap.pageNumber}.svg`,
-                  imageUrl: webpUrl,
-                  content: svgContent,
-                  html: svgContent,
-                  isPlaceholder: false
-                };
-              });
-              await mongoose.connection.db.collection('flipbooks').updateOne(
-                { v_id: bookId },
-                { $set: { pages: currentPagesFormatted, pagesCount: totalPages } }
-              );
-            }
-          } catch (_) {}
-        }
-
-        // Yield CPU to ensure web requests stay 100% responsive
-        if ((p + 1) % 10 === 0) {
-          await new Promise(r => setTimeout(r, 10));
-        }
+        remainingPageIndices.push(p);
       }
+
+      let nextQueueIndex = 0;
+      let lastDbSyncTime = Date.now();
+
+      const runPageWorker = async () => {
+        while (nextQueueIndex < remainingPageIndices.length) {
+          const currentIndex = nextQueueIndex++;
+          const pageIdx = remainingPageIndices[currentIndex];
+
+          const pageInfo = await extractSinglePage(doc, pageIdx, pagesDir, mupdf);
+          allPages[pageIdx] = pageInfo;
+          extractedCount++;
+
+          const progress = Math.round((extractedCount / totalPages) * 100);
+
+          // Real-time SSE update on every extracted page
+          await queueManager.updateJob(jobId, {
+            availablePages: extractedCount,
+            totalPages,
+            progress,
+            stage: 'streaming_remaining'
+          });
+
+          // Sync batch to MongoDB every 5 pages or at least every 2 seconds
+          const now = Date.now();
+          if (extractedCount % 5 === 0 || extractedCount === totalPages || (now - lastDbSyncTime > 2000)) {
+            lastDbSyncTime = now;
+            try {
+              const mongoose = require('mongoose');
+              if (mongoose.connection && mongoose.connection.db) {
+                const currentPagesFormatted = allPages.filter(Boolean).map(ap => {
+                  const webpUrl = `/storage/${userId}/books/${bookId}/pages/${ap.pageNumber}.webp`;
+                  const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthMm || 210} ${heightMm || 297}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${ap.pageNumber}" data-name="Page ${ap.pageNumber}"><image id="img-page-${ap.pageNumber}" x="0" y="0" width="${widthMm || 210}" height="${heightMm || 297}" href="${webpUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
+                  return {
+                    id: ap.pageNumber,
+                    pageNumber: ap.pageNumber,
+                    name: `Page ${ap.pageNumber}`,
+                    fileName: `Page ${ap.pageNumber}.svg`,
+                    imageUrl: webpUrl,
+                    content: svgContent,
+                    html: svgContent,
+                    isPlaceholder: false
+                  };
+                });
+                await mongoose.connection.db.collection('flipbooks').updateOne(
+                  { v_id: bookId },
+                  { $set: { pages: currentPagesFormatted, pagesCount: totalPages } }
+                );
+              }
+            } catch (_) {}
+          }
+        }
+      };
+
+      // Launch worker pool
+      const workerCount = Math.min(PAGE_CONCURRENCY, remainingPageIndices.length);
+      const workers = Array.from({ length: workerCount }, () => runPageWorker());
+      await Promise.all(workers);
     }
+
+    const finalPages = allPages.filter(Boolean);
 
     // Save lightweight manifest.json (< 25 KB)
     const manifest = {
@@ -248,7 +316,7 @@ async function processExtractionJob(job) {
       height: heightMm,
       aspectRatio,
       baseUrl: `/storage/${userId}/books/${bookId}/pages/`,
-      pages: allPages
+      pages: finalPages
     };
 
     await fs.promises.writeFile(
@@ -256,11 +324,11 @@ async function processExtractionJob(job) {
       JSON.stringify(manifest, null, 2)
     );
 
-    // Sync total pages count and page structures with MongoDB collection 'flipbooks' so MyFlipbooks UI and Editor load all pages
+    // Sync total pages count and page structures with MongoDB collection 'flipbooks'
     try {
       const mongoose = require('mongoose');
       if (mongoose.connection && mongoose.connection.db) {
-        const formattedDbPages = allPages.map(p => ({
+        const formattedDbPages = finalPages.map(p => ({
           id: p.pageNumber,
           pageNumber: p.pageNumber,
           name: `Page ${p.pageNumber}`,
@@ -292,7 +360,7 @@ async function processExtractionJob(job) {
       status: 'completed',
       stage: 'completed',
       progress: 100,
-      pages: allPages,
+      pages: finalPages,
       manifest
     });
 

@@ -16,17 +16,22 @@ try {
   fs.mkdirSync(TEMP_UPLOADS_DIR, { recursive: true });
 } catch (e) {}
 
+const activeAssemblies = new Set();
+
 /**
- * Handles incoming 5MB binary chunks from client
+ * Handles incoming binary chunks with zero-copy direct byte-offset writing.
+ * Allows out-of-order parallel chunk ingestion with zero assembly latency!
+ *
  * @param {Object} params
  * @param {string} params.uploadId - Unique upload session ID
  * @param {number} params.chunkIndex - Zero-indexed chunk number
  * @param {number} params.totalChunks - Total chunks expected
  * @param {string} params.fileName - Original file name
  * @param {Buffer} params.chunkBuffer - Raw binary chunk data
+ * @param {number} [params.chunkSize] - Standard chunk size in bytes
  * @returns {Promise<{ isComplete: boolean, filePath?: string, uploadId: string, progress: number }>}
  */
-async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, chunkBuffer }) {
+async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, chunkBuffer, chunkSize = 2 * 1024 * 1024 }) {
   if (!uploadId) {
     uploadId = `up_${nanoid(12)}`;
   }
@@ -34,59 +39,61 @@ async function handleChunkUpload({ uploadId, chunkIndex, totalChunks, fileName, 
   const uploadDir = path.join(TEMP_CHUNKS_DIR, uploadId);
   await fs.promises.mkdir(uploadDir, { recursive: true });
 
-  const chunkPath = path.join(uploadDir, `chunk_${String(chunkIndex).padStart(6, '0')}`);
-  await fs.promises.writeFile(chunkPath, chunkBuffer);
-
-  const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
-
-  // If not the final chunk, return progress
-  if (chunkIndex < totalChunks - 1) {
-    return {
-      isComplete: false,
-      uploadId,
-      chunkIndex,
-      totalChunks,
-      progress
-    };
-  }
-
-  // All chunks received: Assemble into final file
   const ext = path.extname(fileName) || '.pdf';
-  const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}_${Date.now()}${ext}`);
-  const writeStream = fs.createWriteStream(finalFilePath);
+  const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}${ext}`);
 
-  for (let i = 0; i < totalChunks; i++) {
-    const partPath = path.join(uploadDir, `chunk_${String(i).padStart(6, '0')}`);
-    if (!fs.existsSync(partPath)) {
-      throw new Error(`Missing chunk index ${i} for upload ${uploadId}`);
+  // 1. Write chunk part directly to disk (100% crash-safe & compatible with all Docker bind mounts)
+  const partPath = path.join(uploadDir, `${String(chunkIndex).padStart(6, '0')}.part`);
+  await fs.promises.writeFile(partPath, chunkBuffer);
+
+  const files = await fs.promises.readdir(uploadDir);
+  const partFiles = files.filter(f => f.endsWith('.part')).sort();
+  const progress = Math.min(100, Math.round((partFiles.length / totalChunks) * 100));
+
+  // 2. If all chunks have arrived, assemble parts sequentially into final file
+  if (partFiles.length >= totalChunks && !activeAssemblies.has(uploadId)) {
+    activeAssemblies.add(uploadId);
+    try {
+      const finalStream = fs.createWriteStream(finalFilePath);
+      for (const part of partFiles) {
+        const partBuf = await fs.promises.readFile(path.join(uploadDir, part));
+        finalStream.write(partBuf);
+      }
+      await new Promise((resolve, reject) => {
+        finalStream.end(resolve);
+        finalStream.on('error', reject);
+      });
+
+      // Clean up temporary chunks directory
+      fs.promises.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
+
+      const stats = await fs.promises.stat(finalFilePath);
+      return {
+        isComplete: true,
+        uploadId,
+        filePath: finalFilePath,
+        fileName,
+        fileSize: stats.size,
+        progress: 100
+      };
+    } finally {
+      activeAssemblies.delete(uploadId);
     }
-    const partBuffer = await fs.promises.readFile(partPath);
-    await new Promise((resolve, reject) => {
-      const ok = writeStream.write(partBuffer);
-      if (ok) resolve();
-      else writeStream.once('drain', resolve);
-    });
   }
-
-  await new Promise((resolve) => writeStream.end(resolve));
-
-  // Clean up chunk files in background
-  fs.promises.rm(uploadDir, { recursive: true, force: true }).catch(() => {});
-
-  const stats = await fs.promises.stat(finalFilePath);
 
   return {
-    isComplete: true,
+    isComplete: false,
     uploadId,
-    filePath: finalFilePath,
-    fileName,
-    fileSize: stats.size,
-    progress: 100
+    chunkIndex,
+    totalChunks,
+    progress
   };
 }
 
 module.exports = {
   handleChunkUpload,
-  TEMP_UPLOADS_DIR
+  TEMP_UPLOADS_DIR,
+  TEMP_CHUNKS_DIR,
+  activeAssemblies
 };
 

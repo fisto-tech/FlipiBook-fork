@@ -19,7 +19,7 @@ class ExtractionQueueManager extends EventEmitter {
     this.subRedis = null;
     this.inMemoryJobs = new Map();
     this.activeWorkers = 0;
-    this.maxConcurrentWorkers = 4; // Caps CPU/RAM at predictable ceiling
+    this.maxConcurrentWorkers = 1; // Dedicate CPU to 1 extraction job at a time to keep Gateway 100% responsive
     this.pendingQueue = [];
 
     this.setupRedisSubscriber();
@@ -37,11 +37,19 @@ class ExtractionQueueManager extends EventEmitter {
         // Silently handle subscriber connection errors without crashing
       });
 
-      this.subRedis.psubscribe('job:update:*', (err) => {
-        if (err) {
-          console.warn('[QueueManager] Redis psubscribe error:', err.message);
-        }
-      });
+      const subscribeToUpdates = () => {
+        this.subRedis.psubscribe('job:update:*', (err) => {
+          if (err) {
+            console.warn('[QueueManager] Redis psubscribe error:', err.message);
+          }
+        });
+      };
+
+      if (this.subRedis.status === 'ready') {
+        subscribeToUpdates();
+      } else {
+        this.subRedis.once('ready', subscribeToUpdates);
+      }
 
       this.subRedis.on('pmessage', (pattern, channel, message) => {
         try {
