@@ -418,6 +418,7 @@ export default function MyFlipbooks() {
     const [isLoading, setIsLoading] = useState(false);
     const [processingProgress, setProcessingProgress] = useState(null);
     const isUploadCancelledRef = useRef(false);
+    const uploadAbortControllerRef = useRef(null);
     const createdFlipbookVIdRef = useRef(null);
     const [alertState, setAlertState] = useState({
         isOpen: false,
@@ -489,15 +490,48 @@ export default function MyFlipbooks() {
     const handleUploadPDF = async (files, customName) => {
         if (!files || files.length === 0) return;
 
-        // Calculate incoming total file size
+        // Calculate incoming total file size and total page count across all files
         const totalPdfSize = files.reduce((acc, f) => acc + (f.size || 0), 0);
+        const totalPagesAllFiles = files.reduce((acc, f) => acc + (f._pageCount || 1), 0);
+        const firstFile = files[0];
+        const sessionId = `up_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-        // Validate actual storage space occupied by user BEFORE starting extraction/upload
+        // INSTANT LOADER APPEARANCE (Synchronous 0ms - no flicker, no gap, immediate feedback)
+        setIsCreateModalOpen(false);
+        setInitialDroppedFiles(null);
+        setIsLoading(true);
+        isUploadCancelledRef.current = false;
+        if (uploadAbortControllerRef.current) {
+            try { uploadAbortControllerRef.current.abort(); } catch (_) {}
+        }
+        uploadAbortControllerRef.current = new AbortController();
+        const signal = uploadAbortControllerRef.current.signal;
+        createdFlipbookVIdRef.current = null;
+
+        const initialDocType = firstFile._docType || getOfficeDocType(firstFile.name);
+        const initialDocLabel = initialDocType === 'word' ? 'Word document' : initialDocType === 'powerpoint' ? 'PowerPoint presentation' : 'file';
+
+        setProcessingProgress({
+            sessionId,
+            current: 0,
+            total: totalPagesAllFiles,
+            fileIndex: 0,
+            totalFiles: files.length,
+            pageCount: totalPagesAllFiles,
+            loadedBytes: 0,
+            totalBytes: totalPdfSize,
+            message: files.length > 1
+                ? `Preparing ${files.length} documents...`
+                : `Uploading ${firstFile.name}...`,
+            fileName: files.length > 1 ? `${firstFile.name} (1 of ${files.length})` : firstFile.name,
+            stage: 'uploading'
+        });
+
+        // Validate actual storage space occupied by user BEFORE network transmission
         const validation = await validateStorageBeforeUpload(emailId, totalPdfSize, storage);
         if (validation.exceeds) {
-            setIsCreateModalOpen(false);
-            setInitialDroppedFiles(null);
             setIsLoading(false);
+            setProcessingProgress(null);
             setStorageLimitModal({
                 isOpen: true,
                 storage: { used: validation.used, total: validation.total },
@@ -507,63 +541,23 @@ export default function MyFlipbooks() {
             return;
         }
 
-        setIsCreateModalOpen(false);
-        setInitialDroppedFiles(null);
-        setIsLoading(true);
-        isUploadCancelledRef.current = false;
-        createdFlipbookVIdRef.current = null;
-
-        const firstFile = files[0];
-        const initialDocType = firstFile._docType || getOfficeDocType(firstFile.name);
-        const initialDocLabel = initialDocType === 'word' ? 'Word document' : initialDocType === 'powerpoint' ? 'PowerPoint presentation' : 'file';
-        const initialPageCount = firstFile._pageCount || 1;
-
-        // INSTANT LOADER APPEARANCE (0ms latency - immediately on button click!)
-        setProcessingProgress({
-            current: 0,
-            total: initialPageCount,
-            fileIndex: 0,
-            totalFiles: files.length,
-            pageCount: initialPageCount,
-            message: files.length > 1
-                ? `Uploading queued ${initialDocLabel} 1 of ${files.length} (${firstFile.name})...`
-                : `Uploading ${initialDocLabel}: ${firstFile.name}...`,
-            fileName: firstFile.name,
-            stage: 'uploading'
-        });
-
         try {
             let allImages = [];
+            let cumulativeUploadedBytes = 0;
+            let cumulativeExtractedPages = 0;
 
-            // Step 1 — Extract all PDF pages into SVG blobs
+            // Step 1 — Coordinated sequential extraction across all files (guarantees strict page order)
             for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
-                if (isUploadCancelledRef.current) return;
+                if (isUploadCancelledRef.current || signal.aborted) return;
                 const file = files[fileIndex];
 
-                const docType = file._docType || getOfficeDocType(file.name);
-                const docLabel = docType === 'word' ? 'Word document' : docType === 'powerpoint' ? 'PowerPoint presentation' : 'file';
-                const detectedCount = file._pageCount || 1;
-
-                setProcessingProgress({
-                    current: 0,
-                    total: detectedCount,
-                    fileIndex,
-                    totalFiles: files.length,
-                    pageCount: detectedCount,
-                    message: files.length > 1
-                        ? `Uploading queued ${docLabel} ${fileIndex + 1} of ${files.length} (${file.name})...`
-                        : `Uploading ${docLabel}: ${file.name}...`,
-                    fileName: file.name,
-                    stage: 'uploading'
-                });
-                // Pure Binary Streaming & Full Extraction Architecture (FlippingBook / FlipHTML5 standard):
-                // 1. Stage 1 (Upload): Pure binary streams (application/octet-stream) with live MB counter
-                // 2. Stage 2 (Extract): Live page counter & stopwatch (e.g. 66 / 100 pages, 00:14)
-                // 3. Stage 3 (Complete): Open flipbook ONLY when 100% of pages are extracted & verified
                 const earlyExtractLimit = Infinity;
 
                 const images = await convertPdfWithInkscape(file, earlyExtractLimit, backendUrl, (currOrObj, total, pct, stage, msg) => {
-                    let current, pageCount, percent, message, currentStage, loadedBytes, totalBytes;
+                    if (isUploadCancelledRef.current || signal.aborted) {
+                        return;
+                    }
+                    let current, pageCount, percent, message, currentStage, loadedBytes, totalBytes, engine;
                     if (typeof currOrObj === 'object' && currOrObj !== null) {
                         percent = currOrObj.percent ?? currOrObj.pct;
                         current = currOrObj.current ?? currOrObj.curr;
@@ -571,45 +565,72 @@ export default function MyFlipbooks() {
                         currentStage = currOrObj.stage || 'converting';
                         loadedBytes = currOrObj.loadedBytes;
                         totalBytes = currOrObj.totalBytes;
-                        message = currOrObj.message || (percent !== undefined ? `Converting ${docLabel} (${percent}%)...` : `Converting ${docLabel}...`);
+                        engine = currOrObj.engine;
                     } else {
                         current = currOrObj;
                         pageCount = (total !== undefined && total > 0) ? total : file._pageCount;
                         percent = pct;
                         currentStage = stage || 'converting';
-                        message = msg || (pageCount ? `Extracting page ${currOrObj} of ${pageCount} (${pct}%)...` : `Converting ${docLabel} (${pct}%)...`);
                     }
+
+                    const fileLoaded = (loadedBytes !== undefined && loadedBytes !== null) 
+                        ? Number(loadedBytes) 
+                        : (currentStage === 'extracting' || currentStage === 'saving' || currentStage === 'done' ? file.size : 0);
+                    const overallLoaded = cumulativeUploadedBytes + fileLoaded;
+
+                    const fileCurrent = (current !== undefined && current !== null && !isNaN(Number(current))) 
+                        ? Number(current) 
+                        : 0;
+                    const overallCurrent = cumulativeExtractedPages + fileCurrent;
+
                     setProcessingProgress(prev => {
-                        // Guard: Once reached 'saving' or 'done', never regress back to earlier stages
+                        if (isUploadCancelledRef.current || signal.aborted) {
+                            return null;
+                        }
                         if (prev?.stage === 'saving' || prev?.stage === 'done') {
                             return prev;
                         }
-                        const resolvedPageCount = (pageCount && pageCount > 0)
-                            ? Math.max(pageCount, prev?.pageCount || 0, file._pageCount || 0)
-                            : (prev?.pageCount || file._pageCount || 1);
-                        const resolvedCurrent = (current !== undefined && current !== null) ? Number(current) : (prev?.current || 0);
                         return {
                             ...(prev || {}),
-                            current: Math.min(resolvedPageCount, resolvedCurrent),
-                            total: resolvedPageCount,
-                            pageCount: resolvedPageCount,
-                            percent: percent !== undefined ? percent : prev?.percent,
-                            loadedBytes: loadedBytes !== undefined ? loadedBytes : prev?.loadedBytes,
-                            totalBytes: totalBytes !== undefined ? totalBytes : (prev?.totalBytes || file.size),
-                            message: message || prev?.message,
-                            fileName: file.name,
-                            stage: currentStage || prev?.stage || 'converting'
+                            sessionId,
+                            current: Math.min(totalPagesAllFiles, overallCurrent),
+                            total: totalPagesAllFiles,
+                            pageCount: totalPagesAllFiles,
+                            loadedBytes: overallLoaded,
+                            totalBytes: totalPdfSize,
+                            fileIndex,
+                            totalFiles: files.length,
+                            fileName: files.length > 1 ? `${file.name} (${fileIndex + 1}/${files.length})` : file.name,
+                            stage: currentStage || prev?.stage || 'converting',
+                            engine: engine || prev?.engine || 'edge'
                         };
                     });
-                });
-                if (isUploadCancelledRef.current) return;
-                allImages = [...allImages, ...images];
-                allImages.totalPages = images.totalPages || detectedCount;
-                allImages.isPartial = !!images.isPartial;
-                allImages.arrayBuffer = images.arrayBuffer;
-                allImages.bookId = images.bookId;
-                allImages.userId = images.userId;
+                }, signal);
+
+                if (isUploadCancelledRef.current || signal.aborted) return;
+
+                // Accumulate completed file metrics
+                cumulativeUploadedBytes += file.size;
+                cumulativeExtractedPages += images.length;
+
+                // Strictly sequence pages to prevent page skipping or swapping
+                const sequencedImages = images.map((img, imgIdx) => ({
+                    ...img,
+                    pageNumber: allImages.length + imgIdx + 1,
+                    pageName: `Page ${allImages.length + imgIdx + 1}`
+                }));
+                allImages = [...allImages, ...sequencedImages];
+                if (images.arrayBuffer && !allImages.arrayBuffer) {
+                    allImages.arrayBuffer = images.arrayBuffer;
+                }
+                if (images.bookId && !allImages.bookId) {
+                    allImages.bookId = images.bookId;
+                }
+                if (images.userId && !allImages.userId) {
+                    allImages.userId = images.userId;
+                }
             }
+            allImages.totalPages = totalPagesAllFiles;
 
             if (isUploadCancelledRef.current) return;
 
@@ -668,6 +689,7 @@ export default function MyFlipbooks() {
             // Step 3 — Processing & saving flipbook
             setProcessingProgress(prev => ({
                 ...(prev || {}),
+                sessionId,
                 current: totalDocPages,
                 total: totalDocPages,
                 totalFiles: files.length,
@@ -682,8 +704,24 @@ export default function MyFlipbooks() {
 
             const extractedPages = await Promise.all(allImages.map(async (img, idx) => {
                 const pageIndex = idx + 1;
-                const base64Url = img.dataUrl || (img.content ? svgToDataUrl(img.content) : "") || (img.blob ? await blobToBase64(img.blob) : "");
-                let html = img.content || generatePdfPageSvg(base64Url, `Page ${pageIndex}`, maxWidth, maxHeight, true);
+                // Never bake ephemeral blob: URLs into persistent SVG state (fixes ERR_FILE_NOT_FOUND)
+                let b64 = '';
+                if (img.getBase64) {
+                    try { b64 = await img.getBase64(); } catch (_) {}
+                }
+                if (!b64 && img.blob) {
+                    try { b64 = await blobToBase64(img.blob); } catch (_) {}
+                }
+                if (!b64 && img.dataUrl && !img.dataUrl.startsWith('blob:')) {
+                    b64 = img.dataUrl;
+                }
+
+                // If we have permanent base64, generate persistent SVG without dead blob references
+                const persistentSource = b64 || (img.dataUrl && !img.dataUrl.startsWith('blob:') ? img.dataUrl : '');
+                let html = persistentSource
+                    ? generatePdfPageSvg(persistentSource, `Page ${pageIndex}`, maxWidth, maxHeight, true)
+                    : (img.content || '');
+
                 if (html && html.includes('<svg')) {
                     html = html.replace(/<svg\b([^>]*)\bwidth=["'][^"']*["']/i, '<svg$1width="100%"');
                     html = html.replace(/<svg\b([^>]*)\bheight=["'][^"']*["']/i, '<svg$1height="100%"');
@@ -696,7 +734,13 @@ export default function MyFlipbooks() {
                     content: html,
                     html: html,
                     pageNumber: pageIndex,
-                    isPlaceholder: false
+                    isPlaceholder: false,
+                    width: img.width || maxWidth,
+                    height: img.height || maxHeight,
+                    blob: img.blob,
+                    getBase64: img.getBase64 || (() => Promise.resolve(b64)),
+                    dataUrl: img.dataUrl || persistentSource,
+                    imageUrl: img.imageUrl || img.dataUrl || persistentSource
                 };
             }));
 
@@ -726,12 +770,14 @@ export default function MyFlipbooks() {
 
             const orientation = maxWidth > maxHeight ? 'landscape' : (Math.abs(maxWidth - maxHeight) < 2 ? 'square' : 'portrait');
 
-            // Save ALL extracted and verified pages directly to server and DB
-            const initialBatch = allPages;
-            const readyRemainingPages = [];
+            // Save initial batch immediately to create book record safely (prevents 413 Payload Too Large)
+            const INITIAL_BATCH_SIZE = 5;
+            const initialBatch = allPages.length > INITIAL_BATCH_SIZE ? allPages.slice(0, INITIAL_BATCH_SIZE) : allPages;
+            const readyRemainingPages = allPages.length > INITIAL_BATCH_SIZE ? allPages.slice(INITIAL_BATCH_SIZE) : [];
 
             setProcessingProgress(prev => ({
                 ...(prev || {}),
+                sessionId,
                 current: totalDocPages,
                 total: totalDocPages,
                 totalFiles: files.length,
@@ -776,10 +822,22 @@ export default function MyFlipbooks() {
             const extractedPagesBytes = allPages.reduce((sum, p) => sum + (p.content ? (new Blob([p.content])).size : 0), 0);
             const resolvedBookType = initialDocType === 'powerpoint' ? 'pptx' : initialDocType === 'word' ? 'word' : 'pdf';
 
+            // Prepare initial batch with base64 so server saves physical files to disk
+            const initialBatchForServer = await Promise.all(initialBatch.map(async (p) => {
+                if (p.getBase64) {
+                    const b64 = await p.getBase64();
+                    if (b64) {
+                        const serverSvg = generatePdfPageSvg(b64, p.pageName, p.width, p.height, true);
+                        return { ...p, content: serverSvg, html: serverSvg };
+                    }
+                }
+                return p;
+            }));
+
             const createRes = await flipbookApi.saveBook({
                 emailId,
                 flipbookName: uniqueName,
-                pages: initialBatch,
+                pages: initialBatchForServer,
                 overwrite: false,
                 folderName: targetFolder,
                 folder_id: targetFolderVId,
@@ -836,9 +894,19 @@ export default function MyFlipbooks() {
                 ]).catch(() => {});
             }
 
-            // Queue remaining already-extracted pages for non-blocking asynchronous cloud sync
+            // Queue remaining pages for non-blocking asynchronous cloud sync
             if (readyRemainingPages.length > 0) {
-                backgroundSyncManager.enqueue(v_id, emailId, readyRemainingPages, extractedPagesBytes > 0 ? extractedPagesBytes : totalPdfSize);
+                const remainingForServer = await Promise.all(readyRemainingPages.map(async (p) => {
+                    if (p.getBase64) {
+                        const b64 = await p.getBase64();
+                        if (b64) {
+                            const serverSvg = generatePdfPageSvg(b64, p.pageName, p.width, p.height, true);
+                            return { ...p, content: serverSvg, html: serverSvg };
+                        }
+                    }
+                    return p;
+                }));
+                backgroundSyncManager.enqueue(v_id, emailId, remainingForServer, extractedPagesBytes > 0 ? extractedPagesBytes : totalPdfSize);
             }
 
             // Launch background vector extraction for balance placeholder pages (e.g. pages 51..100)
@@ -860,6 +928,7 @@ export default function MyFlipbooks() {
 
             setProcessingProgress(prev => ({
                 ...(prev || {}),
+                sessionId,
                 current: totalDocPages,
                 total: totalDocPages,
                 totalFiles: files.length,
@@ -880,7 +949,18 @@ export default function MyFlipbooks() {
             await new Promise(res => setTimeout(res, 700));
 
             // Navigate to the customized editor IMMEDIATELY (pass initial pages to stay within history quota)
-            const safeStatePages = allPages.length > 20 ? allPages.slice(0, 10) : allPages;
+            // Strip out non-cloneable properties (functions like getBase64, Blobs) so history.pushState never throws DataCloneError
+            const safeStatePages = (allPages.length > 20 ? allPages.slice(0, 10) : allPages).map(p => ({
+                pageName: p.pageName,
+                content: p.content,
+                html: p.html,
+                pageNumber: p.pageNumber,
+                isPlaceholder: !!p.isPlaceholder,
+                width: p.width,
+                height: p.height,
+                dataUrl: p.dataUrl || '',
+                imageUrl: p.imageUrl || ''
+            }));
 
             navigate(`/editor/customized_editor/${encodeURIComponent(targetFolderVId)}/${v_id}`, {
                 state: { 
@@ -898,6 +978,12 @@ export default function MyFlipbooks() {
             return;
 
         } catch (error) {
+            if (error?.name === 'AbortError' || isUploadCancelledRef.current) {
+                console.log('[MyFlipbooks] PDF upload/extraction cancelled.');
+                setProcessingProgress(null);
+                setIsLoading(false);
+                return;
+            }
             if (!isUploadCancelledRef.current) {
                 console.error("PDF/Document conversion error:", error);
                 if (error.isLegacyFormat) {
@@ -930,14 +1016,24 @@ export default function MyFlipbooks() {
             }
         } finally {
             setIsLoading(false);
-            // Delay clearing progress so the 'done' state fully animates before the loader unmounts
-            setTimeout(() => setProcessingProgress(null), 1200);
-            isUploadCancelledRef.current = false;
+            if (isUploadCancelledRef.current) {
+                setProcessingProgress(null);
+            } else {
+                // Delay clearing progress so the 'done' state fully animates before the loader unmounts
+                setTimeout(() => setProcessingProgress(null), 1200);
+            }
+            uploadAbortControllerRef.current = null;
         }
     };
 
     const handleCancelUploadPDF = () => {
         isUploadCancelledRef.current = true;
+        if (uploadAbortControllerRef.current) {
+            try {
+                uploadAbortControllerRef.current.abort();
+            } catch (_) {}
+            uploadAbortControllerRef.current = null;
+        }
         setIsLoading(false);
         setProcessingProgress(null);
         if (createdFlipbookVIdRef.current) {

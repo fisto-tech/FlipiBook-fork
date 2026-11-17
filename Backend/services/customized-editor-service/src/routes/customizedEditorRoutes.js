@@ -12,7 +12,7 @@ const resumableController = require('../controllers/resumableController');
 // Multer upload config for memory buffer or temp upload
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 250 * 1024 * 1024 }, // 250MB
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     const allowed = [

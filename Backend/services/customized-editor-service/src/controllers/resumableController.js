@@ -190,9 +190,15 @@ exports.uploadChunkBinary = async (req, res) => {
             const ext = path.extname(fileName) || '.pdf';
             const finalFilePath = path.join(TEMP_UPLOADS_DIR, `${uploadId}${ext}`);
             const finalStream = fs.createWriteStream(finalFilePath);
+            // Zero-RAM stream concatenation: pipes part files sequentially without loading into memory buffers
             for (const part of partFiles) {
-              const partBuf = await fs.promises.readFile(path.join(uploadDir, part));
-              finalStream.write(partBuf);
+              const partPath = path.join(uploadDir, part);
+              await new Promise((resolvePart, rejectPart) => {
+                const readStream = fs.createReadStream(partPath);
+                readStream.on('error', rejectPart);
+                readStream.on('end', resolvePart);
+                readStream.pipe(finalStream, { end: false });
+              });
             }
             await new Promise((resolve, reject) => {
               finalStream.end(resolve);
@@ -284,19 +290,38 @@ exports.extractStream = async (req, res) => {
     return res.end();
   }
 
+  // 15-second SSE keep-alive heartbeat (prevents Nginx/Cloudflare/AWS 60s idle drop for 1,000+ users)
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(': keepalive\n\n');
+    }
+  }, 15000);
+
+  let cleanedUp = false;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    clearInterval(heartbeat);
+    queueManager.off(`job:update:${jobId}`, updateListener);
+  };
+
   const updateListener = (updatedJob) => {
+    if (res.writableEnded) {
+      cleanup();
+      return;
+    }
     res.write(`data: ${JSON.stringify(updatedJob)}\n\n`);
     if (updatedJob.status === 'completed' || updatedJob.status === 'failed') {
-      queueManager.off(`job:update:${jobId}`, updateListener);
+      cleanup();
       res.end();
     }
   };
 
   queueManager.on(`job:update:${jobId}`, updateListener);
 
-  req.on('close', () => {
-    queueManager.off(`job:update:${jobId}`, updateListener);
-  });
+  req.on('close', cleanup);
+  res.on('finish', cleanup);
+  res.on('error', cleanup);
 };
 
 /**

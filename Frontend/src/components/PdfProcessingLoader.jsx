@@ -29,13 +29,33 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
     const { user } = useAuth() || {};
 
     const [isMinimized, setIsMinimized] = useState(false);
+    const [isCancelledLocally, setIsCancelledLocally] = useState(false);
+    const hadProgressRef = useRef(Boolean(progress));
 
-    // Reset minimized state when a new upload starts
+    // Reset minimized and cancelled state ONLY when transitioning from no progress to active progress
     useEffect(() => {
-        if (!progress) {
+        const hasProg = Boolean(progress);
+        if (!hasProg) {
             setIsMinimized(false);
+            setIsCancelledLocally(false);
+        } else if (!hadProgressRef.current) {
+            setIsMinimized(false);
+            setIsCancelledLocally(false);
         }
+        hadProgressRef.current = hasProg;
     }, [progress]);
+
+    const handleCancel = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        setIsCancelledLocally(true);
+        if (onCancel) {
+            try {
+                onCancel();
+            } catch (err) {
+                console.error('[PdfProcessingLoader] Cancel error:', err);
+            }
+        }
+    };
 
     // Keep a "last seen" progress ref so hooks never see stale null and component doesn't remount on null
     const lastProgressRef = useRef(progress);
@@ -65,6 +85,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
     const isDone = stage === 'done';
     const isExtracting = stage === 'converting' || stage === 'extracting' || stage === 'extracting_initial' || (typeof stage === 'string' && stage.includes('extract'));
     const isSaving = stage === 'saving' || stage === 'processing';
+    const isVps = effectiveProgress?.engine === 'vps';
 
     // Total pages count from progress or file
     const totalPagesCount = useMemo(() => {
@@ -77,7 +98,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         return 0;
     }, [pageCount, total, isExtracting, isSaving, isDone, progress?.pageCount]);
 
-    // Extracted pages count (e.g. 8 of 12)
+    // Extracted pages count (e.g. 56 of 100)
     const extractedPagesCount = useMemo(() => {
         if (!totalPagesCount || totalPagesCount <= 0) return 0;
 
@@ -85,79 +106,77 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
             return totalPagesCount;
         }
 
-        if (current && Number(current) > 0) {
-            return Math.min(totalPagesCount, Number(current));
-        }
-
         if (stage === 'uploading') {
             return 0;
         }
 
-        if (explicitPercent !== undefined && explicitPercent !== null && explicitPercent > 0) {
-            return Math.min(totalPagesCount, Math.max(1, Math.round((explicitPercent / 100) * totalPagesCount)));
+        // Exact page count from worker/stream (e.g. 0 when starting, 1..N as pages extract)
+        if (current !== undefined && current !== null && !isNaN(Number(current))) {
+            return Math.min(totalPagesCount, Math.max(0, Number(current)));
         }
 
-        return 1;
-    }, [totalPagesCount, isSaving, isDone, stage, current, explicitPercent]);
+        return 0;
+    }, [totalPagesCount, isSaving, isDone, stage, current]);
 
-    // Compute accurate target percentage mapped across stages
+    // Compute accurate target percentage mapped continuously across all stages:
+    // Upload: 0% -> 50% based strictly on actual upload bytes/percentage
+    // Extract: 50% -> 90% based strictly on actual extracted pages count
+    // Processing: 90% -> 99%
+    // Complete: 100%
     const computedTargetPercent = useMemo(() => {
         // Complete -> exactly 100%
         if (isDone) return 100;
 
-        // Stage 1: Uploading -> 0% to 100% of upload
+        // Stage 1: Uploading -> maps 0% to 50% based on upload bytes or upload percent
         if (stage === 'uploading') {
-            if (explicitPercent !== undefined && explicitPercent !== null) {
-                return Math.min(100, Math.max(0, Math.round(explicitPercent)));
+            if (effectiveProgress?.loadedBytes && effectiveProgress?.totalBytes && effectiveProgress.totalBytes > 0) {
+                const ratio = Math.min(1, Math.max(0, effectiveProgress.loadedBytes / effectiveProgress.totalBytes));
+                return Math.min(50, Math.max(0, Math.round(ratio * 50)));
             }
-            return 10;
+            if (explicitPercent !== undefined && explicitPercent !== null && explicitPercent >= 0) {
+                const ratio = Math.min(1, Math.max(0, explicitPercent / 100));
+                return Math.min(50, Math.max(0, Math.round(ratio * 50)));
+            }
+            return 0;
         }
 
-        // Stage 2: Extracting Pages -> 0% to 99% of extraction
+        // Stage 2: Extracting Pages -> maps 50% to 90% strictly based on actual pages extracted
         if (isExtracting) {
-            if (explicitPercent !== undefined && explicitPercent !== null && explicitPercent > 0) {
-                return Math.min(99, Math.max(0, Math.round(explicitPercent)));
-            }
-            if (totalPagesCount > 0 && extractedPagesCount >= 0) {
+            if (totalPagesCount > 0) {
                 const ratio = Math.min(1, Math.max(0, extractedPagesCount / totalPagesCount));
-                return Math.min(99, Math.round(ratio * 100));
+                return Math.min(90, Math.max(50, Math.round(50 + (ratio * 40))));
             }
-            return 15;
+            return 50;
         }
 
-        // Stage 3: Processing & Saving -> 98%
+        // Stage 3: Processing & Saving -> maps 90% to 99%
         if (isSaving) {
-            return 98;
+            return 95;
         }
 
-        // Fallback default
-        if (explicitPercent !== undefined && explicitPercent !== null) {
-            return Math.min(99, Math.max(0, Math.round(explicitPercent)));
-        }
-        return 20;
-    }, [isDone, explicitPercent, stage, isExtracting, isSaving, totalPagesCount, extractedPagesCount]);
+        return 50;
+    }, [isDone, explicitPercent, stage, isExtracting, isSaving, totalPagesCount, extractedPagesCount, effectiveProgress?.loadedBytes, effectiveProgress?.totalBytes]);
 
-    // Monotonicity reference: highest percentage reached so it strictly NEVER drops down within a stage
+    // Monotonicity reference: highest percentage reached so it strictly NEVER drops down
     const highestPercentRef = useRef(0);
     const highestCountRef = useRef(0);
-    const prevFileRef = useRef(fileName);
-    const prevStageRef = useRef(stage);
+    const activeSessionRef = useRef(effectiveProgress?.sessionId || null);
 
-    // Reset watermark when starting an upload or switching stages
+    // Reset watermarks ONLY when a genuinely new upload session begins
     useEffect(() => {
-        if (stage !== prevStageRef.current) {
-            prevStageRef.current = stage;
+        const sessId = effectiveProgress?.sessionId;
+        if (!progress) {
+            highestPercentRef.current = 0;
+            highestCountRef.current = 0;
+            setFluidPercent(0);
+            activeSessionRef.current = null;
+        } else if (sessId && sessId !== activeSessionRef.current) {
+            activeSessionRef.current = sessId;
             highestPercentRef.current = 0;
             highestCountRef.current = 0;
             setFluidPercent(0);
         }
-        if (stage === 'uploading' && fileName !== prevFileRef.current) {
-            prevFileRef.current = fileName;
-            highestPercentRef.current = 0;
-            highestCountRef.current = 0;
-            setFluidPercent(0);
-        }
-    }, [fileName, stage]);
+    }, [progress, effectiveProgress?.sessionId]);
 
     // Fluid continuous percentage state
     const [fluidPercent, setFluidPercent] = useState(() => {
@@ -182,38 +201,21 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         const monotonicTarget = Math.max(highestPercentRef.current, safeTarget);
         highestPercentRef.current = monotonicTarget;
 
-        setFluidPercent(prev => Math.max(prev, monotonicTarget));
+        setFluidPercent(monotonicTarget);
     }, [computedTargetPercent, isDone]);
-
-    // Subtle ambient creep while waiting for network/IO (strictly bounded within stage ceilings)
-    useEffect(() => {
-        if (isDone) return;
-
-        const interval = setInterval(() => {
-            setFluidPercent(prev => {
-                if (prev >= 99) return prev;
-                const ceiling = stage === 'uploading' ? 20 : isExtracting ? 90 : 98;
-                if (prev >= ceiling) return prev;
-
-                const increment = stage === 'uploading' ? 0.4 : isExtracting ? 0.3 : 0.2;
-                const next = Math.min(ceiling, Math.round((prev + increment) * 10) / 10);
-                highestPercentRef.current = Math.max(highestPercentRef.current, next);
-                return highestPercentRef.current;
-            });
-        }, 180);
-
-        return () => clearInterval(interval);
-    }, [isDone, stage]);
 
     // Displayed percentage: strictly 100% only when done, capped at 99% before completion
     const displayPercent = isDone 
         ? 100 
         : Math.min(99, Math.max(0, Math.round(fluidPercent)));
 
-    // Smooth physics-based spring interpolation for percentage & circle stroke (responsive & silky smooth)
+    // Smooth physics-based spring interpolation for percentage (responsive & silky smooth)
     const progressMotion = useMotionValue(displayPercent);
     const smoothProgress = useSpring(progressMotion, { stiffness: 65, damping: 16, mass: 0.5 });
-    const strokeDashoffset = useTransform(smoothProgress, [0, 100], [276.46, 0]);
+
+    // SVG Circular Progress Ring constants (in SVG viewBox coordinate units)
+    const CIRCLE_RADIUS = 44;
+    const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS; // 276.46015...
 
     const [animatedDisplayPercent, setAnimatedDisplayPercent] = useState(displayPercent);
 
@@ -227,6 +229,12 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         });
         return () => unsubscribe();
     }, [smoothProgress, isDone]);
+
+    // Derived dash offset in SVG viewBox units (never mixes CSS pixels with viewBox units)
+    const circleDashOffset = useMemo(() => {
+        const pct = Math.min(100, Math.max(0, animatedDisplayPercent));
+        return CIRCLE_CIRCUMFERENCE - (pct / 100) * CIRCLE_CIRCUMFERENCE;
+    }, [animatedDisplayPercent, CIRCLE_CIRCUMFERENCE]);
 
     // Extracted pages count displayed in badge (shows exact real-time extraction count monotonically)
     const displayedPagesCount = useMemo(() => {
@@ -243,8 +251,8 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         if (current !== undefined && current !== null && Number(current) >= 0) {
             target = Math.min(totalPagesCount, Math.max(0, Number(current)));
         } else {
-            // Fallback: synchronized with the animated progress percentage
-            const conversionRatio = Math.min(1, Math.max(0, (animatedDisplayPercent - 15) / 75));
+            // Fallback: synchronized with the animated progress percentage across the 50%-90% extraction arc
+            const conversionRatio = Math.min(1, Math.max(0, (animatedDisplayPercent - 50) / 40));
             target = Math.min(totalPagesCount, Math.max(0, Math.round(conversionRatio * totalPagesCount)));
         }
         highestCountRef.current = Math.max(highestCountRef.current, target);
@@ -259,43 +267,6 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         return 1; // Uploading
     }, [stage, isDone, isExtracting, isSaving]);
 
-    // Live Extraction Stopwatch Timer (ticks ONLY during stage === 'extracting')
-    const [elapsedSeconds, setElapsedSeconds] = useState(0);
-    const timerRef = useRef(null);
-    useEffect(() => {
-        if (isDone) {
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-                timerRef.current = null;
-            }
-            return;
-        }
-        if (isExtracting) {
-            if (!timerRef.current) {
-                timerRef.current = setInterval(() => {
-                    setElapsedSeconds(prev => prev + 1);
-                }, 1000);
-            }
-        } else {
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-                timerRef.current = null;
-            }
-        }
-        return () => {
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-                timerRef.current = null;
-            }
-        };
-    }, [isDone, isExtracting]);
-
-    const formattedTime = useMemo(() => {
-        const mins = Math.floor(elapsedSeconds / 60);
-        const secs = elapsedSeconds % 60;
-        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }, [elapsedSeconds]);
-
     // Transferred megabytes for Stage 1 (e.g. 22.4 MB / 35.0 MB)
     const loadedMB = effectiveProgress?.loadedBytes ? (effectiveProgress.loadedBytes / (1024 * 1024)).toFixed(1) : null;
     const totalMB = effectiveProgress?.totalBytes ? (effectiveProgress.totalBytes / (1024 * 1024)).toFixed(1) : null;
@@ -304,20 +275,10 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
     const dynamicStatus = useMemo(() => {
         if (isDone) return "All pages ready! Launching your flipbook...";
         if (isSaving) return "Finalizing flipbook structure & caching pages...";
-        if (isExtracting) {
-            if (totalPagesCount > 0) {
-                return `Extracting pages: ${displayedPagesCount} / ${totalPagesCount} (${formattedTime})`;
-            }
-            return `Extracting document content (${formattedTime})...`;
-        }
-        if (stage === 'uploading') {
-            if (loadedMB && totalMB) {
-                return `Uploading document: ${loadedMB} MB / ${totalMB} MB (${animatedDisplayPercent}%)`;
-            }
-            return `Uploading document (${animatedDisplayPercent}%)...`;
-        }
+        if (isExtracting) return "Extracting pages...";
+        if (stage === 'uploading') return "Uploading document...";
         return "We're analysing your document and extracting the pages, text and images.";
-    }, [isDone, isSaving, isExtracting, totalPagesCount, displayedPagesCount, formattedTime, stage, loadedMB, totalMB, animatedDisplayPercent]);
+    }, [isDone, isSaving, isExtracting, stage]);
 
     const displayTip = "Large files may take a little longer. Feel free to stay on this page.";
 
@@ -335,7 +296,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                 return {
                     ...s,
                     sublabel: activeStep === 2 && totalPagesCount > 0
-                        ? `${displayedPagesCount}/${totalPagesCount} (${formattedTime})`
+                        ? `${displayedPagesCount}/${totalPagesCount} Extracted`
                         : activeStep > 2
                         ? `${totalPagesCount}/${totalPagesCount} Extracted`
                         : (isPdf ? 'Reading PDF' : 'Reading pages')
@@ -355,7 +316,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
             }
             return s;
         });
-    }, [isPdf, loadedMB, totalMB, activeStep, totalPagesCount, displayedPagesCount, formattedTime, isSaving, isDone]);
+    }, [isPdf, loadedMB, totalMB, activeStep, totalPagesCount, displayedPagesCount, isSaving, isDone]);
 
     // User Avatar Initials
     const userInitial = useMemo(() => {
@@ -367,10 +328,10 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
 
     return (
         <AnimatePresence>
-            {Boolean(progress) && !isMinimized && (
+            {Boolean(progress) && !isCancelledLocally && !isMinimized && (
                 <motion.div
                     key="pdf-processing-overlay"
-                    className="fixed inset-0 z-[99999] bg-[#F8FAFC] flex flex-col justify-between overflow-x-hidden overflow-y-auto select-none w-screen h-screen"
+                    className="fixed inset-0 z-[99999] flex flex-col justify-between overflow-x-hidden overflow-y-auto select-none w-screen h-screen bg-[#FAFBFD]"
                     initial={{ opacity: 0, scale: 0.995 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.995 }}
@@ -378,16 +339,15 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                 >
                 {/* Ambient Decorative Background Glows with breathing animation */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-
-                    {/* Top-Right Soft Lavender Glow */}
+                    {/* Top-Right Soft Glow */}
                     <motion.div 
-                        className="absolute -top-[10vw] -right-[10vw] w-[40vw] h-[40vw] rounded-full bg-gradient-to-br from-indigo-100/60 to-purple-100/40 blur-[7vw]"
+                        className="absolute -top-[10vw] -right-[10vw] w-[40vw] h-[40vw] rounded-full blur-[7vw] bg-gradient-to-br from-indigo-100/60 to-purple-100/40"
                         animate={{ scale: [1, 1.08, 1], opacity: [0.75, 1, 0.75] }}
                         transition={{ repeat: Infinity, duration: 8, ease: 'easeInOut' }}
                     />
-                    {/* Bottom-Left Soft Blue Glow */}
+                    {/* Bottom-Left Soft Glow */}
                     <motion.div 
-                        className="absolute -bottom-[10vw] -left-[10vw] w-[35vw] h-[35vw] rounded-full bg-gradient-to-tr from-blue-100/50 to-indigo-100/30 blur-[6.5vw]"
+                        className="absolute -bottom-[10vw] -left-[10vw] w-[35vw] h-[35vw] rounded-full blur-[6.5vw] bg-gradient-to-tr from-blue-100/50 to-indigo-100/30"
                         animate={{ scale: [1.06, 0.96, 1.06], opacity: [0.65, 0.9, 0.65] }}
                         transition={{ repeat: Infinity, duration: 9, ease: 'easeInOut' }}
                     />
@@ -396,7 +356,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                 {/* Top Navigation Bar */}
                 <header className="relative z-10 w-full px-[3.5vw] py-[2.2vh] flex items-center justify-between">
                     {/* Flipibook Logo */}
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-[1.2vw]">
                         <img
                             src={FlipibookLogo}
                             alt="FLIPIBOOK"
@@ -409,15 +369,15 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
 
                     {/* Top Right Controls (Minimize Button + Notification Bell & User Profile Avatar Pill) */}
                     <div className="flex items-center gap-[0.8vw]">
-                        {/* Minimize to Background Button */}
+                        {/* Minimize Button */}
                         <button
                             type="button"
                             onClick={() => setIsMinimized(true)}
                             className="flex items-center gap-[0.35vw] px-[0.9vw] py-[0.45vw] rounded-full bg-white/90 hover:bg-white border border-gray-200 text-gray-700 hover:text-indigo-600 text-[0.78vw] font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer"
-                            title="Minimize to background and continue browsing dashboard"
+                            title="Minimize and continue browsing dashboard"
                         >
                             <Minimize2 className="w-[0.9vw] h-[0.9vw]" />
-                            <span>Minimize to Background</span>
+                            <span>Minimize</span>
                         </button>
 
                         {/* Notification Bell Button */}
@@ -461,44 +421,44 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                             />
                         </div>
 
-                        {/* Clean Single Gray Border & Inside Percentage Progress Bar with Spring Motion */}
+                        {/* Clean Single Gray Border & Inside Continuous Percentage Progress Bar */}
                         <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100">
                             <defs>
                                 <linearGradient id="circleProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stopColor="#3B82F6" />
-                                    <stop offset="50%" stopColor="#6366F1" />
-                                    <stop offset="100%" stopColor="#8B5CF6" />
+                                    <stop offset="0%" stopColor={isVps ? "#F97316" : "#2563EB"} />
+                                    <stop offset="50%" stopColor={isVps ? "#FB923C" : "#3B82F6"} />
+                                    <stop offset="100%" stopColor={isVps ? "#EA580C" : "#60A5FA"} />
                                 </linearGradient>
-                                <filter id="circleGlow" x="-30%" y="-30%" width="160%" height="160%">
-                                    <feDropShadow dx="0" dy="0" stdDeviation="1.5" floodColor="#6366F1" floodOpacity="0.45" />
-                                </filter>
                             </defs>
 
                             {/* Single Clean Gray Border Track */}
                             <circle
                                 cx="50"
                                 cy="50"
-                                r="44"
+                                r={CIRCLE_RADIUS}
                                 fill="none"
                                 stroke="#E2E8F0"
                                 strokeWidth="2.5"
                             />
 
-                            {/* Inside Percentage Progress Bar (smooth continuous spring stroke fill) */}
-                            <motion.circle
+                            {/* Inside Percentage Progress Bar (continuous solid arc, unit-consistent in SVG space) */}
+                            <circle
                                 cx="50"
                                 cy="50"
-                                r="44"
+                                r={CIRCLE_RADIUS}
                                 fill="none"
                                 stroke="url(#circleProgressGradient)"
                                 strokeWidth="2.8"
                                 strokeLinecap="round"
-                                strokeDasharray={276.46}
+                                strokeDasharray={CIRCLE_CIRCUMFERENCE}
+                                strokeDashoffset={circleDashOffset}
+                                strokeOpacity={animatedDisplayPercent > 0 ? 1 : 0}
+                                transform="rotate(-90 50 50)"
                                 style={{
-                                    strokeDashoffset,
-                                    transformOrigin: '50% 50%',
-                                    transform: 'rotate(-90deg)',
-                                    filter: 'url(#circleGlow)'
+                                    transition: 'stroke-dashoffset 0.25s cubic-bezier(0.16, 1, 0.3, 1), stroke-opacity 0.2s ease',
+                                    filter: isVps 
+                                        ? 'drop-shadow(0 0 2.5px rgba(234, 88, 12, 0.45))' 
+                                        : 'drop-shadow(0 0 2.5px rgba(37, 99, 235, 0.45))'
                                 }}
                             />
                         </svg>
@@ -559,7 +519,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                         >
-                            <span className="text-[0.9vw] font-black tracking-tight text-[#4F46E5] select-none tabular-nums">
+                            <span className={`text-[0.9vw] font-black tracking-tight select-none tabular-nums ${isVps ? 'text-[#EA580C]' : 'text-[#2563EB]'}`}>
                                 {animatedDisplayPercent}%
                             </span>
                         </motion.div>
@@ -659,28 +619,11 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                         <span>{displayTip}</span>
                     </motion.div>
 
-                    {/* Minimize to Background Action Button */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="mt-[1.2vw] flex items-center justify-center gap-[0.8vw]"
-                    >
-                        <button
-                            type="button"
-                            onClick={() => setIsMinimized(true)}
-                            className="inline-flex items-center gap-[0.45vw] px-[1.2vw] py-[0.55vw] rounded-full bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[0.8vw] font-bold transition-all shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                            <Minimize2 className="w-[0.85vw] h-[0.85vw]" />
-                            <span>Continue in Background (Browse Dashboard)</span>
-                        </button>
-                    </motion.div>
-
                     {/* Optional Cancel Upload Action */}
                     {onCancel && (
                         <motion.button
                             type="button"
-                            onClick={onCancel}
+                            onClick={handleCancel}
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
                             className="mt-[1vw] text-[0.72vw] font-medium text-gray-400 hover:text-red-500 transition-colors flex items-center gap-[0.25vw] cursor-pointer"
@@ -697,7 +640,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         )}
 
         {/* Floating Background Upload Dock (rendered when minimized) */}
-        {Boolean(progress) && isMinimized && (
+        {Boolean(progress) && !isCancelledLocally && isMinimized && (
             <motion.div
                 key="pdf-processing-minimized"
                 initial={{ opacity: 0, y: 30, scale: 0.95 }}
@@ -719,7 +662,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                                 {stage === 'uploading'
                                     ? (loadedMB && totalMB ? `Uploading (${loadedMB} / ${totalMB} MB)...` : `Uploading (${animatedDisplayPercent}%)...`)
                                     : stage === 'extracting'
-                                    ? `Extracting (${displayedPagesCount}/${totalPagesCount} pages, ${formattedTime})...`
+                                    ? `Extracting (${displayedPagesCount}/${totalPagesCount} pages)...`
                                     : stage === 'done'
                                     ? 'Ready to open'
                                     : 'Processing pages...'}
@@ -738,7 +681,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                         {onCancel && (
                             <button
                                 type="button"
-                                onClick={onCancel}
+                                onClick={handleCancel}
                                 title="Cancel upload"
                                 className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                             >
@@ -748,18 +691,28 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                     </div>
                 </div>
 
-                {/* Progress bar */}
-                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2">
+                {/* Sleek Thin Progress Bar with Left-to-Right Gradient */}
+                <div className="w-full bg-slate-100 h-[5px] rounded-full overflow-hidden mb-2.5 relative">
                     <motion.div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+                        className={`h-full rounded-full relative overflow-hidden transition-all duration-300 ${
+                            isVps 
+                                ? 'bg-gradient-to-r from-[#EA580C] via-[#F97316] to-[#FDBA74]' 
+                                : 'bg-gradient-to-r from-[#2563EB] via-[#3B82F6] to-[#60A5FA]'
+                        }`}
                         style={{ width: `${Math.max(4, animatedDisplayPercent)}%` }}
-                        transition={{ ease: 'easeOut', duration: 0.3 }}
-                    />
+                    >
+                        {/* Shimmer light sweep traveling smoothly left to right */}
+                        <motion.div
+                            className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent"
+                            animate={{ x: ['-100%', '100%'] }}
+                            transition={{ repeat: Infinity, duration: 1.8, ease: 'linear' }}
+                        />
+                    </motion.div>
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                    <span>{stage === 'uploading' ? 'Step 1 of 4: Uploading' : 'Step 2 of 4: Extracting'}</span>
-                    <span className="font-bold text-indigo-600">{animatedDisplayPercent}%</span>
+                    <span>{stage === 'uploading' ? 'Step 1 of 4: Uploading' : isExtracting ? 'Step 2 of 4: Extracting' : isSaving ? 'Step 3 of 4: Processing' : 'Complete'}</span>
+                    <span className={`font-bold ${isVps ? 'text-[#EA580C]' : 'text-[#2563EB]'}`}>{animatedDisplayPercent}%</span>
                 </div>
             </motion.div>
         )}

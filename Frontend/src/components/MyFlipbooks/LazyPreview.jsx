@@ -189,6 +189,15 @@ function LazyPreviewComponent({
                     );
                 }
 
+                // Self-healing: if SVG contains an expired/unreachable blob: URL from an older session, replace with server-side page asset
+                if (processedContent.includes('href="blob:') || processedContent.includes("href='blob:") || processedContent.includes('src="blob:') || processedContent.includes("src='blob:")) {
+                    const fallbackPageAsset = `${effectiveBaseHref}1.webp`;
+                    processedContent = processedContent.replace(
+                        /(\b(?:href|xlink:href|src)=["'])blob:[^"']+["']/gi,
+                        `$1${fallbackPageAsset}"`
+                    );
+                }
+
                 // Normalize vector-effect so strokes scale down proportionally with the thumbnail viewBox
                 processedContent = processedContent
                     .replace(/\bvector-effect\s*=\s*["']non-scaling-stroke["']/gi, 'vector-effect="none"')

@@ -18,12 +18,27 @@ export async function uploadAndExtractDocument({
   onProgress,
   onInitialReady,
   onComplete,
-  onError
+  onError,
+  signal = null
 }) {
+  if (signal?.aborted) {
+    const err = new Error('Upload cancelled');
+    err.name = 'AbortError';
+    if (onError) onError(err);
+    throw err;
+  }
   const totalSize = file.size;
   const uploadId = `up_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
   const resolvedBackend = backendUrl || import.meta.env.VITE_BACKEND_URL || '';
+
+  const activeXhrs = new Set();
+  const onAbort = () => {
+    activeXhrs.forEach(x => { try { x.abort(); } catch(_) {} });
+  };
+  if (signal) {
+    signal.addEventListener('abort', onAbort);
+  }
 
   try {
     let resolvedBookId = bookId || (Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
@@ -33,7 +48,13 @@ export async function uploadAndExtractDocument({
     // Fast Path: Direct Streaming Upload for small files <= 2MB
     if (totalSize <= 2 * 1024 * 1024) {
       const uploadResult = await new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+          const err = new Error('Upload cancelled');
+          err.name = 'AbortError';
+          return reject(err);
+        }
         const xhr = new XMLHttpRequest();
+        activeXhrs.add(xhr);
         xhr.timeout = 35000;
         xhr.open('POST', `${resolvedBackend}/api/customized-editor/upload-chunk-binary`);
         xhr.setRequestHeader('Content-Type', 'application/octet-stream');
@@ -48,11 +69,13 @@ export async function uploadAndExtractDocument({
         xhr.setRequestHeader('X-Job-Id', clientJobId);
 
         xhr.upload.onprogress = (evt) => {
+          if (signal?.aborted) return;
           if (evt.lengthComputable) {
             const rawPct = Math.round((evt.loaded / evt.total) * 100);
             if (onProgress) {
               onProgress({
                 stage: 'uploading',
+                engine: 'vps',
                 percent: rawPct,
                 loadedBytes: evt.loaded,
                 totalBytes: evt.total,
@@ -63,6 +86,12 @@ export async function uploadAndExtractDocument({
         };
 
         xhr.onload = () => {
+          activeXhrs.delete(xhr);
+          if (signal?.aborted) {
+            const err = new Error('Upload cancelled');
+            err.name = 'AbortError';
+            return reject(err);
+          }
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               resolve(JSON.parse(xhr.responseText));
@@ -74,8 +103,19 @@ export async function uploadAndExtractDocument({
           }
         };
 
-        xhr.ontimeout = () => reject(new Error('Upload connection timed out after 35s'));
-        xhr.onerror = () => reject(new Error('Network error during file upload'));
+        xhr.ontimeout = () => {
+          activeXhrs.delete(xhr);
+          reject(new Error('Upload connection timed out after 35s'));
+        };
+        xhr.onerror = () => {
+          activeXhrs.delete(xhr);
+          if (signal?.aborted) {
+            const err = new Error('Upload cancelled');
+            err.name = 'AbortError';
+            return reject(err);
+          }
+          reject(new Error('Network error during file upload'));
+        };
         xhr.send(file);
       });
 
@@ -96,6 +136,7 @@ export async function uploadAndExtractDocument({
         if (onProgress) {
           onProgress({
             stage: 'uploading',
+            engine: 'vps',
             percent: rawPct,
             loadedBytes: totalUploadedBytes,
             totalBytes: totalSize,
@@ -190,6 +231,7 @@ export async function uploadAndExtractDocument({
     if (onProgress) {
       onProgress({
         stage: 'extracting',
+        engine: 'vps',
         percent: 0,
         current: 0,
         total: file._pageCount || 1,
@@ -222,6 +264,7 @@ export async function uploadAndExtractDocument({
       if (onProgress) {
         onProgress({
           stage: 'extracting',
+          engine: 'vps',
           percent: progressVal,
           current: available,
           total: total,
@@ -320,6 +363,7 @@ export function extractDocumentViaServer(file, options = {}) {
       onComplete: (data) => {
         handleReady(data);
       },
+      signal: options.signal,
       onError: (err) => {
         if (!resolved) {
           resolved = true;
