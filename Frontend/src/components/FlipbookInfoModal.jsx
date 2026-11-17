@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import TypographyPanel from './TypographyPanel';
 import { createPortal } from 'react-dom';
 import { X, ChevronDown, ChevronUp, Info, Check, Plus, Upload, Edit2, Sliders, MoreVertical, Trash2 } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { Icon } from '@iconify/react';
 import PremiumDropdown from './CustomizedEditor/components/PremiumDropdown';
 import { ImageCropOverlay } from './CustomizedEditor/AppearanceShared';
-import ColorPicker from './ThreedEditor/ColorPicker';
+import ColorPicker from './ColorPicker';
 import Switch from './CustomizedEditor/components/Switch';
 
 const scrollbarStyles = `
@@ -46,12 +46,12 @@ const scrollbarStyles = `
 `;
 
 export const COVER_TEMPLATES = [
-  { id: 1, label: 'Dual Hardcover', defaultText1: 'Hard.Cover Book', defaultText2: 'Free .psd Mockup' },
-  { id: 2, label: 'Single Hardcover', defaultText1: 'Premium Edition', defaultText2: 'Classic Minimal Design' },
-  { id: 3, label: 'Landscape Catalog', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
-  { id: 4, label: 'Modern Magazine', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
-  { id: 5, label: 'Stacked Trio', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
-  { id: 6, label: 'Isometric Floating', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
+  { id: 1, label: 'Dual Hardcover', defaultBgColor: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 50%, #FED7AA 100%)', defaultText1: 'Hard.Cover Book', defaultText2: 'Free .psd Mockup' },
+  { id: 2, label: 'Single Hardcover', defaultBgColor: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 50%, #BAE6FD 100%)', defaultText1: 'Premium Edition', defaultText2: 'Classic Minimal Design' },
+  { id: 3, label: 'Landscape Catalog', defaultBgColor: 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 50%, #99F6E4 100%)', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
+  { id: 4, label: 'Modern Magazine', defaultBgColor: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 50%, #A7F3D0 100%)', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
+  { id: 5, label: 'Stacked Trio', defaultBgColor: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 50%, #E9D5FF 100%)', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
+  { id: 6, label: 'Isometric Floating', defaultBgColor: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 50%, #DDD6FE 100%)', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
 ];
 
 export const extractPageBgColor = (page) => {
@@ -112,9 +112,13 @@ export const normalizePageHtml = (htmlStr) => {
 };
 
 export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], scaleClass = "scale-[1.05]", customTitle = null, customSubtitle = null) => {
-  const page1 = selectedPages[0] && pages[selectedPages[0] - 1] ? pages[selectedPages[0] - 1] : null;
-  const page2 = selectedPages[1] && pages[selectedPages[1] - 1] ? pages[selectedPages[1] - 1] : page1;
-  const page3 = selectedPages[2] && pages[selectedPages[2] - 1] ? pages[selectedPages[2] - 1] : page2;
+  const p1Num = selectedPages[0];
+  const p2Num = selectedPages[1];
+  const p3Num = selectedPages[2];
+
+  const page1 = p1Num && pages[p1Num - 1] ? pages[p1Num - 1] : null;
+  const page2 = p2Num && pages[p2Num - 1] ? pages[p2Num - 1] : null;
+  const page3 = p3Num && pages[p3Num - 1] ? pages[p3Num - 1] : null;
 
   const page1Html = page1?.html ? normalizePageHtml(page1.html) : '';
   const page2Html = page2?.html ? normalizePageHtml(page2.html) : '';
@@ -124,81 +128,115 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
 
   switch (templateId) {
     case 1:
-      // Dual Hardcover Mockup
+      // Dual Hardcover Mockup - Warm Natural Book Paper (No borders)
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
           {/* Back book */}
-          <div className={`absolute w-[10vw] h-[13.5vw] ${page1 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-orange-500 to-amber-600 border-orange-400 p-[0.7vw]'} rounded-[0.6vw] transform -rotate-6 border flex flex-col justify-between text-white overflow-hidden`}>
-            <div className="absolute top-0 right-0 w-[4vw] h-[14vw] bg-white opacity-10 transform rotate-12 -translate-y-[1vw] translate-x-[1vw] z-10 pointer-events-none"></div>
+          <div className={`absolute w-[10vw] h-[13.5vw] ${page1 ? 'bg-white' : 'bg-[#FDFBF7] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.6vw] transform -rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden shadow-lg`}>
             {page1 ? (
               <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                 <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
               </div>
             ) : (
               <>
-                <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85 relative z-10">HARD.COVER</span>
-                <div className="relative z-10">
-                  <h3 className="text-[0.85vw] font-black leading-tight break-words">{customTitle || "Hard.Cover Book"}</h3>
-                  <p className="text-[0.6vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Free .psd Mockup"}</p>
+                <div className="flex items-center justify-between border-b border-[#E2DDD3] pb-[0.3vw] z-10">
+                  <span className="text-[0.5vw] font-mono tracking-widest text-[#7C7267] uppercase">EDITION 01</span>
+                  <div className="w-[1.1vw] h-[1.1vw] bg-[#3E3A36] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-bold">M</div>
+                </div>
+                <div className="my-auto py-[0.4vw] z-10 flex flex-col items-start text-left">
+                  <div className="w-[1.5vw] h-[0.18vw] bg-[#8C8275] mb-[0.4vw] rounded-full" />
+                  <h3 className="text-[0.85vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Hard.Cover Book"}</h3>
+                  <p className="text-[0.55vw] text-[#6B6359] font-medium mt-[0.2vw] leading-relaxed break-words">{customSubtitle || "Free .psd Mockup"}</p>
+                  <div className="space-y-[0.18vw] mt-[0.5vw] opacity-40 w-full">
+                    <div className="w-full h-[0.15vw] bg-[#D6D0C4] rounded-full" />
+                    <div className="w-4/5 h-[0.15vw] bg-[#D6D0C4] rounded-full" />
+                  </div>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">
+                  PAGE 01
                 </div>
               </>
             )}
+            <div className="absolute right-0 top-0 bottom-0 w-[0.8vw] bg-gradient-to-l from-[#1C1917]/10 to-transparent pointer-events-none z-20" />
+            <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
           </div>
-          
+
           {/* Front book */}
-          <div className={`absolute w-[10vw] h-[13.5vw] ${page2 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-amber-600 to-orange-500 border-amber-400 p-[0.7vw]'} rounded-[0.6vw] shadow-sm transform rotate-6 border flex flex-col justify-between text-white overflow-hidden`}>
-            <div className="absolute top-0 left-0 w-[3vw] h-[14vw] bg-black opacity-10 filter blur-[0.2vw] -translate-x-[0.5vw] z-10 pointer-events-none"></div>
-            <div className="absolute top-0 right-0 w-[5vw] h-[14vw] bg-white opacity-20 transform rotate-12 -translate-y-[1vw] translate-x-[2vw] z-10 pointer-events-none"></div>
+          <div className={`absolute w-[10vw] h-[13.5vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.6vw] shadow-xl transform rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
             {page2 ? (
               <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                 <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page2Html }} />
               </div>
             ) : (
               <>
-                <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85 relative z-10">HARD.COVER</span>
-                <div className="relative z-10">
-                  <h3 className="text-[0.85vw] font-black leading-tight break-words">{customTitle || "Hard.Cover Book"}</h3>
-                  <p className="text-[0.6vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Free .psd Mockup"}</p>
+                <div className="flex items-center justify-between border-b border-[#E2DDD3] pb-[0.3vw] z-10">
+                  <span className="text-[0.5vw] font-mono tracking-widest text-[#7C7267] uppercase">EDITION 02</span>
+                  <div className="w-[1.1vw] h-[1.1vw] bg-[#3E3A36] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-bold">V</div>
+                </div>
+                <div className="my-auto py-[0.4vw] z-10 flex flex-col items-start text-left">
+                  <div className="w-[1.5vw] h-[0.18vw] bg-[#8C8275] mb-[0.4vw] rounded-full" />
+                  <h3 className="text-[0.85vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Hard.Cover Book"}</h3>
+                  <p className="text-[0.55vw] text-[#6B6359] font-medium mt-[0.2vw] leading-relaxed break-words">{customSubtitle || "Free .psd Mockup"}</p>
+                  <div className="space-y-[0.18vw] mt-[0.5vw] opacity-40 w-full">
+                    <div className="w-full h-[0.15vw] bg-[#D6D0C4] rounded-full" />
+                    <div className="w-4/5 h-[0.15vw] bg-[#D6D0C4] rounded-full" />
+                  </div>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">
+                  PAGE 02
                 </div>
               </>
             )}
+            <div className="absolute left-0 top-0 bottom-0 w-[0.8vw] bg-gradient-to-r from-[#1C1917]/10 to-transparent pointer-events-none z-20" />
+            <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
           </div>
         </div>
       );
 
     case 2:
-      // Single Minimalist Standing Hardcover
+      // Single Minimalist Standing Hardcover - Warm Crisp Linen / Cream Book Paper
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
           {/* Depth / Side spine effect */}
-          <div className="relative w-[11.2vw] h-[14.8vw] rounded-[0.5vw] border border-black/10 overflow-hidden bg-white flex">
+          <div className="relative w-[11.2vw] h-[14.8vw] rounded-[0.5vw] overflow-hidden bg-[#FAF8F5] border border-[#E7E3D8] flex shadow-2xl">
             {/* Book spine simulation strip */}
-            <div 
-              className={`w-[0.9vw] h-full ${!page1 ? 'bg-gradient-to-r from-gray-700 via-gray-600 to-gray-800' : ''} shrink-0 relative shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.5)] z-20 flex items-center justify-center`}
+            <div
+              className={`w-[0.9vw] h-full ${!page1 ? 'bg-[#EAE5DB] border-r border-[#D9D3C7]' : ''} shrink-0 relative shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.1)] z-20 flex items-center justify-center`}
               style={page1Color ? { backgroundColor: page1Color } : {}}
             >
               {!page1 && (
-                <span className="text-[0.45vw] text-white/70 font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">EDITION</span>
+                <span className="text-[0.45vw] text-[#5C554B] font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">EDITION</span>
               )}
             </div>
             {/* Book cover area */}
-            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white flex flex-col justify-between p-[0.9vw]">
-              <div className="absolute top-0 right-0 w-[6vw] h-full bg-gradient-to-l from-white/10 to-transparent pointer-events-none z-10" />
-              <div className="absolute inset-y-0 left-0 w-[0.3vw] bg-black/30 z-10 pointer-events-none" />
+            <div className="flex-1 h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] flex flex-col justify-between p-[0.9vw]">
+              <div className="absolute inset-y-0 left-0 w-[0.3vw] bg-black/5 z-10 pointer-events-none" />
               {page1 ? (
                 <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                   <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
                 </div>
               ) : (
                 <>
-                  <div className="relative z-10 flex items-center gap-[0.4vw]">
-                    <div className="w-[1.2vw] h-[0.15vw] bg-amber-400" />
-                    <span className="text-[0.6vw] tracking-wider uppercase font-semibold text-amber-300">HARDCOVER</span>
+                  <div className="relative z-10 flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
+                    <div className="flex items-center gap-[0.3vw]">
+                      <div className="w-[1.2vw] h-[0.15vw] bg-[#3E3A36] rounded-full" />
+                      <span className="text-[0.55vw] tracking-wider uppercase font-bold text-[#3E3A36]">HARDCOVER</span>
+                    </div>
+                    <span className="text-[0.45vw] font-mono text-[#8C8275]">VOL. 01</span>
                   </div>
-                  <div className="relative z-10">
-                    <h3 className="text-[1vw] font-bold tracking-tight leading-snug break-words">{customTitle || 'Title'}</h3>
-                    <p className="text-[0.6vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || 'Supporting Text'}</p>
+                  <div className="relative z-10 my-auto py-[0.5vw]">
+                    <h3 className="text-[1.05vw] font-black uppercase font-serif tracking-tight leading-snug text-[#1C1917] break-words">{customTitle || 'Premium Edition'}</h3>
+                    <p className="text-[0.6vw] text-[#6B6359] font-medium mt-[0.2vw] break-words">{customSubtitle || 'Classic Minimal Design'}</p>
+                    <div className="space-y-[0.2vw] mt-[0.6vw] opacity-50">
+                      <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                      <div className="w-3/4 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                    </div>
                   </div>
+                  <div className="relative z-10 flex justify-between items-center text-[0.45vw] text-[#8C8275] font-mono">
+                    <span>ANNUAL REVIEW</span>
+                    <span>PAGE 01</span>
+                  </div>
+                  <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
                 </>
               )}
             </div>
@@ -207,37 +245,46 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
       );
 
     case 3:
-      // Landscape Catalog / Wide Brochure Mockup
+      // Landscape Catalog / Wide Brochure Mockup - Authentic Soft Warm Paper
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          <div className="relative w-[18.5vw] h-[12vw] bg-white rounded-[0.5vw] flex overflow-hidden border border-gray-300">
+          <div className="relative w-[18.5vw] h-[12vw] bg-[#FAF8F5] border border-[#E7E3D8] rounded-[0.5vw] flex overflow-hidden shadow-2xl">
             {/* Spine Left Edge */}
-            <div 
-              className={`w-[0.8vw] h-full ${!page1 ? 'bg-gradient-to-r from-gray-800 to-gray-700' : ''} shrink-0 shadow-[inset_-0.15vw_0_0.3vw_rgba(0,0,0,0.4)] z-20 flex items-center justify-center`}
+            <div
+              className={`w-[0.8vw] h-full ${!page1 ? 'bg-[#EAE5DB] border-r border-[#D9D3C7]' : ''} shrink-0 shadow-[inset_-0.15vw_0_0.3vw_rgba(0,0,0,0.1)] z-20 flex items-center justify-center`}
               style={page1Color ? { backgroundColor: page1Color } : {}}
             >
               {!page1 && (
-                <span className="text-[0.4vw] text-white/70 font-bold uppercase tracking-wider transform -rotate-90 whitespace-nowrap">CATALOG</span>
+                <span className="text-[0.4vw] text-[#5C554B] font-bold uppercase tracking-wider transform -rotate-90 whitespace-nowrap">CATALOG</span>
               )}
             </div>
             {/* Front Cover Area */}
-            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-zinc-950 text-white p-[1.1vw] flex flex-col justify-between">
-              {/* Glossy sheen */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/20 pointer-events-none z-10" />
+            <div className="flex-1 h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] p-[1.1vw] flex flex-col justify-between">
               {page1 ? (
                 <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                   <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
                 </div>
               ) : (
                 <>
-                  <div className="relative z-10 flex items-center justify-between">
-                    <span className="text-[0.6vw] font-black uppercase tracking-widest text-sky-400">LANDSCAPE EDITION</span>
-                    <span className="text-[0.55vw] text-gray-400 font-mono">2026</span>
+                  <div className="relative z-10 flex items-center justify-between border-b border-[#E7E3D8] pb-[0.4vw]">
+                    <span className="text-[0.55vw] font-black uppercase tracking-widest text-[#2C2825]">LANDSCAPE CATALOG</span>
+                    <span className="text-[0.5vw] text-[#8C8275] font-mono">2026 EDITION</span>
                   </div>
-                  <div className="relative z-10">
-                    <h3 className="text-[1.15vw] font-black tracking-tight leading-snug break-words">{customTitle || "Corporate Showcase"}</h3>
-                    <p className="text-[0.65vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || "Annual Brochure & Catalog"}</p>
+                  <div className="relative z-10 my-auto py-[0.5vw]">
+                    <div className="w-[2vw] h-[0.2vw] bg-[#3E3A36] mb-[0.4vw] rounded-full" />
+                    <h3 className="text-[1.15vw] font-black tracking-tight leading-snug font-serif text-[#1C1917] break-words">{customTitle || "Corporate Showcase"}</h3>
+                    <p className="text-[0.65vw] text-[#6B6359] mt-[0.2vw] break-words">{customSubtitle || "Annual Brochure & Catalog"}</p>
+                    <div className="grid grid-cols-3 gap-[0.5vw] mt-[0.6vw] opacity-40">
+                      <div className="h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                      <div className="h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                      <div className="h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                    </div>
                   </div>
+                  <div className="relative z-10 flex justify-between items-center text-[0.45vw] text-[#8C8275] font-mono">
+                    <span>OVERVIEW</span>
+                    <span>PAGE 01</span>
+                  </div>
+                  <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
                 </>
               )}
             </div>
@@ -246,28 +293,36 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
       );
 
     case 4:
-      // Modern Glossy Magazine Mockup (Slight tilt with glossy reflection sheen)
+      // Modern Glossy Magazine Mockup - Real Magazine Paper Off-White / Natural Ivory
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          <div className="relative w-[11.5vw] h-[15vw] rounded-[0.3vw] transform -rotate-3 overflow-hidden bg-white border border-gray-200">
+          <div className="relative w-[11.5vw] h-[15vw] rounded-[0.3vw] transform -rotate-3 overflow-hidden bg-[#FAF9F5] border border-[#E7E3D8] shadow-2xl">
             {/* Magazine spine crease */}
-            <div className="absolute left-[0.4vw] inset-y-0 w-[0.1vw] bg-black/20 z-20 pointer-events-none" />
-            <div className="absolute left-0 inset-y-0 w-[0.4vw] bg-gradient-to-r from-black/20 to-transparent z-20 pointer-events-none" />
-            {/* Glossy sheen */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/25 to-white/40 z-20 pointer-events-none" />
+            <div className="absolute left-[0.4vw] inset-y-0 w-[0.1vw] bg-black/10 z-20 pointer-events-none" />
+            <div className="absolute left-0 inset-y-0 w-[0.4vw] bg-gradient-to-r from-black/5 to-transparent z-20 pointer-events-none" />
             {page1 ? (
               <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                 <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
               </div>
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-emerald-600 to-teal-800 text-white p-[1vw] flex flex-col justify-between">
-                <div>
-                  <span className="text-[0.6vw] font-black tracking-widest uppercase bg-black/40 px-[0.4vw] py-[0.15vw] rounded-[0.2vw]">MAGAZINE</span>
-                  <h3 className="text-[1.1vw] font-black leading-tight mt-[0.5vw] break-words">{customTitle || "LOOKBOOK"}</h3>
+              <div className="w-full h-full bg-[#FAF9F5] text-[#2C2825] p-[1vw] flex flex-col justify-between relative overflow-hidden">
+                <div className="z-10">
+                  <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
+                    <span className="text-[0.55vw] font-black tracking-widest uppercase bg-[#2C2825] text-white px-[0.3vw] py-[0.1vw] rounded-[0.15vw]">MAGAZINE</span>
+                    <span className="text-[0.48vw] font-mono text-[#8C8275]">VOL. 24</span>
+                  </div>
+                  <h3 className="text-[1.1vw] font-black leading-tight mt-[0.6vw] font-serif uppercase tracking-tight text-[#1C1917] break-words">{customTitle || "Magazine Lookbook"}</h3>
+                  <div className="w-[1.6vw] h-[0.18vw] bg-[#8C8275] mt-[0.3vw] rounded-full" />
                 </div>
-                <div>
-                  <p className="text-[0.6vw] opacity-90 font-medium break-words">{customSubtitle || "Vol. 24 / Summer Edition"}</p>
+                <div className="space-y-[0.2vw] opacity-40 z-10">
+                  <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                  <div className="w-4/5 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                  <div className="w-3/5 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
                 </div>
+                <div className="z-10">
+                  <p className="text-[0.6vw] text-[#6B6359] font-medium break-words">{customSubtitle || "Vol. 24 / Summer Edition"}</p>
+                </div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
               </div>
             )}
           </div>
@@ -275,45 +330,56 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
       );
 
     case 5:
-      // Stacked Trio Mockup (Three staggered hardcover books)
+      // Stacked Trio Mockup - Real Book Pages (Subtle Off-white, Warm Ivory, Natural Cream with Fine Spine Edges)
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          {/* Bottom Book */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page3 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-violet-600 to-indigo-700 border-violet-500'} rounded-[0.5vw] transform -rotate-12 -translate-x-[1.5vw] border flex overflow-hidden`}>
+          {/* Bottom Book (Subtle Warm Grey-White Paper) */}
+          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page3 ? 'bg-white' : 'bg-[#F5F3EF] border border-[#E0DCD3]'} rounded-[0.5vw] transform -rotate-12 -translate-x-[1.5vw] flex overflow-hidden shadow-md text-[#4A453E]`}>
             {page3 ? (
               <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                 <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page3Html }} />
               </div>
             ) : (
-              <div className="p-[0.6vw] text-white/80 font-bold text-[0.6vw]">VOL. 3</div>
+              <div className="p-[0.7vw] w-full flex flex-col justify-between">
+                <span className="text-[0.5vw] font-mono font-bold text-[#8C8275]">VOL. 03</span>
+                <div className="w-3/4 h-[0.15vw] bg-[#D6D0C4] rounded-full" />
+              </div>
             )}
           </div>
 
-          {/* Middle Book */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page2 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-sky-500 to-blue-600 border-sky-400'} rounded-[0.5vw] shadow-sm transform rotate-2 border flex overflow-hidden`}>
+          {/* Middle Book (Natural Ivory Paper) */}
+          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8]'} rounded-[0.5vw] shadow-lg transform rotate-2 flex overflow-hidden text-[#3E3A36]`}>
             {page2 ? (
               <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                 <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page2Html }} />
               </div>
             ) : (
-              <div className="p-[0.6vw] text-white/80 font-bold text-[0.6vw]">VOL. 2</div>
+              <div className="p-[0.7vw] w-full flex flex-col justify-between">
+                <span className="text-[0.5vw] font-mono font-bold text-[#7C7267]">VOL. 02</span>
+                <div className="w-3/4 h-[0.15vw] bg-[#D6D0C4] rounded-full" />
+              </div>
             )}
           </div>
 
-          {/* Top Front Book */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page1 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400'} rounded-[0.5vw] shadow-sm transform rotate-12 translate-x-[1.4vw] border flex flex-col justify-between text-white p-[0.6vw] overflow-hidden`}>
-            <div className="absolute top-0 right-0 w-[4vw] h-[14vw] bg-white opacity-20 transform rotate-12 -translate-y-[1vw] translate-x-[2vw] z-10 pointer-events-none" />
+          {/* Top Front Book (Warm Crisp Book Paper) */}
+          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page1 ? 'bg-white' : 'bg-[#FCFBF8] border border-[#EAE6DD]'} rounded-[0.5vw] shadow-2xl transform rotate-12 translate-x-[1.4vw] flex flex-col justify-between text-[#2C2825] p-[0.7vw] overflow-hidden`}>
             {page1 ? (
               <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                 <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
               </div>
             ) : (
               <>
-                <span className="text-[0.6vw] font-bold tracking-widest uppercase">SERIES</span>
-                <div>
-                  <h3 className="text-[0.8vw] font-black leading-tight break-words">{customTitle || "Master Collection"}</h3>
-                  <p className="text-[0.55vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Vol. 1"}</p>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw] z-10">
+                  <span className="text-[0.5vw] font-bold tracking-widest uppercase font-mono text-[#7C7267]">SERIES VOL. 1</span>
+                  <div className="w-[1vw] h-[1vw] bg-[#2C2825] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-black">1</div>
                 </div>
+                <div className="my-auto py-[0.4vw] z-10">
+                  <div className="w-[1.2vw] h-[0.18vw] bg-[#8C8275] mb-[0.3vw] rounded-full" />
+                  <h3 className="text-[0.85vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Master Collection"}</h3>
+                  <p className="text-[0.55vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "Series Edition Vol. 1"}</p>
+                </div>
+                <div className="text-[0.42vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 01</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
               </>
             )}
           </div>
@@ -321,37 +387,46 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
       );
 
     case 6:
-      // Isometric Floating Hardcover Mockup
+      // Isometric Floating Hardcover Mockup - Natural Book Paper & Cloth Spine
       return (
-        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
+        <div className={`absolute inset-0 flex items-center justify-end pr-[2vw] pointer-events-none transform ${scaleClass}`}>
           {/* Isometric Perspective Book */}
-          <div className="relative w-[11.8vw] h-[15.2vw] rounded-[0.4vw] transform rotate-[-8deg] skew-y-[3deg] overflow-hidden bg-white border border-black/10 flex">
+          <div className="relative w-[11.8vw] h-[15.2vw] rounded-[0.4vw] transform rotate-[-4deg] skew-y-[2deg] overflow-hidden bg-[#FAF8F5] border border-[#E7E3D8] flex shadow-2xl">
             {/* Book Spine Simulation */}
-            <div 
-              className={`w-[0.9vw] h-full ${!page1 ? 'bg-gradient-to-r from-amber-800 via-amber-700 to-amber-900' : ''} shrink-0 shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.5)] z-20 flex items-center justify-center`}
+            <div
+              className={`w-[0.9vw] h-full ${!page1 ? 'bg-[#EAE5DB] border-r border-[#D9D3C7]' : ''} shrink-0 shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.1)] z-20 flex items-center justify-center`}
               style={page1Color ? { backgroundColor: page1Color } : {}}
             >
               {!page1 && (
-                <span className="text-[0.45vw] text-amber-200/80 font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">PREMIUM</span>
+                <span className="text-[0.45vw] text-[#5C554B] font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">PREMIUM</span>
               )}
             </div>
             {/* Front Cover Body */}
-            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-950 to-slate-950 text-white p-[1vw] flex flex-col justify-between">
-              {/* Glossy angled highlight */}
-              <div className="absolute top-0 right-0 w-[5vw] h-full bg-gradient-to-l from-white/15 to-transparent pointer-events-none z-10" />
+            <div className="flex-1 h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] p-[1vw] flex flex-col justify-between">
               {page1 ? (
                 <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
                   <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
                 </div>
               ) : (
                 <>
-                  <div className="relative z-10">
-                    <span className="text-[0.55vw] font-bold uppercase tracking-widest bg-white/10 px-[0.4vw] py-[0.15vw] rounded-[0.2vw] text-amber-300">LIMITED EDITION</span>
+                  <div className="relative z-10 flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
+                    <span className="text-[0.5vw] font-bold uppercase tracking-widest bg-[#2C2825] text-white px-[0.3vw] py-[0.1vw] rounded-[0.15vw]">LIMITED EDITION</span>
+                    <span className="text-[0.45vw] font-mono text-[#8C8275]">2026</span>
                   </div>
-                  <div className="relative z-10">
-                    <h3 className="text-[1vw] font-black tracking-tight leading-tight break-words">{customTitle || "Minimalist Journal"}</h3>
-                    <p className="text-[0.6vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || "Special Edition Portfolio"}</p>
+                  <div className="relative z-10 my-auto py-[0.5vw]">
+                    <div className="w-[1.5vw] h-[0.18vw] bg-[#8C8275] mb-[0.3vw] rounded-full" />
+                    <h3 className="text-[1.05vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Minimalist Journal"}</h3>
+                    <p className="text-[0.6vw] text-[#6B6359] mt-[0.2vw] break-words">{customSubtitle || "Special Edition Portfolio"}</p>
+                    <div className="space-y-[0.2vw] mt-[0.5vw] opacity-40">
+                      <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                      <div className="w-3/4 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                    </div>
                   </div>
+                  <div className="relative z-10 flex justify-between items-center text-[0.42vw] text-[#8C8275] font-mono">
+                    <span>SPECIAL EDITION</span>
+                    <span>PAGE 01</span>
+                  </div>
+                  <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
                 </>
               )}
             </div>
@@ -395,115 +470,190 @@ export const TemplatePreview = ({
   const isTemplate2 = tplId === 2;
 
   let textContainerStyle = {
-    left: '3.6%',
-    top: '20%',
-    width: '52%',
-    maxWidth: '52%',
+    left: '4%',
+    bottom: '4%',
+    width: '42%',
+    maxWidth: '45%',
     textAlign: text1Align || 'left',
     alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
   };
 
-  if (tplId === 2) {
+  let logoContainerStyle = {
+    top: '1.2vw',
+    left: '1.2vw',
+    maxWidth: '4.5vw',
+    maxHeight: '4.5vw'
+  };
+
+  if (tplId === 1) {
+    // Dual Hardcover: Books occupy the center rotated. Top-left is clear for logo. Bottom-left or bottom-center is clear for text.
+    logoContainerStyle = {
+      top: '1.2vw',
+      left: '1.2vw',
+      maxWidth: '4vw',
+      maxHeight: '3.5vw'
+    };
+    textContainerStyle = {
+      left: '4%',
+      bottom: '4%',
+      width: '44%',
+      maxWidth: '45%',
+      textAlign: text1Align || 'left',
+      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+    };
+  } else if (tplId === 2) {
+    // Single Standing Hardcover: Book is on left-center. Right area has empty negative space for logo and title.
+    logoContainerStyle = {
+      top: '1.5vw',
+      right: '1.5vw',
+      left: 'auto',
+      maxWidth: '4.5vw',
+      maxHeight: '4vw'
+    };
     textContainerStyle = {
       right: '5%',
-      bottom: '7%',
-      width: '42%',
+      bottom: '6%',
+      width: '44%',
       maxWidth: '45%',
       textAlign: text1Align || 'right',
       alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'center') ? 'center' : 'flex-end'
     };
   } else if (tplId === 3) {
+    // Landscape Catalog: Wide book in center. Logo top-left or top-right. Bottom header text banner.
+    logoContainerStyle = {
+      top: '0.8vw',
+      left: '1.2vw',
+      maxWidth: '3.8vw',
+      maxHeight: '3.2vw'
+    };
     textContainerStyle = {
-      left: '10%',
-      right: '10%',
-      bottom: '4%',
-      width: '80%',
-      maxWidth: '80%',
+      left: '5%',
+      right: '5%',
+      bottom: '2.5%',
+      width: '90%',
+      maxWidth: '90%',
       margin: '0 auto',
       textAlign: text1Align || 'center',
       alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'right') ? 'flex-end' : 'center'
     };
   } else if (tplId === 4) {
-    textContainerStyle = {
-      left: '10%',
-      right: '10%',
-      bottom: '5%',
-      width: '80%',
-      maxWidth: '80%',
-      margin: '0 auto',
-      textAlign: text1Align || 'center',
-      alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'right') ? 'flex-end' : 'center'
+    // Modern Magazine: Magazine stands on right-center tilted. Left side is open for logo & editorial title.
+    logoContainerStyle = {
+      top: '1.5vw',
+      left: '1.5vw',
+      maxWidth: '4.5vw',
+      maxHeight: '4vw'
     };
-  } else if (tplId === 5 || tplId === 6) {
+    textContainerStyle = {
+      left: '4%',
+      bottom: '8%',
+      width: '44%',
+      maxWidth: '46%',
+      textAlign: text1Align || 'left',
+      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+    };
+  } else if (tplId === 5) {
+    // Stacked Trio: Books fan out to the right & top. Clean open negative space is at the top-left and bottom-left.
+    logoContainerStyle = {
+      top: '1.2vw',
+      left: '1.2vw',
+      maxWidth: '4.2vw',
+      maxHeight: '3.5vw'
+    };
+    textContainerStyle = {
+      left: '4%',
+      bottom: '4%',
+      width: '44%',
+      maxWidth: '46%',
+      textAlign: text1Align || 'left',
+      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+    };
+  } else if (tplId === 6) {
+    // Isometric Floating Hardcover: Floating book tilted towards center-right. Left side and bottom-left have clean space.
+    logoContainerStyle = {
+      top: '1.5vw',
+      left: '1.5vw',
+      maxWidth: '4.5vw',
+      maxHeight: '4vw'
+    };
     textContainerStyle = {
       left: '5%',
       bottom: '5%',
-      width: '90%',
-      maxWidth: '90%',
+      width: '42%',
+      maxWidth: '42%',
       textAlign: text1Align || 'left',
       alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
     };
   }
 
-    return (
-    <div className="relative w-full h-full bg-gray-100 overflow-hidden" style={{ backgroundColor: bgColor }}>
-        {selectedTemplate?.id ? (
-            <div 
-              className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none transition-all duration-150"
-              style={{ 
-                opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, 
-                filter: dropShadowFilter 
-              }}
-            >
-              {renderTemplateBooks(selectedTemplate.id, selectedPages, pages, "scale-[0.95]", text1, text2)}
-            </div>
-        ) : (
-            <img
-              src={selectedTemplate?.src}
-              className="absolute inset-0 pointer-events-none transition-all duration-300 z-0 w-full h-full object-cover"
-              style={{ opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, filter: dropShadowFilter }}
-              alt={selectedTemplate?.label || 'Template'}
-            />
-        )}
-        
-        {logoUrl && (
-            <img 
-                src={logoUrl} 
-                alt="Logo" 
-                className="absolute top-[1vw] left-[1vw] z-[20] rounded-[0.5vw] w-[4vw] h-[4vw] object-contain" 
-            />
-        )}
+  const bgStyle = bgColor && (bgColor.includes('gradient') || bgColor.startsWith('linear-') || bgColor.startsWith('radial-'))
+    ? { backgroundImage: bgColor }
+    : { backgroundColor: bgColor || '#F8FAFC' };
 
-        <div className={`absolute left-0 right-0 text-center z-10 flex flex-col items-center ${selectedTemplate?.id && (!selectedPages || selectedPages.length === 0) ? 'hidden' : ''}`} style={{ bottom: '1.5vw', paddingLeft: '0.8vw', paddingRight: '0.8vw' }}>
-            <h4 className="leading-tight break-words w-full" style={{
-                fontFamily: text1FontFamily,
-                fontSize: typeof text1FontSize === 'number' ? `${(text1FontSize / 15) * 1.1}vw` : '1.3vw',
-                fontWeight: text1FontWeight === 'Regular' ? '400' : text1FontWeight === 'Medium' ? '500' : text1FontWeight === 'Semi Bold' ? '600' : text1FontWeight === 'Bold' ? '700' : '900',
-                letterSpacing: text1LetterSpacing === 'Auto' ? 'normal' : `${(text1LetterSpacing || 0) / 10}em`,
-                lineHeight: text1LineHeight === 'Auto' ? '1.1' : String(text1LineHeight || 1.1),
-                textAlign: text1Align || 'center',
-                color: text1Color || '#000000',
-                opacity: (text1ColorOpacity !== undefined ? text1ColorOpacity : 100) / 100,
-                fontStyle: text1Italic ? 'italic' : 'normal',
-                textDecoration: [text1Underline ? 'underline' : '', text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-            }}>{text1 || 'Title'}</h4>
-            <p className="whitespace-pre-wrap break-words w-full" style={{
-                marginTop: '0.2vw',
-                fontFamily: text2FontFamily,
-                fontSize: typeof text2FontSize === 'number' ? `${(text2FontSize / 15) * 1.1}vw` : '0.7vw',
-                fontWeight: text2FontWeight === 'Regular' ? '400' : text2FontWeight === 'Medium' ? '500' : text2FontWeight === 'Semi Bold' ? '600' : text2FontWeight === 'Bold' ? '700' : '900',
-                letterSpacing: text2LetterSpacing === 'Auto' ? '0.2em' : `${(text2LetterSpacing || 0) / 10}em`,
-                lineHeight: text2LineHeight === 'Auto' ? 'normal' : String(text2LineHeight || 'normal'),
-                textAlign: text2Align || 'center',
-                color: text2Color || '#000000',
-                opacity: (text2ColorOpacity !== undefined ? text2ColorOpacity : 100) / 100,
-                fontStyle: text2Italic ? 'italic' : 'normal',
-                textDecoration: [text2Underline ? 'underline' : '', text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-            }}>{text2 || 'Supporting Text'}</p>
+  return (
+    <div className="relative w-full h-full bg-gray-100 overflow-hidden" style={bgStyle}>
+      {selectedTemplate?.id ? (
+        <div 
+          className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none transition-all duration-150"
+          style={{ 
+            opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, 
+            filter: dropShadowFilter 
+          }}
+        >
+          {renderTemplateBooks(selectedTemplate.id, selectedPages, pages, "scale-[0.95]", text1, text2)}
         </div>
-    </div>
-    );
-};
+      ) : (
+        <img
+          src={selectedTemplate?.src}
+          className="absolute inset-0 pointer-events-none transition-all duration-300 z-0 w-full h-full object-cover"
+          style={{ opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, filter: dropShadowFilter }}
+          alt={selectedTemplate?.label || 'Template'}
+        />
+      )}
+      
+      {logoUrl && (
+        <div
+          className="absolute z-[20] flex items-center justify-center pointer-events-none transition-all duration-150"
+          style={logoContainerStyle}
+        >
+          <img 
+            src={logoUrl} 
+            alt="Logo" 
+            className="w-full h-full object-contain rounded-[0.3vw]" 
+          />
+        </div>
+      )}
+
+      <div className="absolute z-10 flex flex-col pointer-events-none transition-all duration-150" style={textContainerStyle}>
+              <h4 className="leading-tight break-words w-full" style={{
+                  fontFamily: text1FontFamily,
+                  fontSize: typeof text1FontSize === 'number' ? `${(text1FontSize / 15) * 1.1}vw` : '0.85vw',
+                  fontWeight: text1FontWeight === 'Regular' ? '400' : text1FontWeight === 'Medium' ? '500' : text1FontWeight === 'Semi Bold' ? '600' : text1FontWeight === 'Bold' ? '700' : '900',
+                  letterSpacing: text1LetterSpacing === 'Auto' ? 'normal' : `${(text1LetterSpacing || 0) / 10}em`,
+                  lineHeight: text1LineHeight === 'Auto' ? '1.1' : String(text1LineHeight || 1.1),
+                  textAlign: text1Align || 'inherit',
+                  color: text1Color || '#000000',
+                  opacity: (text1ColorOpacity !== undefined ? text1ColorOpacity : 100) / 100,
+                  fontStyle: text1Italic ? 'italic' : 'normal',
+                  textDecoration: [text1Underline ? 'underline' : '', text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
+              }}>{text1 || 'Hard.Cover Book'}</h4>
+              <p className="whitespace-pre-wrap break-words w-full" style={{
+                  marginTop: '0.15vw',
+                  fontFamily: text2FontFamily,
+                  fontSize: typeof text2FontSize === 'number' ? `${(text2FontSize / 15) * 1.1}vw` : '0.55vw',
+                  fontWeight: text2FontWeight === 'Regular' ? '400' : text2FontWeight === 'Medium' ? '500' : text2FontWeight === 'Semi Bold' ? '600' : text2FontWeight === 'Bold' ? '700' : '900',
+                  letterSpacing: text2LetterSpacing === 'Auto' ? 'normal' : `${(text2LetterSpacing || 0) / 10}em`,
+                  lineHeight: text2LineHeight === 'Auto' ? 'normal' : String(text2LineHeight || 'normal'),
+                  textAlign: text2Align || 'inherit',
+                  color: text2Color || '#000000',
+                  opacity: (text2ColorOpacity !== undefined ? text2ColorOpacity : 100) / 100,
+                  fontStyle: text2Italic ? 'italic' : 'normal',
+                  textDecoration: [text2Underline ? 'underline' : '', text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
+              }}>{text2 || 'Free .psd Mockup'}</p>
+          </div>
+      </div>
+      );
+  };
 
 export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages = [], zIndex = 'z-[200]', inline = false }) => {
   const [option, setOption] = useState(settings.coverPicture?.type || 'template');
@@ -519,15 +669,11 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [showMenu, setShowMenu] = useState(false);
 
   const initialTpl = settings.coverPicture?.selectedTemplate || COVER_TEMPLATES[0];
-  const initialText1 = (settings.coverPicture?.text1 && settings.coverPicture?.text1 !== 'Hard.Cover Book') 
-    ? settings.coverPicture.text1 
-    : (initialTpl?.defaultText1 || 'Name of the Book');
-  const initialText2 = (settings.coverPicture?.text2 && settings.coverPicture?.text2 !== 'Free .psd Mockup') 
-    ? settings.coverPicture.text2 
-    : (initialTpl?.defaultText2 || '“Turn every page into an experience,\nA flipbook that brings your stories to life.”');
+  const initialText1 = settings.coverPicture?.text1 || initialTpl?.defaultText1 || 'Name of the Book';
+  const initialText2 = settings.coverPicture?.text2 || initialTpl?.defaultText2 || '“Turn every page into an experience,\nA flipbook that brings your stories to life.”';
   const [text1, setText1] = useState(initialText1);
   const [text2, setText2] = useState(initialText2);
-  const [bgColor, setBgColor] = useState(settings.coverPicture?.bgColor || '#D7D8E8');
+  const [bgColor, setBgColor] = useState(settings.coverPicture?.bgColor || initialTpl?.defaultBgColor || '#F8FAFC');
   const [bgOpacity, setBgOpacity] = useState(settings.coverPicture?.bgOpacity || 100);
   const [shadowColor, setShadowColor] = useState(settings.coverPicture?.shadowColor || '#000000');
   const [shadowOpacity, setShadowOpacity] = useState(settings.coverPicture?.shadowOpacity !== undefined ? settings.coverPicture.shadowOpacity : 0);
@@ -536,11 +682,13 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [shadowBlur, setShadowBlur] = useState(settings.coverPicture?.shadowBlur !== undefined ? settings.coverPicture.shadowBlur : 0);
   const [logoUrl, setLogoUrl] = useState(settings.coverPicture?.logoUrl || null);
   const logoInputRef = React.useRef(null);
+  const scrollContainerRef = React.useRef(null);
+  const middleDropdownRef = React.useRef(null);
 
   // Typography states for Text 1
   const [text1FontFamily, setText1FontFamily] = useState(settings.coverPicture?.text1FontFamily || 'Poppins');
-  const [text1FontSize, setText1FontSize] = useState(settings.coverPicture?.text1FontSize || 12);
-  const [text1FontWeight, setText1FontWeight] = useState(settings.coverPicture?.text1FontWeight || 'Medium');
+  const [text1FontSize, setText1FontSize] = useState(settings.coverPicture?.text1FontSize || 10);
+  const [text1FontWeight, setText1FontWeight] = useState(settings.coverPicture?.text1FontWeight || 'Semi Bold');
   const [text1LetterSpacing, setText1LetterSpacing] = useState(settings.coverPicture?.text1LetterSpacing || 'Auto');
   const [text1LineHeight, setText1LineHeight] = useState(settings.coverPicture?.text1LineHeight || 'Auto');
   const [text1Align, setText1Align] = useState(settings.coverPicture?.text1Align || 'left');
@@ -553,7 +701,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
 
   // Typography states for Text 2
   const [text2FontFamily, setText2FontFamily] = useState(settings.coverPicture?.text2FontFamily || 'Outfit');
-  const [text2FontSize, setText2FontSize] = useState(settings.coverPicture?.text2FontSize || 8);
+  const [text2FontSize, setText2FontSize] = useState(settings.coverPicture?.text2FontSize || 7);
   const [text2FontWeight, setText2FontWeight] = useState(settings.coverPicture?.text2FontWeight || 'Regular');
   const [text2LetterSpacing, setText2LetterSpacing] = useState(settings.coverPicture?.text2LetterSpacing || 'Auto');
   const [text2LineHeight, setText2LineHeight] = useState(settings.coverPicture?.text2LineHeight || 'Auto');
@@ -576,15 +724,46 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [showBgColorPicker, setShowBgColorPicker] = useState(false);
   const [showShadowColorPicker, setShowShadowColorPicker] = useState(false);
 
+  const [isMiddleDropdownOpen, setIsMiddleDropdownOpen] = useState(false);
+
+  // Automatically scroll container to bottom when middle dropdown opens
+  useEffect(() => {
+    if (isMiddleDropdownOpen) {
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTo({
+            top: scrollContainerRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 50);
+    }
+  }, [isMiddleDropdownOpen]);
+
   const [selectedPages, setSelectedPages] = useState(settings.coverPicture?.selectedPages || []);
-  const [firstPageSelected, setFirstPageSelected] = useState(true);
-  const [lastPageSelected, setLastPageSelected] = useState(true);
+  const [firstPageSelected, setFirstPageSelected] = useState(
+    settings.coverPicture?.selectedPages !== undefined 
+      ? settings.coverPicture.selectedPages.includes(1) 
+      : false
+  );
+  const [lastPageSelected, setLastPageSelected] = useState(
+    settings.coverPicture?.selectedPages !== undefined 
+      ? settings.coverPicture.selectedPages.includes(pages.length) 
+      : false
+  );
   const [middlePageNum, setMiddlePageNum] = useState(() => {
     if (pages.length <= 2) return null;
     const existingMiddle = (settings.coverPicture?.selectedPages || []).find(p => p > 1 && p < pages.length);
-    return existingMiddle || Math.ceil(pages.length / 2);
+    return existingMiddle || null;
   });
-  const [previewHoverPage, setPreviewHoverPage] = useState(null);
+
+  // Track the most recently selected/interacted page for preview display
+  const [lastInteractedPage, setLastInteractedPage] = useState(() => {
+    if (settings.coverPicture?.selectedPages?.length > 0) {
+      return settings.coverPicture.selectedPages[settings.coverPicture.selectedPages.length - 1];
+    }
+    return 1;
+  });
 
   // Sync selectedPages array when toggles or middle page change
   useEffect(() => {
@@ -598,6 +777,40 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
     }
     setSelectedPages(list);
   }, [firstPageSelected, lastPageSelected, middlePageNum, pages.length]);
+
+  // Extract colors present on the flipbook pages or template
+  const colorsOnPageList = useMemo(() => {
+    const set = new Set();
+    // 1. Extract from template/current colors
+    if (bgColor && typeof bgColor === 'string') {
+      const hexMatches = bgColor.match(/#[0-9A-Fa-f]{6}\b/g) || [];
+      hexMatches.forEach(c => set.add(c.toUpperCase()));
+    }
+    if (shadowColor && typeof shadowColor === 'string' && shadowColor.startsWith('#')) {
+      set.add(shadowColor.toUpperCase());
+    }
+    if (text1Color && typeof text1Color === 'string' && text1Color.startsWith('#')) {
+      set.add(text1Color.toUpperCase());
+    }
+    if (text2Color && typeof text2Color === 'string' && text2Color.startsWith('#')) {
+      set.add(text2Color.toUpperCase());
+    }
+
+    // 2. Extract colors from flipbook page HTMLs
+    if (Array.isArray(pages) && pages.length > 0) {
+      pages.forEach(p => {
+        if (p?.backgroundColor && p.backgroundColor.startsWith('#')) {
+          set.add(p.backgroundColor.toUpperCase());
+        }
+        if (typeof p?.html === 'string') {
+          const hexMatches = p.html.match(/#[0-9A-Fa-f]{6}\b/g) || [];
+          hexMatches.slice(0, 10).forEach(c => set.add(c.toUpperCase()));
+        }
+      });
+    }
+
+    return Array.from(set).slice(0, 12);
+  }, [bgColor, shadowColor, text1Color, text2Color, pages]);
 
   // Notify parent of changes for real-time preview
   React.useEffect(() => {
@@ -799,7 +1012,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
           <div className="flex gap-[1vw] flex-1 min-h-0">
             {/* Left Preview */}
             <div className="w-[45%] flex items-start justify-center pt-[0.5vw] relative">
-              <div className="relative group rounded-[0.9vw] bg-[#edd8cd] w-full aspect-[4/3] max-w-[24vw] flex items-center justify-center shadow-inner overflow-hidden border border-amber-100/40">
+              <div className="relative group rounded-[0.9vw] bg-[#F8FAFC] w-full aspect-[4/3] max-w-[24vw] flex items-center justify-center shadow-inner overflow-hidden border border-gray-200/50">
                 {option === 'template' && selectedTemplate ? (
                   <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
                     <TemplatePreview
@@ -842,55 +1055,62 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
 
               {/* White Content Container */}
               <div className="flex-1 bg-white overflow-hidden m-[0.1vw] rounded-b-[1.1vw] relative shadow-inner flex flex-col">
-                <div className="flex-1 overflow-y-auto px-[1vw] py-[1.2vw] pr-[1.2vw] custom-popup-scrollbar">
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-[1vw] py-[1.2vw] pr-[1.2vw] custom-popup-scrollbar">
                   {activeTab === 'cover' ? (
-                     <div className="grid grid-cols-3 gap-[0.5vw]">
-                       {COVER_TEMPLATES.map((tpl) => (
-                         <div
-                           key={tpl.id}
-                           onClick={() => {
-                             setSelectedTemplate(tpl);
-                             if (tpl.defaultText1) setText1(tpl.defaultText1);
-                             if (tpl.defaultText2) setText2(tpl.defaultText2);
-                           }}
-                           className={`aspect-[4/3] rounded-[0.4vw] cursor-pointer overflow-hidden border-[0.15vw] transition-all hover:scale-[1.03] hover:shadow-md relative group ${selectedTemplate?.id === tpl.id
-                             ? 'border-[#4A3AFF] shadow-[0_0_0_0.15vw_rgba(74,58,255,0.3)]'
-                             : 'border-transparent hover:border-gray-400'
-                             }`}
-                           title={tpl.label}
-                         >
-                           {tpl.id ? (
-                             <div className="w-full h-full bg-[#edd8cd] relative overflow-hidden pointer-events-none">
-                               <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left transform scale-[0.25]">
-                                 <TemplatePreview
-                                   selectedTemplate={tpl}
-                                   bgColor="#edd8cd"
-                                   bgOpacity={100}
-                                   text1={tpl.defaultText1}
-                                   text2={tpl.defaultText2}
-                                   selectedPages={[]}
-                                   pages={pages}
-                                 />
-                               </div>
-                             </div>
-                           ) : (
-                             <img src={tpl.src} alt={tpl.label} className="w-full h-full object-cover" />
-                           )}
-                           {selectedTemplate?.id === tpl.id && (
-                             <div className="absolute inset-0 bg-[#4A3AFF]/15 flex items-start justify-end p-[0.3vw]">
-                               <div className="w-[1vw] h-[1vw] bg-[#4A3AFF] rounded-full flex items-center justify-center shadow-md">
-                                 <svg viewBox="0 0 10 10" className="w-[0.6vw] h-[0.6vw]" fill="none">
-                                   <polyline points="2,5 4.5,7.5 8,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                 </svg>
-                               </div>
-                             </div>
-                           )}
-                           <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[0.5vw] font-semibold text-center py-[0.2vw] opacity-0 group-hover:opacity-100 transition-opacity">
-                             {tpl.label}
-                           </div>
-                         </div>
-                       ))}
-                     </div>
+                    <div className="grid grid-cols-3 gap-[0.5vw]">
+                      {COVER_TEMPLATES.map((tpl) => (
+                        <div
+                          key={tpl.id}
+                          onClick={() => {
+                            setSelectedTemplate(tpl);
+                            if (tpl.defaultText1) setText1(tpl.defaultText1);
+                            if (tpl.defaultText2) setText2(tpl.defaultText2);
+                            if (tpl.defaultBgColor) setBgColor(tpl.defaultBgColor);
+                          }}
+                          className={`aspect-[4/3] rounded-[0.4vw] cursor-pointer overflow-hidden border-[0.15vw] transition-all hover:scale-[1.03] hover:shadow-md relative group ${selectedTemplate?.id === tpl.id
+                            ? 'border-[#4A3AFF] shadow-[0_0_0_0.15vw_rgba(74,58,255,0.3)]'
+                            : 'border-transparent hover:border-gray-400'
+                            }`}
+                          title={tpl.label}
+                        >
+                          {tpl.id ? (
+                            <div
+                              className="w-full h-full relative overflow-hidden pointer-events-none"
+                              style={tpl.defaultBgColor?.includes('gradient')
+                                ? { backgroundImage: tpl.defaultBgColor }
+                                : { backgroundColor: tpl.defaultBgColor || '#F8FAFC' }
+                              }
+                            >
+                              <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left transform scale-[0.25]">
+                                <TemplatePreview
+                                  selectedTemplate={tpl}
+                                  bgColor={tpl.defaultBgColor || '#F8FAFC'}
+                                  bgOpacity={100}
+                                  text1={tpl.defaultText1}
+                                  text2={tpl.defaultText2}
+                                  selectedPages={[]}
+                                  pages={pages}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <img src={tpl.src} alt={tpl.label} className="w-full h-full object-cover" />
+                          )}
+                          {selectedTemplate?.id === tpl.id && (
+                            <div className="absolute inset-0 bg-[#4A3AFF]/15 flex items-start justify-end p-[0.3vw]">
+                              <div className="w-[1vw] h-[1vw] bg-[#4A3AFF] rounded-full flex items-center justify-center shadow-md">
+                                <svg viewBox="0 0 10 10" className="w-[0.6vw] h-[0.6vw]" fill="none">
+                                  <polyline points="2,5 4.5,7.5 8,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </div>
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[0.5vw] font-semibold text-center py-[0.2vw] opacity-0 group-hover:opacity-100 transition-opacity">
+                            {tpl.label}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="space-y-[1.2vw]">
                       {/* Text 1 Row */}
@@ -968,30 +1188,30 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                           <div className="relative">
                             <div
                               onClick={() => setShowBgColorPicker(!showBgColorPicker)}
-                              className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] shadow-[0_2px_4px_rgba(0,0,0,0.06)] cursor-pointer hover:border-indigo-400 transition-colors shrink-0"
-                              style={{ backgroundColor: bgColor }}
+                              className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] shadow-[0_2px_4px_rgba(0,0,0,0.06)] cursor-pointer hover:border-indigo-400 transition-colors shrink-0 overflow-hidden"
+                              style={bgColor && (bgColor.includes('gradient') || bgColor.startsWith('linear-')) ? { backgroundImage: bgColor } : { backgroundColor: bgColor || '#F8FAFC' }}
                             ></div>
                             {showBgColorPicker && createPortal(
                               <>
                                 <div className="fixed inset-0 z-[999990]" onClick={() => setShowBgColorPicker(false)} />
-                                <div className="fixed top-1/2 -translate-y-1/2 left-[calc(50%+16.5vw)] z-[999999] w-[14vw]">
+                                <div className="fixed top-1/2 -translate-y-1/2 left-[calc(50%+16.5vw)] z-[999999]">
                                   <ColorPicker
-                                    color={bgColor}
+                                    color={bgColor || '#F8FAFC'}
                                     onChange={(newCol) => setBgColor(newCol)}
                                     opacity={bgOpacity}
                                     onOpacityChange={(newOp) => setBgOpacity(newOp)}
                                     onClose={() => setShowBgColorPicker(false)}
-                                    className="w-full"
-                                    smallMode={true}
-                                    inline={true}
+                                    colorsOnPage={colorsOnPageList}
                                   />
                                 </div>
                               </>, document.body
                             )}
                           </div>
-                          <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-                            <span className="text-[0.85vw] font-medium text-[#2563EB] font-mono uppercase">{bgColor}</span>
-                            <span className="text-[0.85vw] font-medium text-gray-400 font-mono">{bgOpacity}%</span>
+                          <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)] overflow-hidden">
+                            <span className="text-[0.75vw] font-medium text-[#2563EB] font-mono truncate mr-[0.5vw]" title={bgColor}>
+                              {bgColor?.includes('gradient') ? 'Gradient' : bgColor}
+                            </span>
+                            <span className="text-[0.85vw] font-medium text-gray-400 font-mono shrink-0">{bgOpacity}%</span>
                           </div>
                           {window.EyeDropper && (
                             <button
@@ -1027,16 +1247,14 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                               {showShadowColorPicker && createPortal(
                                 <>
                                   <div className="fixed inset-0 z-[999990]" onClick={() => setShowShadowColorPicker(false)} />
-                                  <div className="fixed top-1/2 -translate-y-1/2 left-[calc(50%+16.5vw)] z-[999999] w-[14vw]">
+                                  <div className="fixed top-1/2 -translate-y-1/2 left-[calc(50%+16.5vw)] z-[999999]">
                                     <ColorPicker
                                       color={shadowColor}
                                       onChange={(newCol) => setShadowColor(newCol)}
                                       opacity={shadowOpacity}
                                       onOpacityChange={(newOp) => setShadowOpacity(newOp)}
                                       onClose={() => setShowShadowColorPicker(false)}
-                                      className="w-full"
-                                      smallMode={true}
-                                      inline={true}
+                                      colorsOnPage={colorsOnPageList}
                                     />
                                   </div>
                                 </>, document.body
@@ -1161,130 +1379,182 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                         </div>
                       </div>
 
-                      {/* Preview above page selection */}
-                      {pages.length > 0 && (
-                        <div className="flex items-center justify-between bg-slate-50 border border-gray-200 rounded-[0.45vw] p-[0.45vw] shadow-xs">
-                          <div className="flex flex-col pl-[0.2vw]">
-                            <span className="text-[0.62vw] font-bold text-gray-700 uppercase tracking-wider">
-                              Page Preview
-                            </span>
-                            {(() => {
-                              const activeNum = previewHoverPage || middlePageNum || (firstPageSelected ? 1 : (lastPageSelected ? pages.length : 1));
-                              const label = activeNum === 1 ? 'Page 1 (Front Cover)' : activeNum === pages.length ? `Page ${pages.length} (Back Cover)` : `Page ${activeNum} (Middle Page)`;
-                              return (
-                                <span className="text-[0.68vw] font-semibold text-[#5551FF]">
-                                  {label}
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          <div className="w-[3.6vw] aspect-[3.5/5] bg-white border border-gray-300 rounded-[0.25vw] overflow-hidden shadow-sm flex items-center justify-center relative shrink-0">
-                            {(() => {
-                              const activeNum = previewHoverPage || middlePageNum || (firstPageSelected ? 1 : (lastPageSelected ? pages.length : 1));
-                              const pageObj = activeNum && pages[activeNum - 1] ? pages[activeNum - 1] : pages[0];
-                              const pageHtml = pageObj?.html ? normalizePageHtml(pageObj.html) : '';
-                              return pageHtml ? (
-                                <div
-                                  className="w-full h-full flex items-center justify-center pointer-events-none [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill"
-                                  dangerouslySetInnerHTML={{ __html: pageHtml }}
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-gray-50 flex items-center justify-center text-[0.48vw] text-gray-400 font-semibold text-center">
-                                  Page {activeNum}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      )}
+                      {/* Selected Pages Section */}
+                      <div className="flex items-start gap-[0.7vw]">
+                        <span className="text-[0.72vw] font-bold text-gray-800 w-[6vw] shrink-0 pt-[0.4vw]">Selected Pages :</span>
 
-                      {/* First & Last Page Checkboxes */}
-                      <div className="border border-gray-200 rounded-[0.45vw] p-[0.5vw] bg-white space-y-[0.3vw]">
-                        <div className="text-[0.62vw] font-semibold text-gray-500 uppercase tracking-wider mb-[0.1vw]">
-                          Cover & Back
-                        </div>
+                        {/* Single Unified Container */}
+                        <div className="flex-1 border border-gray-200/90 rounded-[0.7vw] p-[0.7vw] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex items-start gap-[0.9vw] transition-all">
+                          {/* Live Thumbnail Preview on the Left inside the container */}
+                          {pages.length > 0 && (
+                            <div className="w-[5.4vw] flex flex-col items-center gap-[0.2vw] shrink-0 pt-[0.1vw]">
+                              <span className="text-[0.55vw] font-bold text-gray-400 uppercase tracking-wider self-start">PREVIEW:</span>
+                              {(() => {
+                                // Priority to the page most recently clicked/selected, provided it's currently active
+                                let activeNum = null;
+                                if (lastInteractedPage === 1 && firstPageSelected) activeNum = 1;
+                                else if (lastInteractedPage === pages.length && lastPageSelected) activeNum = pages.length;
+                                else if (lastInteractedPage === middlePageNum && middlePageNum) activeNum = middlePageNum;
+                                else {
+                                  // Fallback to whichever page is currently selected
+                                  activeNum = middlePageNum || (firstPageSelected ? 1 : null) || (lastPageSelected ? pages.length : null);
+                                }
 
-                        {/* First Page Checkbox */}
-                        <div
-                          className="flex items-center justify-between px-[0.3vw] py-[0.25vw] rounded-[0.3vw] hover:bg-gray-50 cursor-pointer group select-none"
-                          onClick={() => setFirstPageSelected(!firstPageSelected)}
-                          onMouseEnter={() => setPreviewHoverPage(1)}
-                          onMouseLeave={() => setPreviewHoverPage(null)}
-                        >
-                          <div className="flex items-center gap-[0.5vw]">
-                            <div
-                              className={`w-[0.9vw] h-[0.9vw] rounded-[0.2vw] border flex items-center justify-center transition-all ${firstPageSelected ? 'bg-[#5551FF] border-[#5551FF]' : 'border-gray-400 bg-white group-hover:border-gray-600'}`}>
-                              {firstPageSelected && <Check size="0.65vw" strokeWidth={3} className="text-white" />}
-                            </div>
-                            <span className={`text-[0.68vw] ${firstPageSelected ? 'text-gray-900 font-semibold' : 'text-gray-600 font-normal'}`}>
-                              First Page (Page 1)
-                            </span>
-                          </div>
-                          <span className="text-[0.58vw] text-gray-400 font-normal">Front Cover</span>
-                        </div>
+                                const pageObj = activeNum && pages[activeNum - 1] ? pages[activeNum - 1] : null;
+                                const pageHtml = pageObj?.html ? normalizePageHtml(pageObj.html) : '';
 
-                        {/* Last Page Checkbox */}
-                        {pages.length > 1 && (
-                          <div
-                            className="flex items-center justify-between px-[0.3vw] py-[0.25vw] rounded-[0.3vw] hover:bg-gray-50 cursor-pointer group border-t border-gray-100 pt-[0.3vw] select-none"
-                            onClick={() => setLastPageSelected(!lastPageSelected)}
-                            onMouseEnter={() => setPreviewHoverPage(pages.length)}
-                            onMouseLeave={() => setPreviewHoverPage(null)}
-                          >
-                            <div className="flex items-center gap-[0.5vw]">
-                              <div
-                                className={`w-[0.9vw] h-[0.9vw] rounded-[0.2vw] border flex items-center justify-center transition-all ${lastPageSelected ? 'bg-[#5551FF] border-[#5551FF]' : 'border-gray-400 bg-white group-hover:border-gray-600'}`}>
-                                {lastPageSelected && <Check size="0.65vw" strokeWidth={3} className="text-white" />}
-                              </div>
-                              <span className={`text-[0.68vw] ${lastPageSelected ? 'text-gray-900 font-semibold' : 'text-gray-600 font-normal'}`}>
-                                Last Page (Page {pages.length})
-                              </span>
-                            </div>
-                            <span className="text-[0.58vw] text-gray-400 font-normal">Back Cover</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Middle Page Selector Dropdown */}
-                      {pages.length > 2 && (
-                        <div className="border border-gray-200 rounded-[0.45vw] p-[0.5vw] bg-white">
-                          <div className="flex items-center justify-between mb-[0.3vw]">
-                            <span className="text-[0.62vw] font-semibold text-gray-500 uppercase tracking-wider">
-                              Middle Page
-                            </span>
-                            {middlePageNum && (
-                              <span className="text-[0.62vw] text-[#5551FF] font-semibold">
-                                Page {middlePageNum} selected
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="relative">
-                            <select
-                              value={middlePageNum || ''}
-                              onChange={(e) => {
-                                const val = e.target.value ? Number(e.target.value) : null;
-                                setMiddlePageNum(val);
-                                if (val) setPreviewHoverPage(val);
-                              }}
-                              onMouseEnter={() => middlePageNum && setPreviewHoverPage(middlePageNum)}
-                              onMouseLeave={() => setPreviewHoverPage(null)}
-                              className="w-full bg-white border border-gray-300 rounded-[0.4vw] px-[0.6vw] py-[0.4vw] text-[0.68vw] text-gray-800 font-semibold outline-none cursor-pointer appearance-none hover:border-gray-400 focus:border-[#5551FF] transition-colors"
-                            >
-                              <option value="">-- None (No middle page) --</option>
-                              {pages.slice(1, -1).map((_, idx) => {
-                                const pageNumber = idx + 2;
                                 return (
-                                  <option key={pageNumber} value={pageNumber}>
-                                    Page {pageNumber}
-                                  </option>
+                                  <>
+                                    <div className="w-[5.2vw] h-[6.8vw] bg-white border border-gray-300 rounded-[0.4vw] overflow-hidden shadow-xs flex items-center justify-center relative p-[0.2vw]">
+                                      {pageHtml ? (
+                                        <div
+                                          className="w-full h-full flex items-center justify-center pointer-events-none [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain"
+                                          dangerouslySetInnerHTML={{ __html: pageHtml }}
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full bg-gray-50 flex items-center justify-center text-[0.55vw] text-gray-400 font-semibold text-center px-[0.2vw]">
+                                          {activeNum ? `Page ${activeNum}` : 'No page selected'}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className={`text-[0.62vw] font-semibold text-center ${activeNum ? 'text-[#5551FF]' : 'text-gray-400'}`}>
+                                      {activeNum ? `Page ${activeNum}` : 'None'}
+                                    </span>
+                                  </>
                                 );
-                              })}
-                            </select>
-                            <ChevronDown size="0.75vw" className="text-gray-500 absolute right-[0.6vw] top-1/2 -translate-y-1/2 pointer-events-none" />
+                              })()}
+                            </div>
+                          )}
+
+                          {/* Controls (COVER & BACK and MIDDLE PAGE) on the Right inside the container */}
+                          <div className="flex-1 flex flex-col space-y-[0.8vw]">
+                            {/* COVER & BACK Section */}
+                            <div className="space-y-[0.4vw]">
+                              <div className="text-[0.6vw] font-bold text-gray-400 uppercase tracking-wider mb-[0.2vw]">
+                                COVER & BACK
+                              </div>
+
+                              {/* First Page Checkbox */}
+                              <div
+                                className="flex items-center justify-between py-[0.2vw] cursor-pointer group select-none"
+                                onClick={() => {
+                                  const nextVal = !firstPageSelected;
+                                  setFirstPageSelected(nextVal);
+                                  if (nextVal) setLastInteractedPage(1);
+                                }}
+                              >
+                                <div className="flex items-center gap-[0.6vw]">
+                                  <div
+                                    className={`w-[1.05vw] h-[1.05vw] rounded-[0.25vw] border-[0.1vw] flex items-center justify-center transition-all ${firstPageSelected
+                                      ? 'bg-white border-gray-800'
+                                      : 'border-gray-800 bg-white group-hover:border-black'
+                                      }`}
+                                  >
+                                    {firstPageSelected && (
+                                      <Check size="0.75vw" strokeWidth={3} className="text-gray-900" />
+                                    )}
+                                  </div>
+                                  <span className="text-[0.72vw] text-gray-900 font-normal">
+                                    First Page (Page 1)
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Last Page Checkbox */}
+                              {pages.length > 1 && (
+                                <div
+                                  className="flex items-center justify-between py-[0.2vw] cursor-pointer group select-none"
+                                  onClick={() => {
+                                    const nextVal = !lastPageSelected;
+                                    setLastPageSelected(nextVal);
+                                    if (nextVal) setLastInteractedPage(pages.length);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-[0.6vw]">
+                                    <div
+                                      className={`w-[1.05vw] h-[1.05vw] rounded-[0.25vw] border-[0.1vw] flex items-center justify-center transition-all ${lastPageSelected
+                                        ? 'bg-white border-gray-800'
+                                        : 'border-gray-800 bg-white group-hover:border-black'
+                                        }`}
+                                    >
+                                      {lastPageSelected && (
+                                        <Check size="0.75vw" strokeWidth={3} className="text-gray-900" />
+                                      )}
+                                    </div>
+                                    <span className="text-[0.72vw] text-gray-900 font-normal">
+                                      Last Page (Page {pages.length})
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* MIDDLE PAGE Section */}
+                            <div>
+                              <div className="text-[0.6vw] font-bold text-gray-400 uppercase tracking-wider mb-[0.4vw]">
+                                MIDDLE PAGE
+                              </div>
+
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsMiddleDropdownOpen(!isMiddleDropdownOpen)}
+                                  className={`w-full h-[2.1vw] px-[0.75vw] border rounded-[0.45vw] flex items-center justify-between bg-white text-[0.78vw] font-medium transition-all cursor-pointer shadow-2xs ${
+                                    isMiddleDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-gray-300 hover:border-gray-400'
+                                  }`}
+                                >
+                                  <span className={middlePageNum ? 'text-gray-800' : 'text-gray-400 font-normal'}>
+                                    {middlePageNum ? `Page ${middlePageNum}` : 'None'}
+                                  </span>
+                                  <ChevronDown
+                                    size="0.75vw"
+                                    className={`text-gray-400 transition-transform duration-200 ${isMiddleDropdownOpen ? 'rotate-180 text-indigo-500' : ''}`}
+                                  />
+                                </button>
+
+                                {isMiddleDropdownOpen && (
+                                  <div className="mt-[0.35vw] bg-white border border-gray-200 rounded-[0.45vw] shadow-sm py-1 max-h-[8.5vw] overflow-y-auto custom-popup-scrollbar">
+                                    <div
+                                      onClick={() => {
+                                        setMiddlePageNum(null);
+                                        setIsMiddleDropdownOpen(false);
+                                      }}
+                                      className={`px-[0.85vw] py-[0.4vw] text-[0.78vw] font-medium cursor-pointer transition-colors ${
+                                        !middlePageNum
+                                          ? 'bg-blue-50 text-blue-600 font-semibold'
+                                          : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                                      }`}
+                                    >
+                                      None
+                                    </div>
+                                    {pages.slice(1, -1).map((_, idx) => {
+                                      const pageNumber = idx + 2;
+                                      const isSelected = middlePageNum === pageNumber;
+                                      return (
+                                        <div
+                                          key={pageNumber}
+                                          onClick={() => {
+                                            setMiddlePageNum(pageNumber);
+                                            setLastInteractedPage(pageNumber);
+                                            setIsMiddleDropdownOpen(false);
+                                          }}
+                                          className={`px-[0.85vw] py-[0.4vw] text-[0.78vw] font-medium cursor-pointer transition-colors ${
+                                            isSelected
+                                              ? 'bg-blue-50 text-blue-600 font-semibold'
+                                              : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                                          }`}
+                                        >
+                                          Page {pageNumber}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1460,10 +1730,26 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
       setLanguage(currentBook?.language || currentBook?.meta?.language || 'English');
       setErrors({});
 
-      const cp = currentBook?.settings?.othersetup?.coverPicture || currentBook?.coverPicture || {
+      const rawCp = currentBook?.settings?.othersetup?.coverPicture || currentBook?.coverPicture;
+      const initialTemplate = COVER_TEMPLATES.find(t => t.id === rawCp?.selectedTemplate?.id) || COVER_TEMPLATES[0];
+      const bookTitle = currentBook?.flipbookName || currentBook?.realName || currentBook?.title || '';
+      const bookSubtitle = currentBook?.quotes || currentBook?.quote || currentBook?.tagline || '';
+
+      const resolvedText1 = rawCp?.text1 || initialTemplate.defaultText1 || 'Name of the Book';
+      const resolvedText2 = rawCp?.text2 || initialTemplate.defaultText2 || '“Turn every page into an experience”';
+
+      const cp = rawCp ? {
+        ...rawCp,
+        text1: resolvedText1,
+        text2: resolvedText2,
+        bgColor: rawCp.bgColor || rawCp.selectedTemplate?.defaultBgColor || initialTemplate.defaultBgColor || '#F8FAFC'
+      } : {
         type: 'template',
         url: '',
-        selectedTemplate: COVER_TEMPLATES[0],
+        selectedTemplate: initialTemplate,
+        text1: resolvedText1,
+        text2: resolvedText2,
+        bgColor: initialTemplate.defaultBgColor || '#F8FAFC',
         fit: 'Fit'
       };
       setCoverPicture(cp);
