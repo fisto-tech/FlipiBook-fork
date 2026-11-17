@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Folder, Plus, ArrowLeft, Search, MoreVertical, Trash2, Edit2, Copy, Eye, Wrench, PenTool, BarChart2, Share2, Download, FolderInput, SlidersHorizontal, CheckSquare, Check, X, Home, Library, ArrowRight, UploadCloud, Upload, ChevronLeft, ChevronRight, ChevronDown, ArrowDownUp, Globe, Lock, Settings, CloudUpload, GripVertical, RotateCcw, Heart, Monitor, Laptop } from 'lucide-react';
 import { Icon } from '@iconify/react';
@@ -80,8 +80,30 @@ const templates = [
     { id: 'dl', label: 'DL', title: 'DL Flyer', dim: '99 × 210 mm', width: 'w-[1.0vw]', height: 'h-[2.1vw]' },
 ];
 
+const ROUTE_TO_DASHBOARD_MODE = {
+    create_book: 'books',
+    create_3d_model: '3d',
+    my_shelf: 'shelf',
+    gallery: 'gallery',
+    favorites: 'favorites',
+    faviourset: 'favorites',
+    trash: 'trash',
+};
+
+const DASHBOARD_MODE_TO_ROUTE = {
+    books: '/my-flipbooks/create_book',
+    '3d': '/my-flipbooks/create_3d_model',
+    shelf: '/my-flipbooks/my_shelf',
+    gallery: '/my-flipbooks/gallery',
+    favorites: '/my-flipbooks/favorites',
+    trash: '/my-flipbooks/trash',
+};
+
 export default function MyFlipbooks() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { section } = useParams();
+    const [searchParams] = useSearchParams();
 
     // Block Mobile and Tablet Devices from Application
     const isMobileOrTablet = typeof window !== 'undefined' && (
@@ -136,40 +158,75 @@ export default function MyFlipbooks() {
         preloadEditorComponents();
     }, []);
 
-    const [searchParams] = useSearchParams();
+    const getModeFromLocation = useCallback(() => {
+        const pathname = location.pathname.replace(/\/+$/, '');
+        const segments = pathname.split('/');
+        const currentSection = section || segments[2];
+
+        if (currentSection && ROUTE_TO_DASHBOARD_MODE[currentSection]) {
+            return ROUTE_TO_DASHBOARD_MODE[currentSection];
+        }
+
+        if (searchParams.get('shelf')) return 'shelf';
+
+        const tab = searchParams.get('tab');
+        if (tab === 'shelf') return 'shelf';
+        if (tab === 'gallery') return 'gallery';
+        if (tab === '3d') return '3d';
+        if (tab === 'favorites' || tab === 'faviourset') return 'favorites';
+        if (tab === 'trash') return 'trash';
+
+        const saved = localStorage.getItem('last_active_folder');
+        if (saved === 'Favorites') return 'favorites';
+        if (saved === 'Trash') return 'trash';
+
+        return 'books';
+    }, [location.pathname, section, searchParams]);
+
+    const [dashboardMode, setDashboardModeState] = useState(getModeFromLocation);
+
     const [activeFolder, setActiveFolder] = useState(() => {
+        const mode = getModeFromLocation();
+        if (mode === 'favorites') return 'Favorites';
+        if (mode === 'trash') return 'Trash';
         const saved = localStorage.getItem('last_active_folder');
         if (saved === 'Recent Book') return 'Recent';
         if (saved === 'default' || saved === 'My_Flipbooks') return 'My Flipbooks';
         return saved || 'All Flipbook';
     });
-    const [dashboardMode, setDashboardMode] = useState(() => {
-        const tab = searchParams.get('tab');
-        if (tab === 'shelf') return 'shelf';
-        if (tab === 'gallery') return 'gallery';
-        if (tab === '3d') return '3d';
-        if (tab === 'favorites') return 'favorites';
-        if (tab === 'trash') return 'trash';
-        const saved = localStorage.getItem('last_active_folder');
-        if (saved === 'Favorites') return 'favorites';
-        if (saved === 'Trash') return 'trash';
-        return 'books';
-    }); // 'books' | '3d' | 'shelf' | 'gallery' | 'favorites' | 'trash'
 
+    // Keep dashboardMode, activeFolder and URL in sync
     useEffect(() => {
-        const tab = searchParams.get('tab');
-        if (tab === 'shelf') {
-            setDashboardMode('shelf');
-        } else if (tab === 'gallery') {
-            setDashboardMode('gallery');
-        } else if (tab === '3d') {
-            setDashboardMode('3d');
-        } else if (tab === 'favorites') {
-            setDashboardMode('favorites');
-        } else if (tab === 'trash') {
-            setDashboardMode('trash');
+        const mode = getModeFromLocation();
+        setDashboardModeState(mode);
+
+        if (mode === 'favorites') {
+            setActiveFolder('Favorites');
+        } else if (mode === 'trash') {
+            setActiveFolder('Trash');
+        } else if (mode === 'books') {
+            setActiveFolder(prev => (prev === 'Favorites' || prev === 'Trash' ? 'All Flipbook' : prev));
         }
-    }, [searchParams]);
+
+        const pathname = location.pathname.replace(/\/+$/, '');
+        if (pathname === '/my-flipbooks') {
+            const targetRoute = DASHBOARD_MODE_TO_ROUTE[mode] || '/my-flipbooks/create_book';
+            navigate(`${targetRoute}${location.search}`, { replace: true });
+        }
+    }, [location.pathname, getModeFromLocation, location.search, navigate]);
+
+    const handleSetDashboardMode = useCallback((newMode) => {
+        setDashboardModeState(newMode);
+        if (newMode === 'favorites') {
+            setActiveFolder('Favorites');
+        } else if (newMode === 'trash') {
+            setActiveFolder('Trash');
+        } else if (newMode === 'books') {
+            setActiveFolder(prev => (prev === 'Favorites' || prev === 'Trash' ? 'All Flipbook' : prev));
+        }
+        const targetRoute = DASHBOARD_MODE_TO_ROUTE[newMode] || '/my-flipbooks/create_book';
+        navigate(`${targetRoute}${location.search}`, { replace: false });
+    }, [navigate, location.search]);
 
     const [active3dFolder, setActive3dFolder] = useState('All Models');
     const [threeDCounts, setThreeDCounts] = useState({ allCount: 0, recentCount: 0 });
@@ -463,16 +520,16 @@ export default function MyFlipbooks() {
 
         // INSTANT LOADER APPEARANCE (0ms latency - immediately on button click!)
         setProcessingProgress({
-            current: 1,
+            current: 0,
             total: initialPageCount,
             fileIndex: 0,
             totalFiles: files.length,
             pageCount: initialPageCount,
             message: files.length > 1
-                ? `Converting queued ${initialDocLabel} 1 of ${files.length} (${firstFile.name})...`
-                : `Converting ${initialDocLabel}: ${firstFile.name}...`,
+                ? `Uploading queued ${initialDocLabel} 1 of ${files.length} (${firstFile.name})...`
+                : `Uploading ${initialDocLabel}: ${firstFile.name}...`,
             fileName: firstFile.name,
-            stage: 'converting'
+            stage: 'uploading'
         });
 
         try {
@@ -488,29 +545,32 @@ export default function MyFlipbooks() {
                 const detectedCount = file._pageCount || 1;
 
                 setProcessingProgress({
-                    current: 1,
+                    current: 0,
                     total: detectedCount,
                     fileIndex,
                     totalFiles: files.length,
                     pageCount: detectedCount,
                     message: files.length > 1
-                        ? `Converting queued ${docLabel} ${fileIndex + 1} of ${files.length} (${file.name})...`
-                        : `Converting ${docLabel}: ${file.name}...`,
+                        ? `Uploading queued ${docLabel} ${fileIndex + 1} of ${files.length} (${file.name})...`
+                        : `Uploading ${docLabel}: ${file.name}...`,
                     fileName: file.name,
-                    stage: 'converting'
+                    stage: 'uploading'
                 });
-                // 50% Fast-Launch: For large documents (>6 pages), extract first 50% for instant editor launch,
-                // and stream remaining balance pages in background Web Workers with zero UI latency.
-                const isSingleLargeDoc = files.length === 1 && detectedCount > 6;
-                const earlyExtractLimit = isSingleLargeDoc ? Math.max(4, Math.ceil(detectedCount * 0.5)) : Infinity;
+                // Pure Binary Streaming & Full Extraction Architecture (FlippingBook / FlipHTML5 standard):
+                // 1. Stage 1 (Upload): Pure binary streams (application/octet-stream) with live MB counter
+                // 2. Stage 2 (Extract): Live page counter & stopwatch (e.g. 66 / 100 pages, 00:14)
+                // 3. Stage 3 (Complete): Open flipbook ONLY when 100% of pages are extracted & verified
+                const earlyExtractLimit = Infinity;
 
                 const images = await convertPdfWithInkscape(file, earlyExtractLimit, backendUrl, (currOrObj, total, pct, stage, msg) => {
-                    let current, pageCount, percent, message, currentStage;
+                    let current, pageCount, percent, message, currentStage, loadedBytes, totalBytes;
                     if (typeof currOrObj === 'object' && currOrObj !== null) {
                         percent = currOrObj.percent ?? currOrObj.pct;
                         current = currOrObj.current ?? currOrObj.curr;
                         pageCount = currOrObj.total ?? currOrObj.pageCount ?? file._pageCount;
                         currentStage = currOrObj.stage || 'converting';
+                        loadedBytes = currOrObj.loadedBytes;
+                        totalBytes = currOrObj.totalBytes;
                         message = currOrObj.message || (percent !== undefined ? `Converting ${docLabel} (${percent}%)...` : `Converting ${docLabel}...`);
                     } else {
                         current = currOrObj;
@@ -520,16 +580,22 @@ export default function MyFlipbooks() {
                         message = msg || (pageCount ? `Extracting page ${currOrObj} of ${pageCount} (${pct}%)...` : `Converting ${docLabel} (${pct}%)...`);
                     }
                     setProcessingProgress(prev => {
+                        // Guard: Once reached 'saving' or 'done', never regress back to earlier stages
+                        if (prev?.stage === 'saving' || prev?.stage === 'done') {
+                            return prev;
+                        }
                         const resolvedPageCount = (pageCount && pageCount > 0)
                             ? Math.max(pageCount, prev?.pageCount || 0, file._pageCount || 0)
                             : (prev?.pageCount || file._pageCount || 1);
-                        const resolvedCurrent = (current && current > 0) ? current : (prev?.current || 1);
+                        const resolvedCurrent = (current !== undefined && current !== null) ? Number(current) : (prev?.current || 0);
                         return {
                             ...(prev || {}),
                             current: Math.min(resolvedPageCount, resolvedCurrent),
                             total: resolvedPageCount,
                             pageCount: resolvedPageCount,
                             percent: percent !== undefined ? percent : prev?.percent,
+                            loadedBytes: loadedBytes !== undefined ? loadedBytes : prev?.loadedBytes,
+                            totalBytes: totalBytes !== undefined ? totalBytes : (prev?.totalBytes || file.size),
                             message: message || prev?.message,
                             fileName: file.name,
                             stage: currentStage || prev?.stage || 'converting'
@@ -660,10 +726,9 @@ export default function MyFlipbooks() {
 
             const orientation = maxWidth > maxHeight ? 'landscape' : (Math.abs(maxWidth - maxHeight) < 2 ? 'square' : 'portrait');
 
-            // Save initial 2 pages to create the book record on server in <200ms
-            const initialBatchSize = Math.min(allPages.length, 2);
-            const initialBatch = allPages.slice(0, initialBatchSize);
-            const readyRemainingPages = allPages.slice(initialBatchSize).filter(p => !p.isPlaceholder);
+            // Save ALL extracted and verified pages directly to server and DB
+            const initialBatch = allPages;
+            const readyRemainingPages = [];
 
             setProcessingProgress(prev => ({
                 ...(prev || {}),
@@ -671,8 +736,8 @@ export default function MyFlipbooks() {
                 total: totalDocPages,
                 totalFiles: files.length,
                 pageCount: totalDocPages,
-                percent: 94,
-                message: isProgressive ? 'Fast-launching editor...' : 'Preparing flipbook...',
+                percent: 96,
+                message: 'Preparing flipbook...',
                 fileName: uniqueName,
                 stage: 'saving'
             }));
@@ -800,7 +865,7 @@ export default function MyFlipbooks() {
                 totalFiles: files.length,
                 pageCount: totalDocPages,
                 percent: 100,
-                message: isProgressive ? 'Editor ready! Streaming balance pages in background...' : 'Opening flipbook...',
+                message: 'All pages ready! Opening flipbook...',
                 fileName: uniqueName,
                 stage: 'done'
             }));
@@ -811,8 +876,8 @@ export default function MyFlipbooks() {
             fetchLiveStorageSettings();
             window.dispatchEvent(new CustomEvent('flipibook_storage_updated'));
 
-            // Smooth transition: brief delay to let spring physics smoothly glide to 100%
-            await new Promise(res => setTimeout(res, 220));
+            // Smooth transition: brief delay to let spring physics smoothly glide to 100% and show Step 4 complete
+            await new Promise(res => setTimeout(res, 700));
 
             // Navigate to the customized editor IMMEDIATELY (pass initial pages to stay within history quota)
             const safeStatePages = allPages.length > 20 ? allPages.slice(0, 10) : allPages;
@@ -865,7 +930,8 @@ export default function MyFlipbooks() {
             }
         } finally {
             setIsLoading(false);
-            setProcessingProgress(null);
+            // Delay clearing progress so the 'done' state fully animates before the loader unmounts
+            setTimeout(() => setProcessingProgress(null), 1200);
             isUploadCancelledRef.current = false;
         }
     };
@@ -1711,7 +1777,12 @@ export default function MyFlipbooks() {
         } else if (activeFolder === 'Recent' || activeFolder === 'Recent Book') {
             matchesFolder = !book.trash && (book.folder === 'Recent Book' || book.folder === 'Recent') && !book.isOtherUserBook;
         } else if (activeFolder === 'Favorites') {
-            matchesFolder = !book.trash && book.folder !== 'Trash' && book.folder !== 'Recent Book' && book.folder !== 'Recent' && Boolean(book.isFavorite || book.favorite || book.isFav);
+            const currentEmail = (emailId || user?.emailId || user?.email || '').trim().toLowerCase();
+            const currentUid = (user?.userID || user?.userId || user?._id || user?.id || '').toString().trim().toLowerCase();
+            const bookEmail = (book.userEmail || book.emailId || '').trim().toLowerCase();
+            const bookUid = (book.userID || book.userId || book.userObjectID || '').toString().trim().toLowerCase();
+            const isOwn = Boolean((currentEmail && bookEmail && bookEmail === currentEmail) || (currentUid && bookUid && bookUid === currentUid));
+            matchesFolder = !book.trash && (!isOwn || book.isOtherUserBook) && book.folder !== 'Trash' && book.folder !== 'Recent Book' && book.folder !== 'Recent' && Boolean(book.isFavorite || book.favorite || book.isFav);
         } else {
             matchesFolder = !book.trash && book.folder === activeFolder && !book.isOtherUserBook;
         }
@@ -1961,7 +2032,7 @@ export default function MyFlipbooks() {
                     isUpgradeCardClosed={isUpgradeCardClosed}
                     setIsUpgradeCardClosed={setIsUpgradeCardClosed}
                     dashboardMode={dashboardMode}
-                    setDashboardMode={setDashboardMode}
+                    setDashboardMode={handleSetDashboardMode}
                     active3dFolder={active3dFolder}
                     setActive3dFolder={setActive3dFolder}
                     threeDCounts={threeDCounts}
@@ -2015,7 +2086,16 @@ export default function MyFlipbooks() {
                 ) : (dashboardMode === 'favorites' || (dashboardMode === 'books' && activeFolder === 'Favorites')) ? (
                     <FavoritesScreen
                         navigate={navigate}
-                        favoriteBooks={books.filter(b => !b.trash && b.folder !== 'Trash' && b.folder !== 'Recent Book' && b.folder !== 'Recent' && Boolean(b.isFavorite || b.favorite || b.isFav))}
+                        favoriteBooks={books.filter(b => {
+                            if (b.trash || b.folder === 'Trash' || b.folder === 'Recent Book' || b.folder === 'Recent') return false;
+                            const currentEmail = (emailId || user?.emailId || user?.email || '').trim().toLowerCase();
+                            const currentUid = (user?.userID || user?.userId || user?._id || user?.id || '').toString().trim().toLowerCase();
+                            const bookEmail = (b.userEmail || b.emailId || '').trim().toLowerCase();
+                            const bookUid = (b.userID || b.userId || b.userObjectID || '').toString().trim().toLowerCase();
+                            const isOwn = Boolean((currentEmail && bookEmail && bookEmail === currentEmail) || (currentUid && bookUid && bookUid === currentUid));
+                            if (isOwn && !b.isOtherUserBook) return false;
+                            return Boolean(b.isFavorite || b.favorite || b.isFav);
+                        })}
                         books={books}
                         folders={folders}
                         user={user}

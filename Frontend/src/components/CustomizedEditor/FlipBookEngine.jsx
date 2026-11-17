@@ -18,11 +18,11 @@ import React, {
     useMemo,
 } from 'react';
 import HTMLFlipBook from 'react-pageflip';
-import { initGifRunner } from '../PageEditor/utils/AnimationRunner';
+import { initGifRunner } from '../PageEditor/Animation/AnimationRunner';
 import { rewriteHtmlUploads } from '../../utils/assetUtils';
 import { PageWindowManager, saveAllPagesToIDB, getPageFromIDB } from '../../utils/pageWindowStore';
 import { usePageBuilderWorker } from '../../hooks/usePageBuilderWorker';
-import { getOrRasterizePage, getCachedRaster, subscribeRasterCache } from '../../utils/pageRasterCache';
+import { getOrRasterizePage, getCachedRaster, clearRasterCache, subscribeRasterCache } from '../../utils/pageRasterCache';
 
 /* ─────────────────────────────── helpers ─────────────────────────────── */
 
@@ -33,12 +33,21 @@ const extractPageTexture = (rawContent, pageNum = '') => {
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/') || trimmed.startsWith('/uploads/') || trimmed.startsWith('/storage/') || trimmed.startsWith('storage/') || trimmed.startsWith('blob:')) {
         res = trimmed;
     } else {
-        const match = rawContent.match(/<image\b[^>]*(?:href|xlink:href)=["']([^"']+)["']/i);
-        if (match && match[1]) {
-            res = match[1];
+        // 1. Prefer explicit PDF/Document background layer image
+        const pdfBgMatch = rawContent.match(/<g\b[^>]*data-type=["']pdf-vector-layer["'][^>]*>[\s\S]*?<image\b[^>]*(?:href|xlink:href)=["']([^"']+)["']/i);
+        if (pdfBgMatch && pdfBgMatch[1]) {
+            res = pdfBgMatch[1];
         } else {
-            const imgMatch = rawContent.match(/<img\b[^>]*src=["']([^"']+)["']/i);
-            if (imgMatch && imgMatch[1]) res = imgMatch[1];
+            // Guard: If the SVG contains other visual components (<text>, <path>, <foreignObject>),
+            // do not mistake an inner clip-art or child photo for the full-page texture!
+            const hasOtherGraphics = /<text\b|<foreignObject\b|<path\b/i.test(rawContent);
+            const match = rawContent.match(/<image\b[^>]*(?:href|xlink:href)=["']([^"']+)["']/i);
+            if (match && match[1] && !hasOtherGraphics) {
+                res = match[1];
+            } else {
+                const imgMatch = rawContent.match(/<img\b[^>]*src=["']([^"']+)["']/i);
+                if (imgMatch && imgMatch[1] && !hasOtherGraphics) res = imgMatch[1];
+            }
         }
     }
     return res;
@@ -54,8 +63,10 @@ const cleanStaticHtml = (html) => {
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
             .replace(/<video\b[^<]*(?:(?!<\/video>)<[^<]*)*<\/video>/gi, '')
             .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-            .replace(/<foreignObject\b[^<]*(?:(?!<\/foreignObject>)<[^<]*)*<\/foreignObject>/gi, '')
-            .replace(/<g\b[^>]*data-type=["'](?:map|embed-frame)["'][^>]*>[\s\S]*?<\/g>/gi, '');
+            .replace(/<g\b[^>]*data-type=["'](?:map|embed-frame)["'][^>]*>[\s\S]*?<\/g>/gi, '')
+            .replace(/\bvector-effect\s*=\s*["']non-scaling-stroke["']/gi, 'vector-effect="none"')
+            .replace(/\bvectorEffect\s*=\s*["']non-scaling-stroke["']/gi, 'vectorEffect="none"')
+            .replace(/vector-effect\s*:\s*non-scaling-stroke\s*;?/gi, 'vector-effect: none;');
 
         // Ensure root SVG scales to 100% width and height
         cleaned = cleaned.replace(/<svg\b([^>]*)>/i, (match, attrs) => {
@@ -145,7 +156,7 @@ const sanitizePageHtmlForPreview = (html) => {
     }
 };
 
-const buildPageDoc = (rawHtml) => `<!DOCTYPE html>
+const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
 <html>
 <head>
 <style>
@@ -162,6 +173,9 @@ const buildPageDoc = (rawHtml) => `<!DOCTYPE html>
     margin: 0 !important;
     padding: 0 !important;
     shape-rendering: geometricPrecision !important;
+  }
+  svg, svg * {
+    vector-effect: none !important;
   }
   * { box-sizing: border-box; outline: none !important; }
 
@@ -454,7 +468,9 @@ const FlipPage = forwardRef(function FlipPage(props, ref) {
                                     }}
                                 />
                             ) : (
-                                <div style={{ width: '100%', height: '100%', background: isTransparentSheet ? 'transparent' : '#ffffff' }} />
+                                <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTransparentSheet ? 'transparent' : '#ffffff' }}>
+                                    <div className="fbe-spinner" style={{ width: '28px', height: '28px', border: '2.5px solid rgba(234,114,51,0.2)', borderTopColor: '#ea7233', borderRadius: '50%', animation: 'fbe-spin 0.7s linear infinite' }} />
+                                </div>
                             )}
                         </div>
                     </div>
@@ -595,6 +611,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_BACKEND_URL || '') : ''
     );
     const [currentPage, setCurrentPage] = useState(startPage);
+    const [isTurning, setIsTurning] = useState(false);
     const isFlippingRef = useRef(false);
     const [cloneUnderlay, setCloneUnderlay] = useState({ left: null, right: null });
 
@@ -608,11 +625,18 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     useEffect(() => {
         const unsubscribe = subscribeRasterCache((pageKey, url) => {
             try {
-                const staticBg = bookEl.current?.querySelector(`.p${pageKey} .fbe-static-bg`);
-                if (staticBg && (!staticBg.querySelector('img') || staticBg.querySelector('img')?.src !== url)) {
-                    staticBg.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;" alt="Page ${pageKey}" />`;
+                const pageNum = Number(pageKey);
+                const staticBg = staticBgElementsMapRef.current.get(pageNum) || bookEl.current?.querySelector(`.p${pageKey} .fbe-static-bg`);
+                if (staticBg) {
+                    staticBg.setAttribute('data-loaded', 'true');
+                    staticBg.removeAttribute('data-placeholder');
+                    staticBg.removeAttribute('data-loading');
+                    const existingImg = staticBg.querySelector('img');
+                    if (!existingImg || existingImg.src !== url) {
+                        staticBg.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;" alt="Page ${pageKey}" />`;
+                    }
                 }
-            } catch (_) {}
+            } catch (_) { }
         });
         return unsubscribe;
     }, []);
@@ -628,27 +652,35 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     });
 
     // Guarantee the active spread overlay is never revealed with stale iframes:
-    // Only remove flipping classes AFTER React has committed the new spreadView to the DOM
+    // Only remove flipping state AFTER React has committed the new spreadView to the DOM
     useLayoutEffect(() => {
         isFlippingRef.current = false;
+        setIsTurning(false);
         if (containerRef.current) containerRef.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
         if (bookEl.current) bookEl.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
         document.querySelectorAll('.fbe-is-dragging, .fbe-is-turning, .fbe-is-flipping').forEach(el => el.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping'));
     }, [spreadView]);
 
-    const leftIdx = singlePage 
-        ? null 
+    const leftIdx = singlePage
+        ? null
         : (spreadView[0] > 0 ? spreadView[0] - 1 : null);
-    const rightIdx = singlePage 
+    const rightIdx = singlePage
         ? (spreadView[0] > 0 ? spreadView[0] - 1 : 0)
         : (spreadView[1] > 0 ? spreadView[1] - 1 : null);
 
+    const isInteractiveHtml = useCallback((rawHtml) => {
+        if (!rawHtml || typeof rawHtml !== 'string') return false;
+        return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link)|data-interaction|hotspot|class=["'][^"']*interactive|<a\s+href/i.test(rawHtml);
+    }, []);
+
+    const hasInteractiveRight = Boolean(rightIdx !== null && rightIdx >= 0 && pages[rightIdx] && isInteractiveHtml(pages[rightIdx].html || pages[rightIdx].content));
+
     useEffect(() => {
         if (!pages || pages.length === 0) return;
-        
+
         const getNextSolidPage = (startIndex, direction) => {
             let idx = startIndex;
-            while(idx >= 0 && idx < pages.length) {
+            while (idx >= 0 && idx < pages.length) {
                 if (!pages[idx].isTransparentSheet && !pages[idx].isPad) {
                     return { page: pages[idx], index: idx };
                 }
@@ -659,7 +691,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
         let leftInfo = null;
         let rightInfo = null;
-        
+
         if (leftIdx !== null && leftIdx >= 0 && pages[leftIdx]?.isTransparentSheet) {
             leftInfo = getNextSolidPage(leftIdx - 1, -1);
             if (leftInfo) {
@@ -674,7 +706,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 rightInfo.blurPx = (blurPercent / 100) * 20;
             }
         }
-        
+
         setCloneUnderlay(prev => {
             if (!leftInfo && !rightInfo && !prev.left && !prev.right) return prev;
             return { left: leftInfo, right: rightInfo };
@@ -684,53 +716,145 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     /* ── High-Performance Texture Renderer for 60fps GPU Turns ─────────── */
     const applyPageVisual = useCallback((staticBgEl, rawContent, pageNum) => {
         if (!staticBgEl) return;
-        const isSkeleton = !rawContent || !rawContent.trim() || rawContent.includes('generateSkeletonPageSvg') || rawContent.includes('createDefaultPageData') || rawContent.includes('fbe-skeleton');
-        
-        // Guard already-loaded real texture from being wiped out by a skeleton or placeholder div
-        if (isSkeleton && staticBgEl.getAttribute('data-loaded') === 'true' && !staticBgEl.getAttribute('data-placeholder')) {
+        const isSkeleton = !rawContent || !rawContent.trim() || rawContent.includes('generateSkeletonPageSvg') || rawContent.includes('data-skeleton') || rawContent.includes('createDefaultPageData') || rawContent.includes('fbe-skeleton');
+
+        // If page has not been extracted yet, show the centered circle spinner until response is received
+        // Never attempt speculative HTTP requests for unextracted pages to prevent 404 errors!
+        if (isSkeleton) {
+            const hasCompleteImg = staticBgEl.querySelector('img')?.complete && staticBgEl.querySelector('img')?.naturalWidth > 0;
+            if (hasCompleteImg || (staticBgEl.getAttribute('data-loaded') === 'true' && !staticBgEl.getAttribute('data-placeholder'))) {
+                return;
+            }
+            staticBgEl.setAttribute('data-placeholder', 'true');
+            staticBgEl.setAttribute('data-loading', 'true');
+            staticBgEl.removeAttribute('data-loaded');
+            staticBgEl.innerHTML = `
+                <div class="fbe-page-loader" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.98);z-index:2;pointer-events:none;">
+                    <div class="fbe-spinner" style="width:28px;height:28px;border:2.5px solid rgba(234,114,51,0.2);border-top-color:#ea7233;border-radius:50%;animation:fbe-spin 0.7s linear infinite;"></div>
+                </div>
+            `;
             return;
         }
 
-        const fallbackTexture = (v_id && pageNum > 0) ? `/storage/books/${v_id}/pages/${pageNum}.webp` : null;
-        const cached = getCachedRaster(pageNum);
-        const texture = cached || (rawContent ? extractPageTexture(rawContent, pageNum) : null) || fallbackTexture;
+        const cached = getCachedRaster(pageNum, v_id);
+        const texture = cached || (rawContent ? extractPageTexture(rawContent, pageNum) : null);
         if (texture) {
             const existingImg = staticBgEl.querySelector('img');
-            if (existingImg && (existingImg.getAttribute('src') === texture || existingImg.src === texture || existingImg.src.endsWith(texture))) {
-                staticBgEl.setAttribute('data-loaded', 'true');
-                staticBgEl.removeAttribute('data-placeholder');
-                staticBgEl.removeAttribute('data-loading');
-                const loader = staticBgEl.querySelector('.fbe-page-loader');
-                if (loader) loader.style.display = 'none';
-                return; // Already rendering this exact texture, never rebuild DOM or wipe bitmap!
+            if (existingImg) {
+                const rawCurrent = (existingImg.getAttribute('src') || existingImg.src || '').split('?')[0];
+                const rawTexture = (texture || '').split('?')[0];
+                const isSame = rawCurrent === rawTexture ||
+                    (rawCurrent.endsWith(`/${pageNum}.webp`) && rawTexture.endsWith(`/${pageNum}.webp`)) ||
+                    (rawCurrent.includes(`/pages/${pageNum}.webp`) && rawTexture.includes(`/pages/${pageNum}.webp`));
+
+                if (isSame) {
+                    const isImgLoaded = existingImg.complete && existingImg.naturalWidth > 0;
+                    if (isImgLoaded) {
+                        staticBgEl.setAttribute('data-loaded', 'true');
+                        staticBgEl.removeAttribute('data-placeholder');
+                        staticBgEl.removeAttribute('data-loading');
+                        const loader = staticBgEl.querySelector('.fbe-page-loader');
+                        if (loader) loader.style.display = 'none';
+                        existingImg.style.opacity = '1';
+
+                        // Ensure vector layer on top is synced and visible during flips
+                        const cleanSvg = (rawContent && !isSkeleton) ? cleanStaticHtml(rawContent) : '';
+                        let vectorBg = staticBgEl.querySelector('.fbe-vector-bg');
+                        if (cleanSvg) {
+                            if (!vectorBg) {
+                                vectorBg = document.createElement('div');
+                                vectorBg.className = 'fbe-vector-bg';
+                                vectorBg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;';
+                                staticBgEl.appendChild(vectorBg);
+                            }
+                            vectorBg.innerHTML = `<style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>${cleanSvg}`;
+                        } else if (vectorBg) {
+                            vectorBg.remove();
+                        }
+                        return; // Already rendering this exact texture and verified loaded!
+                    }
+                    return;
+                }
+
+                // If existingImg is already present with a different src, preload in background before swapping
+                // to prevent white flashing/blinking!
+                const preloaderImg = new Image();
+                preloaderImg.decoding = 'async';
+                preloaderImg.onload = () => {
+                    if (preloaderImg.naturalWidth > 0) {
+                        existingImg.src = texture;
+                        existingImg.style.opacity = '1';
+                        staticBgEl.setAttribute('data-loaded', 'true');
+                        staticBgEl.removeAttribute('data-placeholder');
+                        staticBgEl.removeAttribute('data-loading');
+                        const loader = staticBgEl.querySelector('.fbe-page-loader');
+                        if (loader) loader.style.display = 'none';
+
+                        const cleanSvg = (rawContent && !isSkeleton) ? cleanStaticHtml(rawContent) : '';
+                        let vectorBg = staticBgEl.querySelector('.fbe-vector-bg');
+                        if (cleanSvg) {
+                            if (!vectorBg) {
+                                vectorBg = document.createElement('div');
+                                vectorBg.className = 'fbe-vector-bg';
+                                vectorBg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;';
+                                staticBgEl.appendChild(vectorBg);
+                            }
+                            vectorBg.innerHTML = `<style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>${cleanSvg}`;
+                        } else if (vectorBg) {
+                            vectorBg.remove();
+                        }
+                    }
+                };
+                preloaderImg.onerror = () => {
+                    // Fall back immediately to vector content without stalling or delaying
+                    if (rawContent && !isSkeleton) {
+                        const cleanSvg = cleanStaticHtml(rawContent);
+                        staticBgEl.innerHTML = `<style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>` + cleanSvg;
+                        staticBgEl.setAttribute('data-loaded', 'true');
+                        staticBgEl.removeAttribute('data-placeholder');
+                        staticBgEl.removeAttribute('data-loading');
+                    }
+                };
+                preloaderImg.src = texture;
+                return;
             }
             staticBgEl.setAttribute('data-loading', 'true');
             staticBgEl.setAttribute('data-placeholder', 'true');
-            const retryHandler = `onerror="if(!this._r) this._r=0; if(this._r<30){ this._r++; const self=this; setTimeout(()=>{ self.src='${texture}?r='+self._r; }, 1000); }"`;
+            const cleanSvg = (rawContent && !isSkeleton) ? cleanStaticHtml(rawContent) : '';
             staticBgEl.innerHTML = `
-                <div class="fbe-page-loader" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;gap:12px;z-index:0;pointer-events:none;">
-                    <div class="fbe-spinner" style="width:36px;height:36px;border:3px solid rgba(234,114,51,0.2);border-top-color:#ea7233;border-radius:50%;animation:fbe-spin 0.8s linear infinite;"></div>
-                    <span style="font-size:12px;font-weight:600;color:#888;font-family:sans-serif;letter-spacing:0.3px;">Loading Page ${pageNum}...</span>
+                <div class="fbe-page-loader" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.98);z-index:3;pointer-events:none;">
+                    <div class="fbe-spinner" style="width:28px;height:28px;border:2.5px solid rgba(234,114,51,0.2);border-top-color:#ea7233;border-radius:50%;animation:fbe-spin 0.7s linear infinite;"></div>
                 </div>
                 <img 
                     src="${texture}" 
-                    onload="const l=this.parentElement.querySelector('.fbe-page-loader');if(l)l.style.display='none';this.parentElement.setAttribute('data-loaded','true');this.parentElement.removeAttribute('data-placeholder');this.parentElement.removeAttribute('data-loading');" 
-                    ${retryHandler} 
-                    style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;position:relative;z-index:1;" 
+                    onload="const p=this.parentElement;if(p){const l=p.querySelector('.fbe-page-loader');if(l)l.style.display='none';p.setAttribute('data-loaded','true');p.removeAttribute('data-placeholder');p.removeAttribute('data-loading');}this.style.opacity='1';" 
+                    onerror="const p=this.parentElement;if(p){const l=p.querySelector('.fbe-page-loader');if(l)l.style.display='none';p.setAttribute('data-loaded','true');p.removeAttribute('data-placeholder');p.removeAttribute('data-loading');}this.style.display='none';" 
+                    style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;z-index:1;opacity:0;transition:opacity 0.2s ease;" 
                     alt="Page ${pageNum}" 
                     decoding="async" 
                 />
+                ${cleanSvg ? `<div class="fbe-vector-bg" style="position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;"><style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>${cleanSvg}</div>` : ''}
             `;
+            // If already complete from cache, dismiss loader immediately
+            const newlyInsertedImg = staticBgEl.querySelector('img');
+            if (newlyInsertedImg && newlyInsertedImg.complete && newlyInsertedImg.naturalWidth > 0) {
+                const loader = staticBgEl.querySelector('.fbe-page-loader');
+                if (loader) loader.style.display = 'none';
+                staticBgEl.setAttribute('data-loaded', 'true');
+                staticBgEl.removeAttribute('data-placeholder');
+                staticBgEl.removeAttribute('data-loading');
+                newlyInsertedImg.style.opacity = '1';
+            }
             return;
         }
 
         if (isSkeleton || !rawContent || !rawContent.trim()) {
             staticBgEl.setAttribute('data-placeholder', 'true');
+            staticBgEl.setAttribute('data-loading', 'true');
             staticBgEl.removeAttribute('data-loaded');
             staticBgEl.innerHTML = `
-                <div class="fbe-page-loader" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;gap:12px;z-index:0;pointer-events:none;">
-                    <div class="fbe-spinner" style="width:36px;height:36px;border:3px solid rgba(234,114,51,0.2);border-top-color:#ea7233;border-radius:50%;animation:fbe-spin 0.8s linear infinite;"></div>
-                    <span style="font-size:12px;font-weight:600;color:#888;font-family:sans-serif;letter-spacing:0.3px;">Loading Page ${pageNum}...</span>
+                <div class="fbe-page-loader" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.98);z-index:2;pointer-events:none;">
+                    <div class="fbe-spinner" style="width:28px;height:28px;border:2.5px solid rgba(234,114,51,0.2);border-top-color:#ea7233;border-radius:50%;animation:fbe-spin 0.7s linear infinite;"></div>
                 </div>
             `;
             return;
@@ -752,9 +876,9 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
         for (let i = start; i <= end; i++) {
             const p = pages[i];
-            if (!p || p.isPad) continue;
+            if (!p || p.isPad || p.isPlaceholder) continue;
             const rawContent = p.html || p.content || '';
-            if (!rawContent) continue;
+            if (!rawContent || rawContent.includes('generateSkeletonPageSvg') || rawContent.includes('data-skeleton') || rawContent.includes('createDefaultPageData')) continue;
             const texture = getCachedRaster(i + 1) || extractPageTexture(rawContent);
             if (texture && !prewarmedSetRef.current.has(texture)) {
                 prewarmedSetRef.current.add(texture);
@@ -797,18 +921,18 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
             const wrapper = document.querySelector('.fbe-wrapper');
             if (!wrapper) return;
-            
+
             // Focus the active pages based on the logical page index
             const p1 = logicalPage + 1;
             const p2 = logicalPage + 2;
             const iframes = wrapper.querySelectorAll(`iframe[title="Page ${p1}"], iframe[title="Page ${p2}"]`);
-            
+
             for (let i = 0; i < iframes.length; i++) {
                 const iframe = iframes[i];
                 iframe.focus();
                 if (iframe.contentWindow) iframe.contentWindow.focus();
             }
-        } catch (err) {}
+        } catch (err) { }
     }, []);
 
     // The broken IFRAME_MOUSEMOVE listener was removed because it was blasting turn.js with invalid coordinates.
@@ -835,10 +959,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
             if (makeFirstLastPageHard) {
                 if (i === 0) isHardPage = true;
-                if (!singlePage && i === 1) isHardPage = true;
                 if (augmentedPages.length % 2 === 0) {
                     if (i === augmentedPages.length - 1) isHardPage = true;
-                    if (!singlePage && i === augmentedPages.length - 2) isHardPage = true;
                 }
             }
 
@@ -850,30 +972,28 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
             if (!makeFirstLastPageHard && !selectCustomHardPages && hardCovers) {
                 if (i === 0) isHardPage = true;
-                if (!singlePage && i === 1) isHardPage = true;
                 if (augmentedPages.length % 2 === 0) {
                     if (i === augmentedPages.length - 1) isHardPage = true;
-                    if (!singlePage && i === augmentedPages.length - 2) isHardPage = true;
                 }
             }
 
             let startX = 0;
             let startY = 0;
-            
+
             const isLastPage = (i === augmentedPages.length - 1 || (i === augmentedPages.length - 2 && augmentedPages[i + 1]?.isPad));
             const directionClass = i % 2 === 0 ? 'right' : 'left';
 
             let sheetStyles = {};
             if (page.isTransparentSheet) {
-                 sheetStyles = {
-                     backgroundColor: 'rgba(236, 236, 236, 0.4)',
-                     transform: 'translateZ(0)'
-                 };
+                sheetStyles = {
+                    backgroundColor: 'rgba(236, 236, 236, 0.4)',
+                    transform: 'translateZ(0)'
+                };
             } else {
-                 sheetStyles = {
-                     backgroundColor: page.isPad ? 'transparent' : '#fff',
-                     opacity: pageOpacity
-                 };
+                sheetStyles = {
+                    backgroundColor: page.isPad ? 'transparent' : '#fff',
+                    opacity: pageOpacity
+                };
             }
 
             return (
@@ -911,7 +1031,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 />
             );
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showingReactFlip, augmentedPages, makeFirstLastPageHard, selectCustomHardPages, customHardPages, hardCovers, cornerRadius, textureStyle, singlePage, pageOpacity]);
 
     /* ── High-Speed DOM Preloader from IndexedDB (Bypasses React Re-renders) ── */
@@ -928,52 +1048,58 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         if (!staticBg) return;
 
         // Only skip if real (non-placeholder) content has already been rendered
+        const existingImg = staticBg.querySelector('img');
         const isAlreadyLoaded = staticBg.getAttribute('data-loaded') === 'true' && !staticBg.getAttribute('data-placeholder');
-        if (isAlreadyLoaded) return;
+        if (isAlreadyLoaded || (existingImg && (existingImg.complete || staticBg.getAttribute('data-loaded') === 'true'))) return;
 
         // Check in-memory page content first (instant, 0ms)
         const memPage = augmentedPages[pageIdx];
         const memContent = memPage?.html || memPage?.content || '';
-        const fallbackTexture = (v_id && pageNum > 0) ? `/storage/books/${v_id}/pages/${pageNum}.webp` : null;
-        const memTexture = getCachedRaster(pageNum) || extractPageTexture(memContent, pageNum) || memPage?.imageUrl || fallbackTexture;
-        if (memTexture) {
-            applyPageVisual(staticBg, memContent || memTexture, pageNum);
-            renderedContentMapRef.current.set(pageNum, `${pageNum}:${memTexture}:${memContent.length}:${memPage?.sheetData ? JSON.stringify(memPage.sheetData) : ''}`);
-            return;
-        }
-
-        const memIsPlaceholder = !memContent || memPage?.isPlaceholder || memContent.includes('generateSkeletonPageSvg') || memContent.includes('createDefaultPageData');
-        if (memContent && !memIsPlaceholder && memContent.trim().length > 10) {
+        const memIsPlaceholder = !memContent || memPage?.isPlaceholder || memContent.includes('generateSkeletonPageSvg') || memContent.includes('data-skeleton') || memContent.includes('createDefaultPageData');
+        const memTexture = memIsPlaceholder ? null : (getCachedRaster(pageNum, v_id) || extractPageTexture(memContent, pageNum) || memPage?.imageUrl);
+        if (memTexture || memIsPlaceholder) {
             applyPageVisual(staticBg, memContent, pageNum);
-            renderedContentMapRef.current.set(pageNum, `${pageNum}::${memContent.length}:${memPage?.sheetData ? JSON.stringify(memPage.sheetData) : ''}`);
+            renderedContentMapRef.current.set(pageNum, `${pageNum}:${memTexture || ''}:${memContent.length}:${memPage?.sheetData ? JSON.stringify(memPage.sheetData) : ''}`);
             return;
         }
 
         getPageFromIDB(v_id, pageIdx).then((pageData) => {
             if (!pageData) return;
             const content = pageData.html || pageData.content || '';
-            const texture = getCachedRaster(pageNum) || extractPageTexture(content, pageNum) || pageData.imageUrl || fallbackTexture;
-            if (texture && staticBg) {
-                applyPageVisual(staticBg, content || texture, pageNum);
-                renderedContentMapRef.current.set(pageNum, `${pageNum}:${texture}:${content.length}:${pageData.sheetData ? JSON.stringify(pageData.sheetData) : ''}`);
+            const idbIsPlaceholder = !content || pageData.isPlaceholder || content.includes('generateSkeletonPageSvg') || content.includes('data-skeleton') || content.includes('createDefaultPageData');
+            const texture = idbIsPlaceholder ? null : (getCachedRaster(pageNum, v_id) || extractPageTexture(content, pageNum) || pageData.imageUrl);
+            if (staticBg) {
+                applyPageVisual(staticBg, content, pageNum);
+                renderedContentMapRef.current.set(pageNum, `${pageNum}:${texture || ''}:${content.length}:${pageData.sheetData ? JSON.stringify(pageData.sheetData) : ''}`);
                 return;
             }
-            const idbIsPlaceholder = !content || pageData.isPlaceholder || content.includes('generateSkeletonPageSvg') || content.includes('createDefaultPageData');
             if (content && !idbIsPlaceholder && staticBg) {
                 applyPageVisual(staticBg, content, pageNum);
                 renderedContentMapRef.current.set(pageNum, `${pageNum}::${content.length}:${pageData.sheetData ? JSON.stringify(pageData.sheetData) : ''}`);
             }
-        }).catch(() => {});
+        }).catch(() => { });
     }, [v_id, augmentedPages, applyPageVisual]);
 
     const preloadSurroundingPages = useCallback((centerPageNum) => {
-        const radius = 4;
-        const start = Math.max(1, centerPageNum - radius);
-        const end = Math.min(augmentedPages.length, centerPageNum + radius);
-        for (let p = start; p <= end; p++) {
-            preloadPageToDom(p);
+        // Compute active double spread (both left and right page)
+        const leftP = (centerPageNum % 2 === 0) ? centerPageNum : centerPageNum - 1;
+        const rightP = (centerPageNum % 2 === 0) ? centerPageNum + 1 : centerPageNum;
+
+        // Load both active spread pages together in parallel with top priority
+        if (leftP >= 1 && leftP <= augmentedPages.length) {
+            preloadPageToDom(leftP);
         }
-    }, [augmentedPages.length, preloadPageToDom]);
+        if (rightP >= 1 && rightP <= augmentedPages.length) {
+            preloadPageToDom(rightP);
+        }
+
+        // Preload next upcoming spread and previous spread so flips are instantaneous
+        [leftP - 2, leftP - 1, rightP + 1, rightP + 2].forEach(p => {
+            if (p >= 1 && p <= augmentedPages.length) {
+                preloadPageToDom(p);
+            }
+        });
+    }, [augmentedPages.length, preloadPageToDom, v_id]);
 
     useEffect(() => {
         if (!ready || !v_id) return;
@@ -981,13 +1107,21 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         preloadSurroundingPages(center);
     }, [currentPage, ready, v_id, preloadSurroundingPages]);
 
+    /* ── Reset Page Transforms (No-op in Turn.js 4 which manages folding DOM natively) ── */
+    const resetAllPageTransforms = useCallback(() => {
+        // Native Turn.js 4 manages folding wrappers, z-indices, and page hierarchy natively.
+        // Manual DOM reparenting during turns corrupts active peel animations.
+    }, []);
+
     /* ── Load Scripts from local /public/lib/ (no CDN) ── */
     useEffect(() => {
         let alive = true;
         (async () => {
             try {
                 if (!window.jQuery) await loadScript('/lib/jquery.min.js');
-                if (!window.jQuery?.fn?.turn) await loadScript('/lib/turn.min.js?v=12');
+                if (!window.jQuery?.fn?.turn || window._turnJsVersion !== 4) {
+                    await loadScript('/lib/turn.min.js?v=4');
+                }
                 if (alive) {
                     setScriptsLoaded(true);
                     setReady(true);
@@ -1094,13 +1228,13 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         // Without removeData(), stale $.data('turn.turn') causes widgetInterface
         // to treat the options object as a method name → TypeError on .apply().
         try {
-            $book.find('*').addBack().each(function() {
+            $book.find('*').addBack().each(function () {
                 const elData = $(this).data();
                 if (elData && elData.effect && elData.effect.handle) {
                     clearInterval(elData.effect.handle);
                     delete elData.effect;
                 }
-                try { $(this).turn('stop'); } catch (_) {}
+                try { $(this).turn('stop'); } catch (_) { }
             });
             const oldData = $book.data();
             if (oldData && oldData.pages) {
@@ -1120,6 +1254,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         // turn.js requires an even page count in double-display mode
         const augmented = augmentedPages;
 
+        const initPage = Math.max(1, currentPage + 1);
+
         // Build page DOM elements using DocumentFragment for atomic 10x-50x faster insertion
         const pageFragment = document.createDocumentFragment();
         augmented.forEach((page, i) => {
@@ -1128,13 +1264,11 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             // Determine if this specific page should be hard
             let isPageHard = false;
 
-            // 1. First & Last (Covers)
+            // 1. First & Last (Covers only)
             if (makeFirstLastPageHard) {
                 if (i === 0) isPageHard = true;
-                if (!singlePage && i === 1) isPageHard = true;
                 if (augmented.length % 2 === 0) {
                     if (i === augmented.length - 1) isPageHard = true;
-                    if (!singlePage && i === augmented.length - 2) isPageHard = true;
                 }
             }
 
@@ -1149,15 +1283,10 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             // 3. Fallback for master toggle
             if (!makeFirstLastPageHard && !selectCustomHardPages && hardCovers) {
                 if (i === 0) isPageHard = true;
-                if (!singlePage && i === 1) isPageHard = true;
                 if (augmented.length % 2 === 0) {
                     if (i === augmented.length - 1) isPageHard = true;
-                    if (!singlePage && i === augmented.length - 2) isPageHard = true;
                 }
             }
-
-            // [LOG] Debug hard page detection
-            if (isPageHard) console.log(`[FlipBookEngine] Page ${i + 1} is HARD`);
 
             // In turn.js, the "hard" class creates a rigid, non-curling fold. 
             // We use both 'hard' and 'cover' for maximum compatibility with custom patches.
@@ -1194,15 +1323,23 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 const staticBg = document.createElement('div');
                 staticBg.className = 'fbe-static-bg';
                 const bgStyleColor = page.isTransparentSheet ? 'transparent' : '#fff';
-                staticBg.style.cssText = `position:absolute;inset:0;width:100%;height:100%;overflow:hidden;background:${bgStyleColor};pointer-events:none;border-radius:inherit;transform:translateZ(0);`;
+                staticBg.style.cssText = `position:absolute;inset:0;width:100%;height:100%;overflow:hidden;background:${bgStyleColor};pointer-events:none;border-radius:inherit;`;
 
                 const rawContent = page.html || page.content || '';
-                const fallbackTexture = (v_id && pageNum > 0) ? `/storage/books/${v_id}/pages/${pageNum}.webp` : null;
-                const initTexture = extractPageTexture(rawContent, pageNum) || page.imageUrl || fallbackTexture || '';
+                const hasRealContent = rawContent && !rawContent.includes('generateSkeletonPageSvg') && !rawContent.includes('data-skeleton') && !rawContent.includes('createDefaultPageData') && rawContent.trim().length > 20;
+                const initTexture = hasRealContent ? (extractPageTexture(rawContent, pageNum) || page.imageUrl || '') : '';
                 renderedContentMapRef.current.set(pageNum, `${pageNum}:${initTexture}:${rawContent.length}:${page.sheetData ? JSON.stringify(page.sheetData) : ''}`);
 
-                // Populate page visual upfront
-                applyPageVisual(staticBg, rawContent || initTexture, pageNum);
+                // Populate page visual upfront ONLY for pages near current active window
+                // (Prevents 100 parallel HTTP 404 image requests on large documents)
+                const shouldWarmUp = pageNum <= 4 || Math.abs(pageNum - initPage) <= 3;
+                if (shouldWarmUp) {
+                    applyPageVisual(staticBg, rawContent || initTexture, pageNum);
+                } else {
+                    staticBg.setAttribute('data-unloaded', 'true');
+                    staticBg.setAttribute('data-loading', 'true');
+                    staticBg.setAttribute('data-placeholder', 'true');
+                }
                 staticBgElementsMapRef.current.set(pageNum, staticBg);
                 inner.appendChild(staticBg);
 
@@ -1234,23 +1371,22 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         // ── Initialize turn.js ──────────────────────────────────────────
         const totalPages = augmented.length;
 
-        const initPage = Math.max(1, currentPage + 1);
-
         $book.turn({
             width: singlePage ? width : width * 2,
             height,
             display: singlePage ? 'single' : 'double',
-            duration: (typeof flipTime === 'number' && flipTime > 50) ? flipTime : 450,
+            duration: (typeof flipTime === 'number' && flipTime > 50) ? flipTime : 600,
             acceleration: true, // GPU compositor handles CSS3 flip — frees the JS main thread during animation
-            gradients: false, // Turn off CPU-computed gradients — our GPU .fbe-spine-shadow handles realistic depth!
-            cornerSize: 100,
-            elevation: 50,
+            gradients: true, // Native Turn.js lighting and depth gradients for realistic paper folding
+            cornerSize: 50, // 50px corner target matches basic sample
+            elevation: 50, // 50px elevation ensures authentic 3D paper curl and shadow depth without clipping or z-fighting
             pages: totalPages,
             page: initPage,
-            autoCenter: false,
+            autoCenter: false, // FlipiBook layout containers (Grid1-8) handle centering via GPU-accelerated translateX
             when: {
                 start: (e, pageObject, corner) => {
                     isFlippingRef.current = true;
+                    setIsTurning(true);
                     if (containerRef.current) containerRef.current.classList.add('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
                     if (bookEl.current) bookEl.current.classList.add('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
 
@@ -1262,31 +1398,53 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     }
                 },
                 end: (e, pageObject, turned) => {
+                    isFlippingRef.current = false;
+                    // If drag was cancelled and page snapped back without turning, clear dragging state immediately.
+                    // Otherwise, if turned, let useLayoutEffect([spreadView]) clear flipping state only after
+                    // React has committed the new spread indices, ensuring stale iframes are never revealed!
                     if (!turned) {
-                        isFlippingRef.current = false;
+                        setIsTurning(false);
+                        if (containerRef.current) containerRef.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
+                        if (bookEl.current) bookEl.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
                     }
-                    if (containerRef.current) containerRef.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
-                    if (bookEl.current) bookEl.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
                 },
-                turning: (e, turnPage) => {
+                turning: (e, turnPage, view) => {
                     // Prevent turning past the last page in odd-numbered flipbooks
                     if (!singlePage && augmented.length % 2 !== 0 && turnPage > augmented.length) {
                         e.preventDefault();
                         return false;
                     }
                     isFlippingRef.current = true;
+                    setIsTurning(true);
                     if (containerRef.current) containerRef.current.classList.add('fbe-is-turning', 'fbe-is-flipping');
                     if (bookEl.current) bookEl.current.classList.add('fbe-is-turning', 'fbe-is-flipping');
 
                     // Preload upcoming & surrounding pages into DOM ahead of animation landing
                     preloadSurroundingPages(turnPage);
 
-                    const logical = turnPage - 1;
+                    // Compute canonical logical index for spread
+                    let logical = turnPage - 1;
+                    if (!singlePage && Array.isArray(view) && view.length >= 2) {
+                        if (view[0] > 0) logical = view[0] - 1;
+                        else if (view[1] > 0) logical = view[1] - 1;
+                    } else if (!singlePage && turnPage > 1) {
+                        logical = turnPage % 2 === 0 ? turnPage - 1 : turnPage - 2;
+                    }
                     if (onTurningRef.current) onTurningRef.current({ data: logical });
                 },
                 turned: (_e, turnPage, view) => {
+                    isFlippingRef.current = false;
+                    setIsTurning(false);
                     const activeView = view || (singlePage ? [turnPage] : (turnPage % 2 === 0 ? [turnPage, turnPage + 1] : [turnPage - 1, turnPage]));
-                    const logical = turnPage - 1;
+
+                    // Canonical logical index for double spread (points to left page of current spread)
+                    let logical = turnPage - 1;
+                    if (!singlePage && Array.isArray(activeView) && activeView.length >= 2) {
+                        if (activeView[0] > 0) logical = activeView[0] - 1;
+                        else if (activeView[1] > 0) logical = activeView[1] - 1;
+                    } else if (!singlePage && turnPage > 1) {
+                        logical = turnPage % 2 === 0 ? turnPage - 1 : turnPage - 2;
+                    }
 
                     // Ensure prevStartPageRef tracks this turn so external sync doesn't re-trigger a jump
                     prevStartPageRef.current = logical;
@@ -1295,21 +1453,27 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     preloadSurroundingPages(turnPage);
 
                     // Update spreadView and currentPage together.
-                    // Note: Flipping classes remain active until useLayoutEffect commits the new spreadView,
-                    // guaranteeing the previous page overlay never flashes into view!
-                    setSpreadView(activeView);
+                    // useLayoutEffect([spreadView]) removes flipping/dragging classes ONLY after React commits to DOM!
+                    setSpreadView(prev => {
+                        if (prev && prev[0] === activeView[0] && prev[1] === activeView[1]) {
+                            setIsTurning(false);
+                            if (containerRef.current) containerRef.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
+                            if (bookEl.current) bookEl.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
+                            return prev;
+                        }
+                        return activeView;
+                    });
                     setCurrentPage(logical);
                     if (onFlipRef.current) onFlipRef.current({ data: logical });
 
-                    // Execute queued rapid flip with full smooth page turn animation
-                    if (queuedFlipRef.current && bookEl.current && window.jQuery) {
+                    // Process any queued flip from rapid user clicks
+                    if (queuedFlipRef.current) {
                         const queued = queuedFlipRef.current;
                         queuedFlipRef.current = null;
-                        const $b = window.jQuery(bookEl.current);
-                        requestAnimationFrame(() => {
-                            if (queued === 'next') $b.turn('next');
-                            else if (queued === 'prev') $b.turn('previous');
-                        });
+                        setTimeout(() => {
+                            if (queued === 'next') flipNextFn();
+                            else if (queued === 'prev') flipPrevFn();
+                        }, 40);
                     }
                 },
             },
@@ -1322,14 +1486,14 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
         return () => {
             try {
-                $book.find('*').addBack().each(function() {
+                $book.find('*').addBack().each(function () {
                     const elData = $(this).data();
                     if (elData && elData.effect) {
                         if (elData.effect.handle) clearInterval(elData.effect.handle);
                         if (elData.effect.raf) cancelAnimationFrame(elData.effect.raf);
                         delete elData.effect;
                     }
-                    try { $(this).turn('stop'); } catch (_) {}
+                    try { $(this).turn('stop'); } catch (_) { }
                 });
                 $book.turn('destroy');
             } catch (_) { /* noop */ }
@@ -1352,15 +1516,13 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         augmentedPages.forEach((page, i) => {
             const pageNum = i + 1;
             const currentContent = page.html || page.content || '';
-            const fallbackTexture = (v_id && pageNum > 0) ? `/storage/books/${v_id}/pages/${pageNum}.webp` : null;
-            const textureUrl = extractPageTexture(currentContent, pageNum) || page.imageUrl || fallbackTexture || '';
+            const hasRealCurrentContent = currentContent && !currentContent.includes('generateSkeletonPageSvg') && !currentContent.includes('data-skeleton') && !currentContent.includes('createDefaultPageData') && currentContent.trim().length > 20;
+            const textureUrl = hasRealCurrentContent ? (extractPageTexture(currentContent, pageNum) || page.imageUrl || '') : '';
             const sheetKey = page.sheetData ? JSON.stringify(page.sheetData) : '';
             const contentSig = `${pageNum}:${textureUrl}:${currentContent.length}:${sheetKey}`;
             const prevSig = renderedContentMapRef.current.get(pageNum);
 
             if (prevSig === contentSig) return; // Unchanged
-
-            renderedContentMapRef.current.set(pageNum, contentSig);
 
             // O(1) direct reference lookup from Map (no DOM queries!)
             let staticBg = staticBgElementsMapRef.current.get(pageNum);
@@ -1371,43 +1533,59 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             }
 
             if (staticBg) {
-                applyPageVisual(staticBg, currentContent || textureUrl, pageNum);
+                const isNearCurrent = Math.abs(pageNum - (currentPage + 1)) <= 3;
+                const isPlaceholderDom = staticBg.getAttribute('data-placeholder') === 'true' || staticBg.getAttribute('data-loading') === 'true';
+                if (isNearCurrent || staticBg.getAttribute('data-loaded') === 'true' || (isPlaceholderDom && hasRealCurrentContent)) {
+                    renderedContentMapRef.current.set(pageNum, contentSig);
+                    applyPageVisual(staticBg, currentContent || textureUrl, pageNum);
+                }
             }
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [augmentedPages, ready, useFullTurnJs, applyPageVisual]);
 
-    /* ── Handle Window / Container Resize dynamically ── */
+    /* ── Handle Window / Container Resize & Display Mode dynamically ── */
     useEffect(() => {
         if (ready && bookEl.current && window.jQuery?.fn?.turn && useFullTurnJs) {
             try {
-                window.jQuery(bookEl.current).turn('size', singlePage ? width : width * 2, height);
+                const $book = window.jQuery(bookEl.current);
+                const isTurnReady = checkTurnReady($book);
+                if (!isTurnReady) return;
+                const wantedDisplay = singlePage ? 'single' : 'double';
+                if ($book.turn('display') !== wantedDisplay) {
+                    $book.turn('display', wantedDisplay);
+                }
+                $book.turn('size', singlePage ? width : width * 2, height);
             } catch (e) { /* ignore */ }
         }
     }, [width, height, singlePage, ready, useFullTurnJs]);
 
+    const lastFlipTimeRef = useRef(0);
+
     const flipNextFn = useCallback(() => {
         if (document.activeElement) document.activeElement.blur();
-        
+
         // Block auto-turning past the last page if the pages count is odd
         if (!singlePage && pages.length % 2 !== 0 && currentPage >= pages.length - 2) {
             return;
         }
 
-        isProgrammaticRef.current = true;
         if (showingTurnJs && bookEl.current && window.jQuery) {
             const $book = window.jQuery(bookEl.current);
             const isTurnReady = checkTurnReady($book);
             if (isTurnReady) {
                 if ($book.turn('animating')) {
-                    // Queue next flip so full turn animation plays cleanly right after current flip finishes
                     queuedFlipRef.current = 'next';
                     return;
                 }
-                bookEl.current.classList.add('fbe-is-turning');
+
+                queuedFlipRef.current = null;
+                isProgrammaticRef.current = true;
+                setIsTurning(true);
                 $book.turn('next');
             }
         } else if (showingReactFlip && reactFlipRef.current) {
+            setIsTurning(true);
             reactFlipRef.current.pageFlip().flipNext();
         }
         setTimeout(() => isProgrammaticRef.current = false, 50);
@@ -1416,20 +1594,22 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     const flipPrevFn = useCallback(() => {
         if (document.activeElement) document.activeElement.blur();
 
-        isProgrammaticRef.current = true;
         if (showingTurnJs && bookEl.current && window.jQuery) {
             const $book = window.jQuery(bookEl.current);
             const isTurnReady = checkTurnReady($book);
             if (isTurnReady) {
                 if ($book.turn('animating')) {
-                    // Queue previous flip so full turn animation plays cleanly right after current flip finishes
                     queuedFlipRef.current = 'prev';
                     return;
                 }
-                bookEl.current.classList.add('fbe-is-turning');
+
+                queuedFlipRef.current = null;
+                isProgrammaticRef.current = true;
+                setIsTurning(true);
                 $book.turn('previous');
             }
         } else if (showingReactFlip && reactFlipRef.current) {
+            setIsTurning(true);
             reactFlipRef.current.pageFlip().flipPrev();
         }
         setTimeout(() => isProgrammaticRef.current = false, 50);
@@ -1443,12 +1623,18 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             const isTurnReady = checkTurnReady($book);
             if (isTurnReady) {
                 if ($book.turn('animating')) {
-                    try { $book.turn('stop'); } catch (_) {}
+                    try {
+                        $book.find('.turn-page').each(function () {
+                            try { window.jQuery(this).flip('hide'); } catch (_) { }
+                        });
+                        $book.turn('stop');
+                    } catch (_) { }
                 }
-                bookEl.current.classList.add('fbe-is-turning');
+                setIsTurning(true);
                 $book.turn('page', wantedPage);
             }
         } else if (reactFlipRef.current) {
+            setIsTurning(true);
             reactFlipRef.current.pageFlip().turnToPage(idx);
         }
         setTimeout(() => isProgrammaticRef.current = false, 50);
@@ -1459,11 +1645,13 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         flipPrev: flipPrevFn,
         flipToPage: flipToPageFn,
         getCurrentPageIndex: () => currentPage,
+        isAnimating: () => isFlippingRef.current || (bookEl.current && window.jQuery && window.jQuery(bookEl.current).turn('animating')),
         pageFlip: () => ({
             flipNext: flipNextFn,
             flipPrev: flipPrevFn,
             turnToPage: flipToPageFn,
             getCurrentPageIndex: () => currentPage + 1,
+            isAnimating: () => isFlippingRef.current || (bookEl.current && window.jQuery && window.jQuery(bookEl.current).turn('animating')),
         }),
     }), [flipNextFn, flipPrevFn, flipToPageFn, currentPage]);
 
@@ -1482,7 +1670,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         const totalP = augmentedPages.length || pages.length;
         if (totalP === 0) return;
         const wantedPage = Math.max(1, Math.min(totalP, startPage + 1));
-        
+
         // If current spread already displays wantedPage, do NOT trigger another turn!
         const currentView = $book.turn('view');
         if (Array.isArray(currentView) && currentView.includes(wantedPage)) {
@@ -1498,9 +1686,15 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
         // Finish any in-progress flip cleanly before jumping
         if ($book.turn('animating')) {
-            try { $book.turn('stop'); } catch (_) {}
+            try {
+                $book.find('.turn-page').each(function () {
+                    try { window.jQuery(this).flip('hide'); } catch (_) { }
+                });
+                $book.turn('stop');
+            } catch (_) { }
         }
 
+        setIsTurning(true);
         $book.turn('page', wantedPage);
         setCurrentPage(startPage);
     }, [startPage, showingTurnJs, augmentedPages.length, pages.length]);
@@ -1535,7 +1729,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             try {
                 pageFlip.turnToPage(startPage);
                 setCurrentPage(startPage);
-            } catch (_) {}
+            } catch (_) { }
         }
     }, [startPage, showingReactFlip]);
 
@@ -1546,19 +1740,32 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         return () => clearInterval(timer);
     }, [autoplay, autoplayDuration, ready, flipNextFn]);
 
+    // Purge cached textures whenever book identity changes to prevent cross-book content leaks
+    useEffect(() => {
+        if (v_id) {
+            clearRasterCache(v_id);
+        }
+    }, [v_id]);
+
     const bookTransition = `transform ${(typeof flipTime === 'number' && flipTime >= 200) ? Math.min(1000, flipTime) : 600}ms ease`;
 
     const handleContainerMouseLeave = () => {
-        if (bookEl.current && !bookEl.current.classList.contains('fbe-is-dragging')) {
-            if (window.jQuery && bookEl.current) {
-                const $ = window.jQuery;
-                const $book = $(bookEl.current);
-                $book.find('.turn-page').each(function() {
-                    if ($(this).data('f')) {
-                        try { $(this).flip('hideFoldedPage', true); } catch (err) {}
-                    }
-                });
-            }
+        if (!bookEl.current || isFlippingRef.current) return;
+        if (bookEl.current.classList.contains('fbe-is-dragging') ||
+            bookEl.current.classList.contains('fbe-is-turning') ||
+            bookEl.current.classList.contains('fbe-is-flipping')) return;
+
+        if (window.jQuery && bookEl.current) {
+            const $ = window.jQuery;
+            const $book = $(bookEl.current);
+            if ($book.turn('animating')) return;
+
+            $book.find('.turn-page').each(function () {
+                const pageData = $(this).data('f');
+                if (pageData && !$(this).flip('isTurning')) {
+                    try { $(this).flip('hideFoldedPage', true); } catch (err) { }
+                }
+            });
         }
     };
 
@@ -1566,7 +1773,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     return (
         <div
             ref={containerRef}
-            className={`fbe-wrapper ${className}`}
+            className={`fbe-wrapper ${className} ${isTurning ? 'fbe-is-turning fbe-is-flipping' : ''}`}
             data-single-page={singlePage}
             data-mobile-shadow={mobileShadowSide}
             onMouseLeave={handleContainerMouseLeave}
@@ -1590,14 +1797,6 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     pointer-events: none !important;
                     transition: none !important;
                 }
-                .fbe-is-turning .fbe-spine-shadow,
-                .fbe-is-flipping .fbe-spine-shadow,
-                .fbe-is-dragging .fbe-spine-shadow {
-                    visibility: hidden !important;
-                    opacity: 0 !important;
-                    display: none !important;
-                    transition: none !important;
-                }
                 .fbe-is-flipping .fbe-corner-hotspot {
                     pointer-events: none !important;
                 }
@@ -1606,15 +1805,22 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     filter: none !important;
                 }
                 .fbe-static-bg {
-                    transform: translateZ(0);
                     backface-visibility: hidden;
                 }
                 @keyframes fbe-spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
                 }
+                .fbe-spinner {
+                    width: 28px;
+                    height: 28px;
+                    border: 2.5px solid rgba(234,114,51,0.2);
+                    border-top-color: #ea7233;
+                    border-radius: 50%;
+                    animation: fbe-spin 0.7s linear infinite;
+                }
             `}</style>
-            
+
             {/* Loading indicator */}
             {!ready && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7f7f7', color: '#999', fontSize: '13px', zIndex: 10 }}>
@@ -1624,7 +1830,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
             {/* ── CLONE UNDERLAY for Transparent Sheets ── */}
             <div className="fbe-clone-underlay" style={{
-                position: 'absolute', zIndex: showingTurnJs ? 2 : 90, 
+                position: 'absolute', zIndex: showingTurnJs ? 2 : 90,
                 display: 'flex', pointerEvents: 'none',
                 width: singlePage ? width : width * 2, height,
                 visibility: (showingTurnJs || showingReactFlip) ? 'visible' : 'hidden',
@@ -1632,24 +1838,24 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 transform: (showingReactFlip && hardCoverZoom) ? `scale(${hardCoverZoom.scale})` : 'none',
                 transformOrigin: '0 0'
             }}>
-                <div style={{flex: 1, position: 'relative', overflow: 'hidden'}}>
+                <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                     {cloneUnderlay.left && (
-                        <iframe 
+                        <iframe
                             title={`Clone Left`}
                             frameBorder="0"
                             srcDoc={(externalBuildPageDoc || buildPageDoc)(cloneUnderlay.left.page.html || cloneUnderlay.left.page.content || '', cloneUnderlay.left.index + 1)}
-                            style={{position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', background: '#fff', filter: `blur(${cloneUnderlay.left.blurPx}px)`}} 
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', background: '#fff', filter: `blur(${cloneUnderlay.left.blurPx}px)` }}
                         />
                     )}
                 </div>
                 {!singlePage && (
-                    <div style={{flex: 1, position: 'relative', overflow: 'hidden'}}>
+                    <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                         {cloneUnderlay.right && (
-                            <iframe 
+                            <iframe
                                 title={`Clone Right`}
                                 frameBorder="0"
                                 srcDoc={(externalBuildPageDoc || buildPageDoc)(cloneUnderlay.right.page.html || cloneUnderlay.right.page.content || '', cloneUnderlay.right.index + 1)}
-                                style={{position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', background: '#fff', filter: `blur(${cloneUnderlay.right.blurPx}px)`}} 
+                                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', background: '#fff', filter: `blur(${cloneUnderlay.right.blurPx}px)` }}
                             />
                         )}
                     </div>
@@ -1684,6 +1890,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                             height,
                             position: 'relative',
                             background: 'transparent',
+                            margin: 0,
                         }}
                     />
                 </div>
@@ -1734,13 +1941,13 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                                 setIsFlipping(false);
                                 isFlippingRef.current = false;
                                 if (onFlipRef.current) onFlipRef.current({ data: logical });
-                                
+
                                 const wrapper = containerRef.current || document.querySelector('.fbe-react-wrapper');
                                 if (wrapper) wrapper.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
                                 document.querySelectorAll('.fbe-is-dragging, .fbe-is-turning, .fbe-is-flipping').forEach(el => {
                                     el.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
                                 });
-                                
+
                                 refocusActiveIframe(logical);
                             }}
                         >
@@ -1751,15 +1958,84 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             )}
 
             {/* ── Active Spread Interactive Overlay (Layer 2: Only 2 persistent iframes) ── */}
-            {ready && (() => {
+            {ready && !isTurning && (() => {
                 const isInteractive = (rawHtml) => {
                     if (!rawHtml || typeof rawHtml !== 'string') return false;
-                    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link)|class=["'][^"']*interactive|<a\s+href/i.test(rawHtml);
+                    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link)|data-interaction|hotspot|class=["'][^"']*interactive|<a\s+href/i.test(rawHtml);
                 };
 
                 const hasInteractiveLeft = Boolean(!singlePage && leftIdx !== null && leftIdx >= 0 && pages[leftIdx] && isInteractive(pages[leftIdx].html || pages[leftIdx].content));
                 const hasInteractiveRight = Boolean(rightIdx !== null && rightIdx >= 0 && pages[rightIdx] && isInteractive(pages[rightIdx].html || pages[rightIdx].content));
                 const anyInteractive = hasInteractiveLeft || hasInteractiveRight;
+
+                const setupIframeForwarding = (iframeEl) => {
+                    try {
+                        const doc = iframeEl?.contentDocument;
+                        if (!doc) return;
+                        initGifRunner(doc);
+
+                        const forwardMouseEvent = (ev, type) => {
+                            const isInteractiveEl = ev.target && ev.target.closest && ev.target.closest('a, button, [data-interaction], [data-type], video, audio, input, .interactive, .fbe-interactive, [data-is-hotspot]');
+                            if (isInteractiveEl && (type === 'mousedown' || type === 'click')) {
+                                return;
+                            }
+
+                            const iframeRect = iframeEl.getBoundingClientRect();
+                            const clientX = ev.clientX + iframeRect.left;
+                            const clientY = ev.clientY + iframeRect.top;
+                            const pageX = clientX + (window.pageXOffset || window.scrollX || 0);
+                            const pageY = clientY + (window.pageYOffset || window.scrollY || 0);
+
+                            const syntheticEv = new MouseEvent(type, {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window,
+                                clientX,
+                                clientY,
+                                screenX: ev.screenX,
+                                screenY: ev.screenY,
+                                button: ev.button,
+                                buttons: ev.buttons
+                            });
+                            Object.defineProperty(syntheticEv, 'pageX', { value: pageX, configurable: true });
+                            Object.defineProperty(syntheticEv, 'pageY', { value: pageY, configurable: true });
+
+                            if (type === 'mousedown') {
+                                if (bookEl.current) {
+                                    bookEl.current.dispatchEvent(syntheticEv);
+                                }
+                            } else {
+                                document.dispatchEvent(syntheticEv);
+                            }
+                        };
+
+                        doc.addEventListener('mousemove', (ev) => forwardMouseEvent(ev, 'mousemove'));
+                        doc.addEventListener('mousedown', (ev) => forwardMouseEvent(ev, 'mousedown'));
+                        doc.addEventListener('mouseup', (ev) => forwardMouseEvent(ev, 'mouseup'));
+                        doc.addEventListener('mouseleave', () => {
+                            const syntheticEv = new MouseEvent('mousemove', {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window,
+                                clientX: -9999,
+                                clientY: -9999,
+                                screenX: -9999,
+                                screenY: -9999
+                            });
+                            Object.defineProperty(syntheticEv, 'pageX', { value: -9999, configurable: true });
+                            Object.defineProperty(syntheticEv, 'pageY', { value: -9999, configurable: true });
+                            document.dispatchEvent(syntheticEv);
+                        });
+
+                        doc.addEventListener('click', (ev) => {
+                            if (!ev.target.closest('a, button, [data-interaction], [data-type], video, audio, input, .interactive, .fbe-interactive, [data-is-hotspot]')) {
+                                const rect = doc.documentElement.getBoundingClientRect();
+                                if (ev.clientX > rect.width * 0.75) flipNextFn();
+                                else if (ev.clientX < rect.width * 0.25) flipPrevFn();
+                            }
+                        });
+                    } catch (err) { }
+                };
 
                 return (
                     <div
@@ -1775,10 +2051,19 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                         }}
                     >
                         {!singlePage && (
-                            <div style={{ position: 'relative', width, height, overflow: 'hidden', pointerEvents: hasInteractiveLeft ? 'auto' : 'none' }}>
+                            <div
+                                style={{
+                                    position: 'relative',
+                                    width,
+                                    height,
+                                    overflow: 'hidden',
+                                    pointerEvents: hasInteractiveLeft ? 'auto' : 'none',
+                                    borderRadius: `${cornerRadius} 0 0 ${cornerRadius}`
+                                }}
+                            >
                                 {hasInteractiveLeft && leftIdx !== null && leftIdx >= 0 && leftIdx < pages.length && pages[leftIdx] && !pages[leftIdx].isPad && (
                                     <iframe
-                                        key="spread-left"
+                                        key={`spread-left-${leftIdx}`}
                                         title={`Page ${leftIdx + 1}`}
                                         frameBorder="0"
                                         allowFullScreen={true}
@@ -1796,19 +2081,24 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                                             opacity: 1,
                                             transition: 'opacity 0.15s ease'
                                         }}
-                                        onLoad={(e) => {
-                                            try {
-                                                if (e.target.contentDocument) initGifRunner(e.target.contentDocument);
-                                            } catch (err) {}
-                                        }}
+                                        onLoad={(e) => setupIframeForwarding(e.target)}
                                     />
                                 )}
                             </div>
                         )}
-                        <div style={{ position: 'relative', width, height, overflow: 'hidden', pointerEvents: hasInteractiveRight ? 'auto' : 'none' }}>
+                        <div
+                            style={{
+                                position: 'relative',
+                                width,
+                                height,
+                                overflow: 'hidden',
+                                pointerEvents: hasInteractiveRight ? 'auto' : 'none',
+                                borderRadius: `0 ${cornerRadius} ${cornerRadius} 0`
+                            }}
+                        >
                             {hasInteractiveRight && rightIdx !== null && rightIdx >= 0 && rightIdx < pages.length && pages[rightIdx] && !pages[rightIdx].isPad && (
                                 <iframe
-                                    key="spread-right"
+                                    key={`spread-right-${rightIdx}`}
                                     title={`Page ${rightIdx + 1}`}
                                     frameBorder="0"
                                     allowFullScreen={true}
@@ -1826,10 +2116,21 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                                         opacity: 1,
                                         transition: 'opacity 0.15s ease'
                                     }}
-                                    onLoad={(e) => {
-                                        try {
-                                            if (e.target.contentDocument) initGifRunner(e.target.contentDocument);
-                                        } catch (err) {}
+                                    onLoad={(e) => setupIframeForwarding(e.target)}
+                                />
+                            )}
+                            {rightIdx === 0 && (
+                                <div
+                                    className="fbe-spine-shadow-overlay"
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        bottom: 0,
+                                        left: 0,
+                                        width: 28,
+                                        background: 'linear-gradient(to right, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.08) 25%, rgba(0,0,0,0.02) 60%, transparent 100%)',
+                                        pointerEvents: 'none',
+                                        zIndex: 10
                                     }}
                                 />
                             )}
@@ -1838,8 +2139,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 );
             })()}
 
-            {/* Corner Hotspots above overlay iframes for interactive corner peel/click */}
-            {ready && !singlePage && (
+            {/* Corner Hotspots for non-TurnJS engines */}
+            {ready && !singlePage && !showingTurnJs && (
                 <>
                     {/* Top-Right Corner Hotspot */}
                     {rightIdx !== null && rightIdx < pages.length && (
@@ -1886,14 +2187,24 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     -webkit-user-drag: none !important;
                 }
 
-                .fbe-page {
+                .fbe-page, .page {
                     background: #fff;
                     overflow: hidden;
                     margin: 0;
                     padding: 0;
-                    box-shadow: none !important;
+                    -webkit-box-shadow: 0 0 20px rgba(0, 0, 0, 0.16);
+                    -moz-box-shadow: 0 0 20px rgba(0, 0, 0, 0.16);
+                    box-shadow: 0 0 20px rgba(0, 0, 0, 0.16);
                     border: none !important;
                     outline: none !important;
+                }
+
+                .fbe-book .shadow,
+                #flipbook .shadow,
+                .turn-page .shadow,
+                .shadow.turn-shadow {
+                    display: none !important;
+                    box-shadow: none !important;
                 }
 
                 .fbe-inner {
@@ -1905,16 +2216,23 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     padding: 0;
                     box-shadow: none !important;
                     border: none !important;
+                    writing-mode: horizontal-tb !important;
                 }
 
-                .turn-page,
-                .turn-page-wrapper,
-                .turn-page-wrapper > div,
-                #turn-fwrappers div {
+                .turn-page {
                     background-color: #fff;
                     box-shadow: none !important;
                     border: none !important;
                     outline: none !important;
+                    transform-style: flat !important;
+                }
+
+                .turn-page-wrapper {
+                    background-color: transparent !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    outline: none !important;
+                    transform-style: flat !important;
                 }
 
                 /* React-pageflip specific classes */
@@ -1923,7 +2241,6 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     height: 100%;
                     overflow: hidden !important;
                     transition: border-radius 0.5s ease;
-                    -webkit-transform: translateZ(0);
                 }
 
                 .fbe-react-page--left, .fbe-page--left {
@@ -1941,8 +2258,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     top: 0;
                     bottom: 0;
                     right: 0;
-                    width: 28px;
-                    background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.012) 35%, rgba(0,0,0,0.04) 75%, rgba(0,0,0,0.07) 100%);
+                    width: 22px;
+                    background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.01) 40%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.05) 100%);
                     pointer-events: none;
                     z-index: 2;
                 }
@@ -1954,10 +2271,42 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     top: 0;
                     bottom: 0;
                     left: 0;
-                    width: 28px;
-                    background: linear-gradient(to left, transparent 0%, rgba(0,0,0,0.012) 35%, rgba(0,0,0,0.04) 75%, rgba(0,0,0,0.07) 100%);
+                    width: 22px;
+                    background: linear-gradient(to left, transparent 0%, rgba(0,0,0,0.01) 40%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.05) 100%);
                     pointer-events: none;
                     z-index: 2;
+                }
+
+                /* Realistic spine binding shadows on front cover and back cover */
+                .fbe-page--first .fbe-inner::before,
+                .fbe-react-page--first .fbe-inner::before,
+                .p1 .fbe-inner::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    left: 0;
+                    width: 28px;
+                    background: linear-gradient(to right, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.08) 25%, rgba(0,0,0,0.02) 60%, transparent 100%);
+                    pointer-events: none;
+                    z-index: 15;
+                    border-top-left-radius: inherit;
+                    border-bottom-left-radius: inherit;
+                }
+
+                .fbe-page--last .fbe-inner::before,
+                .fbe-react-page--last .fbe-inner::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    right: 0;
+                    width: 28px;
+                    background: linear-gradient(to left, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.08) 25%, rgba(0,0,0,0.02) 60%, transparent 100%);
+                    pointer-events: none;
+                    z-index: 15;
+                    border-top-right-radius: inherit;
+                    border-bottom-right-radius: inherit;
                 }
 
                 .fbe-page--first .fbe-inner::after,
@@ -2001,30 +2350,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     width: 40px !important;
                 }
 
-                /* Force turn.js hard pages to remain rigid and hide internal peel gradients */
-                .hard,
-                .turn-page.hard,
-                .cover {
-                    background-color: #fff !important;
-                    box-shadow: none !important;
-                    -webkit-transform-style: preserve-3d !important;
-                    transform-style: preserve-3d !important;
-                }
 
-                .hard .fbe-inner,
-                .cover .fbe-inner {
-                    backface-visibility: hidden !important;
-                    -webkit-backface-visibility: hidden !important;
-                }
-
-                /* Remove any shadow/peel effects for hard pages only */
-                .hard .p-shadow,
-                .hard .p-gradient,
-                .cover .p-shadow,
-                .cover .p-gradient {
-                    display: none !important;
-                }
-                
                 /* Reset global cursor pointer applied by flipbook engines and their descendants */
                 .stf__wrapper, .stf__block {
                     background: transparent !important;
@@ -2037,6 +2363,11 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 .fbe-react-page, .fbe-react-page *,
                 .fbe-book, .fbe-book * {
                     cursor: default;
+                }
+
+                .fbe-book {
+                    margin-left: 0 !important;
+                    margin-right: 0 !important;
                 }
                 
                 /* Hand cursor for turn.js pages and drag overlays */
@@ -2062,24 +2393,14 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 .fbe-is-turning .fbe-active-spread-overlay,
                 .fbe-is-dragging .fbe-active-spread-overlay,
                 .fbe-is-flipping .fbe-active-spread-overlay,
-                .fbe-is-turning .fbe-spine-shadow,
-                .fbe-is-dragging .fbe-spine-shadow,
-                .fbe-is-flipping .fbe-spine-shadow,
                 .fbe-wrapper.fbe-is-turning iframe,
                 .fbe-wrapper.fbe-is-dragging iframe,
                 .fbe-wrapper.fbe-is-flipping iframe,
-                .fbe-wrapper.fbe-is-turning .fbe-spine-shadow,
-                .fbe-wrapper.fbe-is-dragging .fbe-spine-shadow,
-                .fbe-wrapper.fbe-is-flipping .fbe-spine-shadow,
                 .fbe-book.fbe-is-turning iframe,
                 .fbe-book.fbe-is-dragging iframe,
-                .fbe-book.fbe-is-flipping iframe,
-                .fbe-book.fbe-is-turning .fbe-spine-shadow,
-                .fbe-book.fbe-is-dragging .fbe-spine-shadow,
-                .fbe-book.fbe-is-flipping .fbe-spine-shadow {
+                .fbe-book.fbe-is-flipping iframe {
                     visibility: hidden !important;
                     opacity: 0 !important;
-                    display: none !important;
                     pointer-events: none !important;
                     transition: none !important;
                 }

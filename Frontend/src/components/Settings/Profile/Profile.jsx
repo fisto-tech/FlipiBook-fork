@@ -106,11 +106,18 @@ const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl = '', title, ima
             .replace(/(?:href|xlink:href)=["'](?:\.\.\/|\.\/)?assets\/([^"']+)["']/gi, `href="${assetsBaseUrl}$1" xlink:href="${assetsBaseUrl}$1"`)
             .replace(/src=["'](?:\.\.\/|\.\/)?assets\/([^"']+)["']/gi, `src="${assetsBaseUrl}$1"`);
         }
+
+        // Normalize vector-effect so strokes scale down proportionally with the thumbnail viewBox
+        processedContent = processedContent
+          .replace(/\bvector-effect\s*=\s*["']non-scaling-stroke["']/gi, 'vector-effect="none"')
+          .replace(/\bvectorEffect\s*=\s*["']non-scaling-stroke["']/gi, 'vectorEffect="none"')
+          .replace(/vector-effect\s*:\s*non-scaling-stroke\s*;?/gi, 'vector-effect: none;');
+
         return (
           <iframe
             title={`Preview of ${title}`}
             className="w-full h-full border-none pointer-events-none"
-            srcDoc={`<!DOCTYPE html><html><head>${html.fontImports}<base href="${effectiveBaseHref}"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:transparent;}svg{width:100%;height:100%;max-width:100%;max-height:100%;}[data-name="Free Frame"]{stroke:transparent !important;fill:transparent !important;}</style></head><body>${processedContent.replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet"')}</body></html>`}
+            srcDoc={`<!DOCTYPE html><html><head>${html.fontImports}<base href="${effectiveBaseHref}"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:transparent;}svg{width:100%;height:100%;max-width:100%;max-height:100%;}svg,svg *{vector-effect:none !important;}[data-name="Free Frame"]{stroke:transparent !important;fill:transparent !important;}</style></head><body>${processedContent.replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet"')}</body></html>`}
           />
         );
       })() : loaded && imageUrl ? (
@@ -333,6 +340,7 @@ const Profile = () => {
     const fetchUserProfile = async () => {
       try {
         const res = await axios.get(`${backendUrl}/api/profile`, {
+          params: effectiveEmail ? { emailId: effectiveEmail } : undefined,
           withCredentials: true
         });
         const p = res.data?.profile || (res.data?.emailId ? res.data : null);
@@ -418,7 +426,8 @@ const Profile = () => {
         formData.append('emailId', effectiveEmail);
         formData.append('banner', newBanner.file);
         const res = await axios.post(`${backendUrl}/api/profile/banner`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true
         });
         if (res.data?.success && res.data?.bannerBg) {
           setBannerBg(res.data.bannerBg);
@@ -430,10 +439,14 @@ const Profile = () => {
       setBannerBg(newBanner);
       if (!effectiveEmail) return;
       try {
-        const res = await axios.post(`${backendUrl}/api/profile/banner`, {
-          emailId: effectiveEmail,
-          bannerBg: newBanner
-        });
+        const res = await axios.post(
+          `${backendUrl}/api/profile/banner`,
+          {
+            emailId: effectiveEmail,
+            bannerBg: newBanner
+          },
+          { withCredentials: true }
+        );
         if (res.data?.success && res.data?.bannerBg) {
           setBannerBg(res.data.bannerBg);
         }
@@ -458,7 +471,8 @@ const Profile = () => {
         formData.append('emailId', effectiveEmail);
         formData.append('avatar', avatarOrFile);
         const res = await axios.post(`${backendUrl}/api/profile/avatar`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true
         });
         if (res.data?.success) {
           const newPic = res.data.picture || null;
@@ -482,11 +496,15 @@ const Profile = () => {
       });
       if (!effectiveEmail) return;
       try {
-        const res = await axios.post(`${backendUrl}/api/profile/avatar`, {
-          emailId: effectiveEmail,
-          picture: isDeleting ? null : avatarOrFile,
-          avatarBgColor: targetColor
-        });
+        const res = await axios.post(
+          `${backendUrl}/api/profile/avatar`,
+          {
+            emailId: effectiveEmail,
+            picture: isDeleting ? null : avatarOrFile,
+            avatarBgColor: targetColor
+          },
+          { withCredentials: true }
+        );
         if (res.data?.success) {
           const newPic = isDeleting ? null : (res.data.picture || null);
           const newColor = res.data.avatarBgColor || targetColor;
@@ -508,11 +526,15 @@ const Profile = () => {
     });
     if (!effectiveEmail) return;
     try {
-      await axios.post(`${backendUrl}/api/profile/avatar`, {
-        emailId: effectiveEmail,
-        picture: 'color_only',
-        avatarBgColor: color
-      });
+      await axios.post(
+        `${backendUrl}/api/profile/avatar`,
+        {
+          emailId: effectiveEmail,
+          picture: 'color_only',
+          avatarBgColor: color
+        },
+        { withCredentials: true }
+      );
     } catch (err) {
       console.error("Error saving avatar color in backend:", err);
     }
@@ -828,12 +850,19 @@ const Profile = () => {
                     )}
 
                     {/* Profile Type */}
-                    <div>
-                      <p className="text-[0.70vw] text-gray-400 font-normal leading-none">Profile Type</p>
-                      <p className="text-[0.78vw] text-gray-800 font-medium leading-snug mt-[0.15vw]">
-                        {displayUser.profileType || 'Individual'}
-                      </p>
-                    </div>
+                    {displayUser.profileType ? (
+                      <div>
+                        <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Profile Type</p>
+                        <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
+                          {displayUser.profileType}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-[0.35vw]">
+                        <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Profile Type</p>
+                        <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
+                      </div>
+                    )}
 
                     {/* Conditional Fields based on Profile Type */}
                     {(!displayUser.profileType || displayUser.profileType === 'Individual') ? (

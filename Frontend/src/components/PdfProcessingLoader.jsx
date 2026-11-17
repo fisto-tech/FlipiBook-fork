@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Check, Lightbulb, Bell, ChevronDown, X, Loader2 } from 'lucide-react';
+import { Check, Lightbulb, Bell, ChevronDown, X, Loader2, Minimize2, Maximize2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const FlipibookLogo = '/Login/logo.svg';
@@ -26,22 +26,33 @@ const DEFAULT_STEPS = [
  * - Bottom tip pill banner with lightbulb icon
  */
 const PdfProcessingLoader = ({ progress, onCancel }) => {
-    // If no progress is provided, don't render
-    if (!progress) return null;
-
     const { user } = useAuth() || {};
+
+    const [isMinimized, setIsMinimized] = useState(false);
+
+    // Reset minimized state when a new upload starts
+    useEffect(() => {
+        if (!progress) {
+            setIsMinimized(false);
+        }
+    }, [progress]);
+
+    // Keep a "last seen" progress ref so hooks never see stale null and component doesn't remount on null
+    const lastProgressRef = useRef(progress);
+    if (progress) lastProgressRef.current = progress;
+    const effectiveProgress = progress || lastProgressRef.current;
 
     const {
         current = 0,
         total = 0,
         fileIndex = 0,
-        totalFiles = (progress?.totalFiles || progress?.total || 1),
+        totalFiles = (effectiveProgress?.totalFiles || effectiveProgress?.total || 1),
         pageCount = 0,
         message = '',
-        fileName = progress?.fileName || '',
-        stage = progress?.stage || 'converting',
+        fileName = effectiveProgress?.fileName || '',
+        stage = effectiveProgress?.stage || 'uploading',
         percent: explicitPercent
-    } = progress || {};
+    } = effectiveProgress || {};
 
     // Detect document type (PDF, Word, PowerPoint)
     const isPpt = fileName && (fileName.toLowerCase().endsWith('.ppt') || fileName.toLowerCase().endsWith('.pptx'));
@@ -52,23 +63,25 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
     const docBadgeColor = isPpt ? 'bg-[#EA580C]' : isWord ? 'bg-[#2563EB]' : 'bg-[#EF4444]';
 
     const isDone = stage === 'done';
+    const isExtracting = stage === 'converting' || stage === 'extracting' || stage === 'extracting_initial' || (typeof stage === 'string' && stage.includes('extract'));
+    const isSaving = stage === 'saving' || stage === 'processing';
 
     // Total pages count from progress or file
     const totalPagesCount = useMemo(() => {
         const directPageCount = Number(pageCount || progress?.pageCount || 0);
         if (directPageCount > 0) return directPageCount;
         const directTotal = Number(total || 0);
-        if (directTotal > 0 && (stage === 'converting' || stage === 'saving' || stage === 'done')) {
+        if (directTotal > 0 && (isExtracting || isSaving || isDone)) {
             return directTotal;
         }
         return 0;
-    }, [pageCount, total, stage, progress?.pageCount]);
+    }, [pageCount, total, isExtracting, isSaving, isDone, progress?.pageCount]);
 
     // Extracted pages count (e.g. 8 of 12)
     const extractedPagesCount = useMemo(() => {
         if (!totalPagesCount || totalPagesCount <= 0) return 0;
 
-        if (stage === 'saving' || stage === 'done') {
+        if (isSaving || isDone) {
             return totalPagesCount;
         }
 
@@ -85,57 +98,64 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         }
 
         return 1;
-    }, [totalPagesCount, stage, current, explicitPercent]);
+    }, [totalPagesCount, isSaving, isDone, stage, current, explicitPercent]);
 
-    // Compute accurate target percentage mapped across the 4 stages
+    // Compute accurate target percentage mapped across stages
     const computedTargetPercent = useMemo(() => {
-        // Step 4: Complete -> exactly 100%
+        // Complete -> exactly 100%
         if (isDone) return 100;
 
-        // Step 1: Uploading -> 0% to 20%
+        // Stage 1: Uploading -> 0% to 100% of upload
         if (stage === 'uploading') {
             if (explicitPercent !== undefined && explicitPercent !== null) {
-                return Math.min(20, Math.max(1, Math.round((explicitPercent / 100) * 20)));
+                return Math.min(100, Math.max(0, Math.round(explicitPercent)));
+            }
+            return 10;
+        }
+
+        // Stage 2: Extracting Pages -> 0% to 99% of extraction
+        if (isExtracting) {
+            if (explicitPercent !== undefined && explicitPercent !== null && explicitPercent > 0) {
+                return Math.min(99, Math.max(0, Math.round(explicitPercent)));
+            }
+            if (totalPagesCount > 0 && extractedPagesCount >= 0) {
+                const ratio = Math.min(1, Math.max(0, extractedPagesCount / totalPagesCount));
+                return Math.min(99, Math.round(ratio * 100));
             }
             return 15;
         }
 
-        // Step 2: Extracting Pages -> 15% to 90% (Gradually maps to full progress within batch extraction time)
-        if (stage === 'converting') {
-            if (explicitPercent !== undefined && explicitPercent !== null && explicitPercent > 0) {
-                return Math.min(90, Math.max(15, Math.round(explicitPercent)));
-            }
-            if (totalPagesCount > 0 && extractedPagesCount >= 0) {
-                const ratio = Math.min(1, Math.max(0, extractedPagesCount / totalPagesCount));
-                return Math.min(90, Math.round(15 + ratio * 75));
-            }
-            return 50;
-        }
-
-        // Step 3: Processing & Saving -> 90% to 98% (Smooth, never freezes at 98%, 100% when stage === 'done')
-        if (stage === 'saving') {
-            if (explicitPercent !== undefined && explicitPercent !== null && explicitPercent > 0) {
-                return Math.min(98, Math.max(90, Math.round(explicitPercent)));
-            }
-            return 94;
+        // Stage 3: Processing & Saving -> 98%
+        if (isSaving) {
+            return 98;
         }
 
         // Fallback default
         if (explicitPercent !== undefined && explicitPercent !== null) {
             return Math.min(99, Math.max(0, Math.round(explicitPercent)));
         }
-        return 68;
-    }, [isDone, explicitPercent, stage, totalPagesCount, extractedPagesCount]);
+        return 20;
+    }, [isDone, explicitPercent, stage, isExtracting, isSaving, totalPagesCount, extractedPagesCount]);
 
-    // Monotonicity reference: highest percentage reached so it strictly NEVER drops down
+    // Monotonicity reference: highest percentage reached so it strictly NEVER drops down within a stage
     const highestPercentRef = useRef(0);
+    const highestCountRef = useRef(0);
     const prevFileRef = useRef(fileName);
+    const prevStageRef = useRef(stage);
 
-    // Reset watermark only when a completely new upload begins in uploading stage
+    // Reset watermark when starting an upload or switching stages
     useEffect(() => {
-        if (stage === 'uploading' && fileName && fileName !== prevFileRef.current) {
+        if (stage !== prevStageRef.current) {
+            prevStageRef.current = stage;
+            highestPercentRef.current = 0;
+            highestCountRef.current = 0;
+            setFluidPercent(0);
+        }
+        if (stage === 'uploading' && fileName !== prevFileRef.current) {
             prevFileRef.current = fileName;
             highestPercentRef.current = 0;
+            highestCountRef.current = 0;
+            setFluidPercent(0);
         }
     }, [fileName, stage]);
 
@@ -172,10 +192,10 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         const interval = setInterval(() => {
             setFluidPercent(prev => {
                 if (prev >= 99) return prev;
-                const ceiling = stage === 'uploading' ? 20 : stage === 'converting' ? 90 : 98;
+                const ceiling = stage === 'uploading' ? 20 : isExtracting ? 90 : 98;
                 if (prev >= ceiling) return prev;
 
-                const increment = stage === 'uploading' ? 0.4 : stage === 'converting' ? 0.3 : 0.2;
+                const increment = stage === 'uploading' ? 0.4 : isExtracting ? 0.3 : 0.2;
                 const next = Math.min(ceiling, Math.round((prev + increment) * 10) / 10);
                 highestPercentRef.current = Math.max(highestPercentRef.current, next);
                 return highestPercentRef.current;
@@ -192,7 +212,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
 
     // Smooth physics-based spring interpolation for percentage & circle stroke (responsive & silky smooth)
     const progressMotion = useMotionValue(displayPercent);
-    const smoothProgress = useSpring(progressMotion, { stiffness: 95, damping: 18, mass: 0.3 });
+    const smoothProgress = useSpring(progressMotion, { stiffness: 65, damping: 16, mass: 0.5 });
     const strokeDashoffset = useTransform(smoothProgress, [0, 100], [276.46, 0]);
 
     const [animatedDisplayPercent, setAnimatedDisplayPercent] = useState(displayPercent);
@@ -208,44 +228,134 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
         return () => unsubscribe();
     }, [smoothProgress, isDone]);
 
-    // Extracted pages count displayed in badge (strictly in lockstep with the visible circle percentage)
+    // Extracted pages count displayed in badge (shows exact real-time extraction count monotonically)
     const displayedPagesCount = useMemo(() => {
         if (!totalPagesCount || totalPagesCount <= 0) return 0;
-        if (isDone || stage === 'done' || stage === 'saving') {
+        if (isDone || stage === 'done' || isSaving) {
+            highestCountRef.current = totalPagesCount;
             return totalPagesCount;
         }
         if (stage === 'uploading') {
             return 0;
         }
-        // In converting stage: strictly synchronized with the circular animated percentage
-        // When circle is 15%, count is 1. When circle is 84%, count is 84. When circle hits 90%, count is 100.
-        const conversionRatio = Math.min(1, Math.max(0, (animatedDisplayPercent - 15) / 75));
-        const computedCount = Math.round(conversionRatio * totalPagesCount);
-        return Math.min(totalPagesCount, Math.max(1, computedCount));
-    }, [totalPagesCount, isDone, stage, animatedDisplayPercent]);
+        let target = 0;
+        // If exact current extraction count is reported by worker/stream, show it directly!
+        if (current !== undefined && current !== null && Number(current) >= 0) {
+            target = Math.min(totalPagesCount, Math.max(0, Number(current)));
+        } else {
+            // Fallback: synchronized with the animated progress percentage
+            const conversionRatio = Math.min(1, Math.max(0, (animatedDisplayPercent - 15) / 75));
+            target = Math.min(totalPagesCount, Math.max(0, Math.round(conversionRatio * totalPagesCount)));
+        }
+        highestCountRef.current = Math.max(highestCountRef.current, target);
+        return highestCountRef.current;
+    }, [totalPagesCount, isDone, stage, isSaving, current, animatedDisplayPercent]);
 
     // Derive active step (1: Uploading, 2: Extracting, 3: Processing, 4: Complete, 5: All Finished)
     const activeStep = useMemo(() => {
         if (isDone || stage === 'done') return 5; // All 4 steps completed with checkmarks!
-        if (stage === 'saving') return 3; // Processing & saving
-        if (stage === 'converting') return 2; // Extracting pages/slides
+        if (isSaving) return 3; // Processing & saving
+        if (isExtracting) return 2; // Extracting pages/slides
         return 1; // Uploading
-    }, [stage, isDone]);
+    }, [stage, isDone, isExtracting, isSaving]);
 
-    const displaySubtitle = "We're analysing your document and extracting the pages, text and images.";
+    // Live Extraction Stopwatch Timer (ticks ONLY during stage === 'extracting')
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const timerRef = useRef(null);
+    useEffect(() => {
+        if (isDone) {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+            return;
+        }
+        if (isExtracting) {
+            if (!timerRef.current) {
+                timerRef.current = setInterval(() => {
+                    setElapsedSeconds(prev => prev + 1);
+                }, 1000);
+            }
+        } else {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        }
+        return () => {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        };
+    }, [isDone, isExtracting]);
+
+    const formattedTime = useMemo(() => {
+        const mins = Math.floor(elapsedSeconds / 60);
+        const secs = elapsedSeconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }, [elapsedSeconds]);
+
+    // Transferred megabytes for Stage 1 (e.g. 22.4 MB / 35.0 MB)
+    const loadedMB = effectiveProgress?.loadedBytes ? (effectiveProgress.loadedBytes / (1024 * 1024)).toFixed(1) : null;
+    const totalMB = effectiveProgress?.totalBytes ? (effectiveProgress.totalBytes / (1024 * 1024)).toFixed(1) : null;
+
+    // Dynamic Live Status Display across both stages
+    const dynamicStatus = useMemo(() => {
+        if (isDone) return "All pages ready! Launching your flipbook...";
+        if (isSaving) return "Finalizing flipbook structure & caching pages...";
+        if (isExtracting) {
+            if (totalPagesCount > 0) {
+                return `Extracting pages: ${displayedPagesCount} / ${totalPagesCount} (${formattedTime})`;
+            }
+            return `Extracting document content (${formattedTime})...`;
+        }
+        if (stage === 'uploading') {
+            if (loadedMB && totalMB) {
+                return `Uploading document: ${loadedMB} MB / ${totalMB} MB (${animatedDisplayPercent}%)`;
+            }
+            return `Uploading document (${animatedDisplayPercent}%)...`;
+        }
+        return "We're analysing your document and extracting the pages, text and images.";
+    }, [isDone, isSaving, isExtracting, totalPagesCount, displayedPagesCount, formattedTime, stage, loadedMB, totalMB, animatedDisplayPercent]);
+
     const displayTip = "Large files may take a little longer. Feel free to stay on this page.";
 
     const steps = useMemo(() => {
         return DEFAULT_STEPS.map(s => {
+            if (s.id === 1) {
+                return {
+                    ...s,
+                    sublabel: (loadedMB && totalMB)
+                        ? `${loadedMB} / ${totalMB} MB`
+                        : (activeStep > 1 ? 'Uploaded' : 'File received')
+                };
+            }
             if (s.id === 2) {
                 return {
                     ...s,
-                    sublabel: isPdf ? 'Reading PDF content' : isPpt ? 'Reading slides' : 'Reading document'
+                    sublabel: activeStep === 2 && totalPagesCount > 0
+                        ? `${displayedPagesCount}/${totalPagesCount} (${formattedTime})`
+                        : activeStep > 2
+                        ? `${totalPagesCount}/${totalPagesCount} Extracted`
+                        : (isPdf ? 'Reading PDF' : 'Reading pages')
+                };
+            }
+            if (s.id === 3) {
+                return {
+                    ...s,
+                    sublabel: isSaving ? 'Organizing...' : (activeStep > 3 ? 'Organized' : 'Page structure')
+                };
+            }
+            if (s.id === 4) {
+                return {
+                    ...s,
+                    sublabel: isDone ? 'Ready to open' : 'Finalizing'
                 };
             }
             return s;
         });
-    }, [isPdf, isPpt]);
+    }, [isPdf, loadedMB, totalMB, activeStep, totalPagesCount, displayedPagesCount, formattedTime, isSaving, isDone]);
 
     // User Avatar Initials
     const userInitial = useMemo(() => {
@@ -257,13 +367,15 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
 
     return (
         <AnimatePresence>
-            <motion.div
-                className="fixed inset-0 z-[99999] bg-[#F8FAFC] flex flex-col justify-between overflow-x-hidden overflow-y-auto select-none w-screen h-screen"
-                initial={{ opacity: 0, scale: 0.995 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.995 }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            >
+            {Boolean(progress) && !isMinimized && (
+                <motion.div
+                    key="pdf-processing-overlay"
+                    className="fixed inset-0 z-[99999] bg-[#F8FAFC] flex flex-col justify-between overflow-x-hidden overflow-y-auto select-none w-screen h-screen"
+                    initial={{ opacity: 0, scale: 0.995 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.995 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                >
                 {/* Ambient Decorative Background Glows with breathing animation */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
 
@@ -295,8 +407,19 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                         />
                     </div>
 
-                    {/* Top Right Controls (Notification Bell & User Profile Avatar Pill) */}
+                    {/* Top Right Controls (Minimize Button + Notification Bell & User Profile Avatar Pill) */}
                     <div className="flex items-center gap-[0.8vw]">
+                        {/* Minimize to Background Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsMinimized(true)}
+                            className="flex items-center gap-[0.35vw] px-[0.9vw] py-[0.45vw] rounded-full bg-white/90 hover:bg-white border border-gray-200 text-gray-700 hover:text-indigo-600 text-[0.78vw] font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer"
+                            title="Minimize to background and continue browsing dashboard"
+                        >
+                            <Minimize2 className="w-[0.9vw] h-[0.9vw]" />
+                            <span>Minimize to Background</span>
+                        </button>
+
                         {/* Notification Bell Button */}
                         <div className="w-[2.4vw] h-[2.4vw] min-w-[2.4vw] min-h-[2.4vw] rounded-full bg-white/90 border border-gray-200/80 shadow-xs flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
                             <Bell className="w-[1vw] h-[1vw] text-gray-600" />
@@ -443,8 +566,8 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                     </div>
 
                     {/* Subtitle Line */}
-                    <div className="text-[0.88vw] text-[#64748B] max-w-[34vw] leading-relaxed mb-[2.5vw] font-normal">
-                        <p>{displaySubtitle}</p>
+                    <div className="text-[0.88vw] text-[#475569] max-w-[34vw] leading-relaxed mb-[2.5vw] font-medium">
+                        <p>{dynamicStatus}</p>
                     </div>
 
                     {/* 4-Stage Stepper: Fluid connection lines & smooth step state transitions */}
@@ -490,8 +613,8 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                                         )}
                                     </div>
 
-                                    {/* Step Title with Extract Count beside Point 2 */}
-                                    <div className="mt-[0.5vw] flex items-center justify-center gap-[0.35vw] flex-wrap">
+                                    {/* Step Title with Extract Count beside Point 2 (Locked minimum height to eliminate layout jumping) */}
+                                    <div className="mt-[0.5vw] min-h-[1.7vw] flex items-center justify-center gap-[0.35vw] whitespace-nowrap">
                                         <span className={`text-[0.85vw] font-bold tracking-tight transition-colors duration-300 ${
                                             isActive || isCompleted ? 'text-[#0F172A]' : 'text-[#64748B]'
                                         }`}>
@@ -500,7 +623,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                                         {step.id === 2 && totalPagesCount > 0 && (
                                             <motion.span
                                                 layout
-                                                className={`inline-flex items-center gap-[0.25vw] px-[0.4vw] py-[0.12vw] rounded-full text-[0.65vw] font-extrabold tracking-tight shadow-2xs transition-all duration-300 ${
+                                                className={`inline-flex items-center gap-[0.25vw] px-[0.4vw] py-[0.12vw] rounded-full text-[0.65vw] font-extrabold tracking-tight shadow-2xs transition-all duration-300 whitespace-nowrap ${
                                                     isActive
                                                         ? 'bg-indigo-50 text-indigo-600 border border-indigo-200/90'
                                                         : isCompleted
@@ -509,16 +632,16 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                                                 }`}
                                             >
                                                 {isActive && (
-                                                    <span className="w-[0.35vw] h-[0.35vw] rounded-full bg-[#4F46E5] animate-pulse" />
+                                                    <span className="w-[0.35vw] h-[0.35vw] rounded-full bg-[#4F46E5] animate-pulse flex-shrink-0" />
                                                 )}
                                                 <span>{displayedPagesCount}/{totalPagesCount}</span>
                                             </motion.span>
                                         )}
                                     </div>
 
-                                    {/* Step Sublabel */}
-                                    <div className="text-[0.72vw] text-[#64748B] mt-[0.15vw] leading-snug whitespace-nowrap">
-                                        {step.sublabel}
+                                    {/* Step Sublabel (Locked minimum height) */}
+                                    <div className="min-h-[1.1vw] flex items-center justify-center text-[0.72vw] text-[#64748B] mt-[0.15vw] leading-snug whitespace-nowrap">
+                                        <span>{step.sublabel}</span>
                                     </div>
                                 </div>
                             );
@@ -534,6 +657,23 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                     >
                         <Lightbulb className="w-[0.9vw] h-[0.9vw] text-[#6366F1] flex-shrink-0" />
                         <span>{displayTip}</span>
+                    </motion.div>
+
+                    {/* Minimize to Background Action Button */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="mt-[1.2vw] flex items-center justify-center gap-[0.8vw]"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setIsMinimized(true)}
+                            className="inline-flex items-center gap-[0.45vw] px-[1.2vw] py-[0.55vw] rounded-full bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[0.8vw] font-bold transition-all shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            <Minimize2 className="w-[0.85vw] h-[0.85vw]" />
+                            <span>Continue in Background (Browse Dashboard)</span>
+                        </button>
                     </motion.div>
 
                     {/* Optional Cancel Upload Action */}
@@ -554,6 +694,75 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                 {/* Footer spacer to maintain balance */}
                 <div className="w-full h-[2vh] pointer-events-none" />
             </motion.div>
+        )}
+
+        {/* Floating Background Upload Dock (rendered when minimized) */}
+        {Boolean(progress) && isMinimized && (
+            <motion.div
+                key="pdf-processing-minimized"
+                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 30, scale: 0.95 }}
+                className="fixed bottom-6 right-6 z-[99999] w-96 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/90 overflow-hidden select-none p-4"
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8 h-8 rounded-lg ${docBadgeColor} text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs`}>
+                            {docBadgeText}
+                        </div>
+                        <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-gray-900 truncate" title={fileName}>
+                                {fileName || 'Document'}
+                            </h4>
+                            <p className="text-xs text-gray-500 font-medium">
+                                {stage === 'uploading'
+                                    ? (loadedMB && totalMB ? `Uploading (${loadedMB} / ${totalMB} MB)...` : `Uploading (${animatedDisplayPercent}%)...`)
+                                    : stage === 'extracting'
+                                    ? `Extracting (${displayedPagesCount}/${totalPagesCount} pages, ${formattedTime})...`
+                                    : stage === 'done'
+                                    ? 'Ready to open'
+                                    : 'Processing pages...'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setIsMinimized(false)}
+                            title="Expand to fullscreen"
+                            className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                        >
+                            <Maximize2 className="w-4 h-4" />
+                        </button>
+                        {onCancel && (
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                title="Cancel upload"
+                                className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2">
+                    <motion.div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+                        style={{ width: `${Math.max(4, animatedDisplayPercent)}%` }}
+                        transition={{ ease: 'easeOut', duration: 0.3 }}
+                    />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-gray-500 font-medium">
+                    <span>{stage === 'uploading' ? 'Step 1 of 4: Uploading' : 'Step 2 of 4: Extracting'}</span>
+                    <span className="font-bold text-indigo-600">{animatedDisplayPercent}%</span>
+                </div>
+            </motion.div>
+        )}
         </AnimatePresence>
     );
 };
