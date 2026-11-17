@@ -274,21 +274,13 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       setIsFullScreen(isFull);
       if (modalBookRef.current) {
         const pageFlipObj = modalBookRef.current.pageFlip();
-        if (pageFlipObj) {
-          const syncPage = () => {
-            if (typeof pageFlipObj.getCurrentPageIndex === 'function') {
-              const curPage = pageFlipObj.getCurrentPageIndex();
-              updateStepFromPage(curPage);
-            }
-            if (typeof pageFlipObj.update === 'function') {
-              pageFlipObj.update();
-            }
-          };
-          syncPage();
-          setTimeout(syncPage, 50);
-          setTimeout(syncPage, 150);
-          setTimeout(syncPage, 300);
-          setTimeout(syncPage, 500);
+        if (pageFlipObj && typeof pageFlipObj.update === 'function') {
+          setTimeout(() => {
+            pageFlipObj.update();
+          }, 80);
+          setTimeout(() => {
+            pageFlipObj.update();
+          }, 250);
         }
       }
     };
@@ -371,12 +363,6 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
     setModalActiveStep(stepNumber);
     modalActiveStepRef.current = stepNumber;
 
-    if (activeModalBook?.isFood || activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany || activePages.length === 8) {
-      if (stepNumber === 1) setModalCoverState('front');
-      else if (stepNumber === totalSteps) setModalCoverState('back');
-      else setModalCoverState('open');
-    }
-
     const stepDiff = stepNumber - currentStep;
     if (stepDiff === 1) {
       pageFlipObj.flipNext();
@@ -453,16 +439,6 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
     updateStepFromPage(pageIndex);
     playFlipSound();
   }, [playFlipSound, updateStepFromPage]);
-
-  const onBookChangeState = useCallback((e) => {
-    if (modalBookRef.current) {
-      const pageFlipObj = modalBookRef.current.pageFlip();
-      if (pageFlipObj && typeof pageFlipObj.getCurrentPageIndex === 'function') {
-        const currentPage = pageFlipObj.getCurrentPageIndex();
-        updateStepFromPage(currentPage);
-      }
-    }
-  }, [updateStepFromPage]);
 
   // Handle wheel scrolling inside modal to flip pages
   const handleModalWheel = useCallback((e) => {
@@ -854,13 +830,14 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                 {/* Flipbook Canvas */}
                 <div
-                  className={`relative mx-auto aspect-[420/297] flex items-center justify-center transition-all duration-300 ${
+                  className={`relative mx-auto aspect-[420/297] flex items-center justify-center ${
                     isFullScreen
-                      ? 'w-[88vw] max-w-[1080px] max-h-[76vh]'
-                      : 'w-full max-w-[560px] sm:max-w-[590px] xl:max-w-[620px]'
+                      ? 'w-full max-w-[820px] sm:max-w-[860px] xl:max-w-[900px]'
+                      : 'w-full max-w-[640px] sm:max-w-[700px] xl:max-w-[760px]'
                   }`}
                 >
                   <div
+                    key={`${activeModalBook?.id || 'modal-book'}-${isFullScreen ? 'fullscreen' : 'modal'}`}
                     className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${
                       isCustomBook || activePages.length === 8
                         ? modalCoverState === 'front'
@@ -875,17 +852,16 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                       width={595}
                       height={842}
                       size="stretch"
-                      minWidth={280}
-                      maxWidth={1400}
-                      minHeight={396}
-                      maxHeight={1980}
+                      minWidth={210}
+                      maxWidth={1200}
+                      minHeight={297}
+                      maxHeight={1700}
                       maxShadowOpacity={0.5}
                       showCover={isCustomBook || activePages.length === 8}
                       mobileScrollSupport={true}
                       clickEventForward={false}
                       useMouseEvents={true}
                       onFlip={onBookFlip}
-                      onChangeState={onBookChangeState}
                       flippingTime={900}
                       swipeDistance={30}
                       ref={modalBookRef}
@@ -1062,7 +1038,18 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
 
                     {/* Center: Play/Pause, Step controls & Progress */}
-                    <div className="flex items-center gap-3 sm:gap-4 flex-1 max-w-xl mx-4">
+                    <div className="flex items-center gap-2.5 sm:gap-3 flex-1 max-w-xl mx-3 sm:mx-4">
+                      {/* Backward / First Page Button */}
+                      <button
+                        type="button"
+                        onClick={() => flipToStep(1)}
+                        disabled={modalActiveStep <= 1}
+                        className="hover:opacity-75 transition-opacity flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="First Page (Backward)"
+                      >
+                        <Icon icon="lucide:skip-back" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                      </button>
+
                       {/* Play / Pause Toggle Button */}
                       <button
                         type="button"
@@ -1077,6 +1064,17 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                             <path d="M7 4.5v15l12-7.5-12-7.5z" />
                           </svg>
                         )}
+                      </button>
+
+                      {/* Forward / Last Page Button */}
+                      <button
+                        type="button"
+                        onClick={() => flipToStep(totalSteps)}
+                        disabled={modalActiveStep >= totalSteps}
+                        className="hover:opacity-75 transition-opacity flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Last Page (Forward)"
+                      >
+                        <Icon icon="lucide:skip-forward" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                       </button>
 
                       {/* Progress Bar */}

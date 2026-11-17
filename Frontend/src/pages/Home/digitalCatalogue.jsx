@@ -336,12 +336,12 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
           
           {/* Top Block: Pitch Heading, Subtext, Bullets & Line (Shifted upward) */}
           <div className="flex flex-col items-center lg:items-end w-full -mt-2 lg:-mt-6 xl:-mt-8">
-            {/* YOUR - Clean Solid Brand Color */}
+            {/* YOUR - Normal Orange & Semibold */}
             <motion.h2
               initial={{ opacity: 0, x: 35 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.9, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="text-6xl sm:text-7xl md:text-8xl lg:text-[5.4vw] font-black uppercase leading-none text-[#EA4335] tracking-[0.06em] select-none"
+              className="text-6xl sm:text-7xl md:text-8xl lg:text-[5.4vw] font-semibold uppercase leading-none tracking-[0.06em] select-none text-[#EC5137]"
             >
               YOUR
             </motion.h2>

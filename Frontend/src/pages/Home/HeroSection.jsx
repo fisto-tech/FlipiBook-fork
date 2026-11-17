@@ -172,19 +172,19 @@ export default function HeroSection({ navigate }) {
         >
           <div
             ref={canvasRef}
-            className="hero-canvas w-full max-w-[540px] sm:max-w-[680px] lg:max-w-[52vw] xl:max-w-[54vw] aspect-[7680/5852] relative flex items-center justify-center select-none drop-shadow-[0_16px_36px_rgba(0,0,0,0.06)]"
+            className="hero-canvas w-full max-w-[540px] sm:max-w-[680px] lg:max-w-[52vw] xl:max-w-[54vw] aspect-[7680/5852] relative flex items-center justify-center select-none"
           >
             {/* 1. Center Motor 3D Studio Canvas Window (Base Layer - deep background anchor) */}
             <div
-              className="hero-layer absolute left-[11.1%] top-[9.9%] w-[55.0%] h-auto z-10"
-              style={{ '--sx': '-3px', '--sy': '-3px', '--ex': '-2px', '--ey': '-2px', '--rot': '0.35deg' }}
+              className="hero-layer hero-layer-motor absolute left-[11.1%] top-[9.9%] w-[55.0%] h-auto z-10"
+              style={{ '--sx': '-4px', '--sy': '-4px', '--ex': '-2px', '--ey': '4px', '--rot': '0.7deg', '--tz': '0px' }}
             >
               <div className="hero-parallax">
                 <div className="hero-float hero-float-1">
                   <img
                     src={motorImg}
                     alt="3D Studio Canvas Motor"
-                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer drop-shadow-[0_12px_24px_rgba(0,0,0,0.10)]"
+                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer"
                   />
                 </div>
               </div>
@@ -192,15 +192,15 @@ export default function HeroSection({ navigate }) {
 
             {/* 2. Top Menu Strip (Content, 3D Editor, Settings) */}
             <div
-              className="hero-layer absolute left-[26.8%] top-[1.1%] w-[33.2%] h-auto z-20"
-              style={{ '--sx': '-5px', '--sy': '-7px', '--ex': '0px', '--ey': '-7px', '--rot': '0.7deg' }}
+              className="hero-layer hero-layer-topmenu absolute left-[26.8%] top-[0.6%] w-[33.2%] h-auto z-20"
+              style={{ '--sx': '-8px', '--sy': '-10px', '--ex': '0px', '--ey': '-14px', '--rot': '1.2deg', '--tz': '25px' }}
             >
               <div className="hero-parallax">
                 <div className="hero-float hero-float-2">
                   <img
                     src={topmenuImg}
                     alt="3D Editor Top Menu"
-                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer drop-shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
+                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer"
                   />
                 </div>
               </div>
@@ -209,14 +209,14 @@ export default function HeroSection({ navigate }) {
             {/* 3. Left Menu Strip (Tools Toolbar) */}
             <div
               className="hero-layer absolute left-[1.6%] top-[13.7%] w-[13.4%] h-auto z-20"
-              style={{ '--sx': '-6px', '--sy': '-5px', '--ex': '-7px', '--ey': '0px', '--rot': '-0.6deg' }}
+              style={{ '--sx': '-10px', '--sy': '-7px', '--ex': '-10px', '--ey': '0px', '--rot': '-1.1deg', '--tz': '28px' }}
             >
               <div className="hero-parallax">
                 <div className="hero-float hero-float-3">
                   <img
                     src={leftmenuImg}
                     alt="Left Tools Menu"
-                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer drop-shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
+                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer"
                   />
                 </div>
               </div>
@@ -225,14 +225,14 @@ export default function HeroSection({ navigate }) {
             {/* 4. Right Properties Inspector Panel */}
             <div
               className="hero-layer absolute left-[64.2%] top-[7.2%] w-[29.6%] h-auto z-20"
-              style={{ '--sx': '6px', '--sy': '-5px', '--ex': '8px', '--ey': '-3px', '--rot': '0.8deg' }}
+              style={{ '--sx': '10px', '--sy': '-7px', '--ex': '12px', '--ey': '-4px', '--rot': '1.3deg', '--tz': '35px' }}
             >
               <div className="hero-parallax">
                 <div className="hero-float hero-float-4">
                   <img
                     src={rightpropertiesImg}
                     alt="Inspector Properties Panel"
-                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer drop-shadow-[0_12px_24px_rgba(0,0,0,0.14)]"
+                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer"
                   />
                 </div>
               </div>
@@ -241,14 +241,14 @@ export default function HeroSection({ navigate }) {
             {/* 5. Bottom Menu Strip (Orbit, Hand, Zoom, Reset) */}
             <div
               className="hero-layer absolute left-[17.0%] top-[69.5%] w-[43.4%] h-auto z-25"
-              style={{ '--sx': '-5px', '--sy': '5px', '--ex': '-2px', '--ey': '7px', '--rot': '-0.6deg' }}
+              style={{ '--sx': '-8px', '--sy': '8px', '--ex': '-3px', '--ey': '10px', '--rot': '-1.0deg', '--tz': '30px' }}
             >
               <div className="hero-parallax">
                 <div className="hero-float hero-float-2">
                   <img
                     src={bottommenuImg}
                     alt="Bottom Navigation Controls"
-                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer drop-shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
+                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer"
                   />
                 </div>
               </div>
@@ -257,14 +257,14 @@ export default function HeroSection({ navigate }) {
             {/* 6. Scan QR Code Badge */}
             <div
               className="hero-layer absolute left-[9.8%] top-[65.5%] w-[10.8%] h-auto z-30"
-              style={{ '--sx': '-7px', '--sy': '6px', '--ex': '-8px', '--ey': '6px', '--rot': '-1deg' }}
+              style={{ '--sx': '-12px', '--sy': '10px', '--ex': '-12px', '--ey': '8px', '--rot': '-1.5deg', '--tz': '45px' }}
             >
               <div className="hero-parallax">
                 <div className="hero-float hero-float-1">
                   <img
                     src={scanImg}
                     alt="Scan me to view in AR"
-                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer drop-shadow-[0_10px_20px_rgba(0,0,0,0.14)]"
+                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer"
                   />
                 </div>
               </div>
@@ -273,14 +273,14 @@ export default function HeroSection({ navigate }) {
             {/* 7. Mobile AR Smartphone Preview (Foreground hero element) */}
             <div
               className="hero-layer hero-layer-mobile absolute left-[47.6%] top-[45.0%] w-[21.6%] h-auto z-40"
-              style={{ '--sx': '9px', '--sy': '8px', '--ex': '7px', '--ey': '7px', '--rot': '1.2deg' }}
+              style={{ '--sx': '15px', '--sy': '13px', '--ex': '10px', '--ey': '10px', '--rot': '1.8deg', '--tz': '70px' }}
             >
               <div className="hero-parallax">
                 <div className="hero-float hero-float-4">
                   <img
                     src={mobileImg}
                     alt="Mobile AR View"
-                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer drop-shadow-[0_18px_32px_rgba(0,0,0,0.20)]"
+                    className="w-full h-auto object-contain pointer-events-auto cursor-pointer"
                   />
                 </div>
               </div>
@@ -302,11 +302,11 @@ export default function HeroSection({ navigate }) {
         .hero-canvas {
           --mx: 0;
           --my: 0;
-          perspective: 1200px;
-          perspective-origin: center center;
+          perspective: 1000px;
+          perspective-origin: 50% 50%;
         }
 
-        /* Mouse Movement Parallax with subtle 3D perspective tilt and multi-depth trace */
+        /* Mouse Movement Parallax with realistic 3D perspective tilt and multi-depth z-translation */
         .hero-parallax {
           width: 100%;
           height: 100%;
@@ -314,10 +314,10 @@ export default function HeroSection({ navigate }) {
           transform: translate3d(
             calc(var(--mx) * var(--sx, 0px)),
             calc(var(--my) * var(--sy, 0px)),
-            0
+            var(--tz, 0px)
           )
-          rotateX(calc(var(--my) * -1 * var(--rot, 0deg)))
-          rotateY(calc(var(--mx) * var(--rot, 0deg)));
+          rotateX(calc(var(--my) * -3.5 * var(--rot, 0deg)))
+          rotateY(calc(var(--mx) * 3.5 * var(--rot, 0deg)));
           will-change: transform;
         }
 
@@ -383,20 +383,28 @@ export default function HeroSection({ navigate }) {
 
         /* Rich, tactile individual hover interaction */
         .hero-layer:hover .hero-float {
-          transform: scale(1.045) translateY(-8px) !important;
-          filter: drop-shadow(0 24px 38px rgba(0, 0, 0, 0.22)) brightness(1.03) !important;
+          transform: scale(1.05) translateY(-6px) translateZ(35px) !important;
+        }
+
+        /* Prevent motor center window from moving upwards into top menu on hover */
+        .hero-layer-motor:hover .hero-float {
+          transform: scale(1.03) translateY(0px) translateZ(20px) !important;
+        }
+
+        /* Top menu moves cleanly upwards on hover */
+        .hero-layer-topmenu:hover .hero-float {
+          transform: scale(1.05) translateY(-8px) translateZ(40px) !important;
         }
 
         /* Active click tactile feedback (gentle press) */
         .hero-layer:active .hero-float {
           transform: scale(0.985) translateY(-2px) !important;
-          filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.16)) !important;
-          transition: transform 0.15s ease, filter 0.15s ease !important;
+          transition: transform 0.15s ease !important;
         }
 
         .hero-float {
-          transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.6s ease;
-          will-change: transform, filter;
+          transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+          will-change: transform;
         }
 
         @media (prefers-reduced-motion: reduce) {
