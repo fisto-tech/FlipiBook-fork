@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, memo } from 'react';
 import axios from 'axios';
 import { BookOpen } from 'lucide-react';
 import { flipbookApi } from '../../api/flipbookApi';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { resolveUploadsPath, getAssetBaseUrl } from '../../utils/assetUtils';
 import { sanitizeSvgXml } from '../../utils/editorUtils';
 
 // Global font cache across all preview cards to prevent duplicate Google Fonts requests
@@ -25,6 +25,7 @@ function LazyPreviewComponent({
         }
         return null;
     });
+    const [fetchedBaseUrl, setFetchedBaseUrl] = useState('');
     const [loaded, setLoaded] = useState(Boolean(firstPageContent));
     const [fetching, setFetching] = useState(false);
 
@@ -52,6 +53,16 @@ function LazyPreviewComponent({
                 // 1. Primary: fetch preview HTML/SVG from flipbookApi
                 const res = await flipbookApi.getPreview(v_id, emailId, abortController.signal);
                 if (!isMounted) return;
+
+                if (res.data?.book) {
+                    const b = res.data.book;
+                    const uFolder = b.userID || b.userFolder || b.userId || emailId?.replace(/[@.]/g, '_');
+                    const fName = b.folderName || 'default';
+                    const bName = b.realName || b.flipbookName || b.title || title;
+                    if (uFolder && bName) {
+                        setFetchedBaseUrl(getAssetBaseUrl(uFolder, fName, bName));
+                    }
+                }
 
                 if (res.data?.html && typeof res.data.html === 'string' && res.data.html.trim().length > 0) {
                     const fontsToLoad = new Set();
@@ -158,16 +169,40 @@ function LazyPreviewComponent({
             {/* Actual preview — rendered on top once ready */}
             {html ? (() => {
                 let processedContent = sanitizeSvgXml(html.content || '');
-                const cleanBaseUrl = (iframeBaseUrl || '').trim();
+                const cleanBaseUrl = (iframeBaseUrl || fetchedBaseUrl || '').trim();
                 let effectiveBaseHref = cleanBaseUrl;
                 if (cleanBaseUrl) {
                     const bookBaseUrl = cleanBaseUrl.endsWith('/') ? cleanBaseUrl : `${cleanBaseUrl}/`;
                     effectiveBaseHref = `${bookBaseUrl}pages/`;
                     const assetsBaseUrl = `${bookBaseUrl}assets/`;
-                    processedContent = processedContent
-                        .replace(/(?:href|xlink:href)=["'](?:\.\.\/|\.\/)?assets\/([^"']+)["']/gi, `href="${assetsBaseUrl}$1" xlink:href="${assetsBaseUrl}$1"`)
-                        .replace(/src=["'](?:\.\.\/|\.\/)?assets\/([^"']+)["']/gi, `src="${assetsBaseUrl}$1"`);
+                    processedContent = processedContent.replace(
+                        /(\b(?:href|xlink:href|src)=["'])(?:\.\.\/|\.\/)*assets\/([^"']+)["']/gi,
+                        (match, prefix, path) => `${prefix}${assetsBaseUrl}${path}"`
+                    );
                 }
+
+                const backend = (backendUrl || (typeof import.meta !== 'undefined' ? import.meta.env?.VITE_BACKEND_URL : '') || '').trim().replace(/\/+$/, '');
+                if (backend) {
+                    processedContent = processedContent.replace(
+                        /(\b(?:href|xlink:href|src)=["'])\/(storage|uploads)\/([^"']+)["']/gi,
+                        `$1${backend}/$2/$3"`
+                    );
+                }
+
+                // Self-healing: if SVG contains an expired/unreachable blob: URL from an older session, replace with server-side page asset
+                if (processedContent.includes('href="blob:') || processedContent.includes("href='blob:") || processedContent.includes('src="blob:') || processedContent.includes("src='blob:")) {
+                    const fallbackPageAsset = `${effectiveBaseHref}1.webp`;
+                    processedContent = processedContent.replace(
+                        /(\b(?:href|xlink:href|src)=["'])blob:[^"']+["']/gi,
+                        `$1${fallbackPageAsset}"`
+                    );
+                }
+
+                // Normalize vector-effect so strokes scale down proportionally with the thumbnail viewBox
+                processedContent = processedContent
+                    .replace(/\bvector-effect\s*=\s*["']non-scaling-stroke["']/gi, 'vector-effect="none"')
+                    .replace(/\bvectorEffect\s*=\s*["']non-scaling-stroke["']/gi, 'vectorEffect="none"')
+                    .replace(/vector-effect\s*:\s*non-scaling-stroke\s*;?/gi, 'vector-effect: none;');
 
                 if (processedContent.includes('preserveAspectRatio')) {
                     processedContent = processedContent.replace(/preserveAspectRatio=["'][^"']*["']/i, 'preserveAspectRatio="xMidYMid meet"');
@@ -187,7 +222,7 @@ function LazyPreviewComponent({
                         title={`Preview of ${title}`}
                         className="w-full h-full border-none pointer-events-none select-none"
                         sandbox="allow-same-origin allow-scripts"
-                        srcDoc={`<!DOCTYPE html><html><head>${html.fontImports || ''}<base href="${effectiveBaseHref}"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f3f4f6;}svg{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.12));}[data-name="Free Frame"]{stroke:transparent !important;fill:transparent !important;}</style></head><body>${processedContent}</body></html>`}
+                        srcDoc={`<!DOCTYPE html><html><head>${html.fontImports || ''}<base href="${effectiveBaseHref}"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f3f4f6;}svg{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.12));}svg,svg *{vector-effect:none !important;}[data-name="Free Frame"]{stroke:transparent !important;fill:transparent !important;}</style></head><body>${processedContent}</body></html>`}
                     />
                 );
             })() : loaded && imageUrl ? (

@@ -390,7 +390,7 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
                   </div>
                   <div className="mt-[1vw] text-[0.72vw] text-gray-500 space-y-[0.2vw] shrink-0">
                     <p><span className="font-medium text-gray-700">Supported File :</span> {mediaType === 'video' ? 'MP4, MKV, WEBM' : mediaType === 'gif' ? 'GIF, WEBP' : 'JPG, PNG, WEBP, SVG'}</p>
-                    <p><span className="font-medium text-gray-700">Max file size :</span> 50MB</p>
+                    <p><span className="font-medium text-gray-700">Max file size :</span> 250MB</p>
                   </div>
                 </>
               )}
