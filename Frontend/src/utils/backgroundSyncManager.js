@@ -66,7 +66,7 @@ class BackgroundSyncManager {
     this._attachUnloadGuard();
 
     const task = (async () => {
-      const BATCH_SIZE = 15;
+      const BATCH_SIZE = 8;
       const total = remainingPages.length;
       let completed = 0;
       let hasError = false;
