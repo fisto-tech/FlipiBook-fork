@@ -11,7 +11,7 @@
  * 6. Progressive Persistence: Batch-saves to server without 413 Payload Too Large errors.
  */
 
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { extractDocumentViaServer } from './resumableUploader.js';
 import { generatePdfPageSvg } from '../utils/pdfUtils.js';
