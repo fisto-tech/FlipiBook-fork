@@ -82,7 +82,7 @@ export default function MyShelfFeatures() {
         {/* =========================================
             SECTION 2: CENTER HEADING & SUBTITLE
         ========================================= */}
-        <section className="relative w-full pt-10 sm:pt-14 md:pt-16 pb-8 sm:pb-12 md:pb-14 text-center bg-[#F6F6F6]">
+        <section className="relative w-full pt-10 sm:pt-14 md:pt-16 pb-4 sm:pb-6 md:pb-5 text-center bg-[#F6F6F6]">
           <div className="max-w-[960px] mx-auto px-4">
             <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
               <span className="w-8 sm:w-14 h-[2.5px] bg-[#EA580C] rounded-full inline-block shrink-0"></span>
@@ -102,7 +102,7 @@ export default function MyShelfFeatures() {
         ========================================= */}
         <section className="relative w-full bg-[#F6F6F6] py-6 sm:py-8">
           <div className="max-w-[92vw] mx-auto px-4 md:px-[1vw]">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-14">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-10">
 
               {/* DESKTOP VIEW: Overlapping visual pair on the left */}
               <div className="hidden lg:flex w-full lg:w-[58%] relative flex-col gap-4 justify-center">

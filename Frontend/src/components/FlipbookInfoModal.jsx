@@ -46,10 +46,12 @@ const scrollbarStyles = `
 `;
 
 export const COVER_TEMPLATES = [
-  { id: 1, label: 'Open Brochure Spread', defaultText1: 'FREE A4 BROCHURE', defaultText2: 'Mockup Presentation' },
-  { id: 2, label: 'Open Spread & Standing Cover', defaultText1: 'PERFECT BINDING', defaultText2: 'Brochure Mockup' },
-  { id: 3, label: 'Overhead Angle Spread', defaultText1: 'CORPORATE SHOWCASE', defaultText2: 'Annual Brochure & Report' },
-
+  { id: 1, label: 'Dual Hardcover', defaultText1: 'Hard.Cover Book', defaultText2: 'Free .psd Mockup' },
+  { id: 2, label: 'Single Hardcover', defaultText1: 'Premium Edition', defaultText2: 'Classic Minimal Design' },
+  { id: 3, label: 'Landscape Catalog', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
+  { id: 4, label: 'Modern Magazine', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
+  { id: 5, label: 'Stacked Trio', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
+  { id: 6, label: 'Isometric Floating', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
 ];
 
 export const extractPageBgColor = (page) => {
@@ -111,8 +113,8 @@ export const normalizePageHtml = (htmlStr) => {
 
 export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], scaleClass = "scale-[1.05]", customTitle = null, customSubtitle = null) => {
   const page1 = selectedPages[0] && pages[selectedPages[0] - 1] ? pages[selectedPages[0] - 1] : null;
-  const page2 = selectedPages[1] && pages[selectedPages[1] - 1] ? pages[selectedPages[1] - 1] : null;
-  const page3 = selectedPages[2] && pages[selectedPages[2] - 1] ? pages[selectedPages[2] - 1] : null;
+  const page2 = selectedPages[1] && pages[selectedPages[1] - 1] ? pages[selectedPages[1] - 1] : page1;
+  const page3 = selectedPages[2] && pages[selectedPages[2] - 1] ? pages[selectedPages[2] - 1] : page2;
 
   const page1Html = page1?.html ? normalizePageHtml(page1.html) : '';
   const page2Html = page2?.html ? normalizePageHtml(page2.html) : '';
@@ -122,320 +124,246 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
 
   switch (templateId) {
     case 1:
-      // Template 1: Open A4 Brochure Spread (matching Reference Image 1)
-      // Realistic perspective, center binding crease, curved spine depth, soft ambient drop shadow
+      // Dual Hardcover Mockup
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-
-
-          {/* Perspective Container */}
-          <div className="relative flex items-center justify-center transform rotate-[-7deg] skew-y-[1.5deg]">
-            {/* The Open Book Body with realistic center spine depth */}
-            <div className="relative flex shadow-[0_1vw_2.2vw_rgba(0,0,0,0.18),0_0.3vw_0.6vw_rgba(0,0,0,0.1)] rounded-[0.25vw] bg-neutral-200 p-[0.08vw]">
-              
-              {/* Left Page (Curved upward at spine) */}
-              <div className="relative w-[6.8vw] h-[9.6vw] bg-white rounded-l-[0.2vw] overflow-hidden border-y border-l border-neutral-300 shadow-[inset_-0.8vw_0_1.2vw_rgba(0,0,0,0.18),inset_0_0.2vw_0.4vw_rgba(255,255,255,0.8)]">
-                {/* Book page edge thickness layered bottom */}
-                <div className="absolute bottom-0 inset-x-0 h-[0.12vw] bg-gradient-to-r from-neutral-300 to-neutral-400" />
-                
-                {/* Content */}
-                {page1 ? (
-                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
-                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page1Html }} />
-                  </div>
-                ) : (
-                  <div className="w-full h-full p-[1.1vw] flex flex-col justify-between text-neutral-800 bg-gradient-to-br from-white via-neutral-50 to-neutral-100">
-                    <div className="flex items-center justify-between border-b border-neutral-200 pb-[0.4vw]">
-                      <span className="text-[0.45vw] font-mono tracking-widest text-neutral-400 uppercase">2026 / EDITION</span>
-                      <div className="w-[1.2vw] h-[1.2vw] bg-blue-600 rounded-[0.2vw] flex items-center justify-center text-white text-[0.6vw] font-black">M</div>
-                    </div>
-                    <div className="my-auto py-[0.5vw]">
-                      <h3 className="text-[0.95vw] font-black tracking-tight leading-tight uppercase font-serif text-neutral-900 break-words">
-                        {customTitle || "FREE A4 BROCHURE"}
-                      </h3>
-                      <p className="text-[0.55vw] text-neutral-500 font-medium mt-[0.3vw] leading-relaxed break-words">
-                        {customSubtitle || "Mockup Presentation"}
-                      </p>
-                      <div className="space-y-[0.2vw] mt-[0.6vw] opacity-40">
-                        <div className="w-full h-[0.18vw] bg-neutral-400 rounded-full" />
-                        <div className="w-4/5 h-[0.18vw] bg-neutral-400 rounded-full" />
-                        <div className="w-3/5 h-[0.18vw] bg-neutral-400 rounded-full" />
-                      </div>
-                    </div>
-                    <div className="text-[0.42vw] text-neutral-400 font-mono tracking-wider">
-                      Page 01
-                    </div>
-                  </div>
-                )}
-                {/* Left Inner Crease shadow gradient */}
-                <div className="absolute right-0 top-0 bottom-0 w-[1.2vw] bg-gradient-to-l from-black/15 via-black/5 to-transparent pointer-events-none z-20" />
-                {/* Soft Page curvature highlight */}
-                <div className="absolute left-[2vw] top-0 bottom-0 w-[3vw] bg-gradient-to-r from-white/30 via-white/50 to-transparent pointer-events-none z-20" />
+          {/* Back book */}
+          <div className={`absolute w-[10vw] h-[13.5vw] ${page1 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-orange-500 to-amber-600 border-orange-400 p-[0.7vw]'} rounded-[0.6vw] transform -rotate-6 border flex flex-col justify-between text-white overflow-hidden`}>
+            <div className="absolute top-0 right-0 w-[4vw] h-[14vw] bg-white opacity-10 transform rotate-12 -translate-y-[1vw] translate-x-[1vw] z-10 pointer-events-none"></div>
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
               </div>
-
-              {/* Center Spine Crease Simulation */}
-              <div className="relative w-[0.1vw] h-[9.6vw] bg-neutral-400/80 shadow-[0_0_0.1vw_rgba(0,0,0,0.15)] z-30" />
-
-              {/* Right Page (Curved gently outward) */}
-              <div className="relative w-[6.8vw] h-[9.6vw] bg-white rounded-r-[0.2vw] overflow-hidden border-y border-r border-neutral-300 shadow-[inset_0.8vw_0_1.2vw_rgba(0,0,0,0.18),inset_0_0.2vw_0.4vw_rgba(255,255,255,0.8)]">
-                {/* Book page edge thickness layered bottom */}
-                <div className="absolute bottom-0 inset-x-0 h-[0.12vw] bg-gradient-to-r from-neutral-400 to-neutral-300" />
-                
-                {/* Content */}
-                {page2 ? (
-                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
-                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page2Html }} />
-                  </div>
-                ) : (
-                  <div className="w-full h-full p-[1.1vw] flex flex-col justify-between text-neutral-800 bg-gradient-to-br from-neutral-50 via-white to-neutral-100">
-                    {/* Realistic sample magazine content block */}
-                    <div className="w-full h-[5.5vw] bg-gradient-to-br from-cyan-600 via-teal-600 to-blue-700 rounded-[0.3vw] shadow-inner overflow-hidden relative flex items-end p-[0.5vw]">
-                      <span className="text-[0.45vw] text-white/90 font-semibold tracking-wider uppercase">Editorial Feature</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-[0.4vw] my-[0.3vw]">
-                      <div className="h-[3.8vw] bg-gradient-to-tr from-sky-700 to-indigo-800 rounded-[0.25vw]" />
-                      <div className="space-y-[0.2vw] pt-[0.2vw]">
-                        <div className="w-full h-[0.2vw] bg-neutral-300 rounded-full" />
-                        <div className="w-4/5 h-[0.2vw] bg-neutral-300 rounded-full" />
-                        <div className="w-full h-[0.2vw] bg-neutral-300 rounded-full" />
-                        <div className="w-2/3 h-[0.2vw] bg-neutral-300 rounded-full" />
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center text-[0.42vw] text-neutral-400 font-mono">
-                      <span>Mockup Edition</span>
-                      <span>Page 02</span>
-                    </div>
-                  </div>
-                )}
-                {/* Right Inner Crease shadow gradient */}
-                <div className="absolute left-0 top-0 bottom-0 w-[1.2vw] bg-gradient-to-r from-black/15 via-black/5 to-transparent pointer-events-none z-20" />
-                {/* Soft Page curvature highlight */}
-                <div className="absolute right-[2vw] top-0 bottom-0 w-[3vw] bg-gradient-to-l from-white/30 via-white/50 to-transparent pointer-events-none z-20" />
+            ) : (
+              <>
+                <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85 relative z-10">HARD.COVER</span>
+                <div className="relative z-10">
+                  <h3 className="text-[0.85vw] font-black leading-tight break-words">{customTitle || "Hard.Cover Book"}</h3>
+                  <p className="text-[0.6vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Free .psd Mockup"}</p>
+                </div>
+              </>
+            )}
+          </div>
+          
+          {/* Front book */}
+          <div className={`absolute w-[10vw] h-[13.5vw] ${page2 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-amber-600 to-orange-500 border-amber-400 p-[0.7vw]'} rounded-[0.6vw] shadow-sm transform rotate-6 border flex flex-col justify-between text-white overflow-hidden`}>
+            <div className="absolute top-0 left-0 w-[3vw] h-[14vw] bg-black opacity-10 filter blur-[0.2vw] -translate-x-[0.5vw] z-10 pointer-events-none"></div>
+            <div className="absolute top-0 right-0 w-[5vw] h-[14vw] bg-white opacity-20 transform rotate-12 -translate-y-[1vw] translate-x-[2vw] z-10 pointer-events-none"></div>
+            {page2 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page2Html }} />
               </div>
-
-            </div>
+            ) : (
+              <>
+                <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85 relative z-10">HARD.COVER</span>
+                <div className="relative z-10">
+                  <h3 className="text-[0.85vw] font-black leading-tight break-words">{customTitle || "Hard.Cover Book"}</h3>
+                  <p className="text-[0.6vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Free .psd Mockup"}</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       );
 
     case 2:
-      // Template 2: Open Spread with Standing Closed Cover (matching Reference Image 2)
-      // Left/Center: Angled open brochure spread. Right: Clean standing closed brochure with thick spine & cast shadow.
+      // Single Minimalist Standing Hardcover
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-
-          
-          <div className="relative w-[18vw] h-[12.5vw] flex items-center justify-center">
-            
-            {/* Background Open Brochure Spread */}
-            <div className="absolute left-0 transform rotate-[-12deg] skew-y-[3deg] z-10 flex shadow-[0_1.5vw_3vw_rgba(0,0,0,0.22)] rounded-[0.2vw] bg-neutral-200 p-[0.06vw]">
-              {/* Spread Left */}
-              <div className="relative w-[6.2vw] h-[9.2vw] bg-white rounded-l-[0.2vw] overflow-hidden border border-neutral-300 shadow-[inset_-0.6vw_0_0.9vw_rgba(0,0,0,0.15)]">
-                {page2 ? (
-                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
-                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page2Html }} />
-                  </div>
-                ) : (
-                  <div className="w-full h-full p-[0.8vw] flex flex-col justify-between text-neutral-800 bg-neutral-50">
-                    <div className="flex justify-between items-center text-[0.4vw] text-neutral-400 font-mono">
-                      <span>2026/EDITION</span>
-                      <div className="w-[0.9vw] h-[0.9vw] bg-blue-600 rounded-[0.15vw] text-white flex items-center justify-center font-bold text-[0.45vw]">M</div>
-                    </div>
-                    <div>
-                      <span className="text-[0.65vw] font-black uppercase text-neutral-900 leading-tight block">PERFECT BINDING</span>
-                      <span className="text-[0.45vw] text-neutral-500">Brochure Mockup</span>
-                      <div className="space-y-[0.18vw] mt-[0.4vw] opacity-40">
-                        <div className="w-full h-[0.15vw] bg-neutral-400 rounded-full" />
-                        <div className="w-4/5 h-[0.15vw] bg-neutral-400 rounded-full" />
-                      </div>
-                    </div>
-                    <span className="text-[0.38vw] text-neutral-400 font-mono">Page 01</span>
-                  </div>
-                )}
-                <div className="absolute right-0 top-0 bottom-0 w-[0.8vw] bg-gradient-to-l from-black/15 to-transparent pointer-events-none z-20" />
-              </div>
-
-              {/* Spine Line */}
-              <div className="w-[0.1vw] h-[9.2vw] bg-neutral-400/80 z-20 shadow-xs" />
-
-              {/* Spread Right */}
-              <div className="relative w-[6.2vw] h-[9.2vw] bg-white rounded-r-[0.2vw] overflow-hidden border border-neutral-300 shadow-[inset_0.6vw_0_0.9vw_rgba(0,0,0,0.15)]">
-                {page3 ? (
-                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
-                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page3Html }} />
-                  </div>
-                ) : (
-                  <div className="w-full h-full p-[0.8vw] flex flex-col justify-between text-neutral-800 bg-neutral-50">
-                    <div className="w-full h-[4.2vw] bg-gradient-to-br from-teal-500 to-blue-600 rounded-[0.2vw]" />
-                    <div className="space-y-[0.18vw]">
-                      <div className="w-full h-[0.15vw] bg-neutral-300 rounded-full" />
-                      <div className="w-3/4 h-[0.15vw] bg-neutral-300 rounded-full" />
-                    </div>
-                    <span className="text-[0.38vw] text-neutral-400 font-mono text-right">Page 02</span>
-                  </div>
-                )}
-                <div className="absolute left-0 top-0 bottom-0 w-[0.8vw] bg-gradient-to-r from-black/15 to-transparent pointer-events-none z-20" />
-              </div>
+          {/* Depth / Side spine effect */}
+          <div className="relative w-[11.2vw] h-[14.8vw] rounded-[0.5vw] border border-black/10 overflow-hidden bg-white flex">
+            {/* Book spine simulation strip */}
+            <div 
+              className={`w-[0.9vw] h-full ${!page1 ? 'bg-gradient-to-r from-gray-700 via-gray-600 to-gray-800' : ''} shrink-0 relative shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.5)] z-20 flex items-center justify-center`}
+              style={page1Color ? { backgroundColor: page1Color } : {}}
+            >
+              {!page1 && (
+                <span className="text-[0.45vw] text-white/70 font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">EDITION</span>
+              )}
             </div>
-
-            {/* Foreground Closed Front Cover Book (angled slightly to the right with sharp realism) */}
-            <div className="absolute right-[0.5vw] top-[1.2vw] z-30 transform rotate-[4deg] skew-y-[-2deg] filter drop-shadow-[-1.2vw_1.5vw_2vw_rgba(0,0,0,0.35)]">
-              {/* Realistic Book with Spine edge depth */}
-              <div className="relative w-[7.2vw] h-[10.4vw] rounded-[0.3vw] overflow-hidden bg-white border border-black/10 flex flex-col justify-between shadow-[0_0.4vw_1.2vw_rgba(0,0,0,0.15)]">
-                {/* Book spine crease line */}
-                <div className="absolute left-0 inset-y-0 w-[0.5vw] bg-gradient-to-r from-black/30 via-black/10 to-transparent z-20 pointer-events-none" />
-                <div className="absolute left-[0.45vw] inset-y-0 w-[0.06vw] bg-black/20 z-20 pointer-events-none" />
-
-                {/* Cover Glossy subtle sheen */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/25 pointer-events-none z-20" />
-
-                {page1 ? (
-                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
-                    <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+            {/* Book cover area */}
+            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-slate-900 to-indigo-950 text-white flex flex-col justify-between p-[0.9vw]">
+              <div className="absolute top-0 right-0 w-[6vw] h-full bg-gradient-to-l from-white/10 to-transparent pointer-events-none z-10" />
+              <div className="absolute inset-y-0 left-0 w-[0.3vw] bg-black/30 z-10 pointer-events-none" />
+              {page1 ? (
+                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+                </div>
+              ) : (
+                <>
+                  <div className="relative z-10 flex items-center gap-[0.4vw]">
+                    <div className="w-[1.2vw] h-[0.15vw] bg-amber-400" />
+                    <span className="text-[0.6vw] tracking-wider uppercase font-semibold text-amber-300">HARDCOVER</span>
                   </div>
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-b from-[#2563EB] to-[#1D4ED8] text-white flex flex-col justify-between p-[0.9vw]">
-                    <div>
-                      <div className="w-[1.4vw] h-[1.4vw] bg-white rounded-[0.2vw] text-[#2563EB] flex items-center justify-center font-black text-[0.8vw] mb-[0.8vw]">
-                        M
-                      </div>
-                      <span className="text-[0.42vw] tracking-widest uppercase font-bold text-blue-200 block">
-                        PERFECT BINDING
-                      </span>
-                      <h3 className="text-[0.95vw] font-black uppercase tracking-tight leading-tight mt-[0.2vw] break-words">
-                        {customTitle || "BROCHURE MOCKUP"}
-                      </h3>
-                    </div>
-
-                    {/* Bottom A4 Tag container */}
-                    <div className="bg-white text-neutral-900 -mx-[0.9vw] -mb-[0.9vw] p-[0.7vw] border-t border-blue-400/30">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[0.65vw] font-black uppercase text-neutral-900 tracking-wider">A4</span>
-                        <span className="text-[0.38vw] text-neutral-400 font-mono">EDITION 2026</span>
-                      </div>
-                      <p className="text-[0.45vw] text-neutral-500 font-medium truncate mt-[0.1vw]">
-                        {customSubtitle || "Premium Presentation"}
-                      </p>
-                    </div>
+                  <div className="relative z-10">
+                    <h3 className="text-[1vw] font-bold tracking-tight leading-snug break-words">{customTitle || 'Title'}</h3>
+                    <p className="text-[0.6vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || 'Supporting Text'}</p>
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
-
           </div>
         </div>
       );
 
     case 3:
-      // Template 3: Overhead Flat-Lay Open Spread (matching Reference Image 3)
-      // Realistic overhead perspective view with natural center gutter shadow & crisp paper edge
+      // Landscape Catalog / Wide Brochure Mockup
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-
-
-          {/* Perspective Container */}
-          <div className="relative flex items-center justify-center transform rotate-[-9deg] skew-y-[3deg]">
-            <div className="relative flex shadow-[0_1.8vw_3.5vw_rgba(0,0,0,0.25),0_0.5vw_1vw_rgba(0,0,0,0.12)] rounded-[0.25vw] bg-neutral-300 p-[0.08vw]">
-              
-              {/* Left Spread Page */}
-              <div className="relative w-[7.8vw] h-[10.8vw] bg-white rounded-l-[0.25vw] overflow-hidden border-y border-l border-neutral-300 shadow-[inset_-0.9vw_0_1.2vw_rgba(0,0,0,0.2)]">
-                {/* Book page edge layered thickness */}
-                <div className="absolute bottom-0 inset-x-0 h-[0.15vw] bg-neutral-300" />
-                
-                {page1 ? (
-                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
-                    <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+          <div className="relative w-[18.5vw] h-[12vw] bg-white rounded-[0.5vw] flex overflow-hidden border border-gray-300">
+            {/* Spine Left Edge */}
+            <div 
+              className={`w-[0.8vw] h-full ${!page1 ? 'bg-gradient-to-r from-gray-800 to-gray-700' : ''} shrink-0 shadow-[inset_-0.15vw_0_0.3vw_rgba(0,0,0,0.4)] z-20 flex items-center justify-center`}
+              style={page1Color ? { backgroundColor: page1Color } : {}}
+            >
+              {!page1 && (
+                <span className="text-[0.4vw] text-white/70 font-bold uppercase tracking-wider transform -rotate-90 whitespace-nowrap">CATALOG</span>
+              )}
+            </div>
+            {/* Front Cover Area */}
+            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-zinc-950 text-white p-[1.1vw] flex flex-col justify-between">
+              {/* Glossy sheen */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/20 pointer-events-none z-10" />
+              {page1 ? (
+                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+                </div>
+              ) : (
+                <>
+                  <div className="relative z-10 flex items-center justify-between">
+                    <span className="text-[0.6vw] font-black uppercase tracking-widest text-sky-400">LANDSCAPE EDITION</span>
+                    <span className="text-[0.55vw] text-gray-400 font-mono">2026</span>
                   </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col bg-white text-neutral-800">
-                    {/* Dark Blue Header Banner */}
-                    <div className="bg-[#1E293B] text-white p-[0.9vw]">
-                      <span className="text-[0.45vw] font-mono tracking-widest text-sky-400 uppercase block">OVERVIEW</span>
-                      <h3 className="text-[0.9vw] font-black uppercase tracking-tight break-words">{customTitle || "CORPORATE SHOWCASE"}</h3>
-                    </div>
-                    {/* Red Highlights Section */}
-                    <div className="p-[0.9vw] flex-1 flex flex-col justify-between">
-                      <div className="grid grid-cols-2 gap-[0.4vw]">
-                        <div className="bg-rose-500/10 border border-rose-500/30 rounded-[0.25vw] p-[0.4vw]">
-                          <span className="text-[0.48vw] font-bold text-rose-600 block">STRATEGY</span>
-                          <div className="w-full h-[0.15vw] bg-rose-200 rounded-full mt-[0.3vw]" />
-                        </div>
-                        <div className="bg-rose-500/10 border border-rose-500/30 rounded-[0.25vw] p-[0.4vw]">
-                          <span className="text-[0.48vw] font-bold text-rose-600 block">ANALYSIS</span>
-                          <div className="w-full h-[0.15vw] bg-rose-200 rounded-full mt-[0.3vw]" />
-                        </div>
-                      </div>
-                      <div className="space-y-[0.2vw] mt-[0.5vw]">
-                        <div className="w-full h-[0.2vw] bg-neutral-200 rounded-full" />
-                        <div className="w-5/6 h-[0.2vw] bg-neutral-200 rounded-full" />
-                        <div className="w-4/6 h-[0.2vw] bg-neutral-200 rounded-full" />
-                      </div>
-                      <span className="text-[0.4vw] text-neutral-400 font-mono mt-auto">Page 01</span>
-                    </div>
+                  <div className="relative z-10">
+                    <h3 className="text-[1.15vw] font-black tracking-tight leading-snug break-words">{customTitle || "Corporate Showcase"}</h3>
+                    <p className="text-[0.65vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || "Annual Brochure & Catalog"}</p>
                   </div>
-                )}
-                {/* Left Inner gutter gradient */}
-                <div className="absolute right-0 top-0 bottom-0 w-[1.2vw] bg-gradient-to-l from-black/15 via-black/5 to-transparent pointer-events-none z-20" />
-              </div>
-
-              {/* Spine Gutter Line */}
-              <div className="relative w-[0.1vw] h-[10.8vw] bg-neutral-400/80 shadow-[0_0_0.1vw_rgba(0,0,0,0.15)] z-30" />
-
-              {/* Right Spread Page */}
-              <div className="relative w-[7.8vw] h-[10.8vw] bg-white rounded-r-[0.25vw] overflow-hidden border-y border-r border-neutral-300 shadow-[inset_0.9vw_0_1.2vw_rgba(0,0,0,0.2)]">
-                {/* Book page edge layered thickness */}
-                <div className="absolute bottom-0 inset-x-0 h-[0.15vw] bg-neutral-300" />
-                
-                {page2 ? (
-                  <div className="absolute inset-0 bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill">
-                    <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:object-fill" dangerouslySetInnerHTML={{ __html: page2Html }} />
-                  </div>
-                ) : (
-                  <div className="w-full h-full p-[0.9vw] flex flex-col justify-between bg-white text-neutral-800">
-                    <div>
-                      <span className="text-[0.5vw] font-mono tracking-widest text-neutral-400 uppercase">ANALYSIS & RESULTS</span>
-                      <h4 className="text-[0.75vw] font-bold text-neutral-900 mt-[0.2vw] break-words">{customSubtitle || "Annual Brochure & Report"}</h4>
-                      
-                      {/* Metric Stat Pillars */}
-                      <div className="grid grid-cols-3 gap-[0.3vw] mt-[0.8vw]">
-                        <div className="bg-slate-100 rounded-[0.25vw] p-[0.4vw] text-center border border-slate-200">
-                          <span className="text-[0.55vw] font-black text-blue-600 block">100+</span>
-                          <span className="text-[0.35vw] text-neutral-500 uppercase">Projects</span>
-                        </div>
-                        <div className="bg-slate-100 rounded-[0.25vw] p-[0.4vw] text-center border border-slate-200">
-                          <span className="text-[0.55vw] font-black text-rose-600 block">98%</span>
-                          <span className="text-[0.35vw] text-neutral-500 uppercase">Success</span>
-                        </div>
-                        <div className="bg-slate-100 rounded-[0.25vw] p-[0.4vw] text-center border border-slate-200">
-                          <span className="text-[0.55vw] font-black text-emerald-600 block">24/7</span>
-                          <span className="text-[0.35vw] text-neutral-500 uppercase">Support</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-[0.2vw]">
-                      <div className="w-full h-[0.2vw] bg-neutral-200 rounded-full" />
-                      <div className="w-5/6 h-[0.2vw] bg-neutral-200 rounded-full" />
-                      <div className="w-3/4 h-[0.2vw] bg-neutral-200 rounded-full" />
-                    </div>
-
-                    <span className="text-[0.4vw] text-neutral-400 font-mono text-right">Page 02</span>
-                  </div>
-                )}
-                {/* Right Inner gutter gradient */}
-                <div className="absolute left-0 top-0 bottom-0 w-[1.2vw] bg-gradient-to-r from-black/15 via-black/5 to-transparent pointer-events-none z-20" />
-              </div>
-
+                </>
+              )}
             </div>
           </div>
         </div>
       );
 
+    case 4:
+      // Modern Glossy Magazine Mockup (Slight tilt with glossy reflection sheen)
+      return (
+        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
+          <div className="relative w-[11.5vw] h-[15vw] rounded-[0.3vw] transform -rotate-3 overflow-hidden bg-white border border-gray-200">
+            {/* Magazine spine crease */}
+            <div className="absolute left-[0.4vw] inset-y-0 w-[0.1vw] bg-black/20 z-20 pointer-events-none" />
+            <div className="absolute left-0 inset-y-0 w-[0.4vw] bg-gradient-to-r from-black/20 to-transparent z-20 pointer-events-none" />
+            {/* Glossy sheen */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/25 to-white/40 z-20 pointer-events-none" />
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-emerald-600 to-teal-800 text-white p-[1vw] flex flex-col justify-between">
+                <div>
+                  <span className="text-[0.6vw] font-black tracking-widest uppercase bg-black/40 px-[0.4vw] py-[0.15vw] rounded-[0.2vw]">MAGAZINE</span>
+                  <h3 className="text-[1.1vw] font-black leading-tight mt-[0.5vw] break-words">{customTitle || "LOOKBOOK"}</h3>
+                </div>
+                <div>
+                  <p className="text-[0.6vw] opacity-90 font-medium break-words">{customSubtitle || "Vol. 24 / Summer Edition"}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+
+    case 5:
+      // Stacked Trio Mockup (Three staggered hardcover books)
+      return (
+        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
+          {/* Bottom Book */}
+          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page3 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-violet-600 to-indigo-700 border-violet-500'} rounded-[0.5vw] transform -rotate-12 -translate-x-[1.5vw] border flex overflow-hidden`}>
+            {page3 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page3Html }} />
+              </div>
+            ) : (
+              <div className="p-[0.6vw] text-white/80 font-bold text-[0.6vw]">VOL. 3</div>
+            )}
+          </div>
+
+          {/* Middle Book */}
+          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page2 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-sky-500 to-blue-600 border-sky-400'} rounded-[0.5vw] shadow-sm transform rotate-2 border flex overflow-hidden`}>
+            {page2 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              </div>
+            ) : (
+              <div className="p-[0.6vw] text-white/80 font-bold text-[0.6vw]">VOL. 2</div>
+            )}
+          </div>
+
+          {/* Top Front Book */}
+          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page1 ? 'bg-white border-gray-200' : 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400'} rounded-[0.5vw] shadow-sm transform rotate-12 translate-x-[1.4vw] border flex flex-col justify-between text-white p-[0.6vw] overflow-hidden`}>
+            <div className="absolute top-0 right-0 w-[4vw] h-[14vw] bg-white opacity-20 transform rotate-12 -translate-y-[1vw] translate-x-[2vw] z-10 pointer-events-none" />
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <>
+                <span className="text-[0.6vw] font-bold tracking-widest uppercase">SERIES</span>
+                <div>
+                  <h3 className="text-[0.8vw] font-black leading-tight break-words">{customTitle || "Master Collection"}</h3>
+                  <p className="text-[0.55vw] opacity-90 mt-[0.1vw] break-words">{customSubtitle || "Vol. 1"}</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+
+    case 6:
+      // Isometric Floating Hardcover Mockup
+      return (
+        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
+          {/* Isometric Perspective Book */}
+          <div className="relative w-[11.8vw] h-[15.2vw] rounded-[0.4vw] transform rotate-[-8deg] skew-y-[3deg] overflow-hidden bg-white border border-black/10 flex">
+            {/* Book Spine Simulation */}
+            <div 
+              className={`w-[0.9vw] h-full ${!page1 ? 'bg-gradient-to-r from-amber-800 via-amber-700 to-amber-900' : ''} shrink-0 shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.5)] z-20 flex items-center justify-center`}
+              style={page1Color ? { backgroundColor: page1Color } : {}}
+            >
+              {!page1 && (
+                <span className="text-[0.45vw] text-amber-200/80 font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">PREMIUM</span>
+              )}
+            </div>
+            {/* Front Cover Body */}
+            <div className="flex-1 h-full relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-950 to-slate-950 text-white p-[1vw] flex flex-col justify-between">
+              {/* Glossy angled highlight */}
+              <div className="absolute top-0 right-0 w-[5vw] h-full bg-gradient-to-l from-white/15 to-transparent pointer-events-none z-10" />
+              {page1 ? (
+                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
+                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+                </div>
+              ) : (
+                <>
+                  <div className="relative z-10">
+                    <span className="text-[0.55vw] font-bold uppercase tracking-widest bg-white/10 px-[0.4vw] py-[0.15vw] rounded-[0.2vw] text-amber-300">LIMITED EDITION</span>
+                  </div>
+                  <div className="relative z-10">
+                    <h3 className="text-[1vw] font-black tracking-tight leading-tight break-words">{customTitle || "Minimalist Journal"}</h3>
+                    <p className="text-[0.6vw] text-gray-300 mt-[0.2vw] break-words">{customSubtitle || "Special Edition Portfolio"}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
 
     default:
       return null;
   }
 };
+
 
 export const getShadowRgba = (hex = '#000000', opacity = 80) => {
   if (!hex) return `rgba(0, 0, 0, ${(opacity !== undefined ? opacity : 80) / 100})`;
@@ -463,64 +391,118 @@ export const TemplatePreview = ({
   const shadowRgba = getShadowRgba(shadowColor, shadowOpacity);
   const dropShadowFilter = `drop-shadow(${shadowX || 0}px ${shadowY || 0}px ${(shadowBlur !== undefined ? shadowBlur : 35) / 10}px ${shadowRgba})`;
 
-  return (
+  const tplId = selectedTemplate?.id || 1;
+  const isTemplate2 = tplId === 2;
+
+  let textContainerStyle = {
+    left: '3.6%',
+    top: '20%',
+    width: '52%',
+    maxWidth: '52%',
+    textAlign: text1Align || 'left',
+    alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+  };
+
+  if (tplId === 2) {
+    textContainerStyle = {
+      right: '5%',
+      bottom: '7%',
+      width: '42%',
+      maxWidth: '45%',
+      textAlign: text1Align || 'right',
+      alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'center') ? 'center' : 'flex-end'
+    };
+  } else if (tplId === 3) {
+    textContainerStyle = {
+      left: '10%',
+      right: '10%',
+      bottom: '4%',
+      width: '80%',
+      maxWidth: '80%',
+      margin: '0 auto',
+      textAlign: text1Align || 'center',
+      alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'right') ? 'flex-end' : 'center'
+    };
+  } else if (tplId === 4) {
+    textContainerStyle = {
+      left: '10%',
+      right: '10%',
+      bottom: '5%',
+      width: '80%',
+      maxWidth: '80%',
+      margin: '0 auto',
+      textAlign: text1Align || 'center',
+      alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'right') ? 'flex-end' : 'center'
+    };
+  } else if (tplId === 5 || tplId === 6) {
+    textContainerStyle = {
+      left: '5%',
+      bottom: '5%',
+      width: '90%',
+      maxWidth: '90%',
+      textAlign: text1Align || 'left',
+      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+    };
+  }
+
+    return (
     <div className="relative w-full h-full bg-gray-100 overflow-hidden" style={{ backgroundColor: bgColor }}>
-      {selectedTemplate?.id ? (
-        <div
-          className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none transition-all duration-150"
-          style={{
-            opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100,
-            filter: dropShadowFilter
-          }}
-        >
-          {renderTemplateBooks(selectedTemplate.id, selectedPages, pages, "scale-[0.95]", text1, text2)}
+        {selectedTemplate?.id ? (
+            <div 
+              className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none transition-all duration-150"
+              style={{ 
+                opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, 
+                filter: dropShadowFilter 
+              }}
+            >
+              {renderTemplateBooks(selectedTemplate.id, selectedPages, pages, "scale-[0.95]", text1, text2)}
+            </div>
+        ) : (
+            <img
+              src={selectedTemplate?.src}
+              className="absolute inset-0 pointer-events-none transition-all duration-300 z-0 w-full h-full object-cover"
+              style={{ opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, filter: dropShadowFilter }}
+              alt={selectedTemplate?.label || 'Template'}
+            />
+        )}
+        
+        {logoUrl && (
+            <img 
+                src={logoUrl} 
+                alt="Logo" 
+                className="absolute top-[1vw] left-[1vw] z-[20] rounded-[0.5vw] w-[4vw] h-[4vw] object-contain" 
+            />
+        )}
+
+        <div className={`absolute left-0 right-0 text-center z-10 flex flex-col items-center ${selectedTemplate?.id && (!selectedPages || selectedPages.length === 0) ? 'hidden' : ''}`} style={{ bottom: '1.5vw', paddingLeft: '0.8vw', paddingRight: '0.8vw' }}>
+            <h4 className="leading-tight break-words w-full" style={{
+                fontFamily: text1FontFamily,
+                fontSize: typeof text1FontSize === 'number' ? `${(text1FontSize / 15) * 1.1}vw` : '1.3vw',
+                fontWeight: text1FontWeight === 'Regular' ? '400' : text1FontWeight === 'Medium' ? '500' : text1FontWeight === 'Semi Bold' ? '600' : text1FontWeight === 'Bold' ? '700' : '900',
+                letterSpacing: text1LetterSpacing === 'Auto' ? 'normal' : `${(text1LetterSpacing || 0) / 10}em`,
+                lineHeight: text1LineHeight === 'Auto' ? '1.1' : String(text1LineHeight || 1.1),
+                textAlign: text1Align || 'center',
+                color: text1Color || '#000000',
+                opacity: (text1ColorOpacity !== undefined ? text1ColorOpacity : 100) / 100,
+                fontStyle: text1Italic ? 'italic' : 'normal',
+                textDecoration: [text1Underline ? 'underline' : '', text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
+            }}>{text1 || 'Title'}</h4>
+            <p className="whitespace-pre-wrap break-words w-full" style={{
+                marginTop: '0.2vw',
+                fontFamily: text2FontFamily,
+                fontSize: typeof text2FontSize === 'number' ? `${(text2FontSize / 15) * 1.1}vw` : '0.7vw',
+                fontWeight: text2FontWeight === 'Regular' ? '400' : text2FontWeight === 'Medium' ? '500' : text2FontWeight === 'Semi Bold' ? '600' : text2FontWeight === 'Bold' ? '700' : '900',
+                letterSpacing: text2LetterSpacing === 'Auto' ? '0.2em' : `${(text2LetterSpacing || 0) / 10}em`,
+                lineHeight: text2LineHeight === 'Auto' ? 'normal' : String(text2LineHeight || 'normal'),
+                textAlign: text2Align || 'center',
+                color: text2Color || '#000000',
+                opacity: (text2ColorOpacity !== undefined ? text2ColorOpacity : 100) / 100,
+                fontStyle: text2Italic ? 'italic' : 'normal',
+                textDecoration: [text2Underline ? 'underline' : '', text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
+            }}>{text2 || 'Supporting Text'}</p>
         </div>
-      ) : (
-        <img
-          src={selectedTemplate?.src}
-          className="absolute inset-0 pointer-events-none transition-all duration-300 z-0 w-full h-full object-cover"
-          style={{ opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, filter: dropShadowFilter }}
-          alt={selectedTemplate?.label || 'Template'}
-        />
-      )}
-
-      {logoUrl && (
-        <img
-          src={logoUrl}
-          alt="Logo"
-          className="absolute top-[1vw] left-[1vw] z-[20] rounded-[0.5vw] w-[4vw] h-[4vw] object-contain"
-        />
-      )}
-
-      <div className={`absolute left-0 right-0 text-center z-10 flex flex-col items-center ${selectedTemplate?.id ? 'hidden' : ''}`} style={{ bottom: '1.5vw', paddingLeft: '0.8vw', paddingRight: '0.8vw' }}>
-        <h4 className="leading-tight break-words w-full" style={{
-          fontFamily: text1FontFamily,
-          fontSize: typeof text1FontSize === 'number' ? `${(text1FontSize / 15) * 1.1}vw` : '1.3vw',
-          fontWeight: text1FontWeight === 'Regular' ? '400' : text1FontWeight === 'Medium' ? '500' : text1FontWeight === 'Semi Bold' ? '600' : text1FontWeight === 'Bold' ? '700' : '900',
-          letterSpacing: text1LetterSpacing === 'Auto' ? 'normal' : `${(text1LetterSpacing || 0) / 10}em`,
-          lineHeight: text1LineHeight === 'Auto' ? '1.1' : String(text1LineHeight || 1.1),
-          textAlign: text1Align || 'center',
-          color: text1Color || '#000000',
-          opacity: (text1ColorOpacity !== undefined ? text1ColorOpacity : 100) / 100,
-          fontStyle: text1Italic ? 'italic' : 'normal',
-          textDecoration: [text1Underline ? 'underline' : '', text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-        }}>{text1 || 'Title'}</h4>
-        <p className="whitespace-pre-wrap break-words w-full" style={{
-          marginTop: '0.2vw',
-          fontFamily: text2FontFamily,
-          fontSize: typeof text2FontSize === 'number' ? `${(text2FontSize / 15) * 1.1}vw` : '0.7vw',
-          fontWeight: text2FontWeight === 'Regular' ? '400' : text2FontWeight === 'Medium' ? '500' : text2FontWeight === 'Semi Bold' ? '600' : text2FontWeight === 'Bold' ? '700' : '900',
-          letterSpacing: text2LetterSpacing === 'Auto' ? '0.2em' : `${(text2LetterSpacing || 0) / 10}em`,
-          lineHeight: text2LineHeight === 'Auto' ? 'normal' : String(text2LineHeight || 'normal'),
-          textAlign: text2Align || 'center',
-          color: text2Color || '#000000',
-          opacity: (text2ColorOpacity !== undefined ? text2ColorOpacity : 100) / 100,
-          fontStyle: text2Italic ? 'italic' : 'normal',
-          textDecoration: [text2Underline ? 'underline' : '', text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-        }}>{text2 || 'Supporting Text'}</p>
-      </div>
     </div>
-  );
+    );
 };
 
 export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages = [], zIndex = 'z-[200]', inline = false }) => {
@@ -537,8 +519,14 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [showMenu, setShowMenu] = useState(false);
 
   const initialTpl = settings.coverPicture?.selectedTemplate || COVER_TEMPLATES[0];
-  const [text1, setText1] = useState(settings.coverPicture?.text1 || initialTpl?.defaultText1 || 'Hard.Cover Book');
-  const [text2, setText2] = useState(settings.coverPicture?.text2 || initialTpl?.defaultText2 || 'Free .psd Mockup');
+  const initialText1 = (settings.coverPicture?.text1 && settings.coverPicture?.text1 !== 'Hard.Cover Book') 
+    ? settings.coverPicture.text1 
+    : (initialTpl?.defaultText1 || 'Name of the Book');
+  const initialText2 = (settings.coverPicture?.text2 && settings.coverPicture?.text2 !== 'Free .psd Mockup') 
+    ? settings.coverPicture.text2 
+    : (initialTpl?.defaultText2 || '“Turn every page into an experience,\nA flipbook that brings your stories to life.”');
+  const [text1, setText1] = useState(initialText1);
+  const [text2, setText2] = useState(initialText2);
   const [bgColor, setBgColor] = useState(settings.coverPicture?.bgColor || '#D7D8E8');
   const [bgOpacity, setBgOpacity] = useState(settings.coverPicture?.bgOpacity || 100);
   const [shadowColor, setShadowColor] = useState(settings.coverPicture?.shadowColor || '#000000');
@@ -551,31 +539,31 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
 
   // Typography states for Text 1
   const [text1FontFamily, setText1FontFamily] = useState(settings.coverPicture?.text1FontFamily || 'Poppins');
-  const [text1FontSize, setText1FontSize] = useState(settings.coverPicture?.text1FontSize || 16);
-  const [text1FontWeight, setText1FontWeight] = useState(settings.coverPicture?.text1FontWeight || 'Bold');
+  const [text1FontSize, setText1FontSize] = useState(settings.coverPicture?.text1FontSize || 12);
+  const [text1FontWeight, setText1FontWeight] = useState(settings.coverPicture?.text1FontWeight || 'Medium');
   const [text1LetterSpacing, setText1LetterSpacing] = useState(settings.coverPicture?.text1LetterSpacing || 'Auto');
   const [text1LineHeight, setText1LineHeight] = useState(settings.coverPicture?.text1LineHeight || 'Auto');
-  const [text1Align, setText1Align] = useState(settings.coverPicture?.text1Align || 'center');
+  const [text1Align, setText1Align] = useState(settings.coverPicture?.text1Align || 'left');
   const [text1Bold, setText1Bold] = useState(settings.coverPicture?.text1Bold || false);
   const [text1Italic, setText1Italic] = useState(settings.coverPicture?.text1Italic || false);
   const [text1Underline, setText1Underline] = useState(settings.coverPicture?.text1Underline || false);
   const [text1Linethrough, setText1Linethrough] = useState(settings.coverPicture?.text1Linethrough || false);
-  const [text1Color, setText1Color] = useState(settings.coverPicture?.text1Color || '#FFFFFF');
+  const [text1Color, setText1Color] = useState(settings.coverPicture?.text1Color || '#000000');
   const [text1ColorOpacity, setText1ColorOpacity] = useState(settings.coverPicture?.text1ColorOpacity || 100);
 
   // Typography states for Text 2
   const [text2FontFamily, setText2FontFamily] = useState(settings.coverPicture?.text2FontFamily || 'Outfit');
-  const [text2FontSize, setText2FontSize] = useState(settings.coverPicture?.text2FontSize || 12);
+  const [text2FontSize, setText2FontSize] = useState(settings.coverPicture?.text2FontSize || 8);
   const [text2FontWeight, setText2FontWeight] = useState(settings.coverPicture?.text2FontWeight || 'Regular');
   const [text2LetterSpacing, setText2LetterSpacing] = useState(settings.coverPicture?.text2LetterSpacing || 'Auto');
   const [text2LineHeight, setText2LineHeight] = useState(settings.coverPicture?.text2LineHeight || 'Auto');
-  const [text2Align, setText2Align] = useState(settings.coverPicture?.text2Align || 'center');
+  const [text2Align, setText2Align] = useState(settings.coverPicture?.text2Align || 'left');
   const [text2Bold, setText2Bold] = useState(settings.coverPicture?.text2Bold || false);
-  const [text2Italic, setText2Italic] = useState(settings.coverPicture?.text2Italic || true);
+  const [text2Italic, setText2Italic] = useState(settings.coverPicture?.text2Italic || false);
   const [text2Underline, setText2Underline] = useState(settings.coverPicture?.text2Underline || false);
   const [text2Linethrough, setText2Linethrough] = useState(settings.coverPicture?.text2Linethrough || false);
-  const [text2Color, setText2Color] = useState(settings.coverPicture?.text2Color || '#FFFFFF');
-  const [text2ColorOpacity, setText2ColorOpacity] = useState(settings.coverPicture?.text2ColorOpacity || 90);
+  const [text2Color, setText2Color] = useState(settings.coverPicture?.text2Color || '#000000');
+  const [text2ColorOpacity, setText2ColorOpacity] = useState(settings.coverPicture?.text2ColorOpacity || 100);
 
   // Typography UI states
   const [activeTextEditor, setActiveTextEditor] = useState(null);
@@ -856,53 +844,53 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
               <div className="flex-1 bg-white overflow-hidden m-[0.1vw] rounded-b-[1.1vw] relative shadow-inner flex flex-col">
                 <div className="flex-1 overflow-y-auto px-[1vw] py-[1.2vw] pr-[1.2vw] custom-popup-scrollbar">
                   {activeTab === 'cover' ? (
-                    <div className="grid grid-cols-3 gap-[0.5vw]">
-                      {COVER_TEMPLATES.map((tpl) => (
-                        <div
-                          key={tpl.id}
-                          onClick={() => {
-                            setSelectedTemplate(tpl);
-                            if (tpl.defaultText1) setText1(tpl.defaultText1);
-                            if (tpl.defaultText2) setText2(tpl.defaultText2);
-                          }}
-                          className={`aspect-[4/3] rounded-[0.4vw] cursor-pointer overflow-hidden border-[0.15vw] transition-all hover:scale-[1.03] hover:shadow-md relative group ${selectedTemplate?.id === tpl.id
-                            ? 'border-[#4A3AFF] shadow-[0_0_0_0.15vw_rgba(74,58,255,0.3)]'
-                            : 'border-transparent hover:border-gray-400'
-                            }`}
-                          title={tpl.label}
-                        >
-                          {tpl.id ? (
-                            <div className="w-full h-full bg-[#edd8cd] relative overflow-hidden pointer-events-none">
-                              <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left transform scale-[0.25]">
-                                <TemplatePreview
-                                  selectedTemplate={tpl}
-                                  bgColor="#edd8cd"
-                                  bgOpacity={100}
-                                  text1={tpl.defaultText1}
-                                  text2={tpl.defaultText2}
-                                  selectedPages={[]}
-                                  pages={pages}
-                                />
-                              </div>
-                            </div>
-                          ) : (
-                            <img src={tpl.src} alt={tpl.label} className="w-full h-full object-cover" />
-                          )}
-                          {selectedTemplate?.id === tpl.id && (
-                            <div className="absolute inset-0 bg-[#4A3AFF]/15 flex items-start justify-end p-[0.3vw]">
-                              <div className="w-[1vw] h-[1vw] bg-[#4A3AFF] rounded-full flex items-center justify-center shadow-md">
-                                <svg viewBox="0 0 10 10" className="w-[0.6vw] h-[0.6vw]" fill="none">
-                                  <polyline points="2,5 4.5,7.5 8,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </div>
-                            </div>
-                          )}
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[0.5vw] font-semibold text-center py-[0.2vw] opacity-0 group-hover:opacity-100 transition-opacity">
-                            {tpl.label}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                     <div className="grid grid-cols-3 gap-[0.5vw]">
+                       {COVER_TEMPLATES.map((tpl) => (
+                         <div
+                           key={tpl.id}
+                           onClick={() => {
+                             setSelectedTemplate(tpl);
+                             if (tpl.defaultText1) setText1(tpl.defaultText1);
+                             if (tpl.defaultText2) setText2(tpl.defaultText2);
+                           }}
+                           className={`aspect-[4/3] rounded-[0.4vw] cursor-pointer overflow-hidden border-[0.15vw] transition-all hover:scale-[1.03] hover:shadow-md relative group ${selectedTemplate?.id === tpl.id
+                             ? 'border-[#4A3AFF] shadow-[0_0_0_0.15vw_rgba(74,58,255,0.3)]'
+                             : 'border-transparent hover:border-gray-400'
+                             }`}
+                           title={tpl.label}
+                         >
+                           {tpl.id ? (
+                             <div className="w-full h-full bg-[#edd8cd] relative overflow-hidden pointer-events-none">
+                               <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left transform scale-[0.25]">
+                                 <TemplatePreview
+                                   selectedTemplate={tpl}
+                                   bgColor="#edd8cd"
+                                   bgOpacity={100}
+                                   text1={tpl.defaultText1}
+                                   text2={tpl.defaultText2}
+                                   selectedPages={[]}
+                                   pages={pages}
+                                 />
+                               </div>
+                             </div>
+                           ) : (
+                             <img src={tpl.src} alt={tpl.label} className="w-full h-full object-cover" />
+                           )}
+                           {selectedTemplate?.id === tpl.id && (
+                             <div className="absolute inset-0 bg-[#4A3AFF]/15 flex items-start justify-end p-[0.3vw]">
+                               <div className="w-[1vw] h-[1vw] bg-[#4A3AFF] rounded-full flex items-center justify-center shadow-md">
+                                 <svg viewBox="0 0 10 10" className="w-[0.6vw] h-[0.6vw]" fill="none">
+                                   <polyline points="2,5 4.5,7.5 8,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                 </svg>
+                               </div>
+                             </div>
+                           )}
+                           <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[0.5vw] font-semibold text-center py-[0.2vw] opacity-0 group-hover:opacity-100 transition-opacity">
+                             {tpl.label}
+                           </div>
+                         </div>
+                       ))}
+                     </div>
                   ) : (
                     <div className="space-y-[1.2vw]">
                       {/* Text 1 Row */}
@@ -1322,7 +1310,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                     type: 'template',
                     activeTab,
                     selectedTemplate,
-                    url: selectedTemplate?.id ? '' : (selectedTemplate?.src || ''),
+                    url: selectedTemplate?.src || '',
                     text1,
                     text2,
                     bgColor,

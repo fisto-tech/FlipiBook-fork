@@ -52,7 +52,7 @@ export default function Features() {
       path: '/features/3d-editor-studio',
       image: threeDEditorImg,
       titlePrefix: '3D Editor Studio: ',
-      title: 'Design, Customize & Optimize 3D Models',
+      title: 'Customize & Optimize 3D Models',
       subtitle: 'Engage your audience with interactive elements',
     },
     {
