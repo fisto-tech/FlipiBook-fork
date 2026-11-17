@@ -32,7 +32,7 @@ const SmartSolutionsSection = () => {
   }, []);
 
   return (
-    <section ref={sectionRef} className="relative w-full min-h-screen sm:min-h-0 sm:h-auto lg:h-[100vh] bg-[#FAFAFA] font-sans py-8 sm:py-6 lg:py-[1.2vw] px-4 sm:px-8 lg:px-[6vw] flex flex-col justify-between items-center overflow-hidden">
+    <section ref={sectionRef} className="relative w-full min-h-fit sm:min-h-0 sm:h-auto lg:h-[100vh] bg-[#FAFAFA] font-sans py-8 sm:py-6 lg:py-[1.2vw] px-4 sm:px-8 lg:px-[6vw] flex flex-col justify-between items-center overflow-hidden">
 
       {/* Top FEATURES Tag */}
       <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-1 lg:pt-[0.4vw]">
@@ -109,7 +109,7 @@ const SmartSolutionsSection = () => {
 
         {/* RIGHT SIDE TEXT CONTENT */}
         <div
-          className="w-full lg:w-[33vw] flex flex-col justify-center space-y-2.5 sm:space-y-2.5 lg:space-y-[0.8vw] text-center lg:text-left items-center lg:items-start z-10 px-4 lg:px-0 -mt-4 sm:-mt-2 lg:-mt-[14.5vw] xl:-mt-[15vw]"
+          className="w-full lg:w-[33vw] flex flex-col justify-center space-y-2.5 sm:space-y-2.5 lg:space-y-[0.8vw] text-center lg:text-left items-center lg:items-start z-10 px-4 lg:px-0 mt-4 sm:-mt-2 lg:-mt-[14.5vw] xl:-mt-[15vw] mb-6 sm:mb-4 lg:mb-0"
         >
           {/* Main Heading */}
           <motion.h2
@@ -151,7 +151,7 @@ const SmartSolutionsSection = () => {
 
       {/* 3. BOTTOM FEATURE CARDS (4 Boxes in Line) */}
       <div
-        className="relative z-10 w-full max-w-xl lg:max-w-none lg:w-[84vw] xl:w-[82vw] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 lg:gap-[1vw] -mt-4 sm:-mt-6 lg:-mt-[6vw] xl:-mt-[6.5vw] mb-4 sm:mb-4 lg:mb-[0.5vw] px-2 lg:px-0"
+        className="relative z-10 w-full max-w-xl lg:max-w-none lg:w-[84vw] xl:w-[82vw] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-2.5 lg:gap-[1vw] mt-2 sm:-mt-6 lg:-mt-[6vw] xl:-mt-[6.5vw] mb-4 sm:mb-4 lg:mb-[0.5vw] px-2 lg:px-0"
       >
         {/* CARD 1: Immersive 3D */}
         <motion.div

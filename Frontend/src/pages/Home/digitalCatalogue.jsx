@@ -19,14 +19,23 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
   const hasPassedHeroRef = useRef(false);
   const [isFlipAudioMuted, setIsFlipAudioMuted] = useState(false);
   const [isHeroVisible, setIsHeroVisible] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 768 : false));
 
-  const pagesList = [page1, page2, page3, page4, page5, page6, page7, page8];
-  const heroPages = pagesList;
+  // Direct standard original images (Home1 to home8) for all devices
+  const heroPages = [page1, page2, page3, page4, page5, page6, page7, page8];
 
   const flipAudioRef = useRef(null);
-  
-  
   const isHeroVisibleRef = useRef(true);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      // Treat viewport width <= 768px (including iPhone/device devtools emulation) as mobile single-page
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // IntersectionObserver: Only allow autoplay and sound when HeroSection is in viewport
   useEffect(() => {
@@ -94,15 +103,19 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
     setActiveStep(step);
     activeStepRef.current = step;
 
-    // Front cover is on the right of the spread (needs -25% shift)
-    // Back cover is on the left of the spread (needs +25% shift)
-    // Open spreads (pages 1 to 6) are 2 pages (needs 0% shift)
-    if (pageIndex === 0) {
-      setCoverState('front');
-    } else if (pageIndex >= 7) {
-      setCoverState('back');
-    } else {
+    if (window.innerWidth < 640) {
       setCoverState('open');
+    } else {
+      // Front cover is on the right of the spread (needs -25% shift)
+      // Back cover is on the left of the spread (needs +25% shift)
+      // Open spreads (pages 1 to 6) are 2 pages (needs 0% shift)
+      if (pageIndex === 0) {
+        setCoverState('front');
+      } else if (pageIndex >= 7) {
+        setCoverState('back');
+      } else {
+        setCoverState('open');
+      }
     }
   }, []);
 
@@ -219,11 +232,13 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
           className="lg:col-span-8 w-full bg-[#efefef] rounded-[16px] lg:rounded-[1.2vw] p-3 sm:p-5 lg:p-[1.2vw] flex flex-col items-center justify-center relative shadow-xs overflow-hidden min-h-[420px] sm:min-h-[460px] lg:min-h-[500px]"
         >
           {/* Flipbook inside rounded stage box (Increased book size, removed floating side circle buttons) */}
-          <div className="relative mx-auto w-full max-w-[560px] xs:max-w-[620px] sm:max-w-[700px] lg:max-w-[47vw] xl:max-w-[49vw] aspect-[420/297] flex items-center justify-center my-auto px-2 sm:px-4">
+          <div className="relative mx-auto w-full max-w-[280px] xs:max-w-[320px] sm:max-w-[700px] lg:max-w-[47vw] xl:max-w-[49vw] aspect-[210/297] sm:aspect-[420/297] flex items-center justify-center my-auto px-2 sm:px-4">
             {/* Flipbook Canvas */}
             <div
               className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${
-                coverState === 'front'
+                isMobile
+                  ? 'translate-x-0'
+                  : coverState === 'front'
                   ? '-translate-x-[25%]'
                   : coverState === 'back'
                   ? 'translate-x-[25%]'
@@ -231,6 +246,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               }`}
             >
               <HTMLFlipBook
+                key={isMobile ? 'single-page-mobile' : 'double-page-desktop'}
                 width={595}
                 height={842}
                 size="stretch"
@@ -238,8 +254,9 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
                 maxWidth={1400}
                 minHeight={340}
                 maxHeight={1980}
-                maxShadowOpacity={0.5}
-                showCover={true}
+                maxShadowOpacity={isMobile ? 0 : 0.5}
+                showCover={!isMobile}
+                usePortrait={isMobile}
                 mobileScrollSupport={true}
                 clickEventForward={false}
                 useMouseEvents={true}
@@ -250,15 +267,20 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
                 startPage={0}
                 className="w-full h-full mx-auto"
               >
-                {heroPages.map((pageSrc, index) => (
-                  <div key={index} className="bg-white overflow-hidden shadow-inner flex items-center justify-center">
-                    <img
-                      src={pageSrc}
-                      alt={`Page ${index + 1}`}
-                      className="w-full h-full object-cover select-none pointer-events-none"
-                    />
-                  </div>
-                ))}
+                {heroPages.map((pageSrc, index) => {
+                  return (
+                    <div
+                      key={index}
+                      className="bg-white overflow-hidden flex items-center justify-center relative shadow-none"
+                    >
+                      <img
+                        src={pageSrc}
+                        alt={`Page ${index + 1}`}
+                        className="w-full h-full object-cover select-none pointer-events-none"
+                      />
+                    </div>
+                  );
+                })}
               </HTMLFlipBook>
             </div>
           </div>
@@ -423,6 +445,22 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
 
       </div>
 
+      {/* Mobile-only pageflip shadow cleanup to keep book spine clean and consistent */}
+      <style>{`
+        @media (max-width: 768px) {
+          .stf__shadow,
+          .stf__shadowTop,
+          .stf__shadowBottom,
+          .stf__outerShadow,
+          .stf__innerShadow,
+          .stf__hardShadow,
+          .stf__hardInnerShadow {
+            display: none !important;
+            opacity: 0 !important;
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }
