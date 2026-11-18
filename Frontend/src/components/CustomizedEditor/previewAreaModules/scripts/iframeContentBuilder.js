@@ -270,7 +270,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                         margin: 0 !important;
                         padding: 0 !important;
                         display: block !important;
-                        pointer-events: none !important;
+                        pointer-events: auto !important; /* interactive map (see sanitizeHtml) */
                     }
 
                     /* Enable pointer events only on interactive action buttons and overlay cards */

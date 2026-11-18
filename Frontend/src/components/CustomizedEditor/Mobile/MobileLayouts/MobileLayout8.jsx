@@ -864,6 +864,7 @@ const MobileLayout8 = ({
                                         <div className="h-[1px] flex-1 mt-0.5 bg-white/20" />
                                     </div>
                                     {/* Flip */}
+                                    {otherSetupSettings?.sound?.flipSoundEnabled !== false && (
                                     <div className="flex items-center gap-2">
                                         <button
                                             className={`flex-shrink-0 w-7 h-7 flex items-center justify-center transition-all duration-300 rounded-full ${otherSetupSettings?.sound?.flipSoundEnabled !== false ? (!isFlipMuted ? 'bg-[#575C9C] shadow-inner' : 'bg-white/20 cursor-pointer border border-white/20 hover:bg-white/30') : 'bg-white/10 cursor-not-allowed opacity-50'}`}
@@ -875,12 +876,14 @@ const MobileLayout8 = ({
                                             <div className="absolute inset-0 transition-all duration-500 rounded-full bg-white" style={{ width: otherSetupSettings?.sound?.flipSoundEnabled !== false ? (!isFlipMuted ? '60%' : '15%') : '0%' }} />
                                         </div>
                                     </div>
+                                    )}
 
                                     {/* BG */}
+                                    {otherSetupSettings?.sound?.bgSoundEnabled === true && (
                                     <div className="flex items-center gap-2">
                                         <button
-                                            className={`flex-shrink-0 w-7 h-7 flex items-center justify-center transition-all duration-300 rounded-full ${otherSetupSettings?.sound?.bgSoundEnabled !== false ? (!isMuted ? 'bg-[#575C9C] shadow-inner' : 'bg-white/20 cursor-pointer border border-white/20 hover:bg-white/30') : 'bg-white/10 cursor-not-allowed opacity-50'}`}
-                                            onClick={(e) => { e.stopPropagation(); if (otherSetupSettings?.sound?.bgSoundEnabled !== false) setIsMuted(!isMuted); }}
+                                            className={`flex-shrink-0 w-7 h-7 flex items-center justify-center transition-all duration-300 rounded-full ${otherSetupSettings?.sound?.bgSoundEnabled === true ? (!isMuted ? 'bg-[#575C9C] shadow-inner' : 'bg-white/20 cursor-pointer border border-white/20 hover:bg-white/30') : 'bg-white/10 cursor-not-allowed opacity-50'}`}
+                                            onClick={(e) => { e.stopPropagation(); if (otherSetupSettings?.sound?.bgSoundEnabled === true) setIsMuted(!isMuted); }}
                                         >
                                             <svg
                                                 width="100%"
@@ -895,9 +898,10 @@ const MobileLayout8 = ({
                                             </svg>
                                         </button>
                                         <div className="flex-1 h-1 rounded-full relative overflow-hidden bg-white/20">
-                                            <div className="absolute inset-0 transition-all duration-500 rounded-full bg-white" style={{ width: otherSetupSettings?.sound?.bgSoundEnabled !== false ? (!isMuted ? '80%' : '15%') : '0%' }} />
+                                            <div className="absolute inset-0 transition-all duration-500 rounded-full bg-white" style={{ width: otherSetupSettings?.sound?.bgSoundEnabled === true ? (!isMuted ? '80%' : '15%') : '0%' }} />
                                         </div>
                                     </div>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>

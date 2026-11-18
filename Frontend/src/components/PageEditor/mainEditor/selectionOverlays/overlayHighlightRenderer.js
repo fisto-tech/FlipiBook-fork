@@ -208,11 +208,18 @@ export const createOverlayHighlightRenderer = ({
       }
     }
 
+    const isAudioInInteraction = activeTopToolRef?.current === 'interaction' && (
+      el.getAttribute('data-type') === 'audio-frame' ||
+      (el.id && el.id.startsWith('audio-')) ||
+      (typeof el.closest === 'function' && !!el.closest('[data-type="audio-frame"], g[id^="audio-"]'))
+    );
+
     // Skip if element is hidden or it's the base "Overlay" (background) / Base Page Frame
     const isOverlay = el.getAttribute('data-name') === 'Overlay' ||
       el.getAttribute('data-type') === 'background' ||
       el.getAttribute('data-type') === 'frame' ||
-      el.getAttribute('data-locked') === 'true';
+      el.getAttribute('data-locked') === 'true' ||
+      isAudioInInteraction;
 
     // Skip if this text element is currently in text-edit mode
     const isBeingEdited = isEditingTextRef.current && el.id === selectedLayerIdRef.current;

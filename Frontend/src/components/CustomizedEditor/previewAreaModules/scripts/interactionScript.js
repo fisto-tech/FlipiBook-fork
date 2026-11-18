@@ -406,13 +406,7 @@ export const getInteractionScript = (pageNumber) => `  <style>
                         }, '*');
                     } catch (err) {}
                } else if (e.type === 'click') {
-                   const interactionEls = document.querySelectorAll('[data-interaction]');
-                   interactionEls.forEach(interactionEl => {
-                       const showHighlight = interactionEl.getAttribute('data-show-highlight');
-                       if (showHighlight !== 'false') {
-                           playHighlightBlink(interactionEl);
-                       }
-                   });
+                   getBlinkTargets().forEach((interactionEl, n) => playHighlightBlink(interactionEl, n * 150));
                }
                 }
             };
@@ -504,46 +498,112 @@ export const getInteractionScript = (pageNumber) => `  <style>
             });
             document.addEventListener('mouseout', (e) => handleHover(e, false));
 
-            function playHighlightBlink(el) {
-                if (el.__isBlinking) return;
-                
-                const rect = el.getBoundingClientRect();
-                if (rect.width === 0 || rect.height === 0) return;
-                el.__isBlinking = true;
-                
+            // Elements that get the click-hint + blink:
+            //  - every hotspot (always — its highlight flag is locked off in the editor), even with no action yet
+            //  - other interactive elements unless their highlight is switched off
+            const HOTSPOT_SEL = '[data-is-hotspot="true"], [data-type="hotspot"]';
+            function getBlinkTargets() {
+                const found = Array.from(document.querySelectorAll('[data-interaction], ' + HOTSPOT_SEL));
+                const set = new Set(found);
+                return found.filter(el => {
+                    // Skip children of another target (one hint per hotspot/interactive group)
+                    let p = el.parentElement;
+                    while (p) { if (set.has(p)) return false; p = p.parentElement; }
+                    if (el.matches(HOTSPOT_SEL)) return true;
+                    return el.getAttribute('data-show-highlight') !== 'false';
+                });
+            }
+
+            // Hand cursor (white with dark outline) used by the "mouse moves in and clicks" hint
+            const HINT_CURSOR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><path d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6c0-.83-.67-1.5-1.5-1.5S10 6.67 10 7.5v10.74c-3.6-.76-3.54-.75-3.67-.75-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.44 1.06.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.38-1.16-.91-1.38z" fill="#ffffff" stroke="#1f2340" stroke-width="1.1" stroke-linejoin="round"/></svg>';
+
+            // Soft blink box over an interactive element
+            function runBlinkOverlay(el, rect) {
                 const overlay = document.createElement('div');
                 overlay.style.position = 'absolute';
                 overlay.style.left = (rect.left + window.scrollX) + 'px';
                 overlay.style.top = (rect.top + window.scrollY) + 'px';
                 overlay.style.width = rect.width + 'px';
                 overlay.style.height = rect.height + 'px';
-                // Same style as template editor highlight box
-                overlay.style.backgroundColor = 'rgba(81, 69, 246, 0.4)'; 
+                overlay.style.backgroundColor = 'rgba(81, 69, 246, 0.18)';
                 overlay.style.pointerEvents = 'none';
                 overlay.style.zIndex = '999999';
                 overlay.style.opacity = '0';
-                overlay.style.borderRadius = 'inherit';
-                
+                const isHotspot = el.matches && el.matches(HOTSPOT_SEL);
+                const squareish = rect.width > 0 && Math.abs(rect.width - rect.height) / Math.max(rect.width, rect.height) < 0.25;
+                overlay.style.borderRadius = (isHotspot && squareish) ? '50%' : (isHotspot ? '10px' : 'inherit');
                 document.body.appendChild(overlay);
-                
-                const keyframes = [
+
+                const anim = overlay.animate([
                     { opacity: 0 },
                     { opacity: 1, offset: 0.25 },
                     { opacity: 0, offset: 0.5 },
                     { opacity: 1, offset: 0.75 },
                     { opacity: 0, offset: 1 }
-                ];
-                
-                const anim = overlay.animate(keyframes, {
-                    duration: 1200,
-                    easing: 'ease-in-out',
-                    fill: 'forwards'
+                ], { duration: 1200, easing: 'ease-in-out', fill: 'forwards' });
+                return new Promise(resolve => {
+                    anim.onfinish = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); resolve(); };
                 });
-                
-                anim.onfinish = () => {
-                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-                    el.__isBlinking = false;
+            }
+
+            // Animated cursor glides onto the element, presses, ripples — resolves at the click moment
+            function runClickHint(rect) {
+                const vw = document.documentElement.clientWidth || window.innerWidth;
+                const vh = document.documentElement.clientHeight || window.innerHeight;
+                const tx = rect.left + rect.width / 2 + window.scrollX;
+                const ty = rect.top + rect.height / 2 + window.scrollY;
+                // Approach from the lower-right (or the side with room), kept inside the page
+                const sx = Math.max(8, Math.min(vw - 30, tx + (tx + 70 < vw ? 60 : -60)));
+                const sy = Math.max(8, Math.min(vh - 30, ty + (ty + 70 < vh ? 55 : -55)));
+
+                const cursor = document.createElement('div');
+                cursor.innerHTML = HINT_CURSOR_SVG;
+                // Hotspot = fingertip (≈ x 11, y 3 of the 26px icon)
+                cursor.style.cssText = 'position:absolute;left:0;top:0;width:26px;height:26px;margin-left:-11px;margin-top:-3px;pointer-events:none;z-index:1000000;opacity:0;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35));will-change:transform,opacity;';
+                document.body.appendChild(cursor);
+
+                const at = (x, y, s) => 'translate(' + x + 'px,' + y + 'px) scale(' + s + ')';
+                const move = cursor.animate([
+                    { transform: at(sx, sy, 1), opacity: 0 },
+                    { transform: at(sx, sy, 1), opacity: 1, offset: 0.15 },
+                    { transform: at(tx, ty, 1), opacity: 1, offset: 0.7 },
+                    { transform: at(tx, ty, 0.82), opacity: 1, offset: 0.82 },   // press
+                    { transform: at(tx, ty, 1), opacity: 1, offset: 0.92 },      // release
+                    { transform: at(tx, ty, 1), opacity: 1 }
+                ], { duration: 900, easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'forwards' });
+
+                return new Promise(resolve => {
+                    // Click moment (press offset 0.82 of 900ms) → ripple + start blink
+                    setTimeout(() => {
+                        const ripple = document.createElement('div');
+                        ripple.style.cssText = 'position:absolute;left:' + (tx - 14) + 'px;top:' + (ty - 14) + 'px;width:28px;height:28px;border-radius:50%;border:2px solid rgba(81,69,246,0.55);background:rgba(81,69,246,0.12);pointer-events:none;z-index:999999;';
+                        document.body.appendChild(ripple);
+                        const r = ripple.animate([
+                            { transform: 'scale(0.4)', opacity: 1 },
+                            { transform: 'scale(1.9)', opacity: 0 }
+                        ], { duration: 550, easing: 'ease-out', fill: 'forwards' });
+                        r.onfinish = () => ripple.remove();
+                        resolve();
+                    }, 740);
+                    move.onfinish = () => {
+                        const fade = cursor.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 350, delay: 250, fill: 'forwards' });
+                        fade.onfinish = () => cursor.remove();
+                    };
+                });
+            }
+
+            function playHighlightBlink(el, delay) {
+                if (el.__isBlinking) return;
+                const rect = el.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+                el.__isBlinking = true;
+                const start = () => {
+                    const r = el.getBoundingClientRect();
+                    runClickHint(r)
+                        .then(() => runBlinkOverlay(el, r))
+                        .then(() => { el.__isBlinking = false; }, () => { el.__isBlinking = false; });
                 };
+                if (delay) setTimeout(start, delay); else start();
             };
 
             window.addEventListener('message', function(e) {
@@ -555,13 +615,7 @@ export const getInteractionScript = (pageNumber) => `  <style>
                     }
                     
                     const triggerBlinks = () => {
-                        const interactionEls = document.querySelectorAll('[data-interaction]');
-                        interactionEls.forEach(el => {
-                            const showHighlight = el.getAttribute('data-show-highlight');
-                            if (showHighlight !== 'false') {
-                                playHighlightBlink(el);
-                            }
-                        });
+                        getBlinkTargets().forEach((el, n) => playHighlightBlink(el, n * 150));
                     };
 
                     if (typeof window._waitForEntranceAnimations === 'function') {

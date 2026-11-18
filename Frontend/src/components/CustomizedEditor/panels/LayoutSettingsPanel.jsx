@@ -836,14 +836,18 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
             onChange={(val) => {
               updateSection('media', 'backgroundAudio', val);
               updateSection('media', 'audio', val);
+              // Master off also stops background music; master on does NOT force background music on
+              // (it is opt-in). If master is switched on while both sounds are off, bring back the
+              // flip sound so "Audio Features on" always means at least one sound is on.
               if (onUpdateOther) {
-                onUpdateOther(prev => ({
-                  ...prev,
-                  sound: {
-                    ...(prev?.sound || {}),
-                    bgSoundEnabled: val
+                onUpdateOther(prev => {
+                  const snd = prev?.sound || {};
+                  if (!val) return { ...prev, sound: { ...snd, bgSoundEnabled: false } };
+                  if (snd.flipSoundEnabled === false && snd.bgSoundEnabled !== true) {
+                    return { ...prev, sound: { ...snd, flipSoundEnabled: true } };
                   }
-                }));
+                  return prev;
+                });
               }
             }}
           >

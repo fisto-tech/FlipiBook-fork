@@ -65,6 +65,10 @@ export const useLayerOperations = ({
                 liveEl.removeAttribute('data-hidden');
                 liveEl.style.display = '';
               });
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('rebind-selection-overlay', { detail: { layerId: layer.id } }));
+                window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: layer.id } }));
+              }, 40);
             }
           }
           if (newLayer.children) newLayer.children = processLayers(newLayer.children);
@@ -105,6 +109,29 @@ export const useLayerOperations = ({
                 element.removeAttribute('data-locked');
                 element.style.pointerEvents = '';
               }
+            }
+
+            // Sync immediately with the live editor DOM!
+            if (newLayer.locked) {
+              document.querySelectorAll('.selection-overlay-layer').forEach(overlay => {
+                overlay.querySelectorAll(`[id*="${layer.id}"]`).forEach(n => n.remove());
+              });
+              document.querySelectorAll('[id^="highlight-overlay-html-"]').forEach(htmlOverlay => {
+                htmlOverlay.querySelectorAll(`[id*="${layer.id}"], [id^="resize-handle-${layer.id}-"], [id^="rotate-handle-${layer.id}"], [id^="rotation-degree-badge-${layer.id}"], [id^="rotate-hotspot-${layer.id}-"]`).forEach(h => h.remove());
+              });
+              document.querySelectorAll(`[id="${layer.id}"]`).forEach(liveEl => {
+                liveEl.setAttribute('data-locked', 'true');
+                liveEl.style.pointerEvents = 'none';
+              });
+            } else {
+              document.querySelectorAll(`[id="${layer.id}"]`).forEach(liveEl => {
+                liveEl.removeAttribute('data-locked');
+                liveEl.style.pointerEvents = '';
+              });
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('rebind-selection-overlay', { detail: { layerId: layer.id } }));
+                window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: layer.id } }));
+              }, 40);
             }
           }
           if (newLayer.children) newLayer.children = processLayers(newLayer.children);

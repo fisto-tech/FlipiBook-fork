@@ -544,7 +544,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
         <div>
           <SectionHeader 
             title="Background Sound" 
-            toggle={settings.sound?.bgSoundEnabled ?? true} 
+            toggle={settings.sound?.bgSoundEnabled === true} 
             onToggle={(v) => updateNested('sound', 'bgSoundEnabled', v)} 
           />
           <input type="file" ref={bgSoundInputRef} onChange={handleBgSoundUpload} accept=".mp3, .wav, .m4a" className="hidden" />
@@ -1207,7 +1207,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
             <div>
               <SectionHeader 
                 title="Background Sound" 
-                toggle={settings.sound?.bgSoundEnabled ?? true} 
+                toggle={settings.sound?.bgSoundEnabled === true} 
                 onToggle={(v) => updateNested('sound', 'bgSoundEnabled', v)} 
               />
               <input type="file" ref={bgSoundInputRef} onChange={handleBgSoundUpload} accept=".mp3, .wav, .m4a" className="hidden" />

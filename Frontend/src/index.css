@@ -435,16 +435,16 @@ textarea::-webkit-scrollbar-thumb:hover {
     fill: transparent;
   }
   20% {
-    fill: rgba(77, 71, 255, 0.28);
+    fill: rgba(77, 71, 255, 0.14);
   }
   40% {
-    fill: rgba(77, 71, 255, 0.04);
+    fill: rgba(77, 71, 255, 0.02);
   }
   60% {
-    fill: rgba(77, 71, 255, 0.28);
+    fill: rgba(77, 71, 255, 0.14);
   }
   80% {
-    fill: rgba(77, 71, 255, 0.04);
+    fill: rgba(77, 71, 255, 0.02);
   }
   100% {
     fill: transparent;

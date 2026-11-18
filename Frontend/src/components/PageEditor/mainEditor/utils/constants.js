@@ -26,16 +26,16 @@ export const svgGlobalStyles = `
       fill: transparent;
     }
     20% {
-      fill: rgba(77, 71, 255, 0.28);
+      fill: rgba(77, 71, 255, 0.14);
     }
     40% {
-      fill: rgba(77, 71, 255, 0.04);
+      fill: rgba(77, 71, 255, 0.02);
     }
     60% {
-      fill: rgba(77, 71, 255, 0.28);
+      fill: rgba(77, 71, 255, 0.14);
     }
     80% {
-      fill: rgba(77, 71, 255, 0.04);
+      fill: rgba(77, 71, 255, 0.02);
     }
     100% {
       fill: transparent;
@@ -419,5 +419,52 @@ export const svgGlobalStyles = `
   .hide-free-frames [id^="free-frame"]:not([data-drawing="true"]) {
     display: none !important;
     pointer-events: none !important;
+  }
+
+  /* Disable clicks on Free Frames and Hotspots when not in interaction mode */
+  .page-svg-container.disable-interaction-layers [data-is-hotspot="true"],
+  .page-svg-container.disable-interaction-layers [data-type="hotspot"],
+  .page-svg-container.disable-interaction-layers [id^="hotspot-"],
+  .page-svg-container.disable-interaction-layers [data-is-hotspot="true"] *,
+  .page-svg-container.disable-interaction-layers [data-type="hotspot"] *,
+  .page-svg-container.disable-interaction-layers [id^="hotspot-"] *,
+  .page-svg-container.disable-interaction-layers [data-name="Free Frame" i],
+  .page-svg-container.disable-interaction-layers [data-type="free-frame"],
+  .page-svg-container.disable-interaction-layers [id^="free-frame"],
+  .page-svg-container.disable-interaction-layers [data-name="Free Frame" i] *,
+  .page-svg-container.disable-interaction-layers [data-type="free-frame"] *,
+  .page-svg-container.disable-interaction-layers [id^="free-frame"] *,
+  .disable-interaction-layers [data-is-hotspot="true"],
+  .disable-interaction-layers [data-type="hotspot"],
+  .disable-interaction-layers [id^="hotspot-"],
+  .disable-interaction-layers [data-name="Free Frame" i],
+  .disable-interaction-layers [data-type="free-frame"],
+  .disable-interaction-layers [id^="free-frame"] {
+    pointer-events: none !important;
+  }
+
+  /* Audio elements cannot be clicked or selected when in Interaction mode */
+  .page-svg-container.interaction-mode-active [data-type="audio-frame"],
+  .page-svg-container.interaction-mode-active g[id^="audio-"],
+  .page-svg-container.interaction-mode-active [data-type="audio-frame"] *,
+  .page-svg-container.interaction-mode-active g[id^="audio-"] *,
+  .interaction-mode-active [data-type="audio-frame"],
+  .interaction-mode-active g[id^="audio-"] {
+    pointer-events: none !important;
+    user-select: none !important;
+  }
+
+  /* Locked elements are completely non-clickable, non-selectable, and non-moveable */
+  [data-locked="true"],
+  [data-locked="true"] *,
+  .page-svg-container svg [data-locked="true"],
+  .page-svg-container svg [data-locked="true"] *,
+  svg rect[data-name="Free Frame" i][data-locked="true"],
+  svg [data-type="free-frame"][data-locked="true"],
+  svg [id^="free-frame"][data-locked="true"],
+  svg [data-is-hotspot="true"][data-locked="true"] {
+    pointer-events: none !important;
+    user-select: none !important;
+    cursor: default !important;
   }
 `;

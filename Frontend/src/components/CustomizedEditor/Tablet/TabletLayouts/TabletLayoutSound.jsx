@@ -69,6 +69,7 @@ const TabletLayoutSound = ({
                         </div>
 
                         {/* Flip Sound */}
+                        {flipSoundMasterEnabled && (
                         <div className="flex items-center gap-[1.5cqw] mb-[1.5cqw] px-[0.5cqw]">
                             <button
                                 className={`flex-shrink-0 w-[2.5cqw] h-[2.5cqw] bg-white flex items-center justify-center transition-all rounded-full shadow-sm ${!flipSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -83,8 +84,10 @@ const TabletLayoutSound = ({
                                 </div>
                             </div>
                         </div>
+                        )}
 
                         {/* BG Sound */}
+                        {bgSoundMasterEnabled && (
                         <div className="flex items-center gap-[1.5cqw] px-[0.5cqw]">
                             <button
                                 className={`flex-shrink-0 w-[2.5cqw] h-[2.5cqw] bg-white flex items-center justify-center transition-all rounded-full shadow-sm ${!bgSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -101,6 +104,7 @@ const TabletLayoutSound = ({
                                 </div>
                             </div>
                         </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -120,6 +124,7 @@ const TabletLayoutSound = ({
                 </div>
 
                 {/* Flip Sound Controls */}
+                {flipSoundMasterEnabled && (
                 <div className="flex items-center gap-[1.2cqw] mb-[1cqw]">
                     <button
                         className={`flex-shrink-0 w-[2.2cqw] h-[2.2cqw] flex items-center justify-center transition-all hover:opacity-80 rounded-sm ${!flipSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -135,8 +140,10 @@ const TabletLayoutSound = ({
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* BG Sound Controls */}
+                {bgSoundMasterEnabled && (
                 <div className="flex items-center gap-[1.2cqw]">
                     <button
                         className={`flex-shrink-0 w-[2.2cqw] h-[2.2cqw] flex items-center justify-center transition-all hover:opacity-80 rounded-sm ${!bgSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -162,6 +169,7 @@ const TabletLayoutSound = ({
                         </div>
                     </div>
                 </div>
+                )}
             </div>
         );
     }
@@ -176,6 +184,7 @@ const TabletLayoutSound = ({
                 <h2 className="text-[1.5cqw] font-bold mb-[1.5cqw]" style={{ color: getLayoutColor('dropdown-text', '#555555') }}>Sound</h2>
 
                 {/* Flip Sound Controls */}
+                {flipSoundMasterEnabled && (
                 <div className="flex items-center gap-[1.2cqw] mb-[1.5cqw]">
                     <button
                         className={`flex-shrink-0 w-[1.8cqw] h-[1.8cqw] flex items-center justify-center transition-all ${!flipSoundMasterEnabled && 'opacity-40'}`}
@@ -190,8 +199,10 @@ const TabletLayoutSound = ({
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* BG Sound Controls */}
+                {bgSoundMasterEnabled && (
                 <div className="flex items-center gap-[1.2cqw]">
                     <button
                         className={`flex-shrink-0 w-[1.8cqw] h-[1.8cqw] flex items-center justify-center transition-all ${!bgSoundMasterEnabled && 'opacity-40'}`}
@@ -216,6 +227,7 @@ const TabletLayoutSound = ({
                         </div>
                     </div>
                 </div>
+                )}
             </div>
         );
     }
@@ -258,6 +270,7 @@ const TabletLayoutSound = ({
                     </div>
 
                     {/* Flip Sound Controls */}
+                    {flipSoundMasterEnabled && (
                     <div className="flex items-center gap-[1.6cqw]">
                         <button
                             className={`flex-shrink-0 w-[2.8cqw] h-[2.8cqw] flex items-center justify-center transition-all duration-300 rounded-full ${flipSoundMasterEnabled ? (isFlipActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -276,8 +289,10 @@ const TabletLayoutSound = ({
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* BG Sound Controls */}
+                    {bgSoundMasterEnabled && (
                     <div className="flex items-center gap-[1.6cqw]">
                         <button
                             className={`flex-shrink-0 w-[2.8cqw] h-[2.8cqw] flex items-center justify-center transition-all duration-300 rounded-full ${bgSoundMasterEnabled ? (isBgActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -306,6 +321,7 @@ const TabletLayoutSound = ({
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
         );
@@ -326,6 +342,7 @@ const TabletLayoutSound = ({
                 </div>
 
                 {/* Flip Sound Controls */}
+                {flipSoundMasterEnabled && (
                 <div className="flex items-center gap-[1.5cqw] mb-[1.5cqw]">
                     <button
                         className={`flex-shrink-0 w-[3cqw] h-[3cqw] flex items-center justify-center transition-all hover:bg-black/5 rounded-full ${!flipSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -341,8 +358,10 @@ const TabletLayoutSound = ({
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* BG Sound Controls */}
+                {bgSoundMasterEnabled && (
                 <div className="flex items-center gap-[1.5cqw]">
                     <button
                         className={`flex-shrink-0 w-[3cqw] h-[3cqw] flex items-center justify-center transition-all hover:bg-black/5 rounded-full ${!bgSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -368,6 +387,7 @@ const TabletLayoutSound = ({
                         </div>
                     </div>
                 </div>
+                )}
             </div>
         );
     }
@@ -385,6 +405,7 @@ const TabletLayoutSound = ({
                 </div>
 
                 {/* Flip Sound Controls */}
+                {flipSoundMasterEnabled && (
                 <div className="flex items-center gap-[1.5cqw] mb-[1.5cqw]">
                     <button
                         className={`flex-shrink-0 w-[2.5cqw] h-[2.5cqw] flex items-center justify-center transition-all hover:bg-white/10 rounded-full ${!flipSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -399,8 +420,10 @@ const TabletLayoutSound = ({
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* BG Sound Controls */}
+                {bgSoundMasterEnabled && (
                 <div className="flex items-center gap-[1.5cqw]">
                     <button
                         className={`flex-shrink-0 w-[2.5cqw] h-[2.5cqw] flex items-center justify-center transition-all hover:bg-white/10 rounded-full ${!bgSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -425,6 +448,7 @@ const TabletLayoutSound = ({
                         </div>
                     </div>
                 </div>
+                )}
             </div>
         );
     }
@@ -442,6 +466,7 @@ const TabletLayoutSound = ({
 
                 <div className="p-[1.5cqw] flex flex-col gap-[1.5cqw]">
                     {/* Flip Sound Controls */}
+                    {flipSoundMasterEnabled && (
                     <div className="flex items-center gap-[1.5cqw]">
                         <button
                             className={`flex-shrink-0 w-[2.5cqw] h-[2.5cqw] flex items-center justify-center transition-all hover:opacity-90 rounded-full ${!flipSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -455,8 +480,10 @@ const TabletLayoutSound = ({
                             <div className="absolute top-0 left-0 bottom-0 transition-all duration-75 rounded-full" style={{ width: flipWidth, backgroundColor: getLayoutColor('dropdown-bg', '#555555') }}></div>
                         </div>
                     </div>
+                    )}
 
                     {/* BG Sound Controls */}
+                    {bgSoundMasterEnabled && (
                     <div className="flex items-center gap-[1.5cqw]">
                         <button
                             className={`flex-shrink-0 w-[2.5cqw] h-[2.5cqw] flex items-center justify-center transition-all hover:opacity-90 rounded-full ${!bgSoundMasterEnabled && 'opacity-40 cursor-not-allowed'}`}
@@ -480,6 +507,7 @@ const TabletLayoutSound = ({
                             <div className="absolute top-0 left-0 bottom-0 transition-all duration-75 rounded-full" style={{ width: bgWidth, backgroundColor: getLayoutColor('dropdown-bg', '#555555') }}></div>
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
         );
