@@ -11,6 +11,11 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
             .fbe-is-dragging iframe, .fbe-is-turning iframe, .fbe-is-flipping iframe {
                 pointer-events: none !important;
             }
+            .fbe-is-turning .flipbook-magazine-wrapper,
+            .fbe-is-flipping .flipbook-magazine-wrapper,
+            .fbe-is-dragging .flipbook-magazine-wrapper {
+                transition: none !important;
+            }
             .fbe-is-flipping .fbe-active-spread-overlay,
             .fbe-is-turning .fbe-active-spread-overlay {
                 visibility: hidden !important;

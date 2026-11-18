@@ -559,10 +559,13 @@ const CustomizedEditor = () => {
         visibilitySettings?.Visibility?.shareId || 
         '';
 
+      const effectiveFolder = folder || currentBook?.folder || 'default';
+
       setCurrentBook(prev => {
         const sId = effectiveShareId || prev?.shareId || prev?.share?.shareId || prev?.Customized_Settings?.Visibility?.shareId || v_id;
+        const prevFolder = prev?.folder || 'default';
         if (
-          prev?.folder === folder &&
+          prevFolder === effectiveFolder &&
           prev?.flipbookName === bookName &&
           prev?.v_id === v_id &&
           prev?.shareId === sId &&
@@ -573,7 +576,7 @@ const CustomizedEditor = () => {
 
         return {
           ...(prev || {}),
-          folder,
+          folder: effectiveFolder,
           flipbookName: bookName,
           v_id,
           shareId: sId,
@@ -610,7 +613,7 @@ const CustomizedEditor = () => {
         };
       });
     }
-  }, [setCurrentBook, folder, v_id, bookName, shareSettings?.shareId, visibilitySettings?.access, visibilitySettings?.type, visibilitySettings?.shareId, pages]);
+  }, [setCurrentBook, folder, v_id, bookName, shareSettings?.shareId, visibilitySettings?.access, visibilitySettings?.type, visibilitySettings?.shareId]);
 
   // Build CSS variables for active layout colors
   const layoutColorVars = useLayoutColorVars(layoutSettings, layoutColors);

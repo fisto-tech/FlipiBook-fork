@@ -155,6 +155,11 @@ export default function ActiveSpreadOverlay({
                     return;
                 }
 
+                // Optimization: If mouse is moving passively outside corners without dragging, avoid layout reflows
+                if (type === 'mousemove' && !isCornerZone && ev.buttons === 0) {
+                    return;
+                }
+
                 const iframeRect = iframeEl.getBoundingClientRect();
                 const clientX = ev.clientX + iframeRect.left;
                 const clientY = ev.clientY + iframeRect.top;

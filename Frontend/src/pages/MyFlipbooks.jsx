@@ -8,11 +8,11 @@ import { Icon } from '@iconify/react';
 import AlertModal from '../components/AlertModal';
 import CreateBookLayout from '../Layouts/CreateBookLayout';
 import { convertPdfToImages, convertPdfWithInkscape, getPdfPageCount, getDocumentDetails, generatePdfPageSvg, generateSkeletonPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdfUtils';
-import PdfProcessingLoader from '../components/PdfProcessingLoader';
 import StorageLimitModal from '../components/StorageLimitModal';
 import LegacyFormatModal from '../components/LegacyFormatModal';
 import { validateStorageBeforeUpload } from '../utils/storageValidation';
 import { saveCustomizedEditorState, savePageEditorState, deleteBookEditorState } from '../utils/dbUtils';
+import { useDocumentUpload } from '../context/DocumentUploadContext';
 import { saveAllPagesToIDB } from '../utils/pageWindowStore';
 import { backgroundSyncManager } from '../utils/backgroundSyncManager';
 import { backgroundExtractionManager } from '../utils/backgroundExtractionManager';
@@ -416,7 +416,13 @@ export default function MyFlipbooks() {
     const [creatingFolderName, setCreatingFolderName] = useState(null);
 
     const [isLoading, setIsLoading] = useState(false);
-    const [processingProgress, setProcessingProgress] = useState(null);
+    const {
+        processingProgress,
+        setProcessingProgress,
+        registerUploadSession,
+        cancelUpload: cancelGlobalUpload,
+        notifyUploadComplete
+    } = useDocumentUpload();
     const isUploadCancelledRef = useRef(false);
     const uploadAbortControllerRef = useRef(null);
     const createdFlipbookVIdRef = useRef(null);
@@ -508,6 +514,11 @@ export default function MyFlipbooks() {
         const signal = uploadAbortControllerRef.current.signal;
         createdFlipbookVIdRef.current = null;
 
+        registerUploadSession({
+            abortController: uploadAbortControllerRef.current,
+            onCancel: handleCancelUploadPDF
+        });
+
         const initialDocType = firstFile._docType || getOfficeDocType(firstFile.name);
         const initialDocLabel = initialDocType === 'word' ? 'Word document' : initialDocType === 'powerpoint' ? 'PowerPoint presentation' : 'file';
 
@@ -557,6 +568,7 @@ export default function MyFlipbooks() {
                 const file = files[fileIndex];
 
                 const earlyExtractLimit = Infinity;
+                const startPageForFile = allImages.length + 1;
 
                 const images = await convertPdfWithInkscape(file, earlyExtractLimit, backendUrl, (currOrObj, total, pct, stage, msg) => {
                     if (isUploadCancelledRef.current || signal.aborted) {
@@ -612,7 +624,7 @@ export default function MyFlipbooks() {
                             engine: engine || prev?.engine || 'edge'
                         };
                     });
-                }, signal, assignedBookId, resolvedUserId);
+                }, signal, assignedBookId, resolvedUserId, startPageForFile);
 
                 if (isUploadCancelledRef.current || signal.aborted) return;
 
@@ -662,7 +674,8 @@ export default function MyFlipbooks() {
             const targetFolder = (!activeFolder || activeFolder === 'All Flipbook' || activeFolder === 'All Flipbooks' || activeFolder === 'Recent Book' || activeFolder === 'Recent' || activeFolder === 'Trash' || activeFolder === 'Favorites') ? 'My Flipbooks' : activeFolder;
             const matchedFolder = folders.find(f => (f.name || '').trim().toLowerCase() === targetFolder.trim().toLowerCase() || (targetFolder === 'My Flipbooks' && f.isDefault));
             const rawTargetFolderVId = matchedFolder?.fol_v_id || matchedFolder?.id || 'default';
-            const targetFolderVId = String(rawTargetFolderVId).replace(/^fol_/, '');
+            const parsedFolderVId = String(rawTargetFolderVId).replace(/^fol_/, '');
+            const targetFolderVId = (parsedFolderVId && parsedFolderVId.trim()) ? parsedFolderVId.trim() : 'default';
 
             const now = new Date();
             const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
@@ -973,7 +986,9 @@ export default function MyFlipbooks() {
                 imageUrl: p.imageUrl || ''
             }));
 
-            navigate(`/editor/customized_editor/${encodeURIComponent(targetFolderVId)}/${v_id}`, {
+            notifyUploadComplete({
+                targetFolderVId,
+                v_id,
                 state: { 
                     flipbookName: uniqueName, 
                     pageCount: allPages.length,
@@ -1029,9 +1044,6 @@ export default function MyFlipbooks() {
             setIsLoading(false);
             if (isUploadCancelledRef.current) {
                 setProcessingProgress(null);
-            } else {
-                // Delay clearing progress so the 'done' state fully animates before the loader unmounts
-                setTimeout(() => setProcessingProgress(null), 1200);
             }
             uploadAbortControllerRef.current = null;
         }
@@ -1046,7 +1058,7 @@ export default function MyFlipbooks() {
             uploadAbortControllerRef.current = null;
         }
         setIsLoading(false);
-        setProcessingProgress(null);
+        cancelGlobalUpload();
         if (createdFlipbookVIdRef.current) {
             deleteBookEditorState(createdFlipbookVIdRef.current);
             flipbookApi.deleteBook(createdFlipbookVIdRef.current).catch(() => {});
@@ -2441,9 +2453,6 @@ export default function MyFlipbooks() {
             />
 
 
-
-            {/* PDF Processing Overlay */}
-            <PdfProcessingLoader progress={processingProgress} onCancel={handleCancelUploadPDF} />
 
             {/* Alert Modal */}
             <AlertModal
