@@ -1,4 +1,5 @@
 import React from 'react';
+import { SPINE_SHADOWS } from './utils/flipBookHelpers';
 
 /**
  * FlipBookStyles
@@ -26,6 +27,23 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
             }
             .fbe-static-bg {
                 backface-visibility: hidden;
+            }
+            /* A live page iframe temporarily moved into its Turn.js page during a peel/turn
+               (frozen at its current slide / audio time). Visible, but never takes the mouse. */
+            .fbe-borrowed-iframe {
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: none !important;
+                z-index: 5 !important;
+            }
+            /* One spine shadow at a time: while a live overlay page (with its own identical shadow)
+               is shown over a Turn.js page, hide the page's baked-in copy. During any peel/turn the
+               overlay is hidden and these selectors stop matching in the same frame. */
+            .fbe-wrapper:not(.fbe-is-turning):not(.fbe-is-flipping):not(.fbe-is-dragging) .fbe-book[data-live-left]:not(.fbe-is-turning):not(.fbe-is-flipping):not(.fbe-is-dragging) .fbe-page--left .fbe-inner::before,
+            .fbe-wrapper:not(.fbe-is-turning):not(.fbe-is-flipping):not(.fbe-is-dragging) .fbe-book[data-live-left]:not(.fbe-is-turning):not(.fbe-is-flipping):not(.fbe-is-dragging) .fbe-page--left .fbe-inner::after,
+            .fbe-wrapper:not(.fbe-is-turning):not(.fbe-is-flipping):not(.fbe-is-dragging) .fbe-book[data-live-right]:not(.fbe-is-turning):not(.fbe-is-flipping):not(.fbe-is-dragging) .fbe-page--right .fbe-inner::before,
+            .fbe-wrapper:not(.fbe-is-turning):not(.fbe-is-flipping):not(.fbe-is-dragging) .fbe-book[data-live-right]:not(.fbe-is-turning):not(.fbe-is-flipping):not(.fbe-is-dragging) .fbe-page--right .fbe-inner::after {
+                visibility: hidden;
             }
             @keyframes fbe-spin {
                 0% { transform: rotate(0deg); }
@@ -118,10 +136,10 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 right: 0;
-                width: 22px;
-                background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.01) 40%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.05) 100%);
+                width: ${SPINE_SHADOWS.left.width}px;
+                background: ${SPINE_SHADOWS.left.background};
                 pointer-events: none;
-                z-index: 2;
+                z-index: 15;
             }
 
             .fbe-page--right .fbe-inner::after,
@@ -131,10 +149,10 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 left: 0;
-                width: 22px;
-                background: linear-gradient(to left, transparent 0%, rgba(0,0,0,0.01) 40%, rgba(0,0,0,0.03) 75%, rgba(0,0,0,0.05) 100%);
+                width: ${SPINE_SHADOWS.right.width}px;
+                background: ${SPINE_SHADOWS.right.background};
                 pointer-events: none;
-                z-index: 2;
+                z-index: 15;
             }
 
             /* Realistic spine binding shadows on front cover and back cover */
@@ -146,8 +164,8 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 left: 0;
-                width: 28px;
-                background: linear-gradient(to right, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.08) 25%, rgba(0,0,0,0.02) 60%, transparent 100%);
+                width: ${SPINE_SHADOWS.cover.width}px;
+                background: ${SPINE_SHADOWS.cover.background};
                 pointer-events: none;
                 z-index: 15;
                 border-top-left-radius: inherit;
@@ -161,8 +179,8 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 right: 0;
-                width: 28px;
-                background: linear-gradient(to left, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.08) 25%, rgba(0,0,0,0.02) 60%, transparent 100%);
+                width: ${SPINE_SHADOWS.backCover.width}px;
+                background: ${SPINE_SHADOWS.backCover.background};
                 pointer-events: none;
                 z-index: 15;
                 border-top-right-radius: inherit;
@@ -246,21 +264,21 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
             /* While flipping, dragging, or turning, hide background raw iframes to avoid 3D stalls,
                while keeping the real map iframe (.fbe-map-iframe) and 3rd-party embed iframe (.fbe-embed-iframe)
                visible with pointer-events: none so turn/drag interactions are buttery smooth! */
-            .fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
-            .fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
-            .fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
+            .fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe),
+            .fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe),
+            .fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe),
             .fbe-is-turning .fbe-active-spread-overlay,
             .fbe-is-dragging .fbe-active-spread-overlay,
             .fbe-is-flipping .fbe-active-spread-overlay,
             .fbe-wrapper.fbe-is-turning .fbe-active-spread-overlay,
             .fbe-wrapper.fbe-is-dragging .fbe-active-spread-overlay,
             .fbe-wrapper.fbe-is-flipping .fbe-active-spread-overlay,
-            .fbe-wrapper.fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
-            .fbe-wrapper.fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
-            .fbe-wrapper.fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
-            .fbe-book.fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
-            .fbe-book.fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe),
-            .fbe-book.fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe) {
+            .fbe-wrapper.fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe),
+            .fbe-wrapper.fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe),
+            .fbe-wrapper.fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe),
+            .fbe-book.fbe-is-turning iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe),
+            .fbe-book.fbe-is-dragging iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe),
+            .fbe-book.fbe-is-flipping iframe:not(.fbe-map-iframe):not(.fbe-embed-iframe):not(.fbe-borrowed-iframe) {
                 visibility: hidden !important;
                 opacity: 0 !important;
                 pointer-events: none !important;

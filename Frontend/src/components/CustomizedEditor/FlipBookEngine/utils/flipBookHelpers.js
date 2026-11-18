@@ -29,6 +29,46 @@ export const extractPageTexture = (rawContent, pageNum = '') => {
     return res;
 };
 
+/* Inner-seam (spine) shadows. Rendered inside each page so they curl with the paper,
+ * and duplicated above live overlay iframes so they stay visible at rest. */
+export const SPINE_SHADOWS = {
+    // On a LEFT page, along its right (inner) edge
+    // (Darkness matches the previous "stacked" look; only ONE copy is ever visible at a time.)
+    left: { width: 24, background: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.02) 40%, rgba(0,0,0,0.06) 75%, rgba(0,0,0,0.155) 100%)' },
+    // On a RIGHT page, along its left (inner) edge
+    right: { width: 24, background: 'linear-gradient(to left, transparent 0%, rgba(0,0,0,0.02) 40%, rgba(0,0,0,0.06) 75%, rgba(0,0,0,0.155) 100%)' },
+    // Front cover, along its left edge
+    cover: { width: 28, background: 'linear-gradient(to right, rgba(0,0,0,0.33) 0%, rgba(0,0,0,0.155) 25%, rgba(0,0,0,0.04) 60%, transparent 100%)' },
+    // Back cover, along its right edge
+    backCover: { width: 28, background: 'linear-gradient(to left, rgba(0,0,0,0.33) 0%, rgba(0,0,0,0.155) 25%, rgba(0,0,0,0.04) 60%, transparent 100%)' },
+};
+
+/**
+ * Run `cb` once, after the next painted frame — with a timer fallback, because
+ * requestAnimationFrame is paused in background tabs / some embedded or headless contexts.
+ */
+export const afterNextFrame = (cb, fallbackMs = 100) => {
+    let done = false;
+    const run = () => { if (done) return; done = true; cb(); };
+    try { requestAnimationFrame(() => requestAnimationFrame(run)); } catch (_) { }
+    setTimeout(run, fallbackMs);
+};
+
+/** Which edge each spine shadow type sits on */
+export const SPINE_SHADOW_EDGE = { left: 'right', right: 'left', cover: 'left', backCover: 'right' };
+
+/**
+ * Which spine shadow a page gets — mirrors the .fbe-page--first/--last/--left/--right classes
+ * the Turn.js page builder assigns (see FlipBookStyles .fbe-inner::before/::after).
+ */
+export const getSpineShadowType = (pageIdx, pages = []) => {
+    if (pageIdx === 0) return 'cover';
+    const total = pages.length;
+    const isLast = pageIdx === total - 1 || (pageIdx === total - 2 && pages[pageIdx + 1]?.isPad);
+    if (isLast) return 'backCover';
+    return pageIdx % 2 === 0 ? 'right' : 'left';
+};
+
 export const staticHtmlCache = new Map();
 
 export const staticVideoBg = '<div class="video-static-backdrop" style="position: absolute; inset: 0; width: 100%; height: 100%; background: #0f172a; display: flex; align-items: center; justify-content: center; overflow: hidden;"><svg width="44" height="44" viewBox="0 0 24 24" fill="#ffffff" style="opacity: 0.9; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';

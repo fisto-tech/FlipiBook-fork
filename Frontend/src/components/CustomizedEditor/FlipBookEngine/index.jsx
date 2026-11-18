@@ -35,7 +35,8 @@ import {
     cleanStaticHtml,
     buildPageDoc,
     loadScript,
-    checkTurnReady
+    checkTurnReady,
+    afterNextFrame
 } from './utils/flipBookHelpers';
 
 const FlipBookEngine = forwardRef(function FlipBookEngine(
@@ -163,6 +164,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     const [currentPage, setCurrentPage] = useState(startPage);
     const [isTurning, setIsTurning] = useState(false);
     const isFlippingRef = useRef(false);
+    const turnInProgressRef = useRef(false); // true between Turn.js 'turning' and 'turned'
+    const liveControlRef = useRef(null);      // set by ActiveSpreadOverlay: { freeze() }
     const [cloneUnderlay, setCloneUnderlay] = useState({ left: null, right: null });
 
     const [mobileShadowSide, setMobileShadowSide] = useState('left');
@@ -313,7 +316,11 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                                 vectorBg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;';
                                 staticBgEl.appendChild(vectorBg);
                             }
-                            vectorBg.innerHTML = `<style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>${cleanSvg}`;
+                            // Only rewrite when content changed — rewriting recreates live map/embed iframes (reload glitch)
+                            if (vectorBg.__fbeSvg !== cleanSvg) {
+                                vectorBg.__fbeSvg = cleanSvg;
+                                vectorBg.innerHTML = `<style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>${cleanSvg}`;
+                            }
                         } else if (vectorBg) {
                             vectorBg.remove();
                         }
@@ -343,7 +350,11 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                                 vectorBg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;';
                                 staticBgEl.appendChild(vectorBg);
                             }
-                            vectorBg.innerHTML = `<style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>${cleanSvg}`;
+                            // Only rewrite when content changed — rewriting recreates live map/embed iframes (reload glitch)
+                            if (vectorBg.__fbeSvg !== cleanSvg) {
+                                vectorBg.__fbeSvg = cleanSvg;
+                                vectorBg.innerHTML = `<style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>${cleanSvg}`;
+                            }
                         } else if (vectorBg) {
                             vectorBg.remove();
                         }
@@ -372,12 +383,14 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     src="${texture}" 
                     onload="const p=this.parentElement;if(p){const l=p.querySelector('.fbe-page-loader');if(l)l.style.display='none';p.setAttribute('data-loaded','true');p.removeAttribute('data-placeholder');p.removeAttribute('data-loading');}this.style.opacity='1';" 
                     onerror="const p=this.parentElement;if(p){const l=p.querySelector('.fbe-page-loader');if(l)l.style.display='none';p.setAttribute('data-loaded','true');p.removeAttribute('data-placeholder');p.removeAttribute('data-loading');}this.style.display='none';" 
-                    style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;z-index:1;opacity:0;transition:opacity 0.2s ease;" 
+                    style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;z-index:1;opacity:0;"
                     alt="Page ${pageNum}" 
                     decoding="async" 
                 />
                 ${cleanSvg ? `<div class="fbe-vector-bg" style="position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;"><style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>${cleanSvg}</div>` : ''}
             `;
+            const insertedVectorBg = staticBgEl.querySelector('.fbe-vector-bg');
+            if (insertedVectorBg) insertedVectorBg.__fbeSvg = cleanSvg;
             const newlyInsertedImg = staticBgEl.querySelector('img');
             if (newlyInsertedImg && newlyInsertedImg.complete && newlyInsertedImg.naturalWidth > 0) {
                 const loader = staticBgEl.querySelector('.fbe-page-loader');
@@ -403,16 +416,20 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         }
 
         const cleanSvg = cleanStaticHtml(rawContent);
+        // Skip identical rewrites so live map/embed iframes inside the page are not recreated
+        if (staticBgEl.__fbeSvg === cleanSvg && staticBgEl.getAttribute('data-loaded') === 'true' && !staticBgEl.querySelector(':scope > img, :scope > .fbe-page-loader')) return;
+        staticBgEl.__fbeSvg = cleanSvg;
         staticBgEl.innerHTML = `<style>[data-name="Free Frame"] { stroke: transparent !important; } .fbe-static-bg svg { width: 100% !important; height: 100% !important; display: block !important; }</style>` + cleanSvg;
         staticBgEl.setAttribute('data-loaded', 'true');
         staticBgEl.removeAttribute('data-placeholder');
+        staticBgEl.removeAttribute('data-loading');
     }, [v_id]);
 
     const prewarmedSetRef = useRef(new Set());
     // GPU Texture Pre-warmer: Pre-decodes upcoming/preceding 2 pages in background so turns are instant
     useEffect(() => {
         if (!pages || pages.length === 0) return;
-        const radius = 2;
+        const radius = 4;
         const start = Math.max(0, currentPage - radius);
         const end = Math.min(pages.length - 1, currentPage + radius);
 
@@ -421,7 +438,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             if (!p || p.isPad || p.isPlaceholder) continue;
             const rawContent = p.html || p.content || '';
             if (!rawContent || rawContent.includes('generateSkeletonPageSvg') || rawContent.includes('data-skeleton') || rawContent.includes('createDefaultPageData')) continue;
-            const texture = getCachedRaster(i + 1) || extractPageTexture(rawContent);
+            const texture = getCachedRaster(i + 1, v_id) || extractPageTexture(rawContent, i + 1);
             if (texture && !prewarmedSetRef.current.has(texture)) {
                 prewarmedSetRef.current.add(texture);
                 const img = new Image();
@@ -429,7 +446,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 img.src = texture;
             }
         }
-    }, [currentPage, pages]);
+    }, [currentPage, pages, v_id]);
 
     useEffect(() => {
         if (!singlePage) return;
@@ -569,7 +586,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
     /* ── High-Speed DOM Preloader from IndexedDB (Bypasses React Re-renders) ── */
     const preloadPageToDom = useCallback((pageNum) => {
-        if (!v_id || pageNum < 1 || pageNum > augmentedPages.length) return;
+        if (pageNum < 1 || pageNum > augmentedPages.length) return;
         const pageIdx = pageNum - 1;
 
         let staticBg = staticBgElementsMapRef.current.get(pageNum);
@@ -594,6 +611,15 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             return;
         }
 
+        if (!v_id) {
+            // No IDB store in this mode: render straight from in-memory content
+            if (memContent) {
+                applyPageVisual(staticBg, memContent, pageNum);
+                renderedContentMapRef.current.set(pageNum, `${pageNum}::${memContent.length}:${memPage?.sheetData ? JSON.stringify(memPage.sheetData) : ''}`);
+            }
+            return;
+        }
+
         getPageFromIDB(v_id, pageIdx).then((pageData) => {
             if (!pageData) return;
             const content = pageData.html || pageData.content || '';
@@ -611,29 +637,102 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         }).catch(() => { });
     }, [v_id, augmentedPages, applyPageVisual]);
 
-    const preloadSurroundingPages = useCallback((centerPageNum) => {
-        const leftP = (centerPageNum % 2 === 0) ? centerPageNum : centerPageNum - 1;
-        const rightP = (centerPageNum % 2 === 0) ? centerPageNum + 1 : centerPageNum;
 
-        if (leftP >= 1 && leftP <= augmentedPages.length) {
-            preloadPageToDom(leftP);
-        }
-        if (rightP >= 1 && rightP <= augmentedPages.length) {
-            preloadPageToDom(rightP);
-        }
+    /* ── Smooth turns: keep page-building work OFF the animation ──────────────────────────
+     * Rewriting a page's static content is a 10–20ms main-thread task. Doing it for ±4 pages at
+     * the instant a turn starts (and again as it lands) caused a dropped frame on every turn.
+     *  - ensureRevealedLoaded(): at turn start, only the spread being revealed (normally a no-op,
+     *    because the idle preloader has already built it).
+     *  - scheduleIdlePreload(): the wider ±4 window, built one page per idle slice, and never while
+     *    a turn/peel is animating. */
+    const preloadPageToDomRef = useRef(preloadPageToDom);
+    preloadPageToDomRef.current = preloadPageToDom;
+    const pageCountRef = useRef(augmentedPages.length);
+    pageCountRef.current = augmentedPages.length;
+    const idlePreloadRef = useRef({ queue: [], handle: null });
 
-        [leftP - 2, leftP - 1, rightP + 1, rightP + 2].forEach(p => {
-            if (p >= 1 && p <= augmentedPages.length) {
-                preloadPageToDom(p);
-            }
+    const spreadOf = (pageNum) => {
+        const leftP = (pageNum % 2 === 0) ? pageNum : pageNum - 1;
+        return [leftP, leftP + 1];
+    };
+
+    // "Cold" pages keep their static content display:none, so when Turn.js inserts them into the
+    // DOM at turn start (its pagesInDOM window slides by a spread) no heavy style recalc is forced.
+    // Pages within one spread of the current view are "warm" (rendered) — warmed during idle time.
+    const setPageWarm = (pageNum, warm) => {
+        let staticBg = staticBgElementsMapRef.current.get(pageNum);
+        if (!staticBg && bookEl.current) {
+            staticBg = bookEl.current.querySelector(`.p${pageNum} .fbe-static-bg`);
+            if (staticBg) staticBgElementsMapRef.current.set(pageNum, staticBg);
+        }
+        if (!staticBg) return;
+        const want = warm ? '' : 'none';
+        if (staticBg.style.display !== want) staticBg.style.display = want;
+    };
+    const applyWarmWindow = (centerPageNum) => {
+        const total = pageCountRef.current;
+        const [leftP, rightP] = spreadOf(centerPageNum);
+        for (let p = 1; p <= total; p++) setPageWarm(p, p >= leftP - 2 && p <= rightP + 2);
+    };
+
+    const ensureRevealedLoaded = useCallback((pageNum) => {
+        const total = pageCountRef.current;
+        spreadOf(pageNum).forEach(p => {
+            if (p < 1 || p > total) return;
+            setPageWarm(p, true);
+            preloadPageToDomRef.current(p);
         });
-    }, [augmentedPages.length, preloadPageToDom, v_id]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const scheduleIdlePreload = useCallback((centerPageNum) => {
+        const total = pageCountRef.current;
+        const [leftP, rightP] = spreadOf(centerPageNum);
+        const queue = [leftP, rightP, rightP + 1, rightP + 2, leftP - 1, leftP - 2, rightP + 3, rightP + 4, leftP - 3, leftP - 4]
+            .filter(p => p >= 1 && p <= total);
+        const st = idlePreloadRef.current;
+        st.queue = queue;
+        st.center = centerPageNum;
+        st.warmDone = false;
+        if (st.handle) return;
+        const hasIdle = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function';
+        const schedule = () => {
+            st.handle = hasIdle
+                ? window.requestIdleCallback(run, { timeout: 1500 })
+                : setTimeout(() => run(null), 150);
+        };
+        const run = (deadline) => {
+            st.handle = null;
+            if (!st.warmDone && !turnInProgressRef.current && !isFlippingRef.current) {
+                applyWarmWindow(st.center);
+                st.warmDone = true;
+            }
+            while (st.queue.length) {
+                // Never compete with an animating turn/peel — try again later
+                if (turnInProgressRef.current || isFlippingRef.current) break;
+                if (deadline ? (!deadline.didTimeout && deadline.timeRemaining() < 8) : false) break;
+                preloadPageToDomRef.current(st.queue.shift());
+                if (!deadline) break; // timer fallback: one page per tick
+            }
+            if (st.queue.length || !st.warmDone) schedule();
+        };
+        schedule();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => () => {
+        const st = idlePreloadRef.current;
+        if (st.handle) {
+            if (typeof window.cancelIdleCallback === 'function') { try { window.cancelIdleCallback(st.handle); } catch (_) { } }
+            clearTimeout(st.handle);
+        }
+        st.queue = [];
+    }, []);
 
     useEffect(() => {
-        if (!ready || !v_id) return;
-        const center = Math.max(1, currentPage + 1);
-        preloadSurroundingPages(center);
-    }, [currentPage, ready, v_id, preloadSurroundingPages]);
+        if (!ready) return;
+        scheduleIdlePreload(Math.max(1, currentPage + 1));
+    }, [currentPage, ready, v_id, scheduleIdlePreload]);
 
     /* ── Load Scripts from local /public/lib/ (no CDN) ── */
     useEffect(() => {
@@ -642,7 +741,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             try {
                 if (!window.jQuery) await loadScript('/lib/jquery.min.js');
                 if (!window.jQuery?.fn?.turn || window._turnJsVersion !== 4) {
-                    await loadScript('/lib/turn.min.js?v=4');
+                    await loadScript('/lib/turn.min.js?v=4.1-fbe');
                 }
                 if (alive) {
                     setScriptsLoaded(true);
@@ -765,6 +864,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
         renderedContentMapRef.current.clear();
         staticBgElementsMapRef.current.clear();
+        turnInProgressRef.current = false;
 
         const augmented = augmentedPages;
         const initPage = Math.max(1, currentPage + 1);
@@ -843,6 +943,10 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     staticBg.setAttribute('data-placeholder', 'true');
                 }
                 staticBgElementsMapRef.current.set(pageNum, staticBg);
+                {
+                    const initLeft = (initPage % 2 === 0) ? initPage : initPage - 1;
+                    if (pageNum < initLeft - 2 || pageNum > initLeft + 3) staticBg.style.display = 'none';
+                }
                 inner.appendChild(staticBg);
 
                 if (!page.isTransparentSheet && textureStyle && (textureStyle.backgroundImage !== 'none' || textureStyle.backgroundColor)) {
@@ -859,6 +963,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     inner.appendChild(textureOverlay);
                 }
 
+                // Spine shadow: drawn by .fbe-inner::before/::after in FlipBookStyles (curls with the paper)
                 pageDiv.appendChild(inner);
             } else {
                 pageDiv.style.cssText = 'opacity:0;pointer-events:none;background:transparent;';
@@ -884,6 +989,10 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             when: {
                 start: (e, pageObject, corner) => {
                     if (corner) {
+                        // Warm the pages about to be revealed as soon as a corner drag begins
+                        if (pageObject?.next) ensureRevealedLoaded(pageObject.next);
+                        // Freeze live pages (slide/audio/video) and put them on the paper BEFORE the overlay hides
+                        liveControlRef.current?.freeze();
                         isFlippingRef.current = true;
                         setIsTurning(true);
                         if (containerRef.current) containerRef.current.classList.add('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
@@ -897,6 +1006,10 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     }
                 },
                 end: (e, pageObject, turned) => {
+                    // Turn.js also fires end(turned=false) as housekeeping at the start of a turn and just
+                    // before 'turned'. Treating that as "cancelled" dropped the turning classes mid-turn for
+                    // a frame (overlay/spine-shadow flash). Only a peel released WITHOUT turning cleans up here.
+                    if (!turned && turnInProgressRef.current) return;
                     isFlippingRef.current = false;
                     if (!turned) {
                         setIsTurning(false);
@@ -909,12 +1022,14 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                         e.preventDefault();
                         return false;
                     }
+                    liveControlRef.current?.freeze();
+                    turnInProgressRef.current = true;
                     isFlippingRef.current = true;
                     setIsTurning(true);
                     if (containerRef.current) containerRef.current.classList.add('fbe-is-turning', 'fbe-is-flipping');
                     if (bookEl.current) bookEl.current.classList.add('fbe-is-turning', 'fbe-is-flipping');
 
-                    preloadSurroundingPages(turnPage);
+                    ensureRevealedLoaded(turnPage);
 
                     let logical = turnPage - 1;
                     if (!singlePage && Array.isArray(view) && view.length >= 2) {
@@ -926,6 +1041,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     if (onTurningRef.current) onTurningRef.current({ data: logical });
                 },
                 turned: (_e, turnPage, view) => {
+                    turnInProgressRef.current = false;
                     isFlippingRef.current = false;
                     const activeView = view || (singlePage ? [turnPage] : (turnPage % 2 === 0 ? [turnPage, turnPage + 1] : [turnPage - 1, turnPage]));
 
@@ -938,7 +1054,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     }
 
                     prevStartPageRef.current = logical;
-                    preloadSurroundingPages(turnPage);
+                    scheduleIdlePreload(turnPage);
 
                     setSpreadView(prev => {
                         if (prev && prev[0] === activeView[0] && prev[1] === activeView[1]) {
@@ -950,7 +1066,11 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                         return activeView;
                     });
                     setCurrentPage(logical);
-                    if (onFlipRef.current) onFlipRef.current({ data: logical });
+                    // Notify the parent (editor-wide re-render) one frame after the turn lands,
+                    // so it doesn't compete with the overlay/static swap in the same frame
+                    afterNextFrame(() => {
+                        if (onFlipRef.current) onFlipRef.current({ data: logical });
+                    }, 50);
 
                     if (queuedFlipRef.current) {
                         const queued = queuedFlipRef.current;
@@ -968,20 +1088,9 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
         [initPage, initPage + 1, initPage + 2].forEach(p => preloadPageToDom(p));
 
-        let autoPeelTimer = null;
-        if (useMouseEvents) {
-            autoPeelTimer = setTimeout(() => {
-                try {
-                    const isTurnReady = checkTurnReady($book);
-                    if (isTurnReady && !$book.turn('animating') && !isFlippingRef.current) {
-                        $book.turn('peel', 'br');
-                    }
-                } catch (_) {}
-            }, 1000);
-        }
+        // No automatic corner peel on load — the corner only peels when the user hovers it.
 
         return () => {
-            if (autoPeelTimer) clearTimeout(autoPeelTimer);
             try {
                 $book.find('*').addBack().each(function () {
                     const elData = $(this).data();
@@ -1055,6 +1164,18 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         }
     }, [width, height, singlePage, ready, useFullTurnJs]);
 
+    // If a requested turn did not start (end of book, blocked), undo the freeze + turning state
+    const settleIfNoTurn = useCallback(($book) => {
+        let animating = false;
+        try { animating = $book.turn('animating'); } catch (_) { }
+        if (animating || turnInProgressRef.current) return;
+        liveControlRef.current?.release();
+        isFlippingRef.current = false;
+        setIsTurning(false);
+        if (containerRef.current) containerRef.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
+        if (bookEl.current) bookEl.current.classList.remove('fbe-is-dragging', 'fbe-is-turning', 'fbe-is-flipping');
+    }, []);
+
     const flipNextFn = useCallback(() => {
         if (document.activeElement) document.activeElement.blur();
 
@@ -1073,15 +1194,17 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
                 queuedFlipRef.current = null;
                 isProgrammaticRef.current = true;
+                liveControlRef.current?.freeze();
                 setIsTurning(true);
                 $book.turn('next');
+                settleIfNoTurn($book);
             }
         } else if (showingReactFlip && reactFlipRef.current) {
             setIsTurning(true);
             reactFlipRef.current.pageFlip().flipNext();
         }
         setTimeout(() => isProgrammaticRef.current = false, 50);
-    }, [showingTurnJs, showingReactFlip, pages.length, singlePage, currentPage]);
+    }, [showingTurnJs, showingReactFlip, pages.length, singlePage, currentPage, settleIfNoTurn]);
 
     const flipPrevFn = useCallback(() => {
         if (document.activeElement) document.activeElement.blur();
@@ -1097,15 +1220,17 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
                 queuedFlipRef.current = null;
                 isProgrammaticRef.current = true;
+                liveControlRef.current?.freeze();
                 setIsTurning(true);
                 $book.turn('previous');
+                settleIfNoTurn($book);
             }
         } else if (showingReactFlip && reactFlipRef.current) {
             setIsTurning(true);
             reactFlipRef.current.pageFlip().flipPrev();
         }
         setTimeout(() => isProgrammaticRef.current = false, 50);
-    }, [showingTurnJs, showingReactFlip]);
+    }, [showingTurnJs, showingReactFlip, settleIfNoTurn]);
 
     const flipToPageFn = useCallback((idx) => {
         isProgrammaticRef.current = true;
@@ -1122,6 +1247,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                         $book.turn('stop');
                     } catch (_) { }
                 }
+                liveControlRef.current?.freeze();
                 setIsTurning(true);
                 $book.turn('page', wantedPage);
             }
@@ -1407,6 +1533,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 flipNextFn={flipNextFn}
                 flipPrevFn={flipPrevFn}
                 bookEl={bookEl}
+                liveControlRef={liveControlRef}
             />
 
             {/* Corner Hotspots for non-TurnJS engines */}
