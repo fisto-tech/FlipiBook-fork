@@ -269,7 +269,9 @@ export default function FlipbookDetailAnalytics({
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100/70">
           {sidebarBooks.map((b) => {
             const isSelected = b.v_id === flipbook?.v_id;
-            const viewsCount = b.viewsCount || b.views || 0;
+            const viewsCount = isSelected
+              ? (summary?.totalViews || analyticsData?.summary?.totalViews || analyticsData?.totalViews || b.viewsCount || b.views || 0)
+              : (b.viewsCount || b.views || 0);
             const dateStr = formatShortDate(b.updatedAt || b.createdAt);
 
             return (

@@ -8,6 +8,7 @@ import {
   FiMapPin
 } from 'react-icons/fi';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
+import { getPaginationPages } from './analyticsUtils';
 
 const LOCATION_DATA = [
   { country: 'India', readers: 520, views: '1,120', avgTime: '4m 12s', share: '41.7%', trend: [100, 120, 110, 150, 140, 180, 195] },
@@ -31,6 +32,7 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
   const [viewMode, setViewMode] = useState('compare'); // 'map' or 'compare'
   const [selectedForCompare, setSelectedForCompare] = useState([]);
   const [hoveredDateIdx, setHoveredDateIdx] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const rawCountries = analyticsData?.countries || [];
   const rawStates = analyticsData?.states || [];
@@ -84,6 +86,18 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
   };
 
   const maxReaders = Math.max(...locationData.map(d => d.readers), 1);
+
+  const ITEMS_PER_PAGE = 5;
+  const totalPages = Math.max(1, Math.ceil(locationData.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedLocations = locationData.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
+  const pageItems = getPaginationPages(safeCurrentPage, totalPages);
+
+  const startCount = locationData.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endCount = Math.min(safeCurrentPage * ITEMS_PER_PAGE, locationData.length);
+  const labelText = locationData.length <= 1
+    ? `Showing ${locationData.length} ${locationData.length === 1 ? 'location' : 'locations'}`
+    : `Showing ${startCount}–${endCount} of ${locationData.length} locations`;
 
   // Multi-line chart calculations
   const chartHeight = 240;
@@ -497,7 +511,7 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-[0.8vw] text-slate-700">
-              {locationData.map((row, idx) => (
+              {paginatedLocations.map((row, idx) => (
                 <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
                   <td className="py-[1.1vw] px-[1.2vw] font-medium text-slate-800">
                     {row.country}
@@ -522,15 +536,61 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
 
         {/* Pagination footer */}
         <div className="flex items-center justify-between pt-[1.2vw] border-t border-slate-100 mt-[0.5vw] text-[0.78vw] text-slate-500">
-          <span>Showing 1-4 of 24 locations</span>
-          <div className="flex items-center gap-[0.4vw]">
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] bg-[#FF4D2D] text-white font-medium flex items-center justify-center cursor-pointer">1</button>
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer">2</button>
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer">3</button>
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer">4</button>
-            <span className="px-[0.2vw] text-slate-400">...</span>
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer">24</button>
-          </div>
+          <span>{labelText}</span>
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-[0.4vw]">
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center transition-colors ${
+                  safeCurrentPage <= 1
+                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                    : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
+                }`}
+              >
+                ‹
+              </button>
+              {pageItems.map((page, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={page === '...'}
+                  onClick={() => typeof page === 'number' && setCurrentPage(page)}
+                  className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center font-medium transition-colors ${
+                    page === '...'
+                      ? 'cursor-default text-slate-400'
+                      : safeCurrentPage === page
+                      ? 'bg-[#FF4D2D] text-white shadow-xs cursor-pointer'
+                      : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center transition-colors ${
+                  safeCurrentPage >= totalPages
+                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                    : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
+                }`}
+              >
+                ›
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-[0.4vw]">
+              <button
+                type="button"
+                className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] bg-[#FF4D2D] text-white font-medium flex items-center justify-center cursor-default"
+              >
+                1
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -409,13 +409,31 @@ export default function Overview() {
     return labels;
   }, [chartPoints]);
 
+  // Enrich flipbooks list with views from topBooks and viewsCount
+  const enrichedFlipbooks = useMemo(() => {
+    const topBooksMap = new Map();
+    (analyticsData?.topBooks || []).forEach(tb => {
+      topBooksMap.set(tb.v_id || tb._id, Number(tb.views) || 0);
+    });
+
+    return flipbooks.map(b => {
+      const statsViews = topBooksMap.get(b.v_id);
+      const views = statsViews !== undefined ? statsViews : (Number(b.viewsCount) || Number(b.views) || 0);
+      return {
+        ...b,
+        viewsCount: views,
+        views: views
+      };
+    });
+  }, [flipbooks, analyticsData?.topBooks]);
+
   // If a specific flipbook is selected, show the modular FlipbookDetailAnalytics view
   if (selectedBookId) {
     const activeBook = selectedFlipbookObj || { v_id: selectedBookId, flipbookName: 'Flipbook' };
     return (
       <FlipbookDetailAnalytics
         flipbook={activeBook}
-        flipbooks={flipbooks}
+        flipbooks={enrichedFlipbooks}
         userEmail={userEmail}
         analyticsData={analyticsData}
         onBack={handleBackToOverall}

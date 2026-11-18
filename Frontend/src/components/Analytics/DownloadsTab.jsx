@@ -7,6 +7,7 @@ import {
   FiTrendingDown
 } from 'react-icons/fi';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
+import { getPaginationPages } from './analyticsUtils';
 
 const DOWNLOAD_DATA = [
   { date: '16 Oct 2026', shortDate: '16 OCT', downloads: 1120, uniqueDownloaders: 520, vsPrevious: '+14.7%', isPositive: true },
@@ -26,6 +27,7 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
     endDate: new Date(),
   });
   const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const totalDownloads = summary?.totalDownloads ?? summary?.downloads ?? analyticsData?.downloads ?? 0;
 
@@ -100,6 +102,18 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
       };
     });
   }, [timeline, dailyDownloadsMap, totalDownloads]);
+
+  const ITEMS_PER_PAGE = 5;
+  const totalPages = Math.max(1, Math.ceil(downloadTableData.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedDownloads = downloadTableData.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
+  const pageItems = getPaginationPages(safeCurrentPage, totalPages);
+
+  const startCount = downloadTableData.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endCount = Math.min(safeCurrentPage * ITEMS_PER_PAGE, downloadTableData.length);
+  const labelText = downloadTableData.length <= 1
+    ? `Showing ${downloadTableData.length} ${downloadTableData.length === 1 ? 'record' : 'records'}`
+    : `Showing ${startCount}–${endCount} of ${downloadTableData.length} records`;
 
   return (
     <div className="w-full space-y-[1.8vw]">
@@ -330,13 +344,13 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
             <thead>
               <tr className="border-b border-slate-100 text-[0.78vw] font-medium text-slate-700">
                 <th className="py-[1vw] px-[1.2vw]">DATE</th>
-                <th className="py-[1vw] px-[1.2vw] text-center">DOWNLOADES</th>
+                <th className="py-[1vw] px-[1.2vw] text-center">DOWNLOADS</th>
                 <th className="py-[1vw] px-[1.2vw] text-center">UNIQUE DOWNLOADERS</th>
                 <th className="py-[1vw] px-[1.2vw] text-right">VS PREVIOUS DAY</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-[0.8vw] text-slate-700">
-              {downloadTableData.map((row, idx) => (
+              {paginatedDownloads.map((row, idx) => (
                 <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
                   <td className="py-[1.1vw] px-[1.2vw] font-medium text-slate-800">
                     {row.date}
@@ -360,15 +374,61 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
 
         {/* Pagination footer */}
         <div className="flex items-center justify-between pt-[1.2vw] border-t border-slate-100 mt-[0.5vw] text-[0.78vw] text-slate-500">
-          <span>Showing 1-4 of 24 locations</span>
-          <div className="flex items-center gap-[0.4vw]">
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] bg-[#FF4D2D] text-white font-medium flex items-center justify-center cursor-pointer">1</button>
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer">2</button>
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer">3</button>
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer">4</button>
-            <span className="px-[0.2vw] text-slate-400">...</span>
-            <button className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer">24</button>
-          </div>
+          <span>{labelText}</span>
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-[0.4vw]">
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center transition-colors ${
+                  safeCurrentPage <= 1
+                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                    : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
+                }`}
+              >
+                ‹
+              </button>
+              {pageItems.map((page, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={page === '...'}
+                  onClick={() => typeof page === 'number' && setCurrentPage(page)}
+                  className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center font-medium transition-colors ${
+                    page === '...'
+                      ? 'cursor-default text-slate-400'
+                      : safeCurrentPage === page
+                      ? 'bg-[#FF4D2D] text-white shadow-xs cursor-pointer'
+                      : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center transition-colors ${
+                  safeCurrentPage >= totalPages
+                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                    : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
+                }`}
+              >
+                ›
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-[0.4vw]">
+              <button
+                type="button"
+                className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] bg-[#FF4D2D] text-white font-medium flex items-center justify-center cursor-default"
+              >
+                1
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

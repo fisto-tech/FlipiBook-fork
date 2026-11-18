@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
+import { getPaginationPages } from './analyticsUtils';
 
 export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) {
   const [tableSort, setTableSort] = useState('Most viewed');
@@ -105,9 +106,33 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
     ];
   }, [rawBrowsers, totalViews]);
 
+  const sortedTrafficRows = React.useMemo(() => {
+    const list = [...trafficRows];
+    if (tableSort === 'Browser (A-Z)') {
+      return list.sort((a, b) => a.browser.localeCompare(b.browser));
+    }
+    return list.sort((a, b) => {
+      const vA = Number(String(a.views).replace(/,/g, '')) || 0;
+      const vB = Number(String(b.views).replace(/,/g, '')) || 0;
+      return vB - vA;
+    });
+  }, [trafficRows, tableSort]);
+
+  const ITEMS_PER_PAGE = 5;
+  const totalPages = Math.max(1, Math.ceil(sortedTrafficRows.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedRows = sortedTrafficRows.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
+  const pageItems = getPaginationPages(safeCurrentPage, totalPages);
+
+  const startCount = sortedTrafficRows.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endCount = Math.min(safeCurrentPage * ITEMS_PER_PAGE, sortedTrafficRows.length);
+  const labelText = sortedTrafficRows.length <= 1
+    ? `Showing ${sortedTrafficRows.length} ${sortedTrafficRows.length === 1 ? 'browser' : 'browsers'}`
+    : `Showing ${startCount}–${endCount} of ${sortedTrafficRows.length} browsers`;
+
   const exportCSV = () => {
     const headers = ["Browser", "Platform", "Views", "Share"];
-    const rows = trafficRows.map(r => [
+    const rows = sortedTrafficRows.map(r => [
       `"${r.browser}"`,
       `"${r.platform}"`,
       `"${r.views}"`,
@@ -432,7 +457,7 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {trafficRows.map((row, i) => (
+                {paginatedRows.map((row, i) => (
                   <tr key={i} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-[0.65vw] px-[1vw] text-slate-800 font-medium">
                       {row.browser}
@@ -454,7 +479,7 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
                     Total
                   </td>
                   <td className="py-[0.65vw] px-[1vw] text-slate-700 font-normal">
-                    {trafficRows.length} Browsers
+                    {sortedTrafficRows.length} Browsers
                   </td>
                   <td className="py-[0.65vw] px-[1vw] text-center text-slate-900 font-semibold">
                     {totalViews || 0}
@@ -470,22 +495,63 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
 
         {/* Pagination Bar */}
         <div className="flex items-center justify-between text-[0.72vw] text-slate-500 pt-[0.4vw]">
-          <span>Showing {trafficRows.length} {trafficRows.length === 1 ? 'browser' : 'browsers'}</span>
-          <div className="flex items-center gap-[0.3vw]">
-            {[1, 2, 3, 4, '...', 24].map((page, i) => (
-              <button className="cursor-pointer"
-                key={i}
-                onClick={() => typeof page === 'number' && setCurrentPage(page)}
-                className={`w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium transition-colors cursor-pointer ${
-                  currentPage === page
-                    ? 'bg-[#F05338] text-white'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+          <span>{labelText}</span>
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-[0.3vw]">
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className={`w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium transition-colors ${
+                  safeCurrentPage <= 1
+                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer'
                 }`}
+                aria-label="Previous page"
               >
-                {page}
+                <Icon icon="solar:alt-arrow-left-linear" className="w-[0.8vw] h-[0.8vw]" />
               </button>
-            ))}
-          </div>
+              {pageItems.map((page, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={page === '...'}
+                  onClick={() => typeof page === 'number' && setCurrentPage(page)}
+                  className={`w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium transition-colors ${
+                    page === '...'
+                      ? 'cursor-default text-slate-400'
+                      : safeCurrentPage === page
+                      ? 'bg-[#F05338] text-white shadow-xs cursor-pointer'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className={`w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium transition-colors ${
+                  safeCurrentPage >= totalPages
+                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer'
+                }`}
+                aria-label="Next page"
+              >
+                <Icon icon="solar:alt-arrow-right-linear" className="w-[0.8vw] h-[0.8vw]" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-[0.3vw]">
+              <button
+                type="button"
+                className="w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium bg-[#F05338] text-white cursor-default"
+              >
+                1
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -18,7 +18,11 @@ const Export = ({
     isThreedEditor = false,
     isMobile = false,
     isLandscape = false,
-    isTablet = false
+    isTablet = false,
+    v_id,
+    shareId,
+    sessionId,
+    userEmail
 }) => {
     // Internal state for popup visibility if not controlled externally
     const [internalShow, setInternalShow] = useState(false);
@@ -259,9 +263,17 @@ const Export = ({
         try {
             await handleDownloadPages(pagesToExport, format);
             try {
-                const vid = typeof window !== 'undefined' ? (window.location.pathname.split('/').pop() || '') : '';
+                const pathEnd = typeof window !== 'undefined' ? (window.location.pathname.split('/').pop() || '') : '';
+                const resolvedVid = v_id || pathEnd;
+                const resolvedShareId = shareId || (pathEnd !== resolvedVid ? pathEnd : '');
+                const sessKey = `flipi_sess_${resolvedVid}`;
+                const resolvedSessId = sessionId || (typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem(sessKey) || sessionStorage.getItem('flipi_current_sess') || '') : '');
+
                 analyticsApi.recordDownload({
-                    v_id: vid,
+                    v_id: resolvedVid,
+                    shareId: resolvedShareId,
+                    sessionId: resolvedSessId,
+                    userEmail: userEmail || '',
                     bookName,
                     format: format.toUpperCase(),
                     pagesCount: pagesToExport.length

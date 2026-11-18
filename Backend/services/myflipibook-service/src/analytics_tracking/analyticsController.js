@@ -71,7 +71,7 @@ const recordSessionStart = async (req, res) => {
     if (book) {
       try {
         await Flipbook.updateOne(
-          { v_id },
+          { _id: book._id },
           { 
             $inc: { viewsCount: 1, views: 1 },
             $addToSet: { viewers: ip }

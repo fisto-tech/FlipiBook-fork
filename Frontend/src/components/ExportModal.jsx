@@ -1571,9 +1571,13 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
       try {
         const vidToTrack = currentBook?.v_id || currentBook?.shareId;
         if (vidToTrack) {
+          const sessKey = `flipi_sess_${currentBook?.v_id || vidToTrack}`;
+          const currentSessionId = currentBook?.sessionId || (typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem(sessKey) || sessionStorage.getItem('flipi_current_sess') || '') : '');
+
           analyticsApi.recordDownload({
-            v_id: currentBook?.v_id,
+            v_id: currentBook?.v_id || vidToTrack,
             shareId: currentBook?.shareId || currentBook?.Customized_Settings?.Visibility?.shareId || '',
+            sessionId: currentSessionId,
             bookName: currentBook?.flipbookName || currentBook?.title || bookName,
             format: `${format || 'PNG'} Poster`,
             pagesCount: 1,
@@ -1807,9 +1811,13 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
       try {
         const vidToTrack = currentBook?.v_id || currentBook?.shareId;
         if (vidToTrack) {
+          const sessKey = `flipi_sess_${currentBook?.v_id || vidToTrack}`;
+          const currentSessionId = currentBook?.sessionId || (typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem(sessKey) || sessionStorage.getItem('flipi_current_sess') || '') : '');
+
           analyticsApi.recordDownload({
-            v_id: currentBook?.v_id,
+            v_id: currentBook?.v_id || vidToTrack,
             shareId: currentBook?.shareId || currentBook?.Customized_Settings?.Visibility?.shareId || '',
+            sessionId: currentSessionId,
             bookName: currentBook?.flipbookName || currentBook?.title || bookName,
             format: format || 'PDF',
             pagesCount: indices.length,

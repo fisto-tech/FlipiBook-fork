@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Icon } from '@iconify/react';
-import { formatFullDate } from './analyticsUtils';
+import { formatFullDate, getPaginationPages } from './analyticsUtils';
 
 export default function LeadFormTab({ timeline = [], summary = {}, analyticsData = {} }) {
   const [detailHoverIdx, setDetailHoverIdx] = useState(null);
@@ -77,6 +77,18 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
     }
     return arr;
   }, [leadData, tableSort]);
+
+  const ITEMS_PER_PAGE = 7;
+  const totalPages = Math.max(1, Math.ceil(sortedLeadData.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedLeadData = sortedLeadData.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
+  const pageItems = getPaginationPages(safeCurrentPage, totalPages);
+
+  const startCount = sortedLeadData.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endCount = Math.min(safeCurrentPage * ITEMS_PER_PAGE, sortedLeadData.length);
+  const labelText = sortedLeadData.length <= 1
+    ? `Showing ${sortedLeadData.length} ${sortedLeadData.length === 1 ? 'entry' : 'entries'}`
+    : `Showing ${startCount}–${endCount} of ${sortedLeadData.length} entries`;
 
   const exportCSV = () => {
     const headers = ["DATE", "VIEWS", "SUBMITTED", "SKIPPED", "NO ACTION"];
@@ -323,7 +335,7 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sortedLeadData.map((row) => (
+                {paginatedLeadData.map((row) => (
                   <tr key={row.dateKey} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-[0.65vw] px-[1vw] text-slate-800 font-medium">
                       {row.formattedFull}
@@ -357,22 +369,63 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
 
         {/* Pagination Bar */}
         <div className="flex items-center justify-between text-[0.72vw] text-slate-500 pt-[0.4vw]">
-          <span>Showing 1–7 of 24 locations</span>
-          <div className="flex items-center gap-[0.3vw]">
-            {[1, 2, 3, 4, '...', 24].map((page, i) => (
-              <button className="cursor-pointer"
-                key={i}
-                onClick={() => typeof page === 'number' && setCurrentPage(page)}
-                className={`w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium transition-colors cursor-pointer ${
-                  currentPage === page
-                    ? 'bg-[#F05338] text-white'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+          <span>{labelText}</span>
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-[0.3vw]">
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className={`w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium transition-colors ${
+                  safeCurrentPage <= 1
+                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer'
                 }`}
+                aria-label="Previous page"
               >
-                {page}
+                <Icon icon="solar:alt-arrow-left-linear" className="w-[0.8vw] h-[0.8vw]" />
               </button>
-            ))}
-          </div>
+              {pageItems.map((page, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={page === '...'}
+                  onClick={() => typeof page === 'number' && setCurrentPage(page)}
+                  className={`w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium transition-colors ${
+                    page === '...'
+                      ? 'cursor-default text-slate-400'
+                      : safeCurrentPage === page
+                      ? 'bg-[#F05338] text-white shadow-xs cursor-pointer'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className={`w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium transition-colors ${
+                  safeCurrentPage >= totalPages
+                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer'
+                }`}
+                aria-label="Next page"
+              >
+                <Icon icon="solar:alt-arrow-right-linear" className="w-[0.8vw] h-[0.8vw]" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-[0.3vw]">
+              <button
+                type="button"
+                className="w-[1.6vw] h-[1.6vw] rounded-[0.3vw] flex items-center justify-center text-[0.7vw] font-medium bg-[#F05338] text-white cursor-default"
+              >
+                1
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
