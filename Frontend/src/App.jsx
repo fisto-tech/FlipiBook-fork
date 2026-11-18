@@ -15,6 +15,7 @@ import { AuthModal } from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./Layouts/MainLayout";
 import ScrollToTop from "./components/ScrollToTop";
+import { DocumentUploadProvider } from "./context/DocumentUploadContext";
 
 function AuthRouteRedirect({ mode = "signin" }) {
   const { openAuthModal } = useAuth();
@@ -97,9 +98,10 @@ export default function App() {
         <ModernToastProvider>
           <ConfirmationProvider>
             <Router>
-            <ScrollToTop />
-            <AuthModal />
-            <Routes>
+              <DocumentUploadProvider>
+                <ScrollToTop />
+                <AuthModal />
+                <Routes>
               {/* Direct visits to auth URLs automatically open the Auth Modal over home */}
               <Route
                 path="/login"
@@ -638,6 +640,7 @@ export default function App() {
               {/* Catch-all fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+          </DocumentUploadProvider>
           </Router>
           </ConfirmationProvider>
         </ModernToastProvider>

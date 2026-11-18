@@ -79,7 +79,8 @@ export async function extractPdfDocument({
   backendUrl = '',
   userId = 'FLIPI0001',
   bookId = null,
-  signal = null
+  signal = null,
+  startPageNumber = 1
 }) {
   if (signal?.aborted) {
     const abortErr = new Error('Upload cancelled');
@@ -123,25 +124,25 @@ export async function extractPdfDocument({
         message: `Cloud VPS Engine active (${profile.reason})`
       });
     }
-    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal });
+    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber });
   }
 
   // ── 100% VERIFIED CLIENT CAPABILITY → Client Edge Engine ─────────────────
   try {
-    return await extractOnEdgeNative(file, { onProgress, signal, userId, bookId, backendUrl });
+    return await extractOnEdgeNative(file, { onProgress, signal, userId, bookId, backendUrl, startPageNumber });
   } catch (edgeError) {
     if (edgeError?.name === 'AbortError' || signal?.aborted) {
       throw edgeError;
     }
     console.warn('[EdgePipeline] Edge error, falling back to VPS:', edgeError);
-    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal });
+    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber });
   }
 }
 
 /**
  * Native Edge Extraction with Full Font Engine, Real-Time Server Sync & 60 FPS Cooperative Scheduling
  */
-async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI0001', bookId = null, backendUrl = '' }) {
+async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI0001', bookId = null, backendUrl = '', startPageNumber = 1 }) {
   if (signal?.aborted) {
     const abortErr = new Error('Upload cancelled');
     abortErr.name = 'AbortError';
@@ -192,9 +193,11 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
   const pages = [];
   let firstWidthMm = 210;
   let firstHeightMm = 297;
+  const startPage = typeof startPageNumber === 'number' && startPageNumber >= 1 ? startPageNumber : 1;
 
   // Process pages one by one with cooperative frame yielding and immediate background server sync
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+    const currentGlobalPageNum = startPage + pageNum - 1;
     // Check abort signal at each step
     if (signal?.aborted) {
       try {
@@ -205,12 +208,29 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
       abortErr.name = 'AbortError';
       throw abortErr;
     }
-    // Cooperative Frame Yield: Let browser paint UI frames at 60 FPS before rendering next page
+    // Cooperative Frame Yield: Let browser paint UI frames at 60 FPS before rendering next page.
+    // If the tab is moved to the background or minimized, modern browsers freeze requestAnimationFrame.
+    // We check document.hidden and provide an instant timeout fallback so background tab page extraction NEVER pauses!
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
-        requestAnimationFrame(() => setTimeout(resolve, 8));
+      if (typeof document !== 'undefined' && document.hidden) {
+        setTimeout(resolve, 0);
+      } else if (typeof requestAnimationFrame !== 'undefined') {
+        let finished = false;
+        const fallback = setTimeout(() => {
+          if (!finished) {
+            finished = true;
+            resolve();
+          }
+        }, 25);
+        requestAnimationFrame(() => {
+          if (!finished) {
+            finished = true;
+            clearTimeout(fallback);
+            setTimeout(resolve, 4);
+          }
+        });
       } else {
-        setTimeout(resolve, 8);
+        setTimeout(resolve, 4);
       }
     });
 
@@ -257,13 +277,13 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
     const blobUrl = URL.createObjectURL(blob);
 
     // Stream-upload WebP blob to backend disk storage immediately during extraction
-    let serverWebpUrl = `/storage/${userId}/books/${resolvedBookId}/pages/${pageNum}.webp`;
+    let serverWebpUrl = `/storage/${userId}/books/${resolvedBookId}/pages/${currentGlobalPageNum}.webp`;
     try {
       const formData = new FormData();
-      formData.append('file', blob, `${pageNum}.webp`);
+      formData.append('file', blob, `${currentGlobalPageNum}.webp`);
       formData.append('userId', userId);
       formData.append('bookId', resolvedBookId);
-      formData.append('pageNumber', pageNum);
+      formData.append('pageNumber', currentGlobalPageNum);
       formData.append('width', widthMm);
       formData.append('height', heightMm);
 
@@ -281,15 +301,15 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
       }
     } catch (upErr) {
       if (upErr.name === 'AbortError' || signal?.aborted) throw upErr;
-      console.warn(`[EdgePipeline] Upload page ${pageNum} sync warning:`, upErr.message);
+      console.warn(`[EdgePipeline] Upload page ${currentGlobalPageNum} sync warning:`, upErr.message);
     }
 
     // Standard lightweight 1KB SVG pointing to physical server WebP file (exact same as server-side MuPDF!)
-    const svgString = generatePdfPageSvg(serverWebpUrl, `Page ${pageNum}`, widthMm, heightMm, true);
+    const svgString = generatePdfPageSvg(serverWebpUrl, `Page ${currentGlobalPageNum}`, widthMm, heightMm, true);
 
     pages.push({
-      pageNumber: pageNum,
-      pageName: `Page ${pageNum}`,
+      pageNumber: currentGlobalPageNum,
+      pageName: `Page ${currentGlobalPageNum}`,
       content: svgString,
       svgString: svgString,
       dataUrl: serverWebpUrl,
@@ -362,7 +382,7 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
 /**
  * Resilient VPS fallback if client encounters any unexpected file issues
  */
-async function extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal }) {
+async function extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber = 1 }) {
   const data = await extractDocumentViaServer(file, {
     backendUrl,
     userId,
@@ -375,13 +395,15 @@ async function extractViaVpsFallback(file, { onProgress, backendUrl, userId, boo
   const resolvedBookId = data.bookId || bookId;
   const baseUrl = `/storage/${resolvedUserId}/books/${resolvedBookId}/pages/`;
   const initialPages = (data.manifest && data.manifest.pages) || data.initialPages || [];
+  const startPage = typeof startPageNumber === 'number' && startPageNumber >= 1 ? startPageNumber : 1;
 
-  const results = initialPages.map((p) => {
+  const results = initialPages.map((p, idx) => {
+    const currentGlobalPageNum = startPage + idx;
     const webpUrl = `${baseUrl}${p.image}`;
-    const svg = generatePdfPageSvg(webpUrl, `Page ${p.pageNumber}`, p.width, p.height, true);
+    const svg = generatePdfPageSvg(webpUrl, `Page ${currentGlobalPageNum}`, p.width, p.height, true);
     return {
-      pageNumber: p.pageNumber,
-      pageName: `Page ${p.pageNumber}`,
+      pageNumber: currentGlobalPageNum,
+      pageName: `Page ${currentGlobalPageNum}`,
       content: svg,
       svgString: svg,
       dataUrl: webpUrl,
