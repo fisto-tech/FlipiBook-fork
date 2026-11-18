@@ -27,7 +27,6 @@ import { getCachedRaster, clearRasterCache, subscribeRasterCache } from '../../.
 
 import FlipPage from './FlipPage';
 import FlipBookStyles from './FlipBookStyles';
-import CloneUnderlay from './CloneUnderlay';
 import ActiveSpreadOverlay from './ActiveSpreadOverlay';
 import CornerHotspots from './CornerHotspots';
 import {
@@ -36,8 +35,33 @@ import {
     buildPageDoc,
     loadScript,
     checkTurnReady,
-    afterNextFrame
+    afterNextFrame,
+    SHEET_STYLE_DEFAULTS
 } from './utils/flipBookHelpers';
+
+/**
+ * Transparent sheet look, from the sheet's Book Appearance options (sheetData):
+ *   texture: frosted glass (only texture)
+ *   blur (px, 0–20, default 1) · haze (%, 0–100, default 36) · tint (hex, default #f3f4f6)
+ *   textureIntensity (%, 0–100, default 100) · textureSize (%, 50–300, default 100)
+ * Applied as CSS variables on the sheet's .fbe-sheet-fiber layer (see FlipBookStyles).
+ */
+const hexToRgb = (hex) => {
+    const m = String(hex || '').trim().replace('#', '');
+    const full = m.length === 3 ? m.split('').map(c => c + c).join('') : m;
+    const n = parseInt(full, 16);
+    return Number.isNaN(n) || full.length !== 6 ? [243, 244, 246] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const applySheetStyle = (layerEl, sheetData = {}) => {
+    if (!layerEl) return;
+    const sd = { ...SHEET_STYLE_DEFAULTS, ...Object.fromEntries(Object.entries(sheetData || {}).filter(([, v]) => v !== undefined && v !== null && v !== '')) };
+    const [r, g, b] = hexToRgb(sd.tint);
+    layerEl.setAttribute('data-texture', 'frosted');
+    layerEl.style.setProperty('--sheet-blur', `${Math.max(0, Number(sd.blur) || 0)}px`);
+    layerEl.style.setProperty('--sheet-haze', `rgba(${r}, ${g}, ${b}, ${Math.min(1, Math.max(0, (Number(sd.haze) || 0) / 100))})`);
+    layerEl.style.setProperty('--sheet-texture-opacity', String(Math.min(1, Math.max(0, (Number(sd.textureIntensity) || 0) / 100))));
+    layerEl.style.setProperty('--sheet-texture-scale', String(Math.max(0.2, (Number(sd.textureSize) || 100) / 100)));
+};
 
 const FlipBookEngine = forwardRef(function FlipBookEngine(
     {
@@ -166,7 +190,6 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     const isFlippingRef = useRef(false);
     const turnInProgressRef = useRef(false); // true between Turn.js 'turning' and 'turned'
     const liveControlRef = useRef(null);      // set by ActiveSpreadOverlay: { freeze() }
-    const [cloneUnderlay, setCloneUnderlay] = useState({ left: null, right: null });
 
     const [mobileShadowSide, setMobileShadowSide] = useState('left');
     const prevPageRef = useRef(currentPage);
@@ -227,47 +250,25 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
     const hasInteractiveRight = Boolean(rightIdx !== null && rightIdx >= 0 && pages[rightIdx] && isInteractiveHtml(pages[rightIdx].html || pages[rightIdx].content));
 
-    useEffect(() => {
-        if (!pages || pages.length === 0) return;
 
-        const getNextSolidPage = (startIndex, direction) => {
-            let idx = startIndex;
-            while (idx >= 0 && idx < pages.length) {
-                if (!pages[idx].isTransparentSheet && !pages[idx].isPad) {
-                    return { page: pages[idx], index: idx };
-                }
-                idx += direction;
-            }
-            return null;
-        };
-
-        let leftInfo = null;
-        let rightInfo = null;
-
-        if (leftIdx !== null && leftIdx >= 0 && pages[leftIdx]?.isTransparentSheet) {
-            leftInfo = getNextSolidPage(leftIdx - 1, -1);
-            if (leftInfo) {
-                const blurPercent = pages[leftIdx].sheetData?.blur ?? 100;
-                leftInfo.blurPx = (blurPercent / 100) * 20;
-            }
-        }
-        if (rightIdx !== null && rightIdx < pages.length && pages[rightIdx]?.isTransparentSheet) {
-            rightInfo = getNextSolidPage(rightIdx + 1, 1);
-            if (rightInfo) {
-                const blurPercent = pages[rightIdx].sheetData?.blur ?? 100;
-                rightInfo.blurPx = (blurPercent / 100) * 20;
-            }
-        }
-
-        setCloneUnderlay(prev => {
-            if (!leftInfo && !rightInfo && !prev.left && !prev.right) return prev;
-            return { left: leftInfo, right: rightInfo };
-        });
-    }, [currentPage, pages, singlePage, leftIdx, rightIdx]);
 
     /* ── High-Performance Texture Renderer for 60fps GPU Turns ─────────── */
     const applyPageVisual = useCallback((staticBgEl, rawContent, pageNum) => {
         if (!staticBgEl) return;
+        // Transparent sheets are clear film: never show the white loading box / spinner. An empty
+        // sheet stays empty; a sheet with an image shows just that image.
+        if (staticBgEl.getAttribute('data-sheet') === 'true') {
+            const sheetHtml = (rawContent || '').trim();
+            if (staticBgEl.__fbeSheetHtml !== sheetHtml) {
+                staticBgEl.__fbeSheetHtml = sheetHtml;
+                staticBgEl.innerHTML = sheetHtml ? `<div style="position:absolute;inset:0;pointer-events:none;">${sheetHtml}</div>` : '';
+            }
+            staticBgEl.setAttribute('data-loaded', 'true');
+            staticBgEl.removeAttribute('data-placeholder');
+            staticBgEl.removeAttribute('data-loading');
+            staticBgEl.removeAttribute('data-unloaded');
+            return;
+        }
         const isSkeleton = !rawContent || !rawContent.trim() || rawContent.includes('generateSkeletonPageSvg') || rawContent.includes('data-skeleton') || rawContent.includes('createDefaultPageData') || rawContent.includes('fbe-skeleton');
 
         if (isSkeleton) {
@@ -536,7 +537,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             let sheetStyles = {};
             if (page.isTransparentSheet) {
                 sheetStyles = {
-                    backgroundColor: 'rgba(236, 236, 236, 0.4)',
+                    backgroundColor: 'transparent',
                     transform: 'translateZ(0)'
                 };
             } else {
@@ -675,12 +676,71 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         for (let p = 1; p <= total; p++) setPageWarm(p, p >= leftP - 2 && p <= rightP + 2);
     };
 
+    // Page lying directly under a transparent sheet on the same side (right sheets: next page on the
+    // right; a sheet's back on the left: previous page on the left). -1 if none.
+    const pagesRef = useRef(augmentedPages);
+    pagesRef.current = augmentedPages;
+    const pageUnderSheet = (sheetIdx) => {
+        const list = pagesRef.current;
+        if (!list[sheetIdx]?.isTransparentSheet) return -1;
+        const step = sheetIdx % 2 === 0 ? 2 : -2;
+        let j = sheetIdx + step;
+        while (j >= 0 && j < list.length && list[j]?.isTransparentSheet) j += step;
+        return (j >= 0 && j < list.length && !list[j]?.isPad) ? j : -1;
+    };
+
+    // Mark the page lying under a transparent sheet so its Turn.js wrapper stays rendered (CSS):
+    //  - fbe-under-sheet       → the sheet is on the current spread (always rendered)
+    //  - fbe-under-sheet-near  → the sheet is on the previous/next spread (rendered only while turning)
+    // Pages under sheets further away are left to Turn.js, so e.g. the cover view never shows them.
+    const markUnderSheetRef = useRef(() => { });
+    markUnderSheetRef.current = () => {
+        const book = bookEl.current;
+        if (!book) return;
+        const list = pagesRef.current;
+        const spreadOfIdx = (i) => (singlePage ? i : Math.floor((i + 1) / 2));
+        const viewIdx = [leftIdx, rightIdx].find(i => i !== null && i !== undefined && i >= 0);
+        const cur = viewIdx === undefined ? 0 : spreadOfIdx(viewIdx);
+        const always = new Set(), near = new Set();
+        list.forEach((p, i) => {
+            if (!p?.isTransparentSheet) return;
+            const under = pageUnderSheet(i);
+            if (under < 0) return;
+            const delta = spreadOfIdx(i) - cur;
+            const onRight = singlePage || i % 2 === 0;
+            if (delta === 0) always.add(under);
+            // Only an adjacent sheet that a turn will actually REVEAL over its page: a right-side sheet in
+            // the next spread (turning forward) or a left-side sheet in the previous spread (turning back).
+            // Forcing others kept a moving page's old slot visible mid-turn (ghost page on the left).
+            else if ((onRight && delta === 1) || (!onRight && delta === -1)) near.add(under);
+        });
+        book.querySelectorAll('[data-page-num]').forEach(el => {
+            const i = Number(el.getAttribute('data-page-num')) - 1;
+            el.classList.toggle('fbe-under-sheet', always.has(i));
+            el.classList.toggle('fbe-under-sheet-near', !always.has(i) && near.has(i));
+        });
+    };
+    useLayoutEffect(() => { markUnderSheetRef.current(); }, [leftIdx, rightIdx, augmentedPages, singlePage, ready]);
+    // Re-apply each sheet's texture settings live when Book Appearance options change (no book rebuild)
+    useLayoutEffect(() => {
+        const book = bookEl.current;
+        if (!book) return;
+        book.querySelectorAll('.fbe-sheet-fiber').forEach(layer => {
+            const pageEl = layer.closest('[data-page-num]');
+            const idx = pageEl ? Number(pageEl.getAttribute('data-page-num')) - 1 : -1;
+            if (augmentedPages[idx]?.isTransparentSheet) applySheetStyle(layer, augmentedPages[idx].sheetData);
+        });
+    }, [augmentedPages, ready]);
+
     const ensureRevealedLoaded = useCallback((pageNum) => {
         const total = pageCountRef.current;
         spreadOf(pageNum).forEach(p => {
             if (p < 1 || p > total) return;
             setPageWarm(p, true);
             preloadPageToDomRef.current(p);
+            // A revealed transparent sheet shows the page under it — make sure that page is ready too
+            const under = pageUnderSheet(p - 1);
+            if (under >= 0) { setPageWarm(under + 1, true); preloadPageToDomRef.current(under + 1); }
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -741,7 +801,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             try {
                 if (!window.jQuery) await loadScript('/lib/jquery.min.js');
                 if (!window.jQuery?.fn?.turn || window._turnJsVersion !== 4) {
-                    await loadScript('/lib/turn.min.js?v=4.1-fbe');
+                    await loadScript('/lib/turn.min.js?v=4.2-fbe');
                 }
                 if (alive) {
                     setScriptsLoaded(true);
@@ -914,7 +974,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             pageDiv.setAttribute('data-page-num', pageNum);
 
             if (page.isTransparentSheet) {
-                pageDiv.style.backgroundColor = 'rgba(236, 236, 236, 0.4)';
+                pageDiv.style.backgroundColor = 'transparent'; // look comes from the sheet layer (haze/tint/texture)
                 pageDiv.style.transform = 'translateZ(0)';
             }
 
@@ -928,6 +988,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 staticBg.className = 'fbe-static-bg';
                 const bgStyleColor = page.isTransparentSheet ? 'transparent' : '#fff';
                 staticBg.style.cssText = `position:absolute;inset:0;width:100%;height:100%;overflow:hidden;background:${bgStyleColor};pointer-events:none;border-radius:inherit;`;
+                if (page.isTransparentSheet) staticBg.setAttribute('data-sheet', 'true');
 
                 const rawContent = page.html || page.content || '';
                 const hasRealContent = rawContent && !rawContent.includes('generateSkeletonPageSvg') && !rawContent.includes('data-skeleton') && !rawContent.includes('createDefaultPageData') && rawContent.trim().length > 20;
@@ -946,6 +1007,13 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 {
                     const initLeft = (initPage % 2 === 0) ? initPage : initPage - 1;
                     if (pageNum < initLeft - 2 || pageNum > initLeft + 3) staticBg.style.display = 'none';
+                }
+                if (page.isTransparentSheet) {
+                    // Vellum / fibre-paper look for transparent sheets (texture defined in FlipBookStyles)
+                    const fiber = document.createElement('div');
+                    fiber.className = 'fbe-sheet-fiber';
+                    applySheetStyle(fiber, page.sheetData);
+                    inner.appendChild(fiber);
                 }
                 inner.appendChild(staticBg);
 
@@ -1087,6 +1155,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
         if (!useMouseEvents) $book.turn('disable', true);
 
         [initPage, initPage + 1, initPage + 2].forEach(p => preloadPageToDom(p));
+        markUnderSheetRef.current();
 
         // No automatic corner peel on load — the corner only peels when the user hovers it.
 
@@ -1409,19 +1478,6 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     Loading FlipBook…
                 </div>
             )}
-
-            {/* ── CLONE UNDERLAY for Transparent Sheets ── */}
-            <CloneUnderlay
-                showingTurnJs={showingTurnJs}
-                showingReactFlip={showingReactFlip}
-                singlePage={singlePage}
-                width={width}
-                height={height}
-                hardCoverZoom={hardCoverZoom}
-                cloneUnderlay={cloneUnderlay}
-                buildPageDoc={buildPageDoc}
-                externalBuildPageDoc={externalBuildPageDoc}
-            />
 
             {/* ── TURN.JS ENGINE — centering wrapper ── */}
             {showingTurnJs && (

@@ -29,6 +29,10 @@ export const createInteractionBadgeOverlay = ({
     if (!isInteraction && !isAnimation) return;
     if (!htmlOverlay) return;
     if (isAnimation && el.getAttribute('data-name') === 'Free Frame') return;
+    if (el.getAttribute('data-type') === 'audio-frame' || el.id?.startsWith('audio-') || (typeof el.closest === 'function' && el.closest('[data-type="audio-frame"], g[id^="audio-"]'))) {
+      if (badge) badge.remove();
+      return;
+    }
 
     const badgeId = `interaction-badge-${el.id}`;
     let badge = htmlOverlay.querySelector(`[id="${badgeId}"]`);

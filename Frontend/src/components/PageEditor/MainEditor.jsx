@@ -257,15 +257,18 @@ const MainEditor = ({
       const boundsPoly = document.getElementById('overlay-poly-selected-multi-selection-bounds');
       if (boundsPoly) boundsPoly.remove();
     } else {
-      // In normal edit mode: deselect any Free Frame immediately
+      // In non-interaction mode: deselect any Free Frame or Hotspot immediately
       if (selectedLayerId) {
         const selEl = document.getElementById(selectedLayerId);
-        const isFreeFrame = selEl ? (
+        const isFreeFrameOrHotspot = selEl ? (
           selEl.getAttribute('data-name') === 'Free Frame' ||
           selEl.getAttribute('data-type') === 'free-frame' ||
-          (selEl.id && selEl.id.startsWith('free-frame'))
-        ) : selectedLayerId.startsWith('free-frame');
-        if (isFreeFrame) {
+          (selEl.id && selEl.id.startsWith('free-frame')) ||
+          selEl.getAttribute('data-is-hotspot') === 'true' ||
+          selEl.getAttribute('data-type') === 'hotspot' ||
+          (selEl.id && selEl.id.startsWith('hotspot-'))
+        ) : (selectedLayerId.startsWith('free-frame') || selectedLayerId.startsWith('hotspot-'));
+        if (isFreeFrameOrHotspot) {
           if (setSelectedLayerId) setSelectedLayerId(null);
           selectedLayerIdRef.current = null;
           if (setMultiSelectedIds) setMultiSelectedIds(new Set());
@@ -1021,6 +1024,18 @@ const MainEditor = ({
 
 
 
+  // Deselect audio element when switching to interaction mode
+  useEffect(() => {
+    if (activeTopTool === 'interaction' && selectedLayerId) {
+      const el = document.getElementById(selectedLayerId);
+      const isAudio = el?.getAttribute?.('data-type') === 'audio-frame' || (selectedLayerId && selectedLayerId.startsWith('audio-')) || el?.closest?.('[data-type="audio-frame"], g[id^="audio-"]');
+      if (isAudio) {
+        if (typeof setSelectedLayerId === 'function') setSelectedLayerId(null);
+        if (typeof setMultiSelectedIds === 'function') setMultiSelectedIds(new Set());
+      }
+    }
+  }, [activeTopTool, selectedLayerId, setSelectedLayerId, setMultiSelectedIds]);
+
   // Sync refs with props/state
   useEffect(() => { selectedLayerIdRef.current = selectedLayerId; }, [selectedLayerId]);
   useEffect(() => { activeMainToolRef.current = activeMainTool; }, [activeMainTool]);
@@ -1032,18 +1047,29 @@ const getDraggableElement = (target, canvasRoot) => {
     if (!target || !canvasRoot || !canvasRoot.contains || !canvasRoot.contains(target)) return null;
     let current = target;
 
+    // Locked elements can NEVER be clicked, selected, or dragged on the canvas!
+    const lockedEl = (typeof current.closest === 'function' ? current.closest('[data-locked="true"]') : null) ||
+                     (current.getAttribute && current.getAttribute('data-locked') === 'true' ? current : null);
+    if (lockedEl) {
+      return null;
+    }
+
     // If clicking on a tspan, promote to parent text element first
     if (current && current.tagName?.toLowerCase() === 'tspan') {
       current = current.parentElement || current.parentNode;
     }
 
-    // Hotspots are single compound elements; if clicking anywhere inside a hotspot group, drag the whole hotspot!
+    // Hotspots are single compound elements; if clicking anywhere inside a hotspot group, drag the whole hotspot ONLY in interaction mode!
     const hotspotGroup = current && typeof current.closest === 'function' ? current.closest('[data-is-hotspot="true"], [data-type="hotspot"]') : null;
     if (hotspotGroup) {
-      if (!hotspotGroup.id) {
-        hotspotGroup.id = `hotspot-${Date.now()}`;
+      if (activeTopToolRef.current !== 'interaction') {
+        // When not in interaction mode, do not target hotspots so clicks pass through
+      } else {
+        if (!hotspotGroup.id) {
+          hotspotGroup.id = `hotspot-${Date.now()}`;
+        }
+        return hotspotGroup;
       }
-      return hotspotGroup;
     }
 
     // Video groups are single compound elements; always drag the whole video group
@@ -1064,6 +1090,9 @@ const getDraggableElement = (target, canvasRoot) => {
     // Audio elements are single compound elements; always drag/select the whole audio group
     const audioGroup = current && typeof current.closest === 'function' ? current.closest('[data-type="audio-frame"], g[id^="audio-"]') : null;
     if (audioGroup) {
+      if (activeTopToolRef.current === 'interaction') {
+        return null;
+      }
       if (!audioGroup.id) {
         audioGroup.id = `audio-${Date.now()}`;
       }
@@ -1168,15 +1197,18 @@ const getDraggableElement = (target, canvasRoot) => {
         return deepestElementWithId;
       }
 
-      // In normal edit mode (non-interaction & non-animation), Free Frames must never be draggable or selectable
-      const isFreeFrame = (
+      // In non-interaction mode, Free Frames and Hotspots must never be draggable or selectable
+      const isFreeFrameOrHotspot = (
         current.getAttribute && (
           current.getAttribute('data-name') === 'Free Frame' ||
           current.getAttribute('data-type') === 'free-frame' ||
-          (current.id && current.id.startsWith('free-frame'))
+          (current.id && current.id.startsWith('free-frame')) ||
+          current.getAttribute('data-is-hotspot') === 'true' ||
+          current.getAttribute('data-type') === 'hotspot' ||
+          (current.id && current.id.startsWith('hotspot-'))
         )
       );
-      if (isFreeFrame && activeTopToolRef.current !== 'interaction' && activeTopToolRef.current !== 'animation') {
+      if (isFreeFrameOrHotspot && activeTopToolRef.current !== 'interaction') {
         current = current.parentElement || current.parentNode;
         continue;
       }
@@ -1214,9 +1246,8 @@ const getDraggableElement = (target, canvasRoot) => {
         current.getAttribute('data-name') !== 'Document Shield' &&
         current.getAttribute('data-type') !== 'shield' &&
         (!isConvertedFlipbook || (
-          current.getAttribute('data-is-hotspot') === 'true' ||
-          current.getAttribute('data-type') === 'hotspot' ||
-          ((current.getAttribute('data-name') === 'Free Frame' || current.getAttribute('data-type') === 'free-frame' || current.id?.startsWith('free-frame')) && (activeTopToolRef.current === 'interaction' || activeTopToolRef.current === 'animation')) ||
+          ((current.getAttribute('data-is-hotspot') === 'true' || current.getAttribute('data-type') === 'hotspot' || current.id?.startsWith('hotspot-')) && activeTopToolRef.current === 'interaction') ||
+          ((current.getAttribute('data-name') === 'Free Frame' || current.getAttribute('data-type') === 'free-frame' || current.id?.startsWith('free-frame')) && activeTopToolRef.current === 'interaction') ||
           (current.getAttribute('data-type') === 'shape' && current.getAttribute('data-name') !== 'Free Frame' && current.getAttribute('data-type') !== 'free-frame' && !current.id?.startsWith('free-frame')) ||
           current.getAttribute('data-type') === 'icon'
         ))

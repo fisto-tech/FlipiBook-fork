@@ -462,7 +462,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
 
     // Sound Popup States
     const flipSoundMasterEnabled = otherSetupSettings?.sound?.flipSoundEnabled !== false;
-    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled !== false;
+    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled === true;
     const isFlipActive = flipSoundMasterEnabled && !isFlipMuted;
     const isBgActive = bgSoundMasterEnabled && !isMuted;
     const flipWidth = flipSoundMasterEnabled ? (isFlipActive ? '60%' : '15%') : '0%';
