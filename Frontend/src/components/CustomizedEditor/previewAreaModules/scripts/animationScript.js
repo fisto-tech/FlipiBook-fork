@@ -256,12 +256,25 @@ export const getAnimationScript = (pageNumber) => `  <script>
           });
           const anim = el.animate(keyframes, { duration, delay, easing, fill: isLoop ? 'none' : 'forwards', iterations: iterations });
           el.__currentAnimation = anim;
-        } catch(e) { console.error('Animation error', e); }
+          return anim;
+        } catch(e) { console.error('Animation error', e); return null; }
       };
 
       let isVisible = false;
+      window._openingAnimationPromises = [];
+
+      window._waitForEntranceAnimations = function() {
+        if (!window._openingAnimationPromises || window._openingAnimationPromises.length === 0) {
+          return Promise.resolve();
+        }
+        return Promise.race([
+          Promise.all(window._openingAnimationPromises),
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      };
 
       const handleTrigger = (forceRetrigger) => {
+        window._openingAnimationPromises = [];
         // 1. While Opening
         document.querySelectorAll('[data-animation-trigger="While Opening"]').forEach(el => {
           if (forceRetrigger) {
@@ -273,14 +286,25 @@ export const getAnimationScript = (pageNumber) => `  <script>
             }
           }
           const type = el.getAttribute('data-animation-open-type');
-          if (type) runAnim(el, type, {
-            duration: el.getAttribute('data-animation-open-duration'),
-            speed:    el.getAttribute('data-animation-open-speed'),
-            delay:    el.getAttribute('data-animation-open-delay'),
-            easing:   el.getAttribute('data-animation-open-easing'),
-            repeat:   el.getAttribute('data-animation-open-repeat'),
-            everyVisit: el.getAttribute('data-animation-open-every-visit') !== 'false'
-          });
+          if (type) {
+            const anim = runAnim(el, type, {
+              duration: el.getAttribute('data-animation-open-duration'),
+              speed:    el.getAttribute('data-animation-open-speed'),
+              delay:    el.getAttribute('data-animation-open-delay'),
+              easing:   el.getAttribute('data-animation-open-easing'),
+              repeat:   el.getAttribute('data-animation-open-repeat'),
+              everyVisit: el.getAttribute('data-animation-open-every-visit') !== 'false'
+            });
+            if (anim) {
+              if (anim.finished) {
+                window._openingAnimationPromises.push(anim.finished.catch(() => {}));
+              } else {
+                const dur = parseFloat(el.getAttribute('data-animation-open-duration') || 1) * 1000;
+                const del = parseFloat(el.getAttribute('data-animation-open-delay') || 0) * 1000;
+                window._openingAnimationPromises.push(new Promise(res => setTimeout(res, dur + del + 60)));
+              }
+            }
+          }
         });
         // 2. On Page (Always / Click / Hover)
         document.querySelectorAll('[data-animation-trigger="On Page"]').forEach(el => {
