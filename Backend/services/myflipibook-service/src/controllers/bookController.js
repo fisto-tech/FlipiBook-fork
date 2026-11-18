@@ -333,6 +333,8 @@ const formatBook = (doc, settingsDoc = null, currentUserId = null, folderMap = n
     height: s?.FlipbookInfo?.height || s?.height || null,
     orientation: s?.FlipbookInfo?.orientation || s?.orientation || null,
     templateId: s?.FlipbookInfo?.templateId || s?.templateId || null,
+    viewsCount: Number(doc.viewsCount) || Number(doc.views) || (Array.isArray(doc.viewers) ? doc.viewers.length : 0),
+    views: Number(doc.viewsCount) || Number(doc.views) || (Array.isArray(doc.viewers) ? doc.viewers.length : 0),
     Customized_Settings: s || {},
   };
 };
@@ -432,6 +434,29 @@ exports.getBooks = async (req, res) => {
       auth.emailId ? auth.emailId.trim().toLowerCase() : null,
       auth.customUserId || null
     ].filter(Boolean);
+
+    // Sync session views from analytics if available
+    try {
+      const { FlipbookSessionAnalytics } = require("../analytics_tracking/analyticsModel");
+      if (FlipbookSessionAnalytics && rawBooks.length > 0) {
+        const vIds = rawBooks.map(b => b.book_v_id || b.v_id).filter(Boolean);
+        const sessionCounts = await FlipbookSessionAnalytics.aggregate([
+          { $match: { v_id: { $in: vIds } } },
+          { $group: { _id: "$v_id", count: { $sum: 1 } } }
+        ]);
+        const sMap = new Map();
+        for (const sc of sessionCounts) {
+          if (sc._id) sMap.set(sc._id, sc.count);
+        }
+        for (const b of rawBooks) {
+          const sViews = sMap.get(b.book_v_id || b.v_id);
+          if (sViews && (!b.viewsCount || sViews > b.viewsCount)) {
+            b.viewsCount = sViews;
+            b.views = sViews;
+          }
+        }
+      }
+    } catch (_) {}
 
     const physicalBooks = rawBooks.map((b) => formatBook(b, settingsMap.get(b.v_id) || {}, userTokens, folderMap, reverseFolderMap));
 

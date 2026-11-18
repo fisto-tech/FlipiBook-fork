@@ -890,6 +890,7 @@ const ShareViewBook = () => {
             sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
             sessionStorage.setItem(storageKey, sessionId);
         }
+        sessionStorage.setItem('flipi_current_sess', sessionId);
 
         const sessionStartTime = Date.now();
         let currentDuration = 0;

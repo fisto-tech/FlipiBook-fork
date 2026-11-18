@@ -27,12 +27,12 @@ const DEFAULT_NAV_LINKS = [
 
 const MY_FLIPBOOKS_NAV_LINKS = [
   { name: 'My Flipibooks', path: '/my-flipbooks' },
+  { name: 'Analytics', path: '/analytics' },
   { name: 'Templates', path: '/templates' },
   { name: 'Guide', path: '/guide' },
-  { name: 'Overview', path: '/overview' },
 ];
 
-const PROTECTED_NAV_ITEMS = new Set(['/my-flipbooks', '/overview']);
+const PROTECTED_NAV_ITEMS = new Set(['/my-flipbooks', '/analytics', '/overview']);
 
 const getAvatarColor = (identifier, customColor) => {
   if (customColor && customColor !== '#E8D4C8' && customColor !== '#ffffff' && customColor !== 'transparent') {
@@ -49,6 +49,7 @@ const getAvatarColor = (identifier, customColor) => {
 const checkIsLinkActive = (link, currentPath) => {
   return currentPath === link.path || 
          (link.name === 'Home' && currentPath === '/') ||
+         (link.name === 'Analytics' && (currentPath === '/analytics' || currentPath === '/overview')) ||
          (link.name === 'Overview' && currentPath === '/overview') ||
          (link.name === 'Over View' && currentPath === '/overview') ||
          (link.name === 'My Flipibooks' && currentPath.startsWith('/my-flipbooks')) ||
@@ -60,7 +61,7 @@ export default function HomeNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const isMyFlipbooksPage = currentPath.startsWith('/my-flipbooks') || currentPath.startsWith('/templates') || currentPath.startsWith('/settings') || currentPath.startsWith('/overview') || currentPath.startsWith('/guide');
+  const isMyFlipbooksPage = currentPath.startsWith('/my-flipbooks') || currentPath.startsWith('/templates') || currentPath.startsWith('/settings') || currentPath.startsWith('/analytics') || currentPath.startsWith('/overview') || currentPath.startsWith('/guide');
   
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);

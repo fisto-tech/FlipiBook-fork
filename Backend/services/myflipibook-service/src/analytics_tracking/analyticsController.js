@@ -1,8 +1,9 @@
 // Backend/services/myflipibook-service/src/analytics_tracking/analyticsController.js
-const FlipbookSessionAnalytics = require("./analyticsModel");
+const { FlipbookSessionAnalytics, FlipbookDownloadEvent } = require("./analyticsModel");
 const { extractClientIp, resolveIpLocation } = require("./geoIpService");
 const { parseUserAgent } = require("./deviceService");
 const Flipbook = require("../../../../shared/models/Flipbook");
+const User = require("../../../../shared/models/User");
 
 /**
  * 1. Start a new viewer session
@@ -24,9 +25,9 @@ const recordSessionStart = async (req, res) => {
         { shareId: shareId }
       ]
     };
-    const book = await Flipbook.findOne(bookQuery).select("v_id userEmail flipbookName viewsCount views viewers").lean();
+    const book = await Flipbook.findOne(bookQuery).populate("userObjectID").select("v_id userObjectID userEmail flipbookName viewsCount views viewers").lean();
     const resolvedVid = book?.v_id || v_id || shareId;
-    const userEmail = (book?.userEmail || req.body.userEmail || "").toLowerCase();
+    const userEmail = (book?.userObjectID?.emailId || book?.userEmail || req.body.userEmail || "").toLowerCase();
     const flipbookName = book?.flipbookName || req.body.flipbookName || "Untitled Flipbook";
 
     // Detect Client IP and Geographic Location
@@ -70,7 +71,7 @@ const recordSessionStart = async (req, res) => {
     if (book) {
       try {
         await Flipbook.updateOne(
-          { v_id },
+          { _id: book._id },
           { 
             $inc: { viewsCount: 1, views: 1 },
             $addToSet: { viewers: ip }
@@ -197,6 +198,76 @@ const recordPageFlip = async (req, res) => {
   } catch (err) {
     console.error("[Analytics recordPageFlip Error]:", err);
     return res.status(500).json({ success: false, message: "Page flip recording failed" });
+  }
+};
+
+/**
+ * Record a flipbook download event (PDF, PNG, JPG, etc.)
+ */
+const recordDownload = async (req, res) => {
+  try {
+    const { v_id, shareId, sessionId, format = "PDF", pagesCount = 1, bookName = "" } = req.body;
+
+    if (!v_id && !shareId) {
+      return res.status(400).json({ success: false, message: "v_id or shareId is required" });
+    }
+
+    // Lookup flipbook to get owner email and title
+    const bookQuery = v_id ? { v_id } : {
+      $or: [
+        { "Customized_Settings.Visibility.shareId": shareId },
+        { "Visibility.shareId": shareId },
+        { shareId: shareId }
+      ]
+    };
+    const book = await Flipbook.findOne(bookQuery).populate("userObjectID").select("v_id userObjectID userEmail flipbookName downloadsCount").lean();
+    const resolvedVid = book?.v_id || v_id || shareId;
+    const userEmail = (book?.userObjectID?.emailId || book?.userEmail || req.body.userEmail || "").toLowerCase();
+    const flipbookName = book?.flipbookName || bookName || req.body.flipbookName || "Untitled Flipbook";
+
+    // Detect Client IP, Location, Device
+    const ip = extractClientIp(req);
+    const location = resolveIpLocation(ip);
+    const device = parseUserAgent(req.headers["user-agent"]);
+
+    // Record Download Event
+    const downloadRecord = await FlipbookDownloadEvent.create({
+      v_id: resolvedVid,
+      shareId: shareId || "",
+      userEmail,
+      flipbookName,
+      sessionId: sessionId || "",
+      format: String(format || "PDF").toUpperCase(),
+      pagesCount: Number(pagesCount) || 1,
+      location,
+      device,
+      downloadedAt: new Date()
+    });
+
+    // Increment downloads count on session analytics if sessionId matches
+    if (sessionId) {
+      await FlipbookSessionAnalytics.updateOne(
+        { sessionId },
+        { $inc: { downloads: 1 } }
+      ).catch(() => {});
+    }
+
+    // Increment downloadsCount on Flipbook document
+    if (resolvedVid) {
+      await Flipbook.updateOne(
+        { v_id: resolvedVid },
+        { $inc: { downloadsCount: 1 } }
+      ).catch(() => {});
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Download recorded successfully",
+      downloadId: downloadRecord._id
+    });
+  } catch (err) {
+    console.error("[Analytics recordDownload Error]:", err);
+    return res.status(500).json({ success: false, message: "Failed to record download" });
   }
 };
 
@@ -345,6 +416,29 @@ const getFlipbookAnalytics = async (req, res) => {
       views: b.count
     }));
 
+    // 7b. Referrer / Source Breakdown
+    const sourceStats = await FlipbookSessionAnalytics.aggregate([
+      { $match: baseFilter },
+      {
+        $group: {
+          _id: "$referrer",
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    const sources = sourceStats.map(s => {
+      let name = s._id || "Direct";
+      if (name.includes("localhost") || name === "") name = "Direct";
+      else if (name.includes("google") || name.includes("bing")) name = "Organic Search";
+      else if (name.includes("facebook") || name.includes("twitter") || name.includes("linkedin") || name.includes("instagram")) name = "Social";
+      return {
+        name,
+        views: s.count
+      };
+    });
+
     // 8. Views Over Time (Daily)
     const dailyViews = await FlipbookSessionAnalytics.aggregate([
       { $match: dateFilter },
@@ -352,7 +446,38 @@ const getFlipbookAnalytics = async (req, res) => {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$startedAt" } },
           views: { $sum: 1 },
+          readers: { $addToSet: "$location.ip" },
           avgDuration: { $avg: "$durationSeconds" }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          views: 1,
+          readers: { $size: "$readers" },
+          avgDuration: 1
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // 8b. Downloads Tracking for this flipbook
+    const totalDownloads = await FlipbookDownloadEvent.countDocuments({ v_id });
+    const uniqueDownloaders = (await FlipbookDownloadEvent.distinct("location.ip", { v_id })).length;
+    const dailyDownloads = await FlipbookDownloadEvent.aggregate([
+      { $match: { v_id, downloadedAt: { $gte: sinceDate } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$downloadedAt" } },
+          downloads: { $sum: 1 },
+          uniqueDownloaders: { $addToSet: "$location.ip" }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          downloads: 1,
+          uniqueDownloaders: { $size: "$uniqueDownloaders" }
         }
       },
       { $sort: { _id: 1 } }
@@ -371,6 +496,9 @@ const getFlipbookAnalytics = async (req, res) => {
       summary: {
         totalViews,
         uniqueViewers,
+        totalDownloads,
+        uniqueDownloaders,
+        downloads: totalDownloads,
         avgDurationSeconds: avgDuration,
         totalDurationSeconds: totalDuration,
         avgPagesRead
@@ -380,7 +508,9 @@ const getFlipbookAnalytics = async (req, res) => {
       cities,
       devices,
       browsers,
+      sources,
       dailyViews,
+      dailyDownloads,
       recentSessions
     });
   } catch (err) {
@@ -402,6 +532,30 @@ const getUserAnalytics = async (req, res) => {
     }
 
     const normalizedEmail = userEmail.toLowerCase().trim();
+
+    // Resolve user's flipbooks by email or by userObjectID
+    const userDoc = await User.findOne({
+      $or: [
+        { emailId: normalizedEmail },
+        { emailId: userEmail }
+      ]
+    }).lean();
+
+    const bookOwnerConditions = [
+      { userEmail: normalizedEmail },
+      { userEmail: userEmail }
+    ];
+    if (userDoc?._id) {
+      bookOwnerConditions.push({ userObjectID: userDoc._id });
+    }
+
+    const userBooks = await Flipbook.find({
+      $or: bookOwnerConditions,
+      trash: { $ne: true }
+    }).select("v_id flipbookName views viewsCount").lean();
+
+    const userBookVIds = userBooks.map(b => b.v_id).filter(Boolean);
+
     const daysNum = Math.min(365, Math.max(1, parseInt(days, 10) || 30));
     const sinceDate = new Date();
     sinceDate.setDate(sinceDate.getDate() - daysNum);
@@ -409,7 +563,8 @@ const getUserAnalytics = async (req, res) => {
     const filter = {
       $or: [
         { userEmail: normalizedEmail },
-        { userEmail: userEmail }
+        { userEmail: userEmail },
+        ...(userBookVIds.length > 0 ? [{ v_id: { $in: userBookVIds } }] : [])
       ]
     };
     const dateFilter = {
@@ -450,13 +605,7 @@ const getUserAnalytics = async (req, res) => {
     ]);
 
     // Fallback/Augment with Flipbook records if session tracking is newly introduced
-    const existingBooks = await Flipbook.find({
-      $or: [
-        { userEmail: normalizedEmail },
-        { userEmail: userEmail }
-      ],
-      trash: { $ne: true }
-    }).select("v_id flipbookName views viewsCount").lean();
+    const existingBooks = userBooks;
 
     if (existingBooks.length > 0) {
       const bookViewsSum = existingBooks.reduce((sum, b) => sum + (Number(b.viewsCount) || Number(b.views) || 0), 0);
@@ -532,6 +681,34 @@ const getUserAnalytics = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
+    // Downloads across all user books
+    const downloadFilter = {
+      $or: [
+        { userEmail: normalizedEmail },
+        { userEmail: userEmail },
+        ...(userBookVIds.length > 0 ? [{ v_id: { $in: userBookVIds } }] : [])
+      ]
+    };
+    const totalDownloads = await FlipbookDownloadEvent.countDocuments(downloadFilter);
+    const uniqueDownloaders = (await FlipbookDownloadEvent.distinct("location.ip", downloadFilter)).length;
+    const dailyDownloads = await FlipbookDownloadEvent.aggregate([
+      {
+        $match: {
+          $and: [
+            downloadFilter,
+            { downloadedAt: { $gte: sinceDate } }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$downloadedAt" } },
+          downloads: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
     // Recent visitor sessions across all books
     const recentSessions = await FlipbookSessionAnalytics.find(filter)
       .sort({ startedAt: -1 })
@@ -544,6 +721,9 @@ const getUserAnalytics = async (req, res) => {
       userEmail,
       totalViews,
       uniqueVisitors,
+      totalDownloads,
+      uniqueDownloaders,
+      downloads: totalDownloads,
       avgDurationSeconds: Math.round(stats[0]?.avgDuration || 0),
       totalDurationSeconds: Math.round(stats[0]?.totalDuration || 0),
       topBooks: topBooks.map(b => ({
@@ -567,6 +747,7 @@ const getUserAnalytics = async (req, res) => {
         views: d.views
       })),
       dailyViews,
+      dailyDownloads,
       recentSessions
     });
   } catch (err) {
@@ -580,6 +761,7 @@ module.exports = {
   recordHeartbeat,
   recordSessionEnd,
   recordPageFlip,
+  recordDownload,
   getFlipbookAnalytics,
   getUserAnalytics
 };
