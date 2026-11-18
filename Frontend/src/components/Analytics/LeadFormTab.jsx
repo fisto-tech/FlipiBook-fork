@@ -4,7 +4,7 @@ import { formatFullDate } from './analyticsUtils';
 
 export default function LeadFormTab({ timeline = [], summary = {}, analyticsData = {} }) {
   const [detailHoverIdx, setDetailHoverIdx] = useState(null);
-  const [tableSort, setTableSort] = useState('Most viewed');
+  const [tableSort, setTableSort] = useState('Date (Newest)');
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -64,9 +64,23 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
   const activeIdx = detailHoverIdx !== null ? detailHoverIdx : (chartPoints.length > 2 ? 2 : 0);
   const activePt = chartPoints[activeIdx];
 
+  const sortedLeadData = useMemo(() => {
+    const arr = [...leadData];
+    if (tableSort === 'Date (Newest)') {
+      return arr.sort((a, b) => (b.dt ? b.dt.getTime() : 0) - (a.dt ? a.dt.getTime() : 0));
+    }
+    if (tableSort === 'Date (Oldest)') {
+      return arr.sort((a, b) => (a.dt ? a.dt.getTime() : 0) - (b.dt ? b.dt.getTime() : 0));
+    }
+    if (tableSort === 'Most viewed') {
+      return arr.sort((a, b) => b.formViews - a.formViews);
+    }
+    return arr;
+  }, [leadData, tableSort]);
+
   const exportCSV = () => {
     const headers = ["DATE", "VIEWS", "SUBMITTED", "SKIPPED", "NO ACTION"];
-    const rows = leadData.map(d => [
+    const rows = sortedLeadData.map(d => [
       `"${d.formattedFull}"`,
       d.formViews,
       d.submitted,
@@ -309,7 +323,7 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {leadData.map((row) => (
+                {sortedLeadData.map((row) => (
                   <tr key={row.dateKey} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-[0.65vw] px-[1vw] text-slate-800 font-medium">
                       {row.formattedFull}

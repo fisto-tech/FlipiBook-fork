@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import html2canvas from 'html2canvas';
+import { analyticsApi } from '../../../api/analyticsApi';
 
 // Export Component handling Button + Popup + Download Logic
 const Export = ({
@@ -257,6 +258,17 @@ const Export = ({
 
         try {
             await handleDownloadPages(pagesToExport, format);
+            try {
+                const vid = typeof window !== 'undefined' ? (window.location.pathname.split('/').pop() || '') : '';
+                analyticsApi.recordDownload({
+                    v_id: vid,
+                    bookName,
+                    format: format.toUpperCase(),
+                    pagesCount: pagesToExport.length
+                }).catch(e => console.warn('[Analytics recordDownload warning]:', e?.message));
+            } catch (trackErr) {
+                console.warn('[Analytics recordDownload err]:', trackErr);
+            }
         } catch (error) {
             console.error("Export process error:", error);
         } finally {

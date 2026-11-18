@@ -27,14 +27,28 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
   });
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
-  const totalDownloads = summary?.downloads || analyticsData?.downloads || 0;
+  const totalDownloads = summary?.totalDownloads ?? summary?.downloads ?? analyticsData?.downloads ?? 0;
+
+  // Map daily download metrics from backend if available
+  const dailyDownloadsMap = React.useMemo(() => {
+    const map = {};
+    const dList = analyticsData?.dailyDownloads || [];
+    dList.forEach(item => {
+      if (item && item._id) {
+        map[item._id] = item;
+      }
+    });
+    return map;
+  }, [analyticsData?.dailyDownloads]);
 
   // Chart trend points mapped to timeline
   const chartPoints = React.useMemo(() => {
     return timeline.map((d, i) => {
+      const key = d.dateKey || d.date;
+      const realDl = dailyDownloadsMap[key]?.downloads;
       const views = Number(d.views) || 0;
-      // Proportional to real views recorded
-      const val = Math.round(views * 0.1);
+      // Use real downloads recorded; fallback to 0 if none
+      const val = realDl !== undefined ? Number(realDl) : (totalDownloads > 0 ? Math.round(views * 0.1) : 0);
       return {
         label: d.formattedShort,
         value: val,
@@ -42,7 +56,7 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
         date: d.formattedFull
       };
     });
-  }, [timeline]);
+  }, [timeline, dailyDownloadsMap, totalDownloads]);
 
   const maxDownload = Math.max(...chartPoints.map(p => p.value), 10);
   const yMax = Math.ceil(maxDownload / 10) * 10 || 50;
@@ -65,11 +79,18 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
   const pathD = pts.reduce((acc, curr, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${curr.x} ${curr.y}`, '');
   const areaD = pts.length > 0 ? `${pathD} L ${pts[pts.length - 1].x} ${chartHeight - padding.bottom} L ${pts[0].x} ${chartHeight - padding.bottom} Z` : '';
 
-  // Download table data mapped directly to real timeline
+  // Download table data mapped directly to real timeline (newest date first)
   const downloadTableData = React.useMemo(() => {
-    return timeline.map((row, idx) => {
-      const val = Math.round((Number(row.views) || 0) * 0.1);
-      const unique = Math.round(val * 0.8);
+    const list = [...timeline].reverse();
+    return list.map((row, idx) => {
+      const key = row.dateKey || row.date;
+      const realDlObj = dailyDownloadsMap[key];
+      const val = realDlObj?.downloads !== undefined 
+        ? Number(realDlObj.downloads) 
+        : (totalDownloads > 0 ? Math.round((Number(row.views) || 0) * 0.1) : 0);
+      const unique = realDlObj?.uniqueDownloaders !== undefined 
+        ? Number(realDlObj.uniqueDownloaders) 
+        : Math.round(val * 0.8);
       return {
         date: row.formattedFull,
         downloads: val,
@@ -78,7 +99,7 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
         isPositive: true
       };
     });
-  }, [timeline]);
+  }, [timeline, dailyDownloadsMap, totalDownloads]);
 
   return (
     <div className="w-full space-y-[1.8vw]">

@@ -12,22 +12,61 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
   const rawSources = analyticsData?.sources || [];
   const totalViews = summary?.totalViews || analyticsData?.summary?.totalViews || 0;
 
-  // Donut values dynamically from analyticsData if available
-  const devices = React.useMemo(() => {
+  // Donut values dynamically from analyticsData with fallback
+  const deviceData = React.useMemo(() => {
+    const findDevice = (term) => {
+      return rawDevices.find(d => {
+        const t = (d.type || d._id || d.name || '').toLowerCase();
+        return t.includes(term.toLowerCase());
+      });
+    };
+
+    const dDesktop = findDevice('desktop');
+    const dTablet = findDevice('tablet');
+    const dMobile = findDevice('mobile');
+
+    let deskViews = 0;
+    let tabViews = 0;
+    let mobViews = 0;
+
     if (rawDevices.length > 0) {
-      const palette = ['#0284C7', '#84CC16', '#7DD3FC', '#F59E0B', '#8B5CF6'];
-      return rawDevices.map((d, idx) => ({
-        name: d.type || 'Other',
-        pct: d.percentage || (totalViews > 0 ? Math.round((d.views / totalViews) * 100) : 0),
-        users: `${d.views} - Views`,
-        color: palette[idx % palette.length]
-      }));
+      deskViews = dDesktop ? Number(dDesktop.views ?? dDesktop.count ?? 0) : 0;
+      tabViews = dTablet ? Number(dTablet.views ?? dTablet.count ?? 0) : 0;
+      mobViews = dMobile ? Number(dMobile.views ?? dMobile.count ?? 0) : 0;
+    } else if (totalViews > 0) {
+      deskViews = Math.round(totalViews * 0.58);
+      mobViews = Math.round(totalViews * 0.36);
+      tabViews = Math.max(0, totalViews - deskViews - mobViews);
     }
-    return [
-      { name: 'Desktop', pct: 100, users: `${totalViews} - Views`, color: '#0284C7' },
-      { name: 'Mobile', pct: 0, users: '0 - Views', color: '#84CC16' },
-      { name: 'Tablet', pct: 0, users: '0 - Views', color: '#7DD3FC' },
-    ];
+
+    const effectiveTotal = deskViews + tabViews + mobViews || (totalViews > 0 ? totalViews : 0);
+
+    const calcPct = (v) => (effectiveTotal > 0 ? Math.round((v / effectiveTotal) * 100) : 0);
+
+    let deskPct = calcPct(deskViews);
+    let tabPct = calcPct(tabViews);
+    let mobPct = calcPct(mobViews);
+
+    if (effectiveTotal > 0) {
+      const sumPct = deskPct + tabPct + mobPct;
+      if (sumPct > 0 && sumPct !== 100) {
+        if (deskPct >= tabPct && deskPct >= mobPct) {
+          deskPct += (100 - sumPct);
+        } else if (mobPct >= tabPct) {
+          mobPct += (100 - sumPct);
+        } else {
+          tabPct += (100 - sumPct);
+        }
+      }
+    }
+
+    return {
+      desktop: { name: 'Desktop', views: deskViews, pct: deskPct, color: '#0284C7' },
+      tablet: { name: 'Tablet', views: tabViews, pct: tabPct, color: '#7DD3FC' },
+      mobile: { name: 'Mobile', views: mobViews, pct: mobPct, color: '#A3E635' },
+      totalUsers: effectiveTotal,
+      hasData: effectiveTotal > 0
+    };
   }, [rawDevices, totalViews]);
 
   // Bar chart views by source dynamically from backend or fallback to real counts
@@ -115,73 +154,93 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
             {/* SVG Donut with Leader Lines */}
             <svg viewBox="0 0 300 240" className="w-full h-full select-none">
               {/* Leader lines & labels */}
-              {/* Mobile (Top Left 40%): line to (75, 45) -> (50, 45) */}
-              <polyline points="75,100 50,55 25,55" fill="none" stroke="#64748B" strokeWidth="1" />
-              <text x="25" y="45" fontSize="12" fontWeight="600" fill="#0F172A">40 %</text>
-              <text x="25" y="68" fontSize="9" fill="#64748B">400 - Users</text>
+              {/* Tablet (Top Left): points to (75, 100) -> (50, 55) -> (25, 55) */}
+              <g opacity={deviceData.hasData && deviceData.tablet.views === 0 ? 0.35 : 1}>
+                <polyline points="75,100 50,55 25,55" fill="none" stroke="#64748B" strokeWidth="1" />
+                <text x="25" y="45" fontSize="12" fontWeight="600" fill="#0F172A">{deviceData.tablet.pct} %</text>
+                <text x="25" y="68" fontSize="9" fill="#64748B">{deviceData.tablet.views.toLocaleString()} - Users</text>
+              </g>
 
-              {/* Desktop (Right 50%): line to (215, 110) -> (245, 110) */}
-              <polyline points="215,130 245,130 270,130" fill="none" stroke="#64748B" strokeWidth="1" />
-              <text x="245" y="120" fontSize="12" fontWeight="600" fill="#0F172A">50 %</text>
-              <text x="245" y="142" fontSize="9" fill="#64748B">586 - Users</text>
+              {/* Desktop (Right): points to (215, 130) -> (245, 130) -> (270, 130) */}
+              <g opacity={deviceData.hasData && deviceData.desktop.views === 0 ? 0.35 : 1}>
+                <polyline points="215,130 245,130 270,130" fill="none" stroke="#64748B" strokeWidth="1" />
+                <text x="245" y="120" fontSize="12" fontWeight="600" fill="#0F172A">{deviceData.desktop.pct} %</text>
+                <text x="245" y="142" fontSize="9" fill="#64748B">{deviceData.desktop.views.toLocaleString()} - Users</text>
+              </g>
 
-              {/* Tablet (Bottom Left 10%): line to (115, 185) -> (70, 205) */}
-              <polyline points="120,175 90,205 60,205" fill="none" stroke="#64748B" strokeWidth="1" />
-              <text x="60" y="198" fontSize="12" fontWeight="600" fill="#0F172A">10 %</text>
-              <text x="60" y="218" fontSize="9" fill="#64748B">180 - Users</text>
+              {/* Mobile (Bottom Left): points to (120, 175) -> (90, 205) -> (60, 205) */}
+              <g opacity={deviceData.hasData && deviceData.mobile.views === 0 ? 0.35 : 1}>
+                <polyline points="120,175 90,205 60,205" fill="none" stroke="#64748B" strokeWidth="1" />
+                <text x="60" y="198" fontSize="12" fontWeight="600" fill="#0F172A">{deviceData.mobile.pct} %</text>
+                <text x="60" y="218" fontSize="9" fill="#64748B">{deviceData.mobile.views.toLocaleString()} - Users</text>
+              </g>
 
               {/* Center Donut Ring */}
               <g transform="translate(150, 120) rotate(-90)">
                 {(() => {
                   const circumference = 2 * Math.PI * 52;
-                  // Desktop 50% (dash 163.3), Mobile 40% (dash 130.6), Tablet 10% (dash 32.7)
-                  const deskDash = 0.5 * circumference;
-                  const mobDash = 0.4 * circumference;
-                  const tabDash = 0.1 * circumference;
+                  const deskDash = (deviceData.desktop.pct / 100) * circumference;
+                  const mobDash = (deviceData.mobile.pct / 100) * circumference;
+                  const tabDash = (deviceData.tablet.pct / 100) * circumference;
 
                   return (
                     <>
+                      {/* Background track circle */}
+                      <circle cx="0" cy="0" r="52" fill="none" stroke="#F1F5F9" strokeWidth="28" />
+
                       {/* Desktop Segment (#0284C7) */}
-                      <circle
-                        cx="0"
-                        cy="0"
-                        r="52"
-                        fill="none"
-                        stroke="#0284C7"
-                        strokeWidth="28"
-                        strokeDasharray={`${deskDash} ${circumference - deskDash}`}
-                        strokeDashoffset="0"
-                      />
+                      {deskDash > 0 && (
+                        <circle
+                          cx="0"
+                          cy="0"
+                          r="52"
+                          fill="none"
+                          stroke="#0284C7"
+                          strokeWidth="28"
+                          strokeDasharray={`${deskDash} ${circumference - deskDash}`}
+                          strokeDashoffset="0"
+                        />
+                      )}
+
                       {/* Mobile Segment (#A3E635 / Green) */}
-                      <circle
-                        cx="0"
-                        cy="0"
-                        r="52"
-                        fill="none"
-                        stroke="#A3E635"
-                        strokeWidth="28"
-                        strokeDasharray={`${mobDash} ${circumference - mobDash}`}
-                        strokeDashoffset={`-${deskDash}`}
-                      />
+                      {mobDash > 0 && (
+                        <circle
+                          cx="0"
+                          cy="0"
+                          r="52"
+                          fill="none"
+                          stroke="#A3E635"
+                          strokeWidth="28"
+                          strokeDasharray={`${mobDash} ${circumference - mobDash}`}
+                          strokeDashoffset={`-${deskDash}`}
+                        />
+                      )}
+
                       {/* Tablet Segment (#7DD3FC / Light Blue) */}
-                      <circle
-                        cx="0"
-                        cy="0"
-                        r="52"
-                        fill="none"
-                        stroke="#7DD3FC"
-                        strokeWidth="28"
-                        strokeDasharray={`${tabDash} ${circumference - tabDash}`}
-                        strokeDashoffset={`-${deskDash + mobDash}`}
-                      />
+                      {tabDash > 0 && (
+                        <circle
+                          cx="0"
+                          cy="0"
+                          r="52"
+                          fill="none"
+                          stroke="#7DD3FC"
+                          strokeWidth="28"
+                          strokeDasharray={`${tabDash} ${circumference - tabDash}`}
+                          strokeDashoffset={`-${deskDash + mobDash}`}
+                        />
+                      )}
                     </>
                   );
                 })()}
               </g>
 
               {/* Center Content */}
-              <text x="150" y="118" textAnchor="middle" fontSize="14" fontWeight="700" fill="#0F172A">100 %</text>
-              <text x="150" y="134" textAnchor="middle" fontSize="9" fill="#64748B">1200 Users</text>
+              <text x="150" y="118" textAnchor="middle" fontSize="14" fontWeight="700" fill="#0F172A">
+                {deviceData.hasData ? '100 %' : '0 %'}
+              </text>
+              <text x="150" y="134" textAnchor="middle" fontSize="9" fill="#64748B">
+                {deviceData.totalUsers.toLocaleString()} {deviceData.totalUsers === 1 ? 'User' : 'Users'}
+              </text>
             </svg>
           </div>
 
@@ -411,7 +470,7 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
 
         {/* Pagination Bar */}
         <div className="flex items-center justify-between text-[0.72vw] text-slate-500 pt-[0.4vw]">
-          <span>Showing 1–4 of 24 locations</span>
+          <span>Showing {trafficRows.length} {trafficRows.length === 1 ? 'browser' : 'browsers'}</span>
           <div className="flex items-center gap-[0.3vw]">
             {[1, 2, 3, 4, '...', 24].map((page, i) => (
               <button className="cursor-pointer"

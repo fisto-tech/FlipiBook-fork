@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas';
 import ColorPicker, { default as TemplateColorPicker } from './ColorPicker';
 import { getAssetBaseUrl, getSupabaseBaseUrl, rewriteHtmlUploadsToSupabase } from '../utils/assetUtils';
 import { useAuth } from '../context/AuthContext';
+import { analyticsApi } from '../api/analyticsApi';
 
 
 // Lazy-load preview iframe: only fetches HTML when card is visible in viewport
@@ -907,6 +908,23 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+
+            // Record download event for analytics
+            try {
+                const vidToTrack = currentBook?.v_id || currentBook?.shareId;
+                if (vidToTrack) {
+                    analyticsApi.recordDownload({
+                        v_id: currentBook?.v_id,
+                        shareId: currentBook?.shareId || currentBook?.Customized_Settings?.Visibility?.shareId || '',
+                        bookName: currentBook?.flipbookName || currentBook?.title || 'share-poster',
+                        format: `${fileExt.toUpperCase()} Poster`,
+                        pagesCount: 1,
+                        userEmail: currentBook?.userEmail || ''
+                    }).catch(e => console.warn('[Analytics recordDownload warning]:', e?.message));
+                }
+            } catch (trackErr) {
+                console.warn('[Analytics recordDownload err]:', trackErr);
+            }
         } catch (error) {
             console.error('Error exporting poster image:', error);
             alert('Error generating poster image: ' + error.message);

@@ -28,7 +28,7 @@ export default function FlipbookDetailAnalytics({
     endDate: new Date(),
   });
   const [detailSidebarSearch, setDetailSidebarSearch] = useState('');
-  const [detailTableSort, setDetailTableSort] = useState('Most viewed');
+  const [detailTableSort, setDetailTableSort] = useState('Date (Newest)');
   const [isDetailSortOpen, setIsDetailSortOpen] = useState(false);
   const [detailHoverIdx, setDetailHoverIdx] = useState(null);
   const [shareModalBook, setShareModalBook] = useState(null);
@@ -162,10 +162,24 @@ export default function FlipbookDetailAnalytics({
     : 'Oct 16, 2026 - Oct 22, 2026';
 
   // Export CSV
+  const sortedDetailTimeline = useMemo(() => {
+    const arr = [...detailTimeline];
+    if (detailTableSort === 'Date (Newest)') {
+      return arr.sort((a, b) => b.dt.getTime() - a.dt.getTime());
+    }
+    if (detailTableSort === 'Date (Oldest)') {
+      return arr.sort((a, b) => a.dt.getTime() - b.dt.getTime());
+    }
+    if (detailTableSort === 'Most viewed') {
+      return arr.sort((a, b) => b.views - a.views);
+    }
+    return arr;
+  }, [detailTimeline, detailTableSort]);
+
   const handleExportDetailCSV = () => {
-    if (detailTimeline.length === 0) return;
+    if (sortedDetailTimeline.length === 0) return;
     const headers = ["Date", "Total Unique Readers", "Total Views", "Total Reading Time", "Avg Reading Time"];
-    const rows = detailTimeline.map(d => [
+    const rows = sortedDetailTimeline.map(d => [
       `"${d.formattedFull}"`,
       d.readers,
       d.views,
@@ -730,7 +744,7 @@ export default function FlipbookDetailAnalytics({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {detailTimeline.map((row) => (
+                  {sortedDetailTimeline.map((row) => (
                     <tr key={row.dateKey} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-[0.65vw] px-[1vw] text-slate-800 font-medium">
                         {row.formattedFull}

@@ -90,6 +90,12 @@ const sessionAnalyticsSchema = new mongoose.Schema(
       default: "Direct"
     },
 
+    // Downloads counter for this session
+    downloads: {
+      type: Number,
+      default: 0
+    },
+
     // Timestamps
     startedAt: {
       type: Date,
@@ -124,5 +130,33 @@ const FlipbookSessionAnalytics = mongoose.models.FlipbookSessionAnalytics || mon
   sessionAnalyticsSchema
 );
 
-module.exports = FlipbookSessionAnalytics;
+// Flipbook Download Event schema for granular download tracking
+const downloadEventSchema = new mongoose.Schema(
+  {
+    v_id: { type: String, required: true, index: true },
+    shareId: { type: String, default: "", index: true },
+    userEmail: { type: String, default: "", index: true },
+    flipbookName: { type: String, default: "" },
+    sessionId: { type: String, default: "" },
+    format: { type: String, default: "PDF" }, // PDF, PNG, JPG, ZIP, etc.
+    pagesCount: { type: Number, default: 1 },
+    location: { type: locationSchema, default: () => ({}) },
+    device: { type: deviceSchema, default: () => ({}) },
+    downloadedAt: { type: Date, default: Date.now, index: true }
+  },
+  { timestamps: true }
+);
+
+downloadEventSchema.index({ v_id: 1, downloadedAt: -1 });
+downloadEventSchema.index({ userEmail: 1, downloadedAt: -1 });
+
+const FlipbookDownloadEvent = mongoose.models.FlipbookDownloadEvent || mongoose.model(
+  "FlipbookDownloadEvent",
+  downloadEventSchema
+);
+
+module.exports = {
+  FlipbookSessionAnalytics,
+  FlipbookDownloadEvent
+};
 

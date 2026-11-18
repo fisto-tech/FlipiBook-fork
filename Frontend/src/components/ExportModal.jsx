@@ -11,6 +11,7 @@ import ColorPicker, { default as TemplateColorPicker } from './ColorPicker';
 import { getAssetBaseUrl, getSupabaseBaseUrl } from '../utils/assetUtils';
 import { useAuth } from '../context/AuthContext';
 import { convertSvgTextToOutlines } from './PageEditor/utils/vectorTextConverter';
+import { analyticsApi } from '../api/analyticsApi';
 
 
 const SCRIBBLE_ICONS = {
@@ -1565,6 +1566,23 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
         const dataUrl = canvas.toDataURL(mimeType, 0.95);
         saveAs(dataUrl, `${bookName}_poster.${format.toLowerCase()}`);
       }
+
+      // Record poster download analytics event
+      try {
+        const vidToTrack = currentBook?.v_id || currentBook?.shareId;
+        if (vidToTrack) {
+          analyticsApi.recordDownload({
+            v_id: currentBook?.v_id,
+            shareId: currentBook?.shareId || currentBook?.Customized_Settings?.Visibility?.shareId || '',
+            bookName: currentBook?.flipbookName || currentBook?.title || bookName,
+            format: `${format || 'PNG'} Poster`,
+            pagesCount: 1,
+            userEmail: currentBook?.userEmail || ''
+          }).catch(e => console.warn('[Analytics recordDownload warning]:', e?.message));
+        }
+      } catch (trackErr) {
+        console.warn('[Analytics recordDownload err]:', trackErr);
+      }
     } catch (err) {
       console.error('Failed to export poster:', err);
       alert('Failed to export poster: ' + (err.message || 'Unknown error'));
@@ -1783,6 +1801,23 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
         }
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         saveAs(zipBlob, `${bookName}_${indices.length}_pages.zip`);
+      }
+
+      // Record download analytics event
+      try {
+        const vidToTrack = currentBook?.v_id || currentBook?.shareId;
+        if (vidToTrack) {
+          analyticsApi.recordDownload({
+            v_id: currentBook?.v_id,
+            shareId: currentBook?.shareId || currentBook?.Customized_Settings?.Visibility?.shareId || '',
+            bookName: currentBook?.flipbookName || currentBook?.title || bookName,
+            format: format || 'PDF',
+            pagesCount: indices.length,
+            userEmail: currentBook?.userEmail || ''
+          }).catch(e => console.warn('[Analytics recordDownload warning]:', e?.message));
+        }
+      } catch (trackErr) {
+        console.warn('[Analytics recordDownload err]:', trackErr);
       }
 
     } catch (err) {

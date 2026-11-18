@@ -205,9 +205,19 @@ export default function Overview() {
     const mobileMatch = rawDevices.find(d => (d.type || d._id || '').toLowerCase() === 'mobile');
     const tabletMatch = rawDevices.find(d => (d.type || d._id || '').toLowerCase() === 'tablet');
 
-    const deskViews = desktopMatch ? Number(desktopMatch.views) || 0 : (total > 0 ? Math.round(total * 0.58) : 0);
-    const mobViews = mobileMatch ? Number(mobileMatch.views) || 0 : (total > 0 ? Math.round(total * 0.36) : 0);
-    const tabViews = tabletMatch ? Number(tabletMatch.views) || 0 : (total > 0 ? Math.max(0, total - deskViews - mobViews) : 0);
+    let deskViews = 0;
+    let mobViews = 0;
+    let tabViews = 0;
+
+    if (rawDevices.length > 0) {
+      deskViews = desktopMatch ? Number(desktopMatch.views) || 0 : 0;
+      mobViews = mobileMatch ? Number(mobileMatch.views) || 0 : 0;
+      tabViews = tabletMatch ? Number(tabletMatch.views) || 0 : 0;
+    } else if (total > 0) {
+      deskViews = Math.round(total * 0.58);
+      mobViews = Math.round(total * 0.36);
+      tabViews = Math.max(0, total - deskViews - mobViews);
+    }
 
     const safeTotal = deskViews + mobViews + tabViews || 1;
     const deskPct = Math.round((deskViews / safeTotal) * 100);
