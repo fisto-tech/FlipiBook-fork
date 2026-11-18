@@ -1802,6 +1802,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
             }}
             onSave={async (coverData) => {
               let finalUrl = coverData.url;
+              let finalLogoUrl = coverData.logoUrl;
 
               // If it's an uploaded image, we must upload it to the server to get a perent URL
               if (coverData.type === 'upload' && coverData.rawFile) {
@@ -1830,12 +1831,26 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
                 }
               }
 
+              // If rawLogoFile is present, upload it to permanent server storage
+              if (coverData.rawLogoFile) {
+                try {
+                  const uploadedLogo = await uploadFile(coverData.rawLogoFile);
+                  if (uploadedLogo && uploadedLogo.url) {
+                    finalLogoUrl = uploadedLogo.url;
+                  }
+                } catch (err) {
+                  console.error("Failed to upload cover logo", err);
+                }
+              }
+
               onUpdate(prev => ({
                 ...prev,
                 coverPicture: {
                   ...coverData,
                   url: finalUrl,
-                  rawFile: null // Clear file object from state
+                  logoUrl: finalLogoUrl,
+                  rawFile: null, // Clear file object from state
+                  rawLogoFile: null
                 }
               }));
               setShowCoverPopup(false);

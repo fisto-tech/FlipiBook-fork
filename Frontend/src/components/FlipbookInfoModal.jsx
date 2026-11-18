@@ -46,12 +46,15 @@ const scrollbarStyles = `
 `;
 
 export const COVER_TEMPLATES = [
-  { id: 1, label: 'Dual Hardcover', defaultBgColor: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 50%, #FED7AA 100%)', defaultText1: 'Hard.Cover Book', defaultText2: 'Free .psd Mockup' },
-  { id: 2, label: 'Single Hardcover', defaultBgColor: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 50%, #BAE6FD 100%)', defaultText1: 'Premium Edition', defaultText2: 'Classic Minimal Design' },
-  { id: 3, label: 'Landscape Catalog', defaultBgColor: 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 50%, #99F6E4 100%)', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
-  { id: 4, label: 'Modern Magazine', defaultBgColor: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 50%, #A7F3D0 100%)', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
-  { id: 5, label: 'Stacked Trio', defaultBgColor: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 50%, #E9D5FF 100%)', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
-  { id: 6, label: 'Isometric Floating', defaultBgColor: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 50%, #DDD6FE 100%)', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
+  { id: 1, label: 'Dual Brochure', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 50%, #FED7AA 100%)', defaultText1: 'Design Book', defaultText2: 'Free .psd Mockup' },
+  { id: 2, label: 'Single Booklet', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 50%, #BAE6FD 100%)', defaultText1: 'Premium Edition', defaultText2: 'Classic Minimal Design' },
+  { id: 3, label: 'Landscape Catalog', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 50%, #99F6E4 100%)', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
+  { id: 4, label: 'Modern Magazine', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 50%, #A7F3D0 100%)', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
+  { id: 5, label: 'Dual Layer Spread', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 50%, #E9D5FF 100%)', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
+  { id: 6, label: 'Isometric Portfolio', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 50%, #DDD6FE 100%)', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
+  { id: 7, label: 'Landscape Dual Spread', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #BBF7D0 100%)', defaultText1: 'Landscape Spread', defaultText2: '2-Page Open Lookbook' },
+  { id: 8, label: 'Landscape Trio Fan', maxPages: 3, defaultBgColor: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%)', defaultText1: 'Tri-Page Showcase', defaultText2: '3-Layer Cascading Pages' },
+  { id: 9, label: 'Landscape Triple Cascade', maxPages: 3, defaultBgColor: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 50%, #FDE68A 100%)', defaultText1: 'Portfolio Triple Spread', defaultText2: '3-Tier Landscape Preview' },
 ];
 
 export const extractPageBgColor = (page) => {
@@ -69,7 +72,27 @@ export const extractPageBgColor = (page) => {
   return null;
 };
 
-export const normalizePageHtml = (htmlStr) => {
+export const getPageAspectRatio = (page) => {
+  if (!page) return null;
+  if (page.width && page.height && Number(page.width) > 0 && Number(page.height) > 0) {
+    return Number(page.width) / Number(page.height);
+  }
+  const htmlStr = page.html || page.content || page.svgString || '';
+  if (typeof htmlStr === 'string' && htmlStr) {
+    const vbMatch = htmlStr.match(/viewBox=["']\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s*["']/i);
+    if (vbMatch && parseFloat(vbMatch[3]) > 0 && parseFloat(vbMatch[4]) > 0) {
+      return parseFloat(vbMatch[3]) / parseFloat(vbMatch[4]);
+    }
+    const wMatch = htmlStr.match(/<svg[^>]*\bwidth=["']([0-9.]+)(?:px|mm)?["']/i);
+    const hMatch = htmlStr.match(/<svg[^>]*\bheight=["']([0-9.]+)(?:px|mm)?["']/i);
+    if (wMatch && hMatch && parseFloat(wMatch[1]) > 0 && parseFloat(hMatch[1]) > 0) {
+      return parseFloat(wMatch[1]) / parseFloat(hMatch[1]);
+    }
+  }
+  return null;
+};
+
+export const normalizePageHtml = (htmlStr, fit = 'Fit') => {
   if (!htmlStr) return '';
   try {
     return htmlStr.replace(/<svg\b([^>]*)>/i, (match, attrs) => {
@@ -99,10 +122,30 @@ export const normalizePageHtml = (htmlStr) => {
       } else {
         newAttrs += ' height="100%"';
       }
-      if (/\bpreserveAspectRatio=["'][^"']*["']/i.test(newAttrs)) {
-        newAttrs = newAttrs.replace(/\bpreserveAspectRatio=["'][^"']*["']/i, 'preserveAspectRatio="none"');
+
+      if (/\bstyle=["'][^"']*["']/i.test(newAttrs)) {
+        newAttrs = newAttrs.replace(/\bstyle=["']([^"']*)["']/i, (sMatch, sVal) => {
+          const cleanStyle = sVal
+            .replace(/\bwidth\s*:\s*[^;]+;?/gi, '')
+            .replace(/\bheight\s*:\s*[^;]+;?/gi, '')
+            .trim();
+          return `style="${cleanStyle ? cleanStyle + '; ' : ''}width: 100%; height: 100%; display: block;"`;
+        });
       } else {
-        newAttrs += ' preserveAspectRatio="none"';
+        newAttrs += ' style="width: 100%; height: 100%; display: block;"';
+      }
+
+      const fitLower = String(fit || 'Fit').toLowerCase();
+      const resolvedPreserve = (fitLower === 'fit' || fitLower === 'contain')
+        ? 'preserveAspectRatio="xMidYMid meet"'
+        : (fitLower === 'stretch')
+          ? 'preserveAspectRatio="none"'
+          : 'preserveAspectRatio="xMidYMid slice"';
+
+      if (/\bpreserveAspectRatio=["'][^"']*["']/i.test(newAttrs)) {
+        newAttrs = newAttrs.replace(/\bpreserveAspectRatio=["'][^"']*["']/i, resolvedPreserve);
+      } else {
+        newAttrs += ` ${resolvedPreserve}`;
       }
       return `<svg${newAttrs}>`;
     });
@@ -111,31 +154,44 @@ export const normalizePageHtml = (htmlStr) => {
   }
 };
 
-export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], scaleClass = "scale-[1.05]", customTitle = null, customSubtitle = null) => {
-  const p1Num = selectedPages[0];
-  const p2Num = selectedPages[1];
-  const p3Num = selectedPages[2];
+export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], scaleClass = "scale-[1.05]", customTitle = null, customSubtitle = null, fit = 'Fit') => {
+  // Respect individual slot selection: if a slot is explicitly set to a page number, use that page;
+  // if a slot is set to null (or "None"), it remains null so that the slot displays its default template design.
+  const hasPages = Array.isArray(pages) && pages.length > 0;
 
-  const page1 = p1Num && pages[p1Num - 1] ? pages[p1Num - 1] : null;
-  const page2 = p2Num && pages[p2Num - 1] ? pages[p2Num - 1] : null;
-  const page3 = p3Num && pages[p3Num - 1] ? pages[p3Num - 1] : null;
+  const page1 = (selectedPages && selectedPages[0] && hasPages && pages[Number(selectedPages[0]) - 1])
+    ? pages[Number(selectedPages[0]) - 1]
+    : null;
 
-  const page1Html = page1?.html ? normalizePageHtml(page1.html) : '';
-  const page2Html = page2?.html ? normalizePageHtml(page2.html) : '';
-  const page3Html = page3?.html ? normalizePageHtml(page3.html) : '';
+  const page2 = (selectedPages && selectedPages[1] && hasPages && pages[Number(selectedPages[1]) - 1])
+    ? pages[Number(selectedPages[1]) - 1]
+    : null;
+
+  const page3 = (selectedPages && selectedPages[2] && hasPages && pages[Number(selectedPages[2]) - 1])
+    ? pages[Number(selectedPages[2]) - 1]
+    : null;
+
+  const getPageContent = (page) => {
+    if (!page) return '';
+    return page.html || page.content || page.svgString || '';
+  };
+
+  const page1Html = page1 ? normalizePageHtml(getPageContent(page1), fit) : '';
+  const page2Html = page2 ? normalizePageHtml(getPageContent(page2), fit) : '';
+  const page3Html = page3 ? normalizePageHtml(getPageContent(page3), fit) : '';
 
   const page1Color = page1 ? (extractPageBgColor(page1) || '#334155') : null;
 
   switch (templateId) {
     case 1:
-      // Dual Hardcover Mockup - Warm Natural Book Paper (No borders)
+      // Dual Brochure Mockup - Clean Flat Paper Spreads (No dark side edge gradients)
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
           {/* Back book */}
-          <div className={`absolute w-[10vw] h-[13.5vw] ${page1 ? 'bg-white' : 'bg-[#FDFBF7] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.6vw] transform -rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden shadow-lg`}>
+          <div className={`absolute w-[10vw] h-[13.5vw] ${page1 ? 'bg-white' : 'bg-[#FDFBF7] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.4vw] transform -rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden shadow-lg`}>
             {page1 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
               </div>
             ) : (
               <>
@@ -145,7 +201,7 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
                 </div>
                 <div className="my-auto py-[0.4vw] z-10 flex flex-col items-start text-left">
                   <div className="w-[1.5vw] h-[0.18vw] bg-[#8C8275] mb-[0.4vw] rounded-full" />
-                  <h3 className="text-[0.85vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Hard.Cover Book"}</h3>
+                  <h3 className="text-[0.85vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Design Book"}</h3>
                   <p className="text-[0.55vw] text-[#6B6359] font-medium mt-[0.2vw] leading-relaxed break-words">{customSubtitle || "Free .psd Mockup"}</p>
                   <div className="space-y-[0.18vw] mt-[0.5vw] opacity-40 w-full">
                     <div className="w-full h-[0.15vw] bg-[#D6D0C4] rounded-full" />
@@ -157,25 +213,24 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
                 </div>
               </>
             )}
-            <div className="absolute right-0 top-0 bottom-0 w-[0.8vw] bg-gradient-to-l from-[#1C1917]/10 to-transparent pointer-events-none z-20" />
             <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
           </div>
 
           {/* Front book */}
-          <div className={`absolute w-[10vw] h-[13.5vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.6vw] shadow-xl transform rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
+          <div className={`absolute w-[10vw] h-[13.5vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.4vw] shadow-xl transform rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
             {page2 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between border-b border-[#E2DDD3] pb-[0.3vw] z-10">
                   <span className="text-[0.5vw] font-mono tracking-widest text-[#7C7267] uppercase">EDITION 02</span>
-                  <div className="w-[1.1vw] h-[1.1vw] bg-[#3E3A36] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-bold">V</div>
+                  <div className="w-[1.1vw] h-[1.1vw] bg-[#E84E1B] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-bold">V</div>
                 </div>
                 <div className="my-auto py-[0.4vw] z-10 flex flex-col items-start text-left">
-                  <div className="w-[1.5vw] h-[0.18vw] bg-[#8C8275] mb-[0.4vw] rounded-full" />
-                  <h3 className="text-[0.85vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Hard.Cover Book"}</h3>
+                  <div className="w-[1.5vw] h-[0.18vw] bg-[#E84E1B] mb-[0.4vw] rounded-full" />
+                  <h3 className="text-[0.85vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Design Book"}</h3>
                   <p className="text-[0.55vw] text-[#6B6359] font-medium mt-[0.2vw] leading-relaxed break-words">{customSubtitle || "Free .psd Mockup"}</p>
                   <div className="space-y-[0.18vw] mt-[0.5vw] opacity-40 w-full">
                     <div className="w-full h-[0.15vw] bg-[#D6D0C4] rounded-full" />
@@ -187,82 +242,82 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
                 </div>
               </>
             )}
-            <div className="absolute left-0 top-0 bottom-0 w-[0.8vw] bg-gradient-to-r from-[#1C1917]/10 to-transparent pointer-events-none z-20" />
             <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
           </div>
         </div>
       );
 
     case 2:
-      // Single Minimalist Standing Hardcover - Warm Crisp Linen / Cream Book Paper
+      // Single Minimalist Standing Booklet - Pure Flat Clean Page (Pushed Left to leave right side clear for text)
       return (
-        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          {/* Depth / Side spine effect */}
-          <div className="relative w-[11.2vw] h-[14.8vw] rounded-[0.5vw] overflow-hidden bg-[#FAF8F5] border border-[#E7E3D8] flex shadow-2xl">
-            {/* Book spine simulation strip */}
-            <div
-              className={`w-[0.9vw] h-full ${!page1 ? 'bg-[#EAE5DB] border-r border-[#D9D3C7]' : ''} shrink-0 relative shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.1)] z-20 flex items-center justify-center`}
-              style={page1Color ? { backgroundColor: page1Color } : {}}
-            >
-              {!page1 && (
-                <span className="text-[0.45vw] text-[#5C554B] font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">EDITION</span>
-              )}
-            </div>
-            {/* Book cover area */}
-            <div className="flex-1 h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] flex flex-col justify-between p-[0.9vw]">
-              <div className="absolute inset-y-0 left-0 w-[0.3vw] bg-black/5 z-10 pointer-events-none" />
-              {page1 ? (
-                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+        <div className={`absolute inset-0 flex items-center justify-start pl-[2.2vw] pointer-events-none transform ${scaleClass}`}>
+          <div className="relative w-[10.5vw] h-[14vw] rounded-[0.35vw] overflow-hidden bg-[#FAF8F5] border border-[#E7E3D8] shadow-2xl flex">
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <div className="w-full h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] flex flex-col justify-between p-[1vw]">
+                <div className="relative z-10 flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
+                  <div className="flex items-center gap-[0.3vw]">
+                    <div className="w-[1.2vw] h-[0.15vw] bg-[#3E3A36] rounded-full" />
+                    <span className="text-[0.55vw] tracking-wider uppercase font-bold text-[#3E3A36]">EDITION</span>
+                  </div>
+                  <span className="text-[0.45vw] font-mono text-[#8C8275]">VOL. 01</span>
                 </div>
-              ) : (
-                <>
-                  <div className="relative z-10 flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
-                    <div className="flex items-center gap-[0.3vw]">
-                      <div className="w-[1.2vw] h-[0.15vw] bg-[#3E3A36] rounded-full" />
-                      <span className="text-[0.55vw] tracking-wider uppercase font-bold text-[#3E3A36]">HARDCOVER</span>
-                    </div>
-                    <span className="text-[0.45vw] font-mono text-[#8C8275]">VOL. 01</span>
+                <div className="relative z-10 my-auto py-[0.5vw]">
+                  <h3 className="text-[1.05vw] font-black uppercase font-serif tracking-tight leading-snug text-[#1C1917] break-words">{customTitle || 'Premium Edition'}</h3>
+                  <p className="text-[0.6vw] text-[#6B6359] font-medium mt-[0.2vw] break-words">{customSubtitle || 'Classic Minimal Design'}</p>
+                  <div className="space-y-[0.2vw] mt-[0.6vw] opacity-50">
+                    <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                    <div className="w-3/4 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
                   </div>
-                  <div className="relative z-10 my-auto py-[0.5vw]">
-                    <h3 className="text-[1.05vw] font-black uppercase font-serif tracking-tight leading-snug text-[#1C1917] break-words">{customTitle || 'Premium Edition'}</h3>
-                    <p className="text-[0.6vw] text-[#6B6359] font-medium mt-[0.2vw] break-words">{customSubtitle || 'Classic Minimal Design'}</p>
-                    <div className="space-y-[0.2vw] mt-[0.6vw] opacity-50">
-                      <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
-                      <div className="w-3/4 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
-                    </div>
-                  </div>
-                  <div className="relative z-10 flex justify-between items-center text-[0.45vw] text-[#8C8275] font-mono">
-                    <span>ANNUAL REVIEW</span>
-                    <span>PAGE 01</span>
-                  </div>
-                  <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
-                </>
-              )}
-            </div>
+                </div>
+                <div className="relative z-10 flex justify-between items-center text-[0.45vw] text-[#8C8275] font-mono">
+                  <span>ANNUAL REVIEW</span>
+                  <span>PAGE 01</span>
+                </div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </div>
+            )}
           </div>
         </div>
       );
 
-    case 3:
-      // Landscape Catalog / Wide Brochure Mockup - Authentic Soft Warm Paper
+    case 3: {
+      // Landscape Catalog / Wide Brochure Mockup - Pure Clean Flat Page
+      const p1Ratio = getPageAspectRatio(page1);
+      const isFitMode = String(fit).toLowerCase() === 'fit';
+      let bookStyle = { width: '18.5vw', height: '12vw' };
+
+      if (page1 && p1Ratio) {
+        if (isFitMode) {
+          // If user explicitly chooses "Fit", dynamically adapt the catalog frame to the page's natural aspect ratio
+          if (p1Ratio >= 1) {
+            const h = Math.min(13.5, Math.max(8, 18.5 / p1Ratio));
+            bookStyle = { width: '18.5vw', height: `${h.toFixed(2)}vw` };
+          } else {
+            const w = Math.min(18.5, Math.max(9, 13 * p1Ratio));
+            bookStyle = { width: `${w.toFixed(2)}vw`, height: '13vw' };
+          }
+        } else if (p1Ratio >= 1.2) {
+          // For landscape pages in Fill mode, adjust height so it fits seamlessly
+          const h = Math.min(13.5, Math.max(9, 18.5 / p1Ratio));
+          bookStyle = { width: '18.5vw', height: `${h.toFixed(2)}vw` };
+        }
+      }
+
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          <div className="relative w-[18.5vw] h-[12vw] bg-[#FAF8F5] border border-[#E7E3D8] rounded-[0.5vw] flex overflow-hidden shadow-2xl">
-            {/* Spine Left Edge */}
-            <div
-              className={`w-[0.8vw] h-full ${!page1 ? 'bg-[#EAE5DB] border-r border-[#D9D3C7]' : ''} shrink-0 shadow-[inset_-0.15vw_0_0.3vw_rgba(0,0,0,0.1)] z-20 flex items-center justify-center`}
-              style={page1Color ? { backgroundColor: page1Color } : {}}
-            >
-              {!page1 && (
-                <span className="text-[0.4vw] text-[#5C554B] font-bold uppercase tracking-wider transform -rotate-90 whitespace-nowrap">CATALOG</span>
-              )}
-            </div>
-            {/* Front Cover Area */}
-            <div className="flex-1 h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] p-[1.1vw] flex flex-col justify-between">
+          <div
+            className="relative bg-[#FAF8F5] border border-[#E7E3D8] rounded-[0.35vw] flex overflow-hidden shadow-2xl transition-all duration-200"
+            style={bookStyle}
+          >
+            {/* Front Cover / Page Area */}
+            <div className="w-full h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] p-[1.1vw] flex flex-col justify-between">
               {page1 ? (
-                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                  <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
                 </div>
               ) : (
                 <>
@@ -291,18 +346,16 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
           </div>
         </div>
       );
+    }
 
     case 4:
-      // Modern Glossy Magazine Mockup - Real Magazine Paper Off-White / Natural Ivory
+      // Modern Magazine Mockup - Clean Flat Paper (Tilted slightly to left, pushed fully left)
       return (
-        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          <div className="relative w-[11.5vw] h-[15vw] rounded-[0.3vw] transform -rotate-3 overflow-hidden bg-[#FAF9F5] border border-[#E7E3D8] shadow-2xl">
-            {/* Magazine spine crease */}
-            <div className="absolute left-[0.4vw] inset-y-0 w-[0.1vw] bg-black/10 z-20 pointer-events-none" />
-            <div className="absolute left-0 inset-y-0 w-[0.4vw] bg-gradient-to-r from-black/5 to-transparent z-20 pointer-events-none" />
+        <div className={`absolute inset-0 flex items-center justify-start pl-[1.2vw] pointer-events-none transform ${scaleClass}`}>
+          <div className="relative w-[10.5vw] h-[14vw] rounded-[0.35vw] transform -rotate-3 overflow-hidden bg-[#FAF9F5] border border-[#E7E3D8] shadow-2xl">
             {page1 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
               </div>
             ) : (
               <div className="w-full h-full bg-[#FAF9F5] text-[#2C2825] p-[1vw] flex flex-col justify-between relative overflow-hidden">
@@ -330,48 +383,42 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
       );
 
     case 5:
-      // Stacked Trio Mockup - Real Book Pages (Subtle Off-white, Warm Ivory, Natural Cream with Fine Spine Edges)
+      // Dual Layer Spread Mockup - 2 Layered Clean Pages (Pushed Right so text on the left doesn't overlay)
       return (
-        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          {/* Bottom Book (Subtle Warm Grey-White Paper) */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page3 ? 'bg-white' : 'bg-[#F5F3EF] border border-[#E0DCD3]'} rounded-[0.5vw] transform -rotate-12 -translate-x-[1.5vw] flex overflow-hidden shadow-md text-[#4A453E]`}>
-            {page3 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page3Html }} />
-              </div>
-            ) : (
-              <div className="p-[0.7vw] w-full flex flex-col justify-between">
-                <span className="text-[0.5vw] font-mono font-bold text-[#8C8275]">VOL. 03</span>
-                <div className="w-3/4 h-[0.15vw] bg-[#D6D0C4] rounded-full" />
-              </div>
-            )}
-          </div>
-
-          {/* Middle Book (Natural Ivory Paper) */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8]'} rounded-[0.5vw] shadow-lg transform rotate-2 flex overflow-hidden text-[#3E3A36]`}>
+        <div className={`absolute inset-0 flex items-center justify-end pr-[2.5vw] pointer-events-none transform ${scaleClass}`}>
+          {/* Back Page / Book (Subtle Warm Paper) */}
+          <div className={`absolute w-[9.6vw] h-[13.2vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8]'} rounded-[0.4vw] shadow-lg transform -rotate-6 -translate-x-[0.8vw] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
             {page2 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
               </div>
             ) : (
-              <div className="p-[0.7vw] w-full flex flex-col justify-between">
-                <span className="text-[0.5vw] font-mono font-bold text-[#7C7267]">VOL. 02</span>
-                <div className="w-3/4 h-[0.15vw] bg-[#D6D0C4] rounded-full" />
+              <div className="p-[0.8vw] w-full h-full flex flex-col justify-between">
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
+                  <span className="text-[0.5vw] font-mono font-bold text-[#7C7267]">VOL. 02</span>
+                  <div className="w-[1vw] h-[1vw] bg-[#3E3A36] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-black">2</div>
+                </div>
+                <div className="space-y-[0.2vw] opacity-40">
+                  <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                  <div className="w-3/4 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                </div>
+                <div className="text-[0.42vw] text-[#8C8275] font-mono tracking-wider">PAGE 02</div>
               </div>
             )}
+            <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
           </div>
 
-          {/* Top Front Book (Warm Crisp Book Paper) */}
-          <div className={`absolute w-[9.8vw] h-[13.2vw] ${page1 ? 'bg-white' : 'bg-[#FCFBF8] border border-[#EAE6DD]'} rounded-[0.5vw] shadow-2xl transform rotate-12 translate-x-[1.4vw] flex flex-col justify-between text-[#2C2825] p-[0.7vw] overflow-hidden`}>
+          {/* Top Front Page / Book (Warm Crisp Clean Book Paper) */}
+          <div className={`absolute w-[9.6vw] h-[13.2vw] ${page1 ? 'bg-white' : 'bg-[#FCFBF8] border border-[#EAE6DD]'} rounded-[0.4vw] shadow-2xl transform rotate-6 translate-x-[0.8vw] flex flex-col justify-between text-[#2C2825] p-[0.8vw] overflow-hidden`}>
             {page1 ? (
-              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw] z-10">
                   <span className="text-[0.5vw] font-bold tracking-widest uppercase font-mono text-[#7C7267]">SERIES VOL. 1</span>
-                  <div className="w-[1vw] h-[1vw] bg-[#2C2825] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-black">1</div>
+                  <div className="w-[1vw] h-[1vw] bg-[#E84E1B] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-black">1</div>
                 </div>
                 <div className="my-auto py-[0.4vw] z-10">
                   <div className="w-[1.2vw] h-[0.18vw] bg-[#8C8275] mb-[0.3vw] rounded-full" />
@@ -387,52 +434,267 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
       );
 
     case 6:
-      // Isometric Floating Hardcover Mockup - Natural Book Paper & Cloth Spine
+      // Isometric Floating Portfolio Mockup - 2 Layered Pages (Softcover / Pure Clean Flat Pages)
       return (
         <div className={`absolute inset-0 flex items-center justify-end pr-[2vw] pointer-events-none transform ${scaleClass}`}>
-          {/* Isometric Perspective Book */}
-          <div className="relative w-[11.8vw] h-[15.2vw] rounded-[0.4vw] transform rotate-[-4deg] skew-y-[2deg] overflow-hidden bg-[#FAF8F5] border border-[#E7E3D8] flex shadow-2xl">
-            {/* Book Spine Simulation */}
-            <div
-              className={`w-[0.9vw] h-full ${!page1 ? 'bg-[#EAE5DB] border-r border-[#D9D3C7]' : ''} shrink-0 shadow-[inset_-0.2vw_0_0.4vw_rgba(0,0,0,0.1)] z-20 flex items-center justify-center`}
-              style={page1Color ? { backgroundColor: page1Color } : {}}
-            >
-              {!page1 && (
-                <span className="text-[0.45vw] text-[#5C554B] font-bold uppercase tracking-widest transform -rotate-90 whitespace-nowrap">PREMIUM</span>
-              )}
-            </div>
-            {/* Front Cover Body */}
-            <div className="flex-1 h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] p-[1vw] flex flex-col justify-between">
-              {page1 ? (
-                <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain">
-                  <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: page1Html }} />
+          {/* Back Page / Book (Tilted Isometric) */}
+          <div className={`absolute w-[11.2vw] h-[14.6vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8]'} rounded-[0.35vw] transform rotate-[-8deg] skew-y-[3deg] -translate-x-[1.4vw] -translate-y-[0.8vw] shadow-lg flex overflow-hidden text-[#3E3A36]`}>
+            {page2 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              </div>
+            ) : (
+              <div className="w-full h-full p-[0.8vw] flex flex-col justify-between">
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
+                  <span className="text-[0.45vw] font-bold uppercase tracking-widest bg-[#3E3A36] text-white px-[0.3vw] py-[0.1vw] rounded-[0.15vw]">PORTFOLIO</span>
+                  <span className="text-[0.42vw] font-mono text-[#8C8275]">VOL. 02</span>
                 </div>
-              ) : (
-                <>
-                  <div className="relative z-10 flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
-                    <span className="text-[0.5vw] font-bold uppercase tracking-widest bg-[#2C2825] text-white px-[0.3vw] py-[0.1vw] rounded-[0.15vw]">LIMITED EDITION</span>
-                    <span className="text-[0.45vw] font-mono text-[#8C8275]">2026</span>
+                <div className="space-y-[0.2vw] opacity-40">
+                  <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                  <div className="w-3/4 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono">PAGE 02</div>
+              </div>
+            )}
+            <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+          </div>
+
+          {/* Front Page / Book (Isometric Perspective) */}
+          <div className="relative w-[11.5vw] h-[15vw] rounded-[0.35vw] transform rotate-[-3deg] skew-y-[1.5deg] overflow-hidden bg-[#FAF8F5] border border-[#E7E3D8] shadow-2xl flex">
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <div className="w-full h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] p-[1vw] flex flex-col justify-between">
+                <div className="relative z-10 flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
+                  <span className="text-[0.5vw] font-bold uppercase tracking-widest bg-[#2C2825] text-white px-[0.3vw] py-[0.1vw] rounded-[0.15vw]">LIMITED EDITION</span>
+                  <span className="text-[0.45vw] font-mono text-[#8C8275]">2026</span>
+                </div>
+                <div className="relative z-10 my-auto py-[0.5vw]">
+                  <div className="w-[1.5vw] h-[0.18vw] bg-[#8C8275] mb-[0.3vw] rounded-full" />
+                  <h3 className="text-[1.05vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Minimalist Journal"}</h3>
+                  <p className="text-[0.6vw] text-[#6B6359] mt-[0.2vw] break-words">{customSubtitle || "Special Edition Portfolio"}</p>
+                  <div className="space-y-[0.2vw] mt-[0.5vw] opacity-40">
+                    <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
+                    <div className="w-3/4 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
                   </div>
-                  <div className="relative z-10 my-auto py-[0.5vw]">
-                    <div className="w-[1.5vw] h-[0.18vw] bg-[#8C8275] mb-[0.3vw] rounded-full" />
-                    <h3 className="text-[1.05vw] font-black tracking-tight leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Minimalist Journal"}</h3>
-                    <p className="text-[0.6vw] text-[#6B6359] mt-[0.2vw] break-words">{customSubtitle || "Special Edition Portfolio"}</p>
-                    <div className="space-y-[0.2vw] mt-[0.5vw] opacity-40">
-                      <div className="w-full h-[0.18vw] bg-[#D6D0C4] rounded-full" />
-                      <div className="w-3/4 h-[0.18vw] bg-[#D6D0C4] rounded-full" />
-                    </div>
-                  </div>
-                  <div className="relative z-10 flex justify-between items-center text-[0.42vw] text-[#8C8275] font-mono">
-                    <span>SPECIAL EDITION</span>
-                    <span>PAGE 01</span>
-                  </div>
-                  <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
-                </>
-              )}
-            </div>
+                </div>
+                <div className="relative z-10 flex justify-between items-center text-[0.42vw] text-[#8C8275] font-mono">
+                  <span>SPECIAL EDITION</span>
+                  <span>PAGE 01</span>
+                </div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </div>
+            )}
           </div>
         </div>
       );
+
+    case 7: {
+      // Landscape Dual Spread - 2 Landscape Pages (Spread mockup with overlapping angle)
+      return (
+        <div className={`absolute inset-0 flex items-center justify-end pr-[2vw] pointer-events-none transform ${scaleClass}`}>
+          {/* Back / Left Page (Landscape Page 2) */}
+          <div className={`absolute w-[15.5vw] h-[10.2vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.8vw]'} rounded-[0.35vw] shadow-lg transform -rotate-5 -translate-x-[2.2vw] -translate-y-[0.8vw] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
+            {page2 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw] z-10">
+                  <span className="text-[0.5vw] font-mono font-bold text-[#7C7267] uppercase">SPREAD 02</span>
+                  <div className="w-[1vw] h-[1vw] bg-[#3E3A36] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-black">2</div>
+                </div>
+                <div className="my-auto py-[0.3vw] z-10">
+                  <div className="w-[1.4vw] h-[0.18vw] bg-[#8C8275] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.85vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Landscape Spread"}</h3>
+                  <p className="text-[0.52vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "2-Page Open Lookbook"}</p>
+                </div>
+                <div className="text-[0.42vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 02</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+
+          {/* Front / Right Page (Landscape Page 1) */}
+          <div className={`relative w-[15.5vw] h-[10.2vw] ${page1 ? 'bg-white' : 'bg-[#FCFBF8] border border-[#EAE6DD] p-[0.8vw]'} rounded-[0.35vw] shadow-2xl transform rotate-3 translate-x-[1vw] flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw] z-10">
+                  <span className="text-[0.5vw] font-mono font-bold text-[#7C7267] uppercase">SPREAD 01</span>
+                  <div className="w-[1vw] h-[1vw] bg-[#10B981] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-black">1</div>
+                </div>
+                <div className="my-auto py-[0.3vw] z-10">
+                  <div className="w-[1.4vw] h-[0.18vw] bg-[#10B981] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.85vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Landscape Spread"}</h3>
+                  <p className="text-[0.52vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "2-Page Open Lookbook"}</p>
+                </div>
+                <div className="text-[0.42vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 01</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    case 8: {
+      // Landscape Trio Fan - 3 Landscape Pages layered in a fan arrangement
+      return (
+        <div className={`absolute inset-0 flex items-center justify-end pr-[1.8vw] pointer-events-none transform ${scaleClass}`}>
+          {/* Back Page (Page 3) */}
+          <div className={`absolute w-[14.5vw] h-[9.6vw] ${page3 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.35vw] shadow-md transform -rotate-10 -translate-x-[3.2vw] -translate-y-[1.2vw] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
+            {page3 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page3Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.48vw] font-mono font-bold text-[#7C7267] uppercase">PAGE 03</span>
+                  <div className="w-[0.9vw] h-[0.9vw] bg-[#4B5563] rounded-[0.18vw] flex items-center justify-center text-white text-[0.5vw] font-black">3</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <div className="w-[1.2vw] h-[0.15vw] bg-[#8C8275] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.78vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Tri-Page Showcase"}</h3>
+                  <p className="text-[0.48vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "3-Layer Cascading Pages"}</p>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 03</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+
+          {/* Middle Page (Page 2) */}
+          <div className={`absolute w-[14.5vw] h-[9.6vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.35vw] shadow-lg transform -rotate-3 -translate-x-[1.2vw] -translate-y-[0.3vw] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
+            {page2 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.48vw] font-mono font-bold text-[#7C7267] uppercase">PAGE 02</span>
+                  <div className="w-[0.9vw] h-[0.9vw] bg-[#3B82F6] rounded-[0.18vw] flex items-center justify-center text-white text-[0.5vw] font-black">2</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <div className="w-[1.2vw] h-[0.15vw] bg-[#3B82F6] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.78vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Tri-Page Showcase"}</h3>
+                  <p className="text-[0.48vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "3-Layer Cascading Pages"}</p>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 02</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+
+          {/* Front Page (Page 1) */}
+          <div className={`relative w-[14.5vw] h-[9.6vw] ${page1 ? 'bg-white' : 'bg-[#FCFBF8] border border-[#EAE6DD] p-[0.7vw]'} rounded-[0.35vw] shadow-2xl transform rotate-5 translate-x-[0.8vw] translate-y-[0.6vw] flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.48vw] font-mono font-bold text-[#7C7267] uppercase">PAGE 01</span>
+                  <div className="w-[0.9vw] h-[0.9vw] bg-[#1D4ED8] rounded-[0.18vw] flex items-center justify-center text-white text-[0.5vw] font-black">1</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <div className="w-[1.2vw] h-[0.15vw] bg-[#1D4ED8] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.78vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Tri-Page Showcase"}</h3>
+                  <p className="text-[0.48vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "3-Layer Cascading Pages"}</p>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 01</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    case 9: {
+      // Landscape Triple Cascade - 3 Isometric / Staggered Landscape Pages
+      return (
+        <div className={`absolute inset-0 flex items-center justify-end pr-[2vw] pointer-events-none transform ${scaleClass}`}>
+          {/* Top-back Page (Page 3) */}
+          <div className={`absolute w-[15vw] h-[9.8vw] ${page3 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.35vw] shadow-md transform -translate-x-[3.4vw] -translate-y-[2.2vw] rotate-[-4deg] skew-x-[-2deg] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
+            {page3 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page3Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.48vw] font-mono font-bold text-[#7C7267] uppercase">SECTION 03</span>
+                  <div className="w-[0.9vw] h-[0.9vw] bg-[#78350F] rounded-[0.18vw] flex items-center justify-center text-white text-[0.5vw] font-black">3</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <div className="w-[1.2vw] h-[0.15vw] bg-[#8C8275] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.78vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Portfolio Triple Spread"}</h3>
+                  <p className="text-[0.48vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "3-Tier Landscape Preview"}</p>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 03</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+
+          {/* Middle Page (Page 2) */}
+          <div className={`absolute w-[15vw] h-[9.8vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.35vw] shadow-lg transform -translate-x-[1.7vw] -translate-y-[0.8vw] rotate-[-2deg] skew-x-[-1deg] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
+            {page2 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.48vw] font-mono font-bold text-[#7C7267] uppercase">SECTION 02</span>
+                  <div className="w-[0.9vw] h-[0.9vw] bg-[#D97706] rounded-[0.18vw] flex items-center justify-center text-white text-[0.5vw] font-black">2</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <div className="w-[1.2vw] h-[0.15vw] bg-[#D97706] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.78vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Portfolio Triple Spread"}</h3>
+                  <p className="text-[0.48vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "3-Tier Landscape Preview"}</p>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 02</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+
+          {/* Front / Bottom Page (Page 1) */}
+          <div className={`relative w-[15vw] h-[9.8vw] ${page1 ? 'bg-white' : 'bg-[#FCFBF8] border border-[#EAE6DD] p-[0.7vw]'} rounded-[0.35vw] shadow-2xl transform translate-x-[0vw] translate-y-[0.6vw] rotate-[0deg] flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.48vw] font-mono font-bold text-[#7C7267] uppercase">SECTION 01</span>
+                  <div className="w-[0.9vw] h-[0.9vw] bg-[#F59E0B] rounded-[0.18vw] flex items-center justify-center text-white text-[0.5vw] font-black">1</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <div className="w-[1.2vw] h-[0.15vw] bg-[#F59E0B] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.78vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Portfolio Triple Spread"}</h3>
+                  <p className="text-[0.48vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "3-Tier Landscape Preview"}</p>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 01</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     default:
       return null;
@@ -461,7 +723,8 @@ export const TemplatePreview = ({
   logoUrl,
   text1, text1FontFamily, text1FontSize, text1FontWeight, text1LetterSpacing, text1LineHeight, text1Align, text1Color, text1ColorOpacity, text1Italic, text1Underline, text1Linethrough,
   text2, text2FontFamily, text2FontSize, text2FontWeight, text2LetterSpacing, text2LineHeight, text2Align, text2Color, text2ColorOpacity, text2Italic, text2Underline, text2Linethrough,
-  selectedPages = [], pages = []
+  selectedPages = [], pages = [],
+  fit = 'Fit'
 }) => {
   const shadowRgba = getShadowRgba(shadowColor, shadowOpacity);
   const dropShadowFilter = `drop-shadow(${shadowX || 0}px ${shadowY || 0}px ${(shadowBlur !== undefined ? shadowBlur : 35) / 10}px ${shadowRgba})`;
@@ -502,19 +765,19 @@ export const TemplatePreview = ({
       alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
     };
   } else if (tplId === 2) {
-    // Single Standing Hardcover: Book is on left-center. Right area has empty negative space for logo and title.
+    // Single Standing Booklet: Book is on left side. Right area has empty negative space for logo and title.
     logoContainerStyle = {
-      top: '1.5vw',
-      right: '1.5vw',
+      top: '1.2vw',
+      right: '1.2vw',
       left: 'auto',
       maxWidth: '4.5vw',
       maxHeight: '4vw'
     };
     textContainerStyle = {
-      right: '5%',
+      right: '3%',
       bottom: '6%',
-      width: '44%',
-      maxWidth: '45%',
+      width: '42%',
+      maxWidth: '42%',
       textAlign: text1Align || 'right',
       alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'center') ? 'center' : 'flex-end'
     };
@@ -537,23 +800,24 @@ export const TemplatePreview = ({
       alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'right') ? 'flex-end' : 'center'
     };
   } else if (tplId === 4) {
-    // Modern Magazine: Magazine stands on right-center tilted. Left side is open for logo & editorial title.
+    // Modern Magazine: Magazine stands on left side. Right side is open for logo & editorial title without overlapping.
     logoContainerStyle = {
-      top: '1.5vw',
-      left: '1.5vw',
+      top: '1.2vw',
+      right: '1.2vw',
+      left: 'auto',
       maxWidth: '4.5vw',
       maxHeight: '4vw'
     };
     textContainerStyle = {
-      left: '4%',
-      bottom: '8%',
-      width: '44%',
-      maxWidth: '46%',
-      textAlign: text1Align || 'left',
-      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+      right: '3%',
+      bottom: '6%',
+      width: '40%',
+      maxWidth: '40%',
+      textAlign: text1Align || 'right',
+      alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'center') ? 'center' : 'flex-end'
     };
   } else if (tplId === 5) {
-    // Stacked Trio: Books fan out to the right & top. Clean open negative space is at the top-left and bottom-left.
+    // Dual Layer Spread: Pages fan out to the right. Clean open negative space is strictly at the bottom-left.
     logoContainerStyle = {
       top: '1.2vw',
       left: '1.2vw',
@@ -561,10 +825,10 @@ export const TemplatePreview = ({
       maxHeight: '3.5vw'
     };
     textContainerStyle = {
-      left: '4%',
-      bottom: '4%',
-      width: '44%',
-      maxWidth: '46%',
+      left: '3%',
+      bottom: '6%',
+      width: '40%',
+      maxWidth: '40%',
       textAlign: text1Align || 'left',
       alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
     };
@@ -584,6 +848,54 @@ export const TemplatePreview = ({
       textAlign: text1Align || 'left',
       alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
     };
+  } else if (tplId === 7) {
+    // Landscape Dual Spread: 2 landscape spreads placed towards right. Left side is open for branding & title.
+    logoContainerStyle = {
+      top: '1.2vw',
+      left: '1.5vw',
+      maxWidth: '4.5vw',
+      maxHeight: '4vw'
+    };
+    textContainerStyle = {
+      left: '4%',
+      bottom: '5%',
+      width: '38%',
+      maxWidth: '40%',
+      textAlign: text1Align || 'left',
+      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+    };
+  } else if (tplId === 8) {
+    // Landscape Trio Fan: 3 layered landscape pages fanned towards right. Left side is open.
+    logoContainerStyle = {
+      top: '1.2vw',
+      left: '1.5vw',
+      maxWidth: '4.5vw',
+      maxHeight: '4vw'
+    };
+    textContainerStyle = {
+      left: '4%',
+      bottom: '5%',
+      width: '38%',
+      maxWidth: '40%',
+      textAlign: text1Align || 'left',
+      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+    };
+  } else if (tplId === 9) {
+    // Landscape Triple Cascade: 3 stepped landscape cards fanned on right. Left side is open.
+    logoContainerStyle = {
+      top: '1.2vw',
+      left: '1.5vw',
+      maxWidth: '4.5vw',
+      maxHeight: '4vw'
+    };
+    textContainerStyle = {
+      left: '4%',
+      bottom: '5%',
+      width: '38%',
+      maxWidth: '40%',
+      textAlign: text1Align || 'left',
+      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+    };
   }
 
   const bgStyle = bgColor && (bgColor.includes('gradient') || bgColor.startsWith('linear-') || bgColor.startsWith('radial-'))
@@ -593,14 +905,14 @@ export const TemplatePreview = ({
   return (
     <div className="relative w-full h-full bg-gray-100 overflow-hidden" style={bgStyle}>
       {selectedTemplate?.id ? (
-        <div 
+        <div
           className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none transition-all duration-150"
-          style={{ 
-            opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100, 
-            filter: dropShadowFilter 
+          style={{
+            opacity: (bgOpacity !== undefined ? bgOpacity : 100) / 100,
+            filter: dropShadowFilter
           }}
         >
-          {renderTemplateBooks(selectedTemplate.id, selectedPages, pages, "scale-[0.95]", text1, text2)}
+          {renderTemplateBooks(selectedTemplate.id, selectedPages, pages, "scale-[0.95]", text1, text2, fit)}
         </div>
       ) : (
         <img
@@ -610,55 +922,60 @@ export const TemplatePreview = ({
           alt={selectedTemplate?.label || 'Template'}
         />
       )}
-      
+
       {logoUrl && (
         <div
           className="absolute z-[20] flex items-center justify-center pointer-events-none transition-all duration-150"
           style={logoContainerStyle}
         >
-          <img 
-            src={logoUrl} 
-            alt="Logo" 
-            className="w-full h-full object-contain rounded-[0.3vw]" 
+          <img
+            src={logoUrl}
+            alt="Logo"
+            className="w-full h-full object-contain rounded-[0.3vw]"
           />
         </div>
       )}
 
       <div className="absolute z-10 flex flex-col pointer-events-none transition-all duration-150" style={textContainerStyle}>
-              <h4 className="leading-tight break-words w-full" style={{
-                  fontFamily: text1FontFamily,
-                  fontSize: typeof text1FontSize === 'number' ? `${(text1FontSize / 15) * 1.1}vw` : '0.85vw',
-                  fontWeight: text1FontWeight === 'Regular' ? '400' : text1FontWeight === 'Medium' ? '500' : text1FontWeight === 'Semi Bold' ? '600' : text1FontWeight === 'Bold' ? '700' : '900',
-                  letterSpacing: text1LetterSpacing === 'Auto' ? 'normal' : `${(text1LetterSpacing || 0) / 10}em`,
-                  lineHeight: text1LineHeight === 'Auto' ? '1.1' : String(text1LineHeight || 1.1),
-                  textAlign: text1Align || 'inherit',
-                  color: text1Color || '#000000',
-                  opacity: (text1ColorOpacity !== undefined ? text1ColorOpacity : 100) / 100,
-                  fontStyle: text1Italic ? 'italic' : 'normal',
-                  textDecoration: [text1Underline ? 'underline' : '', text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-              }}>{text1 || 'Hard.Cover Book'}</h4>
-              <p className="whitespace-pre-wrap break-words w-full" style={{
-                  marginTop: '0.15vw',
-                  fontFamily: text2FontFamily,
-                  fontSize: typeof text2FontSize === 'number' ? `${(text2FontSize / 15) * 1.1}vw` : '0.55vw',
-                  fontWeight: text2FontWeight === 'Regular' ? '400' : text2FontWeight === 'Medium' ? '500' : text2FontWeight === 'Semi Bold' ? '600' : text2FontWeight === 'Bold' ? '700' : '900',
-                  letterSpacing: text2LetterSpacing === 'Auto' ? 'normal' : `${(text2LetterSpacing || 0) / 10}em`,
-                  lineHeight: text2LineHeight === 'Auto' ? 'normal' : String(text2LineHeight || 'normal'),
-                  textAlign: text2Align || 'inherit',
-                  color: text2Color || '#000000',
-                  opacity: (text2ColorOpacity !== undefined ? text2ColorOpacity : 100) / 100,
-                  fontStyle: text2Italic ? 'italic' : 'normal',
-                  textDecoration: [text2Underline ? 'underline' : '', text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-              }}>{text2 || 'Free .psd Mockup'}</p>
-          </div>
+        <h4 className="leading-tight break-words w-full" style={{
+          fontFamily: text1FontFamily,
+          fontSize: typeof text1FontSize === 'number' ? `${(text1FontSize / 15) * 1.1}vw` : '0.85vw',
+          fontWeight: text1FontWeight === 'Regular' ? '400' : text1FontWeight === 'Medium' ? '500' : text1FontWeight === 'Semi Bold' ? '600' : text1FontWeight === 'Bold' ? '700' : '900',
+          letterSpacing: text1LetterSpacing === 'Auto' ? 'normal' : `${(text1LetterSpacing || 0) / 10}em`,
+          lineHeight: text1LineHeight === 'Auto' ? '1.1' : String(text1LineHeight || 1.1),
+          textAlign: text1Align || 'inherit',
+          color: text1Color || '#000000',
+          opacity: (text1ColorOpacity !== undefined ? text1ColorOpacity : 100) / 100,
+          fontStyle: text1Italic ? 'italic' : 'normal',
+          textDecoration: [text1Underline ? 'underline' : '', text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
+        }}>{text1 || 'Hard.Cover Book'}</h4>
+        <p className="whitespace-pre-wrap break-words w-full" style={{
+          marginTop: '0.15vw',
+          fontFamily: text2FontFamily,
+          fontSize: typeof text2FontSize === 'number' ? `${(text2FontSize / 15) * 1.1}vw` : '0.55vw',
+          fontWeight: text2FontWeight === 'Regular' ? '400' : text2FontWeight === 'Medium' ? '500' : text2FontWeight === 'Semi Bold' ? '600' : text2FontWeight === 'Bold' ? '700' : '900',
+          letterSpacing: text2LetterSpacing === 'Auto' ? 'normal' : `${(text2LetterSpacing || 0) / 10}em`,
+          lineHeight: text2LineHeight === 'Auto' ? 'normal' : String(text2LineHeight || 'normal'),
+          textAlign: text2Align || 'inherit',
+          color: text2Color || '#000000',
+          opacity: (text2ColorOpacity !== undefined ? text2ColorOpacity : 100) / 100,
+          fontStyle: text2Italic ? 'italic' : 'normal',
+          textDecoration: [text2Underline ? 'underline' : '', text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
+        }}>{text2 || 'Free .psd Mockup'}</p>
       </div>
-      );
-  };
+    </div>
+  );
+};
 
 export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages = [], zIndex = 'z-[200]', inline = false }) => {
+  const incomingTplId = typeof settings.coverPicture?.selectedTemplate === 'object' && settings.coverPicture?.selectedTemplate
+    ? settings.coverPicture.selectedTemplate.id
+    : Number(settings.coverPicture?.selectedTemplate || settings.coverPicture?.templateId || 1);
+  const resolvedInitialTpl = COVER_TEMPLATES.find(t => t.id === incomingTplId) || COVER_TEMPLATES[0];
+
   const [option, setOption] = useState(settings.coverPicture?.type || 'template');
   const [activeTab, setActiveTab] = useState(settings.coverPicture?.activeTab || 'cover');
-  const [selectedTemplate, setSelectedTemplate] = useState(settings.coverPicture?.selectedTemplate || COVER_TEMPLATES[0]);
+  const [selectedTemplate, setSelectedTemplate] = useState(resolvedInitialTpl);
 
   const [uploadedImage, setUploadedImage] = useState(settings.coverPicture?.type === 'upload' ? settings.coverPicture.url : null);
   const [originalImage, setOriginalImage] = useState(settings.coverPicture?.type === 'upload' ? settings.coverPicture.url : null);
@@ -666,9 +983,10 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const previewImgRef = React.useRef(null);
   const [rawFile, setRawFile] = useState(null);
   const [imageFixType, setImageFixType] = useState(settings.coverPicture?.fit || 'Fit');
+  const [templateFit, setTemplateFit] = useState(settings.coverPicture?.templateFit || settings.coverPicture?.fit || 'Fit');
   const [showMenu, setShowMenu] = useState(false);
 
-  const initialTpl = settings.coverPicture?.selectedTemplate || COVER_TEMPLATES[0];
+  const initialTpl = resolvedInitialTpl;
   const initialText1 = settings.coverPicture?.text1 || initialTpl?.defaultText1 || 'Name of the Book';
   const initialText2 = settings.coverPicture?.text2 || initialTpl?.defaultText2 || '“Turn every page into an experience,\nA flipbook that brings your stories to life.”';
   const [text1, setText1] = useState(initialText1);
@@ -681,6 +999,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [shadowY, setShadowY] = useState(settings.coverPicture?.shadowY || 0);
   const [shadowBlur, setShadowBlur] = useState(settings.coverPicture?.shadowBlur !== undefined ? settings.coverPicture.shadowBlur : 0);
   const [logoUrl, setLogoUrl] = useState(settings.coverPicture?.logoUrl || null);
+  const [rawLogoFile, setRawLogoFile] = useState(null);
   const logoInputRef = React.useRef(null);
   const scrollContainerRef = React.useRef(null);
   const middleDropdownRef = React.useRef(null);
@@ -724,11 +1043,11 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [showBgColorPicker, setShowBgColorPicker] = useState(false);
   const [showShadowColorPicker, setShowShadowColorPicker] = useState(false);
 
-  const [isMiddleDropdownOpen, setIsMiddleDropdownOpen] = useState(false);
+  const [openSlotDropdown, setOpenSlotDropdown] = useState(null); // index of currently open slot dropdown (0, 1, or 2)
 
-  // Automatically scroll container to bottom when middle dropdown opens
+  // Automatically scroll container when slot dropdown opens
   useEffect(() => {
-    if (isMiddleDropdownOpen) {
+    if (openSlotDropdown !== null) {
       setTimeout(() => {
         if (scrollContainerRef.current) {
           scrollContainerRef.current.scrollTo({
@@ -738,45 +1057,38 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
         }
       }, 50);
     }
-  }, [isMiddleDropdownOpen]);
+  }, [openSlotDropdown]);
 
-  const [selectedPages, setSelectedPages] = useState(settings.coverPicture?.selectedPages || []);
-  const [firstPageSelected, setFirstPageSelected] = useState(
-    settings.coverPicture?.selectedPages !== undefined 
-      ? settings.coverPicture.selectedPages.includes(1) 
-      : false
-  );
-  const [lastPageSelected, setLastPageSelected] = useState(
-    settings.coverPicture?.selectedPages !== undefined 
-      ? settings.coverPicture.selectedPages.includes(pages.length) 
-      : false
-  );
-  const [middlePageNum, setMiddlePageNum] = useState(() => {
-    if (pages.length <= 2) return null;
-    const existingMiddle = (settings.coverPicture?.selectedPages || []).find(p => p > 1 && p < pages.length);
-    return existingMiddle || null;
+  // Current template's maximum pages capacity (1, 2, or 3)
+  const templateMaxPages = selectedTemplate?.maxPages || 2;
+
+  // Selected pages array (indices or page numbers 1-based)
+  const [selectedPages, setSelectedPages] = useState(() => {
+    const raw = settings.coverPicture?.selectedPages;
+    if (Array.isArray(raw)) {
+      return raw.slice(0, templateMaxPages);
+    }
+    return [1];
   });
 
-  // Track the most recently selected/interacted page for preview display
+  // Keep selectedPages trimmed or adjusted whenever template changes its maxPages
+  useEffect(() => {
+    setSelectedPages(prev => {
+      const filtered = (prev || []).filter(p => p !== null && p !== undefined);
+      if (filtered.length === 0) {
+        return [1];
+      }
+      return filtered.slice(0, templateMaxPages);
+    });
+  }, [templateMaxPages]);
+
+  // Track the most recently selected/interacted page for thumbnail preview display
   const [lastInteractedPage, setLastInteractedPage] = useState(() => {
     if (settings.coverPicture?.selectedPages?.length > 0) {
-      return settings.coverPicture.selectedPages[settings.coverPicture.selectedPages.length - 1];
+      return settings.coverPicture.selectedPages[0];
     }
     return 1;
   });
-
-  // Sync selectedPages array when toggles or middle page change
-  useEffect(() => {
-    const list = [];
-    if (firstPageSelected && pages.length >= 1) list.push(1);
-    if (middlePageNum && middlePageNum > 1 && middlePageNum < pages.length) {
-      list.push(middlePageNum);
-    }
-    if (lastPageSelected && pages.length > 1) {
-      list.push(pages.length);
-    }
-    setSelectedPages(list);
-  }, [firstPageSelected, lastPageSelected, middlePageNum, pages.length]);
 
   // Extract colors present on the flipbook pages or template
   const colorsOnPageList = useMemo(() => {
@@ -820,7 +1132,8 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
         activeTab,
         selectedTemplate,
         url: option === 'upload' ? uploadedImage : (selectedTemplate?.src || ''),
-        fit: imageFixType,
+        fit: option === 'upload' ? imageFixType : templateFit,
+        templateFit,
         text1,
         text2,
         bgColor,
@@ -858,7 +1171,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
         selectedPages
       });
     }
-  }, [option, activeTab, selectedTemplate, uploadedImage, imageFixType, text1, text2, bgColor, bgOpacity, shadowColor, shadowOpacity, shadowX, shadowY, shadowBlur, logoUrl, text1FontFamily, text1FontSize, text1FontWeight, text1LetterSpacing, text1LineHeight, text1Align, text1Bold, text1Italic, text1Underline, text1Linethrough, text1Color, text1ColorOpacity, text2FontFamily, text2FontSize, text2FontWeight, text2LetterSpacing, text2LineHeight, text2Align, text2Bold, text2Italic, text2Underline, text2Linethrough, text2Color, text2ColorOpacity, selectedPages, onPreview]);
+  }, [option, activeTab, selectedTemplate, uploadedImage, imageFixType, templateFit, text1, text2, bgColor, bgOpacity, shadowColor, shadowOpacity, shadowX, shadowY, shadowBlur, logoUrl, text1FontFamily, text1FontSize, text1FontWeight, text1LetterSpacing, text1LineHeight, text1Align, text1Bold, text1Italic, text1Underline, text1Linethrough, text1Color, text1ColorOpacity, text2FontFamily, text2FontSize, text2FontWeight, text2LetterSpacing, text2LineHeight, text2Align, text2Bold, text2Italic, text2Underline, text2Linethrough, text2Color, text2ColorOpacity, selectedPages, onPreview]);
 
   const handleCoverUpload = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -874,6 +1187,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const handleLogoUpload = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      setRawLogoFile(file);
       const url = URL.createObjectURL(file);
       setLogoUrl(url);
     }
@@ -1023,6 +1337,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                       text1={text1} text1FontFamily={text1FontFamily} text1FontSize={text1FontSize} text1FontWeight={text1FontWeight} text1LetterSpacing={text1LetterSpacing} text1LineHeight={text1LineHeight} text1Align={text1Align} text1Color={text1Color} text1ColorOpacity={text1ColorOpacity} text1Italic={text1Italic} text1Underline={text1Underline} text1Linethrough={text1Linethrough}
                       text2={text2} text2FontFamily={text2FontFamily} text2FontSize={text2FontSize} text2FontWeight={text2FontWeight} text2LetterSpacing={text2LetterSpacing} text2LineHeight={text2LineHeight} text2Align={text2Align} text2Color={text2Color} text2ColorOpacity={text2ColorOpacity} text2Italic={text2Italic} text2Underline={text2Underline} text2Linethrough={text2Linethrough}
                       selectedPages={selectedPages} pages={pages}
+                      fit={templateFit}
                     />
                   </div>
                 ) : (
@@ -1379,36 +1694,33 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                         </div>
                       </div>
 
-                      {/* Selected Pages Section */}
+
+                      {/* Selected Pages Section (Option A: Dynamic Slots based on template page count) */}
                       <div className="flex items-start gap-[0.7vw]">
-                        <span className="text-[0.72vw] font-bold text-gray-800 w-[6vw] shrink-0 pt-[0.4vw]">Selected Pages :</span>
+                        <div className="w-[6vw] shrink-0 pt-[0.4vw]">
+                          <span className="text-[0.72vw] font-bold text-gray-800 block">Selected Pages :</span>
+                          <span className="text-[0.55vw] text-gray-400 font-medium block mt-[0.1vw]">
+                            {templateMaxPages === 1 ? '1 Page Template' : `${templateMaxPages} Pages Template`}
+                          </span>
+                        </div>
 
                         {/* Single Unified Container */}
-                        <div className="flex-1 border border-gray-200/90 rounded-[0.7vw] p-[0.7vw] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex items-start gap-[0.9vw] transition-all">
-                          {/* Live Thumbnail Preview on the Left inside the container */}
+                        <div className="flex-1 border border-gray-200/90 rounded-[0.7vw] p-[1.1vw] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col items-center gap-[1.1vw] transition-all">
+                          {/* Live Thumbnail Preview Centered at Top */}
                           {pages.length > 0 && (
-                            <div className="w-[5.4vw] flex flex-col items-center gap-[0.2vw] shrink-0 pt-[0.1vw]">
-                              <span className="text-[0.55vw] font-bold text-gray-400 uppercase tracking-wider self-start">PREVIEW:</span>
+                            <div className="flex flex-col items-center gap-[0.35vw]">
+                              <span className="text-[0.55vw] font-bold text-gray-400 uppercase tracking-wider">PREVIEW:</span>
                               {(() => {
-                                // Priority to the page most recently clicked/selected, provided it's currently active
-                                let activeNum = null;
-                                if (lastInteractedPage === 1 && firstPageSelected) activeNum = 1;
-                                else if (lastInteractedPage === pages.length && lastPageSelected) activeNum = pages.length;
-                                else if (lastInteractedPage === middlePageNum && middlePageNum) activeNum = middlePageNum;
-                                else {
-                                  // Fallback to whichever page is currently selected
-                                  activeNum = middlePageNum || (firstPageSelected ? 1 : null) || (lastPageSelected ? pages.length : null);
-                                }
-
+                                const activeNum = lastInteractedPage && (selectedPages.includes(lastInteractedPage) ? lastInteractedPage : selectedPages[0]);
                                 const pageObj = activeNum && pages[activeNum - 1] ? pages[activeNum - 1] : null;
-                                const pageHtml = pageObj?.html ? normalizePageHtml(pageObj.html) : '';
+                                const pageHtml = pageObj ? normalizePageHtml(pageObj.html || pageObj.content || pageObj.svgString || '', templateFit) : '';
 
                                 return (
                                   <>
-                                    <div className="w-[5.2vw] h-[6.8vw] bg-white border border-gray-300 rounded-[0.4vw] overflow-hidden shadow-xs flex items-center justify-center relative p-[0.2vw]">
+                                    <div className="w-[5.4vw] h-[7vw] bg-white border border-gray-300 rounded-[0.45vw] overflow-hidden shadow-xs flex items-center justify-center relative p-[0.2vw]">
                                       {pageHtml ? (
                                         <div
-                                          className="w-full h-full flex items-center justify-center pointer-events-none [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain"
+                                          className="w-full h-full flex items-center justify-center pointer-events-none overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block"
                                           dangerouslySetInnerHTML={{ __html: pageHtml }}
                                         />
                                       ) : (
@@ -1417,7 +1729,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                                         </div>
                                       )}
                                     </div>
-                                    <span className={`text-[0.62vw] font-semibold text-center ${activeNum ? 'text-[#5551FF]' : 'text-gray-400'}`}>
+                                    <span className={`text-[0.62vw] font-semibold text-center mt-[0.1vw] ${activeNum ? 'text-[#5551FF]' : 'text-gray-400'}`}>
                                       {activeNum ? `Page ${activeNum}` : 'None'}
                                     </span>
                                   </>
@@ -1426,132 +1738,103 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                             </div>
                           )}
 
-                          {/* Controls (COVER & BACK and MIDDLE PAGE) on the Right inside the container */}
-                          <div className="flex-1 flex flex-col space-y-[0.8vw]">
-                            {/* COVER & BACK Section */}
-                            <div className="space-y-[0.4vw]">
-                              <div className="text-[0.6vw] font-bold text-gray-400 uppercase tracking-wider mb-[0.2vw]">
-                                COVER & BACK
-                              </div>
+                          {/* Page Selection Slots Directly on Bottom of Preview */}
+                          <div className="w-full flex flex-col space-y-[0.9vw] pt-[0.9vw] border-t border-gray-100">
+                            {Array.from({ length: templateMaxPages }).map((_, slotIdx) => {
+                              let slotLabel = `Page ${slotIdx + 1}`;
+                              if (templateMaxPages === 1) {
+                                slotLabel = 'Book Page';
+                              } else if (templateMaxPages === 2) {
+                                slotLabel = slotIdx === 0 ? 'Front Cover Page' : 'Back Cover Page';
+                              } else if (templateMaxPages === 3) {
+                                slotLabel = slotIdx === 0 ? 'Front Page' : slotIdx === 1 ? 'Middle Page' : 'Back Page';
+                              }
 
-                              {/* First Page Checkbox */}
-                              <div
-                                className="flex items-center justify-between py-[0.2vw] cursor-pointer group select-none"
-                                onClick={() => {
-                                  const nextVal = !firstPageSelected;
-                                  setFirstPageSelected(nextVal);
-                                  if (nextVal) setLastInteractedPage(1);
-                                }}
-                              >
-                                <div className="flex items-center gap-[0.6vw]">
-                                  <div
-                                    className={`w-[1.05vw] h-[1.05vw] rounded-[0.25vw] border-[0.1vw] flex items-center justify-center transition-all ${firstPageSelected
-                                      ? 'bg-white border-gray-800'
-                                      : 'border-gray-800 bg-white group-hover:border-black'
-                                      }`}
-                                  >
-                                    {firstPageSelected && (
-                                      <Check size="0.75vw" strokeWidth={3} className="text-gray-900" />
+                              const currentVal = selectedPages[slotIdx] || null;
+                              const isDropdownOpen = openSlotDropdown === slotIdx;
+
+                              return (
+                                <div key={slotIdx} className="space-y-[0.35vw] w-full">
+                                  <div className="flex items-center justify-between px-[0.1vw]">
+                                    <span className="text-[0.62vw] font-bold text-gray-500 uppercase tracking-wider">
+                                      {slotLabel}
+                                    </span>
+                                    {currentVal && (
+                                      <span className="text-[0.55vw] text-indigo-600 font-semibold bg-indigo-50 px-[0.4vw] py-[0.1vw] rounded-[0.25vw]">
+                                        Page {currentVal}
+                                      </span>
                                     )}
                                   </div>
-                                  <span className="text-[0.72vw] text-gray-900 font-normal">
-                                    First Page (Page 1)
-                                  </span>
-                                </div>
-                              </div>
 
-                              {/* Last Page Checkbox */}
-                              {pages.length > 1 && (
-                                <div
-                                  className="flex items-center justify-between py-[0.2vw] cursor-pointer group select-none"
-                                  onClick={() => {
-                                    const nextVal = !lastPageSelected;
-                                    setLastPageSelected(nextVal);
-                                    if (nextVal) setLastInteractedPage(pages.length);
-                                  }}
-                                >
-                                  <div className="flex items-center gap-[0.6vw]">
-                                    <div
-                                      className={`w-[1.05vw] h-[1.05vw] rounded-[0.25vw] border-[0.1vw] flex items-center justify-center transition-all ${lastPageSelected
-                                        ? 'bg-white border-gray-800'
-                                        : 'border-gray-800 bg-white group-hover:border-black'
-                                        }`}
-                                    >
-                                      {lastPageSelected && (
-                                        <Check size="0.75vw" strokeWidth={3} className="text-gray-900" />
-                                      )}
-                                    </div>
-                                    <span className="text-[0.72vw] text-gray-900 font-normal">
-                                      Last Page (Page {pages.length})
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* MIDDLE PAGE Section */}
-                            <div>
-                              <div className="text-[0.6vw] font-bold text-gray-400 uppercase tracking-wider mb-[0.4vw]">
-                                MIDDLE PAGE
-                              </div>
-
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  onClick={() => setIsMiddleDropdownOpen(!isMiddleDropdownOpen)}
-                                  className={`w-full h-[2.1vw] px-[0.75vw] border rounded-[0.45vw] flex items-center justify-between bg-white text-[0.78vw] font-medium transition-all cursor-pointer shadow-2xs ${
-                                    isMiddleDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-gray-300 hover:border-gray-400'
-                                  }`}
-                                >
-                                  <span className={middlePageNum ? 'text-gray-800' : 'text-gray-400 font-normal'}>
-                                    {middlePageNum ? `Page ${middlePageNum}` : 'None'}
-                                  </span>
-                                  <ChevronDown
-                                    size="0.75vw"
-                                    className={`text-gray-400 transition-transform duration-200 ${isMiddleDropdownOpen ? 'rotate-180 text-indigo-500' : ''}`}
-                                  />
-                                </button>
-
-                                {isMiddleDropdownOpen && (
-                                  <div className="mt-[0.35vw] bg-white border border-gray-200 rounded-[0.45vw] shadow-sm py-1 max-h-[8.5vw] overflow-y-auto custom-popup-scrollbar">
-                                    <div
-                                      onClick={() => {
-                                        setMiddlePageNum(null);
-                                        setIsMiddleDropdownOpen(false);
-                                      }}
-                                      className={`px-[0.85vw] py-[0.4vw] text-[0.78vw] font-medium cursor-pointer transition-colors ${
-                                        !middlePageNum
-                                          ? 'bg-blue-50 text-blue-600 font-semibold'
-                                          : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                                  <div className="relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => setOpenSlotDropdown(isDropdownOpen ? null : slotIdx)}
+                                      className={`w-full h-[2.2vw] px-[0.85vw] border rounded-[0.5vw] flex items-center justify-between bg-white text-[0.78vw] font-medium transition-all cursor-pointer shadow-2xs ${
+                                        isDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-gray-300 hover:border-gray-400'
                                       }`}
                                     >
-                                      None
-                                    </div>
-                                    {pages.slice(1, -1).map((_, idx) => {
-                                      const pageNumber = idx + 2;
-                                      const isSelected = middlePageNum === pageNumber;
-                                      return (
+                                      <span className={currentVal ? 'text-gray-900 font-semibold' : 'text-gray-400 font-normal'}>
+                                        {currentVal ? `Page ${currentVal}` : 'None'}
+                                      </span>
+                                      <ChevronDown
+                                        size="0.75vw"
+                                        className={`text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-indigo-500' : ''}`}
+                                      />
+                                    </button>
+
+                                    {isDropdownOpen && (
+                                      <div className="mt-[0.25vw] bg-white border border-gray-200 rounded-[0.45vw] shadow-sm py-1 max-h-[8.5vw] overflow-y-auto custom-popup-scrollbar">
                                         <div
-                                          key={pageNumber}
                                           onClick={() => {
-                                            setMiddlePageNum(pageNumber);
-                                            setLastInteractedPage(pageNumber);
-                                            setIsMiddleDropdownOpen(false);
+                                            setSelectedPages(prev => {
+                                              const updated = [...prev];
+                                              updated[slotIdx] = null;
+                                              return updated;
+                                            });
+                                            setOpenSlotDropdown(null);
                                           }}
-                                          className={`px-[0.85vw] py-[0.4vw] text-[0.78vw] font-medium cursor-pointer transition-colors ${
-                                            isSelected
-                                              ? 'bg-blue-50 text-blue-600 font-semibold'
-                                              : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                                          className={`px-[0.85vw] py-[0.4vw] text-[0.75vw] font-medium cursor-pointer transition-colors ${
+                                            !currentVal ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
                                           }`}
                                         >
-                                          Page {pageNumber}
+                                          None
                                         </div>
-                                      );
-                                    })}
+
+                                        {pages.map((_, pIdx) => {
+                                          const pageNumber = pIdx + 1;
+                                          const isSelected = currentVal === pageNumber;
+                                          return (
+                                            <div
+                                              key={pageNumber}
+                                              onClick={() => {
+                                                setSelectedPages(prev => {
+                                                  const updated = [...prev];
+                                                  while (updated.length <= slotIdx) updated.push(null);
+                                                  updated[slotIdx] = pageNumber;
+                                                  return updated;
+                                                });
+                                                setLastInteractedPage(pageNumber);
+                                                setOpenSlotDropdown(null);
+                                              }}
+                                              className={`px-[0.85vw] py-[0.4vw] text-[0.75vw] font-medium cursor-pointer transition-colors flex items-center justify-between ${
+                                                isSelected ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                                              }`}
+                                            >
+                                              <span>Page {pageNumber}</span>
+                                              {pageNumber === 1 && <span className="text-[0.55vw] text-gray-400 font-normal">Cover</span>}
+                                              {pageNumber === pages.length && pages.length > 1 && (
+                                                <span className="text-[0.55vw] text-gray-400 font-normal">Last</span>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -1591,6 +1874,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                     shadowY,
                     shadowBlur,
                     logoUrl,
+                    rawLogoFile,
                     text1FontFamily,
                     text1FontSize,
                     text1FontWeight,
@@ -1615,7 +1899,9 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                     text2Linethrough,
                     text2Color,
                     text2ColorOpacity,
-                    selectedPages
+                    selectedPages,
+                    fit: templateFit,
+                    templateFit
                   });
                   onClose();
                 }}
@@ -1730,8 +2016,20 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
       setLanguage(currentBook?.language || currentBook?.meta?.language || 'English');
       setErrors({});
 
-      const rawCp = currentBook?.settings?.othersetup?.coverPicture || currentBook?.coverPicture;
-      const initialTemplate = COVER_TEMPLATES.find(t => t.id === rawCp?.selectedTemplate?.id) || COVER_TEMPLATES[0];
+      const rawCp = currentBook?.coverPicture ||
+        currentBook?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+        currentBook?.Customized_Settings?.otherSetup?.coverPicture ||
+        currentBook?.Customized_Settings?.coverPicture ||
+        currentBook?.settings?.othersetup?.coverPicture ||
+        currentBook?.settings?.otherSetup?.coverPicture ||
+        currentBook?.settings?.FlipbookInfo?.coverPicture ||
+        currentBook?.meta?.coverPicture ||
+        null;
+
+      const tplId = typeof rawCp?.selectedTemplate === 'object' && rawCp?.selectedTemplate
+        ? rawCp.selectedTemplate.id
+        : Number(rawCp?.selectedTemplate || rawCp?.templateId || 1);
+      const initialTemplate = COVER_TEMPLATES.find(t => t.id === tplId) || COVER_TEMPLATES[0];
       const bookTitle = currentBook?.flipbookName || currentBook?.realName || currentBook?.title || '';
       const bookSubtitle = currentBook?.quotes || currentBook?.quote || currentBook?.tagline || '';
 
@@ -1740,6 +2038,7 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
 
       const cp = rawCp ? {
         ...rawCp,
+        selectedTemplate: initialTemplate,
         text1: resolvedText1,
         text2: resolvedText2,
         bgColor: rawCp.bgColor || rawCp.selectedTemplate?.defaultBgColor || initialTemplate.defaultBgColor || '#F8FAFC'
@@ -1816,14 +2115,19 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
       const userEmail = user?.emailId || user?.email || currentBook?.userEmail;
 
       if (userEmail && v_id) {
-        await axios.post(`${backendUrl}/api/flipbook/update-settings`, {
+        const payload = {
           emailId: userEmail,
           v_id: v_id,
+          bookName: bookName.trim(),
+          flipbookName: bookName.trim(),
           newName: bookName.trim(),
           category: category.trim(),
           language: language.trim(),
           quotes: quotes.trim(),
           about: about.trim(),
+          totalPages: pageCount,
+          visibility: visibilityMode,
+          coverPicture: coverPicture,
           settings: {
             ...(currentBook?.settings || {}),
             othersetup: {
@@ -1831,7 +2135,14 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
               coverPicture: coverPicture
             }
           }
-        });
+        };
+
+        try {
+          await axios.post(`${backendUrl}/api/customized-editor/book-info`, payload);
+        } catch (postErr) {
+          console.warn("Direct book-info endpoint failed, attempting fallback to update-settings:", postErr);
+          await axios.post(`${backendUrl}/api/flipbook/update-settings`, payload);
+        }
       }
 
       toast?.success?.("Flipbook information updated successfully!");
@@ -1902,6 +2213,7 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
             onClose={() => setShowCoverPopup(false)}
             onSave={async (coverData) => {
               let finalUrl = coverData.url;
+              let finalLogoUrl = coverData.logoUrl;
 
               // If it's an uploaded image, we must upload it to the server to get a permanent URL
               if (coverData.type === 'upload' && coverData.rawFile) {
@@ -1915,10 +2227,24 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
                 }
               }
 
+              // If a new raw logo was picked, upload it to get a permanent server URL
+              if (coverData.rawLogoFile) {
+                try {
+                  const uploadedLogo = await uploadFile(coverData.rawLogoFile);
+                  if (uploadedLogo && uploadedLogo.url) {
+                    finalLogoUrl = uploadedLogo.url;
+                  }
+                } catch (err) {
+                  console.error("Failed to upload cover logo", err);
+                }
+              }
+
               setCoverPicture({
                 ...coverData,
                 url: finalUrl,
-                rawFile: null // Clear file object from state
+                logoUrl: finalLogoUrl,
+                rawFile: null, // Clear file object from state
+                rawLogoFile: null
               });
               setShowCoverPopup(false);
             }}

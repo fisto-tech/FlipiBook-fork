@@ -7,6 +7,7 @@ const os = require('os');
 const { authenticateUser, optionalAuth } = require('../middlewares/authMiddleware');
 const controller = require('../controllers/customizedEditorController');
 const resumableController = require('../controllers/resumableController');
+const bookInfoController = require('../controllers/bookInfoController');
 
 // Multer upload config for memory buffer or temp upload
 const upload = multer({
@@ -144,5 +145,13 @@ router.post(['/book-appearance', '/appearance'], optionalAuth, controller.update
 router.post(['/book-appearance/transparent-sheet', '/transparent-sheet'], optionalAuth, controller.saveTransparentSheet);
 router.delete(['/book-appearance/transparent-sheet/:sheetId', '/transparent-sheet/:sheetId'], optionalAuth, controller.deleteTransparentSheet);
 router.post(['/book-appearance/delete-transparent-sheet', '/delete-transparent-sheet'], optionalAuth, controller.deleteTransparentSheet);
+
+// ==========================================
+// 9. Book Information & Cover Picture Service
+// ==========================================
+router.post(['/book-info', '/book-information', '/save-book-info', '/flipbook-info'], optionalAuth, bookInfoController.saveBookInfo);
+router.get(['/book-info/:v_id', '/book-information/:v_id', '/flipbook-info/:v_id'], optionalAuth, bookInfoController.getBookInfo);
+router.get(['/book-info', '/book-information', '/flipbook-info'], optionalAuth, bookInfoController.getBookInfo);
+router.post(['/cover-picture', '/save-cover-picture'], optionalAuth, bookInfoController.saveCoverPicture);
 
 module.exports = router;

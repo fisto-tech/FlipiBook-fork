@@ -4,6 +4,7 @@ import { BookOpen } from 'lucide-react';
 import { flipbookApi } from '../../api/flipbookApi';
 import { resolveUploadsPath } from '../../utils/assetUtils';
 import { sanitizeSvgXml } from '../../utils/editorUtils';
+import { TemplatePreview, COVER_TEMPLATES } from '../FlipbookInfoModal';
 
 // Global font cache across all preview cards to prevent duplicate Google Fonts requests
 const globallyRequestedFonts = new Set();
@@ -15,6 +16,8 @@ function LazyPreviewComponent({
     iframeBaseUrl,
     title,
     imageUrl,
+    coverPicture = null,
+    pages = [],
     firstPageFileName = 'Page 1.svg',
     firstPageContent = null,
 }) {
@@ -27,6 +30,17 @@ function LazyPreviewComponent({
     });
     const [loaded, setLoaded] = useState(Boolean(firstPageContent));
     const [fetching, setFetching] = useState(false);
+
+    const resolvedCoverTemplate = coverPicture?.type === 'template'
+        ? (typeof coverPicture.selectedTemplate === 'object' && coverPicture.selectedTemplate
+            ? coverPicture.selectedTemplate
+            : COVER_TEMPLATES.find(t => t.id === Number(coverPicture.selectedTemplate || coverPicture.templateId)) || COVER_TEMPLATES[0])
+        : null;
+
+    const mergedCoverPicture = coverPicture?.type === 'template' ? {
+        ...coverPicture,
+        selectedTemplate: resolvedCoverTemplate
+    } : coverPicture;
 
     useEffect(() => {
         if (firstPageContent && typeof firstPageContent === 'string' && firstPageContent.includes('<svg')) {
@@ -50,7 +64,8 @@ function LazyPreviewComponent({
 
             try {
                 // 1. Primary: fetch preview HTML/SVG from flipbookApi
-                const res = await flipbookApi.getPreview(v_id, emailId, abortController.signal);
+                const targetPage = coverPicture?.selectedPages?.[0] || 1;
+                const res = await flipbookApi.getPreview(v_id, emailId, targetPage, abortController.signal);
                 if (!isMounted) return;
 
                 if (res.data?.html && typeof res.data.html === 'string' && res.data.html.trim().length > 0) {
@@ -155,8 +170,33 @@ function LazyPreviewComponent({
                 </div>
             )}
 
-            {/* Actual preview — rendered on top once ready */}
-            {html ? (() => {
+            {/* Custom Cover Picture (Template or Uploaded Image) */}
+            {coverPicture ? (
+                coverPicture.type === 'template' ? (
+                    <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none select-none">
+                        <div
+                            style={{
+                                width: '24vw',
+                                height: '18vw',
+                                transform: 'scale(0.316667)',
+                                transformOrigin: 'center center',
+                                flexShrink: 0
+                            }}
+                        >
+                            <TemplatePreview
+                                {...mergedCoverPicture}
+                                pages={pages && pages.length > 0 && pages[0]?.html ? pages : (html?.content ? [{ html: html.content }] : pages || [])}
+                            />
+                        </div>
+                    </div>
+                ) : (coverPicture.url || coverPicture.type === 'upload') ? (
+                    <img
+                        src={coverPicture.url}
+                        alt={title}
+                        className="w-full h-full object-cover"
+                    />
+                ) : null
+            ) : html ? (() => {
                 let processedContent = sanitizeSvgXml(html.content || '');
                 const cleanBaseUrl = (iframeBaseUrl || '').trim();
                 let effectiveBaseHref = cleanBaseUrl;

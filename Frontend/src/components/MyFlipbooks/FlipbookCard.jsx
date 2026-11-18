@@ -470,6 +470,15 @@ function FlipbookCard({
                         iframeBaseUrl={resolvedIframeBaseUrl}
                         title={book.title || book.realName || book.flipbookName}
                         imageUrl={book.image || null}
+                        coverPicture={
+                            book.coverPicture ||
+                            book.Customized_Settings?.FlipbookInfo?.coverPicture ||
+                            book.Customized_Settings?.otherSetup?.coverPicture ||
+                            book.Customized_Settings?.coverPicture ||
+                            book.meta?.coverPicture ||
+                            null
+                        }
+                        pages={book.pagesList || []}
                         firstPageFileName={book.pagesList?.[0]?.fileName || (book.pagesList?.[0]?.name ? `${book.pagesList[0].name}.svg` : 'Page 1.svg')}
                         firstPageContent={book.pagesList?.[0]?.html || book.pagesList?.[0]?.content || null}
                     />

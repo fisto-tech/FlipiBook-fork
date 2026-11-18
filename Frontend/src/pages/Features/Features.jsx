@@ -26,7 +26,7 @@ export default function Features() {
     {
       id: 'creation',
       span: 'col-span-12 md:col-span-7',
-      aspect: 'aspect-[16/6.5]',
+      aspect: 'aspect-[1002/314]',
       path: '/features/creation',
       image: creationImg,
       titlePrefix: 'Creation: ',
@@ -36,7 +36,7 @@ export default function Features() {
     {
       id: 'ar',
       span: 'col-span-12 md:col-span-5',
-      aspect: 'aspect-[16/9]',
+      aspect: 'aspect-[1268/595]',
       path: '/features/ar',
       image: arImg,
       titlePrefix: 'Augmented Reality: ',
@@ -80,7 +80,7 @@ export default function Features() {
     {
       id: 'page-editor',
       span: 'col-span-12 md:col-span-6',
-      aspect: 'aspect-[16/9]',
+      aspect: 'aspect-[851/275]',
       path: '/features/page-editor',
       image: pageEditorImg,
       titlePrefix: 'Page Editor: ',
@@ -90,7 +90,7 @@ export default function Features() {
     {
       id: 'interactive-layout',
       span: 'col-span-12 md:col-span-6',
-      aspect: 'aspect-[16/9]',
+      aspect: 'aspect-[851/275]',
       path: '/features/interactive-layout',
       image: layoutImg,
       titlePrefix: 'Interactive Layout: ',
@@ -102,7 +102,7 @@ export default function Features() {
     {
       id: 'analytics',
       span: 'col-span-12 md:col-span-5',
-      aspect: 'aspect-[16/9]',
+      aspect: 'aspect-[634/298]',
       path: '/features/analytics',
       image: analyticsImg,
       titlePrefix: 'Analytics: ',
@@ -112,7 +112,7 @@ export default function Features() {
     {
       id: 'converter',
       span: 'col-span-12 md:col-span-7',
-      aspect: 'aspect-[16/6.5]',
+      aspect: 'aspect-[1007/314]',
       path: '/features/converter',
       image: converterImg,
       titlePrefix: 'Converter: ',
@@ -183,7 +183,7 @@ export default function Features() {
               >
                 {/* Image Container with subtle hover zoom */}
                 <div
-                  className="w-full h-[180px] sm:h-[220px] md:h-[240px] lg:h-[260px] rounded-xl md:rounded-[0.9vw] bg-[#F8FAFC] border border-[#E2E8F0]/60 flex items-center justify-center relative overflow-hidden"
+                  className={`w-full ${card.aspect} rounded-xl md:rounded-[0.9vw] bg-[#F8FAFC] border border-[#E2E8F0]/60 flex items-center justify-center relative overflow-hidden`}
                 >
                   <img
                     src={card.image}

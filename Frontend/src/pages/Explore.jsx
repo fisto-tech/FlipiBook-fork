@@ -21,6 +21,10 @@ import ExportModal from '../components/ExportModal';
 import CreatorProfileModal from './CreatorProfileModal';
 import { useToast } from '../components/CustomToast';
 import { useAuth } from '../context/AuthContext';
+import LazyPreview from '../components/MyFlipbooks/LazyPreview';
+import { getAssetBaseUrl } from '../utils/assetUtils';
+import { flipbookApi } from '../api/flipbookApi';
+import { TemplatePreview, COVER_TEMPLATES } from '../components/FlipbookInfoModal';
 
 const covers = [cover1, cover2, cover3, cover4, cover5];
 const profiles = [p1, p2, p3, p4, p5];
@@ -96,7 +100,86 @@ const CustomDropdown = ({ options, value, onChange, className, buttonClassName, 
     );
 };
 
-const FlipbookCard = ({ v_id, shareId, access, rawBook, coverImg, profileImg, authorPicture, authorBgColor, bookName, authorName, location, pages, views, rating, description, onShare, onDownload, onProfileClick, onAddToShelf, isAddedToShelf, onToggleFavorite, isFavorited, isOwner }) => {
+const ExploreTemplateCover = ({ coverPicture, pages, bookName, v_id, userEmail }) => {
+    const containerRef = useRef(null);
+    const [scale, setScale] = useState(1);
+    const [previewHtml, setPreviewHtml] = useState(() => {
+        const p1 = pages?.[0];
+        return (p1?.html || p1?.content) || null;
+    });
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const updateScale = () => {
+            if (containerRef.current) {
+                const currentWidth = containerRef.current.clientWidth;
+                const baseCanvasWidth = (window.innerWidth * 24) / 100;
+                if (baseCanvasWidth > 0 && currentWidth > 0) {
+                    setScale(currentWidth / baseCanvasWidth);
+                }
+            }
+        };
+
+        updateScale();
+        const ro = new ResizeObserver(updateScale);
+        ro.observe(containerRef.current);
+        window.addEventListener('resize', updateScale);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', updateScale);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (previewHtml || !v_id) return;
+        let isMounted = true;
+        const abortController = new AbortController();
+
+        const targetPage = coverPicture?.selectedPages?.[0] || 1;
+        flipbookApi.getPreview(v_id, userEmail, targetPage, abortController.signal)
+            .then(res => {
+                if (isMounted && res.data?.html && typeof res.data.html === 'string' && res.data.html.trim().length > 0) {
+                    setPreviewHtml(res.data.html);
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            isMounted = false;
+            abortController.abort();
+        };
+    }, [v_id, userEmail, previewHtml, coverPicture?.selectedPages]);
+
+    const resolvedTemplate = typeof coverPicture.selectedTemplate === 'object' && coverPicture.selectedTemplate
+        ? coverPicture.selectedTemplate
+        : COVER_TEMPLATES.find(t => t.id === Number(coverPicture.selectedTemplate || coverPicture.templateId)) || COVER_TEMPLATES[0];
+
+    const effectivePages = (pages && pages.length > 0 && pages[0]?.html)
+        ? pages
+        : (previewHtml ? [{ html: previewHtml }] : pages || []);
+
+    return (
+        <div ref={containerRef} className="w-full h-full relative overflow-hidden flex items-center justify-center">
+            <div
+                style={{
+                    width: '24vw',
+                    height: '18vw',
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'center center',
+                    flexShrink: 0
+                }}
+            >
+                <TemplatePreview
+                    {...coverPicture}
+                    selectedTemplate={resolvedTemplate}
+                    pages={effectivePages}
+                />
+            </div>
+        </div>
+    );
+};
+
+const FlipbookCard = ({ v_id, shareId, access, rawBook, coverImg, profileImg, authorPicture, authorBgColor, bookName, authorName, location, pages, views, rating, description, onShare, onDownload, onProfileClick, onAddToShelf, isAddedToShelf, onToggleFavorite, isFavorited, isOwner, backendUrl }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
@@ -117,6 +200,27 @@ const FlipbookCard = ({ v_id, shareId, access, rawBook, coverImg, profileImg, au
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const userFolder = rawBook?.userID || rawBook?.userId || rawBook?.userEmail?.replace(/[@.]/g, '_');
+    const folderName = (rawBook?.folderName && Array.isArray(rawBook.folderName) && rawBook.folderName.length > 0)
+        ? rawBook.folderName[0]
+        : (typeof rawBook?.folderName === 'string' ? rawBook.folderName : (rawBook?.folder || 'default'));
+    const resolvedIframeBaseUrl = getAssetBaseUrl(userFolder, folderName, rawBook?.realName || rawBook?.title || rawBook?.flipbookName || bookName);
+
+    const bookCoverPicture = rawBook?.coverPicture ||
+        rawBook?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+        rawBook?.Customized_Settings?.otherSetup?.coverPicture ||
+        rawBook?.Customized_Settings?.coverPicture ||
+        rawBook?.meta?.coverPicture ||
+        null;
+
+    const hasCustomCover = Boolean(
+        bookCoverPicture && (
+            (bookCoverPicture.type === 'template' && (bookCoverPicture.selectedTemplate || bookCoverPicture.templateId)) ||
+            (bookCoverPicture.type === 'upload' && bookCoverPicture.url) ||
+            bookCoverPicture.url
+        )
+    ) || Boolean(rawBook?.image) || Boolean(rawBook?.thumbnail);
 
     const displayAvatar = (authorPicture && authorPicture !== 'color_only') ? authorPicture : null;
     const avatarColor = getAvatarColor(authorName || rawBook?.userEmail, authorBgColor);
@@ -161,8 +265,26 @@ const FlipbookCard = ({ v_id, shareId, access, rawBook, coverImg, profileImg, au
     return (
         <div className="bg-white border border-gray-100 rounded-[0.8vw] overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.06)] relative group">
             {/* Thumbnail Container */}
-            <div className="relative w-full aspect-[4/4] flex items-center justify-center">
-                <img src={coverImg} alt="Flipbook Cover" className="w-full h-full object-cover" />
+            <div className="relative w-full aspect-[4/3] flex items-center justify-center bg-gray-50 overflow-hidden">
+                {bookCoverPicture?.type === 'template' ? (
+                    <div className="w-full h-full flex items-center justify-center pointer-events-none select-none relative overflow-hidden">
+                        <ExploreTemplateCover
+                            coverPicture={bookCoverPicture}
+                            pages={rawBook?.pages || []}
+                            bookName={bookName}
+                            v_id={v_id || rawBook?.v_id || rawBook?.id}
+                            userEmail={rawBook?.userEmail}
+                        />
+                    </div>
+                ) : (bookCoverPicture?.url || bookCoverPicture?.type === 'upload' || rawBook?.image || rawBook?.thumbnail) ? (
+                    <img
+                        src={bookCoverPicture?.url || rawBook?.image || rawBook?.thumbnail}
+                        alt={bookName || "Flipbook Cover"}
+                        className="w-full h-full object-cover"
+                    />
+                ) : (
+                    <img src={coverImg} alt={bookName || "Flipbook Cover"} className="w-full h-full object-cover" />
+                )}
 
                 {/* Favorite Heart Button for other creators' books */}
                 {!isOwner && (
@@ -446,6 +568,7 @@ const CreatorCard = ({ index, creator, onProfileClick, onToggleFollow, isFollowi
 };
 
 const Explore = () => {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
     const [exploreMode, setExploreMode] = useState('books'); // 'books' | 'creators'
     const [booksData, setBooksData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -2144,6 +2267,7 @@ const Explore = () => {
                                             (book.rawBook?.emailId && book.rawBook.emailId.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
                                         )
                                     )}
+                                    backendUrl={backendUrl}
                                 />
                             ))}
                             {sortedBooks.length === 0 && (

@@ -1,4 +1,4 @@
-import { renderTemplateBooks, getShadowRgba, TemplatePreview } from './FlipbookInfoModal';
+import { renderTemplateBooks, getShadowRgba, TemplatePreview, COVER_TEMPLATES } from './FlipbookInfoModal';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronDown, Plus, Info, Upload } from 'lucide-react';
@@ -48,7 +48,25 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
   const visibilityMode = currentBook?.share?.access || currentBook?.settings?.visibility?.type || 'Public';
   const pageCount = currentBook?.pages?.length || currentBook?.pageCount || 12;
   const thumbnailUrl = currentBook?.thumbnail || currentBook?.coverImage || null;
-  const coverPicture = currentBook?.settings?.othersetup?.coverPicture || currentBook?.coverPicture || currentBook?.meta?.coverPicture;
+  const rawCp = currentBook?.coverPicture ||
+    currentBook?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+    currentBook?.Customized_Settings?.otherSetup?.coverPicture ||
+    currentBook?.Customized_Settings?.coverPicture ||
+    currentBook?.settings?.othersetup?.coverPicture ||
+    currentBook?.settings?.otherSetup?.coverPicture ||
+    currentBook?.settings?.FlipbookInfo?.coverPicture ||
+    currentBook?.meta?.coverPicture ||
+    null;
+
+  const tplId = typeof rawCp?.selectedTemplate === 'object' && rawCp?.selectedTemplate
+    ? rawCp.selectedTemplate.id
+    : Number(rawCp?.selectedTemplate || rawCp?.templateId || 1);
+  const initialTemplate = COVER_TEMPLATES.find(t => t.id === tplId) || COVER_TEMPLATES[0];
+
+  const coverPicture = rawCp ? {
+    ...rawCp,
+    selectedTemplate: initialTemplate
+  } : null;
 
   const handleAddTag = () => {
     if (tags.length >= 5) {
