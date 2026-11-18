@@ -608,13 +608,13 @@ const HotspotCustomizationPopup = ({ isOpen, onClose, initialData, onSave }) => 
   return createPortal(
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/20 backdrop-blur-[1px]" onClick={onClose}>
       <div 
-        className="bg-white rounded-[0.6vw] w-[38vw] h-auto p-[1.5vw] max-h-[85vh] flex flex-col overflow-visible shadow-2xl relative"
+        className="bg-white rounded-[0.55vw] w-[38vw] h-auto p-[1.5vw] max-h-[85vh] flex flex-col overflow-visible shadow-2xl relative border border-gray-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="pb-[1vh] flex items-center border-b border-gray-100">
-          <h2 className="text-[1vw] font-semibold text-black">Hotspot Customization</h2>
-          <div className="flex-1 border-t border-gray-200 ml-[1vw]"></div>
+        <div className="flex items-center gap-[0.8vw] pb-[0.8vw]">
+          <h2 className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap">Hotspot Customization</h2>
+          <div className="flex-1 h-[1px] bg-gray-200" />
         </div>
 
         {/* Content */}
@@ -989,14 +989,14 @@ const HotspotCustomizationPopup = ({ isOpen, onClose, initialData, onSave }) => 
             {/* Action Buttons (Moved inside Right Controls with mt-auto for alignment) */}
             <div className="flex justify-end gap-[0.8vw] mt-auto pt-[2.5vh]">
               <button 
-                className="px-[1.5vw] py-[0.8vh] text-[0.8vw] font-medium text-gray-700 bg-white border border-gray-200 rounded-[0.4vw] hover:bg-gray-50 flex items-center gap-[0.4vw] transition-colors"
+                className="h-[2vw] px-[1.2vw] text-[0.8vw] font-medium text-gray-700 bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:bg-gray-50 hover:border-gray-400 flex items-center gap-[0.4vw] transition-colors cursor-pointer"
                 onClick={onClose}
               >
                 <Icon icon="lucide:x" className="text-[0.9vw]" /> Cancel
               </button>
               <button 
                 onClick={handleSave}
-                className="px-[1.5vw] py-[0.8vh] bg-black text-white text-[0.8vw] font-medium rounded-[0.4vw] hover:bg-gray-800 transition-colors flex items-center gap-[0.4vw]"
+                className="h-[2vw] px-[1.2vw] bg-[#4D47FF] text-white text-[0.8vw] font-medium rounded-[0.4vw] shadow-2xs hover:bg-[#3D37E0] transition-colors flex items-center gap-[0.4vw] cursor-pointer"
               >
                 <Icon icon="lucide:check" className="text-[0.9vw]" /> Save Changes
               </button>

@@ -379,7 +379,10 @@ export const createOverlayHighlightRenderer = ({
               polygon.setAttribute('stroke-width', String(1 / zoomScale));
             } else if (isBlackSelection) {
               polygon.setAttribute('stroke', (isHover && !isSelected) ? 'transparent' : '#000000');
-              polygon.setAttribute('fill', 'none');
+              if (!polygon.classList.contains('interaction-frame-blinking') && polygon.getAttribute('data-blinking') !== 'true') {
+                polygon.setAttribute('fill', 'none');
+                polygon.style.removeProperty('fill');
+              }
               polygon.setAttribute('points', pointsStr);
               applyCrispSelectionStroke(polygon, pointsStr, zoomScale);
             } else if (isHover) {
@@ -389,7 +392,10 @@ export const createOverlayHighlightRenderer = ({
               applyCrispSelectionStroke(polygon, pointsStr, zoomScale);
             } else if (isSelected || type === 'entered') {
               polygon.setAttribute('stroke', '#5255CA');
-              polygon.setAttribute('fill', 'none');
+              if (!polygon.classList.contains('interaction-frame-blinking') && polygon.getAttribute('data-blinking') !== 'true') {
+                polygon.setAttribute('fill', 'none');
+                polygon.style.removeProperty('fill');
+              }
               polygon.setAttribute('points', pointsStr);
               applyCrispSelectionStroke(polygon, pointsStr, zoomScale);
             } else if (type === 'entered') {
@@ -702,7 +708,10 @@ export const createOverlayHighlightRenderer = ({
           polygon.setAttribute('points', pointsStr);
         } else if (isBlackSelectionFB) {
           polygon.setAttribute('stroke', (isHover && !isSelected) ? 'transparent' : '#000000');
-          polygon.setAttribute('fill', 'none');
+          if (!polygon.classList.contains('interaction-frame-blinking') && polygon.getAttribute('data-blinking') !== 'true') {
+            polygon.setAttribute('fill', 'none');
+            polygon.style.removeProperty('fill');
+          }
           polygon.setAttribute('points', pointsStr);
           applyCrispSelectionStroke(polygon, pointsStr, zoomScale2);
         } else if (isHover) {
@@ -716,7 +725,10 @@ export const createOverlayHighlightRenderer = ({
           applyCrispSelectionStroke(polygon, pointsStr, zoomScale2);
         } else if (isSelected) {
           polygon.setAttribute('stroke', '#5255CA');
-          polygon.setAttribute('fill', 'none');
+          if (!polygon.classList.contains('interaction-frame-blinking') && polygon.getAttribute('data-blinking') !== 'true') {
+            polygon.setAttribute('fill', 'none');
+            polygon.style.removeProperty('fill');
+          }
           polygon.setAttribute('points', pointsStr);
           applyCrispSelectionStroke(polygon, pointsStr, zoomScale2);
         } else if (type === 'entered') {

@@ -235,11 +235,13 @@ const convertPdfToImagesMainThread = async () => [];
  * @param {string} backendUrl - Optional backend URL.
  * @returns {Promise<Array<{blob: Blob, dataUrl: string, svgString: string, content: string, width: number, height: number, isVector: boolean}>>}
  */
-export const convertPdfToImages = async (file, scale = 2.5, maxPages = Infinity, onProgress = null, backendUrl = null, signal = null) => {
+export const convertPdfToImages = async (file, scale = 2.5, maxPages = Infinity, onProgress = null, backendUrl = null, signal = null, bookId = null, userId = 'FLIPI0001') => {
   return await extractPdfDocument({
     file,
     backendUrl,
     signal,
+    bookId,
+    userId,
     onProgress: (p) => {
       if (signal?.aborted) return;
       if (onProgress && typeof onProgress === 'function') {
@@ -674,7 +676,7 @@ export const convertOfficeDocumentToPdf = async (file, backendUrl = null, onProg
  * @param {Function} [onProgress] - Progress callback.
  * @returns {Promise<Array<{ pageNumber: number, pageName: string, content: string, width: number, height: number, dataUrl: string, isVector: boolean, blob: Blob }>>}
  */
-export const convertDocumentPages = async (file, maxPages = Infinity, backendUrl = null, onProgress = null, signal = null) => {
+export const convertDocumentPages = async (file, maxPages = Infinity, backendUrl = null, onProgress = null, signal = null, bookId = null, userId = 'FLIPI0001') => {
   const resolvedBackendUrl = backendUrl || import.meta.env.VITE_BACKEND_URL || '';
 
   // 1. If Office Document (.doc, .docx, .ppt, .pptx), convert to standard PDF File
@@ -690,7 +692,7 @@ export const convertDocumentPages = async (file, maxPages = Infinity, backendUrl
 
   // 2. High-Performance Customized Editor Extraction Engine (Standard PDF Architecture)
   try {
-    const images = await convertPdfToImages(targetFile, 2.5, maxPages, onProgress, resolvedBackendUrl, signal);
+    const images = await convertPdfToImages(targetFile, 2.5, maxPages, onProgress, resolvedBackendUrl, signal, bookId, userId);
     const mapped = images.map((img, idx) => ({
       pageNumber: img.pageNumber || idx + 1,
       pageName: img.pageName || `Page ${idx + 1}`,

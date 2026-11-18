@@ -172,9 +172,13 @@ const LayerItem = ({
             : '[data-typography-type="motion-graphic"], [data-subtopic="Titles"], [data-motion-template], ') +
           '[data-is-element-shape="true"], [data-shape-type], [data-type="shape"], g[id^="shape-"], ' +
           '[data-is-element-button="true"], [data-type="button"], g[id^="button-"], [data-type="audio-frame"], g[id^="audio-"], ' +
+          '[data-type="map"], g[id^="map-"], [data-type="qrcode"], g[id^="qrcode-"], [data-type="embed-frame"], g[id^="embed-"], [data-is-slideshow="true"], [data-type="slideshow"], g[id^="slideshow-"], ' +
           '[data-is-image-group="true"], [data-is-video-group="true"], [data-is-gif-group="true"]'
         );
-        if (compound && compound.id === layer.id) return true;
+        if (compound) {
+          const rootCompound = (compound.tagName?.toLowerCase() === 'g' ? compound : compound.closest?.('g[id^="map-"], g[data-type="map"], g[id^="embed-"], g[id^="qrcode-"], g[id^="slideshow-"]')) || compound;
+          if (rootCompound && rootCompound.id === layer.id) return true;
+        }
       }
     }
 
@@ -183,8 +187,11 @@ const LayerItem = ({
       for (const id of multiSelectedIds) {
         const el = pageContainer?.querySelector(`[id="${id}"]`) || doc.getElementById(id);
         if (el) {
-          const comp = el.closest?.('[data-is-element-typography="true"], [data-typography-type], [data-subtopic="Titles"], g[id^="typography-"], [data-is-element-shape="true"], [data-shape-type], [data-type="shape"], g[id^="shape-"], [data-is-element-button="true"], [data-type="button"], g[id^="button-"], [data-type="audio-frame"], g[id^="audio-"], [data-is-image-group="true"], [data-is-video-group="true"], [data-is-gif-group="true"]');
-          if (comp && comp.id === layer.id) return true;
+          const comp = el.closest?.('[data-is-element-typography="true"], [data-typography-type], [data-subtopic="Titles"], g[id^="typography-"], [data-is-element-shape="true"], [data-shape-type], [data-type="shape"], g[id^="shape-"], [data-is-element-button="true"], [data-type="button"], g[id^="button-"], [data-type="audio-frame"], g[id^="audio-"], [data-type="map"], g[id^="map-"], [data-type="qrcode"], g[id^="qrcode-"], [data-type="embed-frame"], g[id^="embed-"], [data-is-slideshow="true"], [data-type="slideshow"], g[id^="slideshow-"], [data-is-image-group="true"], [data-is-video-group="true"], [data-is-gif-group="true"]');
+          if (comp) {
+            const rootComp = (comp.tagName?.toLowerCase() === 'g' ? comp : comp.closest?.('g[id^="map-"], g[data-type="map"], g[id^="embed-"], g[id^="qrcode-"], g[id^="slideshow-"]')) || comp;
+            if (rootComp && rootComp.id === layer.id) return true;
+          }
         }
       }
     }

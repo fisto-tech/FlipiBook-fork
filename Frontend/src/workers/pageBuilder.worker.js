@@ -49,17 +49,54 @@ function cleanStaticHtml(html) {
       rootSvg.setAttribute('height', '100%');
     }
 
-    // Remove media foreignObjects that must not load in the static background
-    doc.querySelectorAll(
-      'foreignObject[data-type="video"], foreignObject[data-type="map"], ' +
-      'foreignObject[data-type="embed-frame"], foreignObject video, foreignObject iframe, ' +
-      'g[data-type="map"], g[data-type="embed-frame"]'
-    ).forEach(el => {
-      const target =
-        el.closest('g[data-type="map"], g[data-type="embed-frame"]') ||
-        (el.tagName?.toLowerCase() === 'foreignobject' ? el : el.closest('foreignObject')) ||
-        el;
-      target.remove();
+    // Keep real map iframes intact with pointer-events: none during peel/turn and orange loading spinner
+    // Eliminating synthetic code-based SVG roads, pins, fake buttons, and hardcoded coordinates
+    doc.querySelectorAll('g[data-type="map"] iframe, foreignObject[data-type="map"] iframe, .map-stage iframe').forEach(iframe => {
+      iframe.classList.add('fbe-map-iframe');
+      iframe.style.visibility = 'visible';
+      iframe.style.opacity = '1';
+      const stage = iframe.closest('.map-stage') || iframe.parentElement;
+      if (stage && !stage.querySelector('.map-loading-spinner')) {
+        const spinner = doc.createElement('div');
+        spinner.className = 'map-loading-spinner';
+        spinner.setAttribute('style', 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(244,243,240,0.85); z-index: 2; pointer-events: none; transition: opacity 0.2s ease;');
+        spinner.innerHTML = '<div class="fbe-spinner" style="width: 28px; height: 28px; border: 2.5px solid rgba(234,114,51,0.2); border-top-color: #ea7233; border-radius: 50%; animation: fbe-spin 0.7s linear infinite;"></div>';
+        stage.insertBefore(spinner, iframe);
+        iframe.setAttribute('onload', "const s=this.previousElementSibling; if(s && s.classList.contains('map-loading-spinner')) s.remove();");
+      }
+    });
+
+    // Keep real 3rd-party embed iframes intact with pointer-events: none during peel/turn and orange loading spinner
+    // Eliminating synthetic code-based SVG placeholders
+    doc.querySelectorAll('g[data-type="embed-frame"] iframe, foreignObject[data-type="embed-frame"] iframe, .embed-root-container iframe').forEach(iframe => {
+      iframe.classList.add('fbe-embed-iframe');
+      iframe.style.visibility = 'visible';
+      iframe.style.opacity = '1';
+      const container = iframe.closest('.embed-root-container') || iframe.parentElement;
+      if (container && !container.querySelector('.embed-loading-spinner')) {
+        const spinner = doc.createElement('div');
+        spinner.className = 'embed-loading-spinner';
+        spinner.setAttribute('style', 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(248,250,252,0.85); z-index: 2; pointer-events: none; transition: opacity 0.2s ease;');
+        spinner.innerHTML = '<div class="fbe-spinner" style="width: 28px; height: 28px; border: 2.5px solid rgba(234,114,51,0.2); border-top-color: #ea7233; border-radius: 50%; animation: fbe-spin 0.7s linear infinite;"></div>';
+        container.insertBefore(spinner, iframe);
+        iframe.setAttribute('onload', "const s=this.previousElementSibling; if(s && s.classList.contains('embed-loading-spinner')) s.remove();");
+      }
+    });
+
+    // Replace live video with static video backdrop
+    doc.querySelectorAll('foreignObject[data-type="video"] video, foreignObject video').forEach(video => {
+      const placeholder = doc.createElement('div');
+      placeholder.className = 'video-static-backdrop';
+      placeholder.setAttribute('style', 'position: absolute; inset: 0; width: 100%; height: 100%; background: #0f172a; display: flex; align-items: center; justify-content: center; overflow: hidden;');
+      placeholder.innerHTML = '<svg width="44" height="44" viewBox="0 0 24 24" fill="#ffffff" style="opacity: 0.9; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+      video.replaceWith(placeholder);
+    });
+
+    // Remove any remaining untracked third-party iframes
+    doc.querySelectorAll('iframe').forEach(iframe => {
+      if (!iframe.closest('g[data-type="map"]') && !iframe.closest('foreignObject[data-type="map"]') && !iframe.closest('g[data-type="embed-frame"]') && !iframe.closest('foreignObject[data-type="embed-frame"]')) {
+        iframe.remove();
+      }
     });
 
     const cleaned = doc.body.innerHTML || html;
@@ -106,11 +143,8 @@ function sanitizePageHtmlForPreview(html) {
         iframe.getAttribute('data-show-controls') === 'false';
 
       const currentStyle = iframe.getAttribute('style') || '';
-      if (isMap) {
+      if (currentStyle) {
         const cleanedStyle = currentStyle.replace(/pointer-events\s*:\s*(?:auto|none)\s*(?:!important)?\s*;?/gi, '');
-        iframe.setAttribute('style', cleanedStyle + ' pointer-events: none !important;');
-      } else if (currentStyle) {
-        const cleanedStyle = currentStyle.replace(/pointer-events\s*:\s*none\s*(?:!important)?\s*;?/gi, '');
         iframe.setAttribute('style', cleanedStyle + ' pointer-events: auto !important;');
       }
 
@@ -168,8 +202,7 @@ const PAGE_DOC_CSS = `
     backface-visibility: hidden !important;
     -webkit-backface-visibility: hidden !important;
   }
-  body > svg,
-  svg:not(foreignObject svg):not([data-type="icon"]):not([data-type="button"] svg) {
+  body > svg {
     width: 100% !important; height: 100% !important; display: block !important;
     margin: 0 !important; padding: 0 !important; shape-rendering: geometricPrecision !important;
   }
@@ -182,20 +215,29 @@ const PAGE_DOC_CSS = `
   .map-nowrap, [data-nowrap="true"], .map-card-overlay .map-nowrap {
     white-space: nowrap !important; word-break: normal !important; overflow-wrap: normal !important;
   }
-  foreignObject:not([data-type="map"]):not([data-type="embed-frame"]) {
+  foreignObject:not([data-type="map"]):not([data-type="embed-frame"]):not([data-type="slideshow"]):not(.slideshow-foreign-object) {
     overflow: visible !important; clip-path: none !important;
   }
-  foreignObject:not([data-type="map"]):not([data-type="embed-frame"]) * { clip-path: none !important; }
+  foreignObject:not([data-type="map"]):not([data-type="embed-frame"]):not([data-type="slideshow"]):not(.slideshow-foreign-object) * { clip-path: none !important; }
   foreignObject[data-type="map"], g[data-type="map"] foreignObject, .map-root-container { overflow: hidden !important; }
-  .map-root-container, .embed-root-container, .table-card-wrapper, .table-container {
+  foreignObject[data-type="slideshow"], g[data-type="slideshow"] foreignObject, foreignObject.slideshow-foreign-object, .flipibook-swiper-container {
+    overflow: hidden !important;
+    clip-path: inset(0 round inherit) !important;
+    -webkit-clip-path: inset(0 round inherit) !important;
+    contain: paint !important;
+  }
+  .map-root-container, .embed-root-container, .table-card-wrapper, .table-container, .flipibook-swiper-container {
     width: 100% !important; height: 100% !important; display: block !important;
     position: relative !important; box-sizing: border-box !important;
   }
-  .map-stage { position: absolute !important; top: 0 !important; left: 0 !important; overflow: hidden !important; }
+  .map-stage { position: absolute !important; top: 0 !important; left: 0 !important; overflow: hidden !important; pointer-events: auto !important; }
   .map-stage iframe, .map-root-container iframe {
     position: absolute !important; top: 0 !important; left: 0 !important;
     width: 100% !important; height: 100% !important; border: 0 !important;
-    margin: 0 !important; padding: 0 !important; display: block !important; pointer-events: none !important;
+    margin: 0 !important; padding: 0 !important; display: block !important; pointer-events: auto !important;
+  }
+  g[data-type="map"] > rect, g[id^="map-"] > rect {
+    pointer-events: none !important; display: none !important;
   }
   .map-open-maps-btn, .map-action-btn-circle, .map-card-overlay,
   .map-sheet-btn, .map-sheet-link-btn { pointer-events: auto !important; }

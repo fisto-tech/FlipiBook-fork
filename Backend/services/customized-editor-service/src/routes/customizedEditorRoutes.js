@@ -106,6 +106,8 @@ router.post('/upload-chunk-binary', optionalAuth, resumableController.uploadChun
 router.get('/extract-stream/:jobId', optionalAuth, resumableController.extractStream);
 router.get('/job-status/:jobId', optionalAuth, resumableController.getJobStatus);
 router.get('/manifest/:userId/:bookId', optionalAuth, resumableController.getBookManifest);
+router.post('/upload-page-image', optionalAuth, upload.single('file'), resumableController.uploadPageImage);
+router.post('/finalize-edge-book', optionalAuth, resumableController.finalizeEdgeBook);
 
 // ==========================================
 // 1. Health & Auth Status

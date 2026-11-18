@@ -100,6 +100,24 @@ const ColorBoxRow = ({
   );
 };
 
+// Helper: update or inject map type parameter into Google Maps URL (m=Roadmap, k=Satellite, h=Hybrid, p=Terrain)
+const updateUrlMapType = (url, type = 'm') => {
+  if (!url) return url;
+  if (/([?&]t=)[^&]*/i.test(url)) {
+    return url.replace(/([?&]t=)[^&]*/i, `$1${type}`);
+  }
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}t=${type}`;
+};
+
+// Helper: extract map type parameter from a URL
+const extractUrlMapType = (url, fallback = 'm') => {
+  if (!url) return fallback;
+  const match = url.match(/[?&]t=([khpm]?)(?:&|$)/i);
+  if (match && match[1]) return match[1].toLowerCase() || 'm';
+  return fallback;
+};
+
 // Helper: update or inject zoom parameter into a Google Maps URL
 const updateUrlZoom = (url, zoomLevel) => {
   if (!url) return url;
@@ -121,6 +139,19 @@ const extractUrlZoom = (url, fallback = 11) => {
   return fallback;
 };
 
+// Helper: extract coordinates [lat, lng] from URL or query
+const extractCoordsFromUrl = (url) => {
+  if (!url) return null;
+  const qMatch = url.match(/[?&]q=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  if (qMatch) return [parseFloat(qMatch[1]), parseFloat(qMatch[2])];
+  const atMatch = url.match(/@(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  if (atMatch) return [parseFloat(atMatch[1]), parseFloat(atMatch[2])];
+  const pbLat = url.match(/!3d(-?\d+\.\d+)/);
+  const pbLng = url.match(/!2d(-?\d+\.\d+)/);
+  if (pbLat && pbLng) return [parseFloat(pbLat[1]), parseFloat(pbLng[1])];
+  return null;
+};
+
 // Toggle Switch matching exact reference design
 const Toggle = ElementToggle;
 
@@ -135,12 +166,14 @@ const THEME_OPTIONS = [
 const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribute, activePageIndex, selectedLayerId }) => {
   // --- 1. Map Source Settings ---
   const [sourceType, setSourceType] = useState('Location'); // 'Location' | 'URL' | 'Embed Code'
-  const [location, setLocation] = useState('Gandhipuram, Coimbatore, Tamil Nadu');
-  const [locationInput, setLocationInput] = useState('Gandhipuram, Coimbatore, Tamil Nadu');
+  const [location, setLocation] = useState('Harur');
+  const [locationInput, setLocationInput] = useState('Harur');
+  const [coords, setCoords] = useState([12.0625, 78.4981]); // Default to Harur coords
   const [urlInput, setUrlInput] = useState('');
   const [embedCode, setEmbedCode] = useState('');
   const [iframeUrl, setIframeUrl] = useState('');
-  const [zoom, setZoom] = useState(11);
+  const [zoom, setZoom] = useState(14);
+  const [mapType, setMapType] = useState('m'); // 'm' (Roadmap) | 'k' (Satellite) | 'h' (Hybrid) | 'p' (Terrain)
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -171,6 +204,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef(null);
   const iframeRef = useRef(null);
+  const debounceTimerRef = useRef(null);
 
   const isDarkTheme = String(theme).toLowerCase().includes('dark');
 
@@ -257,9 +291,13 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
   const updateMapData = (updatedFields = {}) => {
     const nextStyle = updatedFields.style !== undefined ? updatedFields.style : layoutStyle;
     const nextZoom = updatedFields.zoom !== undefined ? updatedFields.zoom : zoom;
+    const nextMapType = updatedFields.mapType !== undefined ? updatedFields.mapType : mapType;
     let nextUrl = updatedFields.url !== undefined ? updatedFields.url : iframeUrl;
     if (nextUrl) {
       nextUrl = updateUrlZoom(nextUrl, nextZoom);
+      if (nextMapType) {
+        nextUrl = updateUrlMapType(nextUrl, nextMapType);
+      }
     }
     const nextSourceType = updatedFields.sourceType !== undefined ? updatedFields.sourceType : sourceType;
     const nextLocation = updatedFields.location !== undefined ? updatedFields.location : location;
@@ -276,27 +314,41 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
 
     if (nextUrl) setIframeUrl(nextUrl);
 
-    if (selectedElement) {
-      selectedElement.setAttribute('data-map-style', nextStyle);
-      selectedElement.setAttribute('data-zoom', String(nextZoom));
-      selectedElement.setAttribute('data-url', nextUrl);
-      selectedElement.setAttribute('data-source-type', nextSourceType);
-      selectedElement.setAttribute('data-location', nextLocation);
-      selectedElement.setAttribute('data-business-name', nextName);
-      selectedElement.setAttribute('data-business-address', nextAddress);
-      selectedElement.setAttribute('data-business-rating', nextRating);
-      selectedElement.setAttribute('data-business-reviews', nextReviews);
-      selectedElement.setAttribute('data-business-category', nextCategory);
-      selectedElement.setAttribute('data-business-phone', nextPhone);
-      selectedElement.setAttribute('data-business-image', nextImage);
-      selectedElement.setAttribute('data-theme', nextTheme);
-      selectedElement.setAttribute('data-button-color', nextButtonColor);
-      selectedElement.setAttribute('data-show-open-map-btn', nextShowOpenMapBtn ? 'true' : 'false');
+    const doc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
+    let liveEl = selectedLayerId ? (doc.getElementById(selectedLayerId) || document.getElementById(selectedLayerId)) : null;
+    if (!liveEl && selectedElement) liveEl = selectedElement;
+    let targetElement = liveEl?.closest?.('g[id^="map-"], g[data-type="map"]') || liveEl?.closest?.('[data-type="map"]') || liveEl;
+    if (!targetElement) {
+      targetElement = doc.querySelector?.('.page-svg-container [data-type="map"], .page-svg-container g[id^="map-"]') || document.querySelector?.('.page-svg-container [data-type="map"], .page-svg-container g[id^="map-"]');
+    }
 
-      if (updatedFields.rawUrl !== undefined) selectedElement.setAttribute('data-raw-url', updatedFields.rawUrl);
-      if (updatedFields.embedCode !== undefined) selectedElement.setAttribute('data-embed-code', updatedFields.embedCode);
+    if (targetElement) {
+      targetElement.setAttribute('data-map-style', nextStyle);
+      targetElement.setAttribute('data-zoom', String(nextZoom));
+      targetElement.setAttribute('data-map-type', nextMapType);
+      if (coords && Array.isArray(coords)) {
+        targetElement.setAttribute('data-coords', `${coords[0]},${coords[1]}`);
+      }
+      targetElement.setAttribute('data-url', nextUrl);
+      targetElement.setAttribute('data-source-type', nextSourceType);
+      targetElement.setAttribute('data-location', nextLocation);
+      targetElement.setAttribute('data-business-name', nextName);
+      targetElement.setAttribute('data-business-address', nextAddress);
+      targetElement.setAttribute('data-business-rating', nextRating);
+      targetElement.setAttribute('data-business-reviews', nextReviews);
+      targetElement.setAttribute('data-business-category', nextCategory);
+      targetElement.setAttribute('data-business-phone', nextPhone);
+      targetElement.setAttribute('data-business-image', nextImage);
+      targetElement.setAttribute('data-theme', nextTheme);
+      targetElement.setAttribute('data-button-color', nextButtonColor);
+      targetElement.setAttribute('data-show-open-map-btn', nextShowOpenMapBtn ? 'true' : 'false');
 
-      const fo = selectedElement.querySelector('foreignObject');
+      if (updatedFields.rawUrl !== undefined) targetElement.setAttribute('data-raw-url', updatedFields.rawUrl);
+      if (updatedFields.embedCode !== undefined) targetElement.setAttribute('data-embed-code', updatedFields.embedCode);
+
+      const fo = targetElement.tagName?.toLowerCase() === 'foreignobject'
+        ? targetElement
+        : (targetElement.querySelector('foreignObject') || targetElement.querySelector('[data-type="map"]'));
 
       // Rebuild inner foreignObject container with fresh overlay & theme
       const overlayHtml = generateOverlayHtml(nextStyle, {
@@ -325,23 +377,48 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
 
         fo.setAttribute('data-type', 'map');
         fo.setAttribute('style', 'overflow: hidden; border-radius: 0px;');
-        fo.innerHTML = `
-          <div xmlns="http://www.w3.org/1999/xhtml" class="map-root-container" style="position: relative; width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; border-radius: 0px; box-shadow: 0 4px 20px rgba(0,0,0,0.12);">
-            <div class="map-stage" style="position: absolute; top: 0; left: 0; width: ${innerW}px; height: ${innerH}px; transform: scale(${scale}); transform-origin: 0 0; overflow: hidden;">
-              <iframe src="${nextUrl.replace(/&/g, '&amp;')}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; pointer-events: none; margin: 0; padding: 0; display: block; ${filterStyle}" allowfullscreen="" loading="lazy"></iframe>
-              <div class="map-overlay-wrapper" style="position: absolute; inset: 0; pointer-events: none;">
-                ${overlayHtml}
+
+        const existingStage = fo.querySelector('.map-stage');
+        const existingIframe = fo.querySelector('iframe');
+        const existingOverlay = fo.querySelector('.map-overlay-wrapper');
+
+        if (existingStage && existingIframe && existingOverlay) {
+          const targetSrc = nextUrl.replace(/&amp;/g, '&');
+          const currentSrc = (existingIframe.getAttribute('src') || '').replace(/&amp;/g, '&');
+          let activeIframe = existingIframe;
+          if (currentSrc !== targetSrc) {
+            existingIframe.setAttribute('src', nextUrl.replace(/&/g, '&amp;'));
+            try { existingIframe.src = targetSrc; } catch (e) {}
+            const newIframe = existingIframe.cloneNode(true);
+            newIframe.setAttribute('src', nextUrl.replace(/&/g, '&amp;'));
+            newIframe.src = targetSrc;
+            existingIframe.parentNode.replaceChild(newIframe, existingIframe);
+            activeIframe = newIframe;
+          }
+          if (activeIframe) {
+            activeIframe.setAttribute('style', `position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; pointer-events: none; margin: 0; padding: 0; display: block; ${filterStyle}`);
+            activeIframe.style.filter = isDark ? 'invert(90%) hue-rotate(180deg) contrast(95%)' : 'none';
+          }
+          existingOverlay.innerHTML = overlayHtml;
+        } else {
+          fo.innerHTML = `
+            <div xmlns="http://www.w3.org/1999/xhtml" class="map-root-container" style="position: relative; width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; border-radius: 0px; box-shadow: 0 4px 20px rgba(0,0,0,0.12);">
+              <div class="map-stage" style="position: absolute; top: 0; left: 0; width: ${innerW}px; height: ${innerH}px; transform: scale(${scale}); transform-origin: 0 0; overflow: hidden;">
+                <iframe src="${nextUrl.replace(/&/g, '&amp;')}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; pointer-events: none; margin: 0; padding: 0; display: block; ${filterStyle}" allowfullscreen="" loading="lazy"></iframe>
+                <div class="map-overlay-wrapper" style="position: absolute; inset: 0; pointer-events: none;">
+                  ${overlayHtml}
+                </div>
               </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       }
 
       if (onUpdate) {
-        onUpdate(selectedElement.outerHTML);
-      }
-      if (updateElementAttribute && selectedLayerId !== undefined) {
-        let node = selectedElement;
+        onUpdate(targetElement.outerHTML);
+      } else if (updateElementAttribute && (targetElement.id || selectedLayerId)) {
+        window.__skipCanvasUpdateForPage = activePageIndex;
+        let node = targetElement;
         let lastSvg = null;
         while (node) {
           if (node.tagName?.toLowerCase() === 'svg') lastSvg = node;
@@ -352,7 +429,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
           cloneSvg.querySelectorAll('[data-highlight-id], .frame-boundary').forEach(el => el.remove());
           const serializer = new XMLSerializer();
           const html = serializer.serializeToString(cloneSvg);
-          updateElementAttribute(activePageIndex, selectedLayerId, '__dom_sync__', html);
+          updateElementAttribute(activePageIndex, targetElement.id || selectedLayerId, '__dom_sync__', html);
         }
       }
     }
@@ -481,7 +558,17 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
       }
       setZoom(parsedZoom);
 
-      const effectiveUrl = updateUrlZoom(url, parsedZoom);
+      const savedMapType = selectedElement.getAttribute('data-map-type') || extractUrlMapType(url, 'm');
+      setMapType(savedMapType);
+
+      const extCoords = extractCoordsFromUrl(url);
+      if (extCoords) {
+        setCoords(extCoords);
+      } else if (savedLocation && savedLocation.toLowerCase().includes('harur')) {
+        setCoords([12.0625, 78.4981]);
+      }
+
+      const effectiveUrl = updateUrlMapType(updateUrlZoom(url, parsedZoom), savedMapType);
       setIframeUrl(effectiveUrl);
 
       if (savedStyle) {
@@ -546,7 +633,8 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
       const isDark = String(savedTheme).toLowerCase().includes('dark');
       const filterStyle = isDark ? 'filter: invert(90%) hue-rotate(180deg) contrast(95%);' : '';
 
-      if (fo) {
+      // Only auto-heal foreignObject if missing the map structure completely
+      if (fo && !fo.querySelector('.map-root-container')) {
         const foW = parseFloat(fo.getAttribute('width')) || 180;
         const foH = parseFloat(fo.getAttribute('height')) || 135;
         const baseW = 360;
@@ -584,25 +672,6 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
             </div>
           </div>
         `;
-
-        if (onUpdate) {
-          onUpdate(selectedElement.outerHTML);
-        }
-        if (updateElementAttribute && selectedLayerId !== undefined) {
-          let node = selectedElement;
-          let lastSvg = null;
-          while (node) {
-            if (node.tagName?.toLowerCase() === 'svg') lastSvg = node;
-            node = node.parentElement;
-          }
-          if (lastSvg) {
-            const cloneSvg = lastSvg.cloneNode(true);
-            cloneSvg.querySelectorAll('[data-highlight-id], .frame-boundary').forEach(el => el.remove());
-            const serializer = new XMLSerializer();
-            const html = serializer.serializeToString(cloneSvg);
-            updateElementAttribute(activePageIndex, selectedLayerId, '__dom_sync__', html);
-          }
-        }
       }
     } else {
       setIframeUrl(defaultUrl);
@@ -625,6 +694,15 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     const value = e.target.value;
     setLocationInput(value);
     setErrorMessage('');
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (value.trim().length >= 3 && value.trim() !== location) {
+      debounceTimerRef.current = setTimeout(() => {
+        handleSearchSubmit(value.trim());
+      }, 700);
+    }
 
     // Check if coordinates
     const isCoordinateRegex = /^[-+]?\d{1,2}(\.\d+)?\s*,\s*[-+]?\d{1,3}(\.\d+)?$/;
@@ -691,7 +769,12 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     setShowSuggestions(false);
     setErrorMessage('');
 
-    const newUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mainTitle)}&t=&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
+    if (suggestion.lat && suggestion.lon) {
+      const newC = [parseFloat(suggestion.lat), parseFloat(suggestion.lon)];
+      setCoords(newC);
+    }
+
+    const newUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mainTitle)}&t=${mapType || 'm'}&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
     setIframeUrl(newUrl);
     updateMapData({
       url: newUrl,
@@ -705,13 +788,23 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     fetchPlaceDetails(mainTitle, 'Location');
   };
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = (queryArg) => {
     setShowSuggestions(false);
     setErrorMessage('');
-    const query = locationInput.trim();
+    const query = (typeof queryArg === 'string' ? queryArg : locationInput).trim();
     if (!query) return;
 
-    const newUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
+    const coordMatch = query.match(/^[-+]?\d{1,2}(\.\d+)?\s*,\s*[-+]?\d{1,3}(\.\d+)?$/);
+    if (coordMatch) {
+      const parts = query.split(',').map(s => parseFloat(s.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        setCoords(parts);
+      }
+    } else if (query.toLowerCase().includes('harur')) {
+      setCoords([12.0625, 78.4981]);
+    }
+
+    const newUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=${mapType || 'm'}&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
     setBusinessName(query);
     setLocation(query);
     setBusinessAddress(query);
@@ -835,6 +928,14 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     updateMapData({ url: updatedUrl, zoom: val });
   };
 
+  // Handle Map View Type Change (Roadmap / Satellite / Hybrid / Terrain)
+  const handleMapTypeChange = (newType) => {
+    setMapType(newType);
+    const updatedUrl = updateUrlMapType(iframeUrl, newType);
+    setIframeUrl(updatedUrl);
+    updateMapData({ url: updatedUrl, mapType: newType });
+  };
+
   // Handle Open in Map Button Toggle
   const handleToggleOpenMapBtn = (newVal) => {
     setShowOpenMapBtn(newVal);
@@ -876,7 +977,14 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
         {sourceType === 'Location' && (
           <div className="relative w-full mt-[0.1vw]" ref={wrapperRef}>
             <div className="w-full h-[2.1vw] flex items-center border border-gray-300 rounded-[0.45vw] bg-white px-[0.6vw] shadow-2xs hover:border-gray-400 focus-within:border-indigo-400 transition-colors">
-              <Search size="0.85vw" className="text-gray-400 flex-shrink-0 mr-[0.4vw]" />
+              <button
+                type="button"
+                onClick={handleSearchSubmit}
+                className="flex items-center justify-center p-0 mr-[0.4vw] hover:text-indigo-600 transition-colors cursor-pointer"
+                title="Search Location"
+              >
+                <Search size="0.85vw" className="text-gray-400 hover:text-indigo-600 flex-shrink-0" />
+              </button>
               <input
                 type="text"
                 value={locationInput}
@@ -1044,8 +1152,30 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
         </div>
       </div>
 
+      {/* ===================== MAP VIEW (ROADMAP / SATELLITE) ===================== */}
+      <div className="flex flex-col gap-[0.6vw]">
+        <SectionHeader title="Map View" />
+        <div className="grid grid-cols-2 gap-[0.3vw] p-[0.2vw] bg-gray-100 rounded-[0.45vw]">
+          {[
+            { id: 'm', label: 'Roadmap' },
+            { id: 'k', label: 'Satellite' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => handleMapTypeChange(item.id)}
+              className={`h-[1.9vw] rounded-[0.35vw] text-[0.75vw] font-medium transition-all ${
+                mapType === item.id ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* ===================== 3. LIVE MAP PREVIEW ===================== */}
-      <div className="relative w-full aspect-[4/3] rounded-[0.6vw] border border-gray-300 overflow-hidden shadow-2xs bg-slate-100 select-none group">
+      <div className="relative w-full aspect-[4/3] rounded-[0.6vw] border border-gray-300 overflow-hidden shadow-2xs bg-slate-100 group">
         {iframeUrl ? (
           <div className="relative w-full h-full overflow-hidden">
             <iframe
@@ -1058,7 +1188,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
                 width: '100%',
                 height: '100%',
                 border: 0,
-                pointerEvents: 'none',
+                pointerEvents: 'auto',
                 filter: isDarkTheme ? 'invert(90%) hue-rotate(180deg) contrast(95%)' : 'none'
               }}
               allowFullScreen=""

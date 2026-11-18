@@ -262,13 +262,11 @@ export const createDefaultPlaceholderDataUrl = (slideNum, bgGradStart, bgGradEnd
       </linearGradient>
     </defs>
     <rect width="640" height="400" fill="url(#g_${slideNum})"/>
-    <g fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(284, 130) scale(1.8)">
+    <g fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(284, 140) scale(2)">
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
       <circle cx="8.5" cy="8.5" r="1.5"/>
       <polyline points="21 15 16 10 5 21"/>
     </g>
-    <text x="320" y="235" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="700" fill="white" text-anchor="middle" letter-spacing="0.5">${title || `Slide ${slideNum}`}</text>
-    <text x="320" y="265" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="500" fill="white" fill-opacity="0.8" text-anchor="middle">Click or drag in properties to customize</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 };

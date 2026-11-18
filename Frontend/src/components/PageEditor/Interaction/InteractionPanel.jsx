@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
+import { ChevronDown } from 'lucide-react';
 import { Icon } from '@iconify/react';
-import PhoneInput from 'react-phone-input-2';
+import PhoneInputModule from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
+
+const PhoneInput = PhoneInputModule?.default || PhoneInputModule;
 import { parsePhoneNumberFromString, isValidPhoneNumber } from 'libphonenumber-js';
 import PopupTemplateSelection, { TEMPLATES } from './PopupTemplateSelection';
 import ModelGalleryModal from '../../ThreedEditor/Components/ModelGalleryModal';
@@ -682,12 +685,12 @@ const ActionDropdown = ({ item, currentAction, actionTypes, isDropdownOpen, setO
       <div
         ref={triggerRef}
         data-dropdown-trigger="true"
-        className={`h-[3.3vh] flex items-center justify-start gap-[0.5vw] px-[0.8vw] relative select-none outline-none focus:outline-none cursor-pointer transition-colors duration-150 ${
+        className={`h-[2vw] flex items-center justify-start gap-[0.4vw] px-[0.7vw] relative select-none outline-none focus:outline-none cursor-pointer transition-colors duration-150 ${
           isLocked
             ? 'opacity-70 cursor-not-allowed border border-transparent'
             : isCollapsed
             ? 'border border-transparent bg-transparent shadow-none'
-            : 'bg-white border border-gray-300 shadow-sm rounded-[0.45vw] hover:border-[#5145F6]/50'
+            : 'bg-white border border-gray-300 rounded-full shadow-2xs hover:bg-gray-50 hover:border-gray-400'
         }`}
         style={{ outline: 'none' }}
         onClick={(e) => {
@@ -698,11 +701,11 @@ const ActionDropdown = ({ item, currentAction, actionTypes, isDropdownOpen, setO
           }
         }}
       >
-        <span className="text-[0.8vw] text-gray-800 font-medium font-sans select-none flex-shrink-0">
+        <span className="text-[0.8vw] text-gray-700 font-semibold font-sans select-none flex-shrink-0">
           {actionLabel}
         </span>
         {!isLocked && !isCollapsed && (
-          <svg width="0.75vw" height="0.75vw" viewBox="0 0 24 24" fill="none" className="stroke-gray-500 hover:stroke-[#5145F6] transition-colors flex-shrink-0 ml-[0.1vw]" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="0.75vw" height="0.75vw" viewBox="0 0 24 24" fill="none" className="stroke-gray-400 hover:stroke-[#4D47FF] transition-colors flex-shrink-0 ml-[0.1vw]" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 7h16M16 3l4 4-4 4M20 17H4M8 13l-4 4 4 4" />
           </svg>
         )}
@@ -711,13 +714,15 @@ const ActionDropdown = ({ item, currentAction, actionTypes, isDropdownOpen, setO
       {isDropdownOpen && !isCollapsed && dropdownStyles.left && createPortal(
         <div
           data-dropdown-menu="true"
-          className="bg-white border border-gray-200 rounded-[0.35vw] shadow-[0_12px_40px_rgba(0,0,0,0.12)] flex flex-col gap-[0.4vh] p-[0.3vw] pr-[0.35vw] max-h-[26vh] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200 origin-top-left"
+          className="bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl flex flex-col py-[0.25vw] max-h-[26vh] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150 origin-top-left"
           style={dropdownStyles}
         >
           {actionTypes.map(action => (
             <div
               key={action.id}
-              className="flex items-center gap-[0.6vw] px-[0.7vw] py-[0.7vh] rounded-[0.25vw] bg-[#F9FAFB] hover:bg-gray-100 cursor-pointer transition-colors group"
+              className={`flex items-center gap-[0.5vw] px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium transition-colors text-left cursor-pointer ${
+                action.id === currentAction.id ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+              }`}
               onClick={(e) => {
                 e.stopPropagation();
                 setOpenDropdownId(null);
@@ -867,6 +872,8 @@ const InteractionPanel = ({
   selectedElementProps,
   activePageIndex,
   selectedLayerId,
+  setSelectedLayerId,
+  setMultiSelectedIds,
   updateElementAttribute,
   deleteLayer,
   pages,
@@ -891,7 +898,27 @@ const InteractionPanel = ({
   openCardIdsRef.current = openCardIds;
   const [activeLayerId, setActiveLayerId] = useState(selectedLayerId || null);
   const [openDropdownId, setOpenDropdownId] = useState(null);
-  const [collapsedCardIds, setCollapsedCardIds] = useState({});
+  const [expandedCardId, setExpandedCardId] = useState(null);
+
+  const prevActivePageIndexRef = useRef(activePageIndex);
+  useEffect(() => {
+    if (prevActivePageIndexRef.current !== activePageIndex) {
+      prevActivePageIndexRef.current = activePageIndex;
+      setExpandedCardId(null);
+      setOpenDropdownId(null);
+    }
+  }, [activePageIndex]);
+
+  // Sync activeLayerId and expandedCardId when selectedLayerId changes externally (e.g. canvas selection)
+  useEffect(() => {
+    if (selectedLayerId) {
+      setActiveLayerId(selectedLayerId);
+      setExpandedCardId(selectedLayerId);
+    } else {
+      setActiveLayerId(null);
+      setExpandedCardId(null);
+    }
+  }, [selectedLayerId]);
   // Immediate local override for action type so card header updates without waiting for pages re-sync
   const [cardActionOverrides, setCardActionOverrides] = useState({});
   const [active3DGalleryItem, setActive3DGalleryItem] = useState(null);
@@ -1476,7 +1503,7 @@ const InteractionPanel = ({
   }, []);
 
   const actionTypes = [
-    { id: 'open-link', label: 'Open Link', icon: 'gg:link' },
+    { id: 'open-link', label: 'Open Link', icon: 'ph:link-bold' },
     { id: 'whatsapp', label: 'WhatsApp', icon: 'ic:outline-whatsapp' },
     { id: 'email', label: 'Email', icon: 'ic:outline-mail' },
     { id: 'call', label: 'Call', icon: 'fluent:call-24-regular' },
@@ -1517,16 +1544,10 @@ const InteractionPanel = ({
         }
       }
 
-      setCollapsedCardIds(prev => {
-        const next = { ...prev };
-        Object.keys(openCardIdsRef.current).forEach(id => {
-          next[id] = true;
-        });
-        next[selectedLayerId] = false;
-        return next;
-      });
+      setExpandedCardId(selectedLayerId);
     } else {
       setActiveLayerId(null);
+      setExpandedCardId(null);
     }
 
     // ONLY clear temporary local overrides if the user actually clicked a DIFFERENT element
@@ -1546,22 +1567,11 @@ const InteractionPanel = ({
     const handleAddInteraction = (e) => {
       const elementId = e.detail?.elementId;
       if (elementId) {
-        setOpenCardIds(prev => {
-          setCollapsedCardIds(prevCollapsed => {
-            const nextCollapsed = { ...prevCollapsed };
-            Object.keys(prev).forEach(id => {
-              if (id !== elementId) {
-                nextCollapsed[id] = true;
-              }
-            });
-            nextCollapsed[elementId] = false;
-            return nextCollapsed;
-          });
-          return {
-            ...prev,
-            [elementId]: true
-          };
-        });
+        setOpenCardIds(prev => ({
+          ...prev,
+          [elementId]: true
+        }));
+        setExpandedCardId(elementId);
         setActiveLayerId(elementId);
 
         const { updateElementAttribute, activePageIndex, pages, actionTypes } = panelStateRef.current;
@@ -1609,14 +1619,7 @@ const InteractionPanel = ({
           ...prev,
           [elementId]: true
         }));
-        setCollapsedCardIds(prev => {
-          const next = { ...prev };
-          Object.keys(prev).forEach(id => {
-            next[id] = true;
-          });
-          next[elementId] = false;
-          return next;
-        });
+        setExpandedCardId(elementId);
         setActiveLayerId(elementId);
 
         // Scroll the accordion card into view and focus the input
@@ -1710,19 +1713,7 @@ const InteractionPanel = ({
       return hasChanges ? next : prev;
     });
 
-    if (newlyFoundIds.length > 0) {
-      setCollapsedCardIds(prev => {
-        let hasChanges = false;
-        const next = { ...prev };
-        newlyFoundIds.forEach(id => {
-          if (next[id] === undefined) {
-            next[id] = (id !== selectedLayerId);
-            hasChanges = true;
-          }
-        });
-        return hasChanges ? next : prev;
-      });
-    }
+    // Newly found interactive elements are tracked in openCardIds
   }, [pages, activePageIndex, selectedLayerId]);
 
   // Listen for interaction-removed event to immediately close and clean up card state
@@ -1832,14 +1823,9 @@ const InteractionPanel = ({
     };
   }
 
-  // Scans all SVG DOMs across all pages to retrieve all active/added interaction cards
+  // Scans SVG DOM strictly for the active page to retrieve all active/added interaction cards
   const interactiveElementsList = React.useMemo(() => {
     if (!pages || pages.length === 0) return [];
-
-    const openCardKeys = Object.keys(openCardIds).filter(id => openCardIds[id]);
-    if (openCardKeys.length === 0) return [];
-
-    const list = [];
 
     // Pre-populate/update the cache for all pages that changed
     pages.forEach((page, i) => {
@@ -1859,32 +1845,72 @@ const InteractionPanel = ({
       }
     });
 
-    openCardKeys.forEach(id => {
+    const activeCached = parsedPagesDOMsRef.current[activePageIndex];
+    const editorDoc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
+    const activeContainer = editorDoc.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+
+    // Collect all element IDs strictly on the active page that have interactions or open cards
+    const candidateIds = new Set();
+    if (activeCached && activeCached.doc) {
+      activeCached.doc.querySelectorAll('[data-interaction]').forEach(el => {
+        const type = el.getAttribute('data-interaction');
+        if (el.id && type && type !== 'none') candidateIds.add(el.id);
+      });
+    }
+    if (activeContainer) {
+      activeContainer.querySelectorAll('[data-interaction]').forEach(el => {
+        const type = el.getAttribute('data-interaction');
+        if (el.id && type && type !== 'none') {
+          // If activeCached already knows about this element and it does NOT have an interaction in the cached doc,
+          // then the activeContainer DOM is just stale (waiting for React to flush)!
+          if (activeCached?.doc?.getElementById(el.id)) {
+            const cachedType = activeCached.doc.getElementById(el.id).getAttribute('data-interaction');
+            if (!cachedType || cachedType === 'none') {
+              return;
+            }
+          }
+          candidateIds.add(el.id);
+        }
+      });
+    }
+    Object.keys(openCardIds).forEach(id => {
+      if (openCardIds[id]) {
+        // Only include if it actually belongs to the active page
+        if ((activeCached?.doc?.getElementById(id)) || (activeContainer?.querySelector(`[id="${CSS.escape(id)}"]`))) {
+          candidateIds.add(id);
+        }
+      }
+    });
+
+    if (candidateIds.size === 0) return [];
+
+    const list = [];
+
+    candidateIds.forEach(id => {
       let foundEl = null;
 
-      // 1. ALWAYS check cached DOMs first (guaranteed in sync with React state `pages`)
-      for (let i = 0; i < pages.length; i++) {
-        const cached = parsedPagesDOMsRef.current[i];
-        if (cached && cached.doc) {
-          const el = cached.doc.getElementById(id);
-          if (el) {
-            foundEl = el;
-            break;
-          }
+      // 1. Check active page cached DOM first (guaranteed in sync with React state `pages`)
+      if (activeCached && activeCached.doc) {
+        const el = activeCached.doc.getElementById(id);
+        if (el) {
+          foundEl = el;
         }
       }
 
-      // 2. Fallback to live DOM if not found in cache
-      if (!foundEl) {
-        const editorDoc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
-        const activeContainer = editorDoc.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
-        const liveEl = activeContainer ? activeContainer.querySelector(`[id="${CSS.escape(id)}"]`) : editorDoc.getElementById(id);
+      // 2. Fallback to active page live DOM if not found in cache
+      if (!foundEl && activeContainer) {
+        const liveEl = activeContainer.querySelector(`[id="${CSS.escape(id)}"]`);
         if (liveEl) {
           foundEl = liveEl;
         }
       }
 
       if (foundEl) {
+        const interactionType = foundEl.getAttribute('data-interaction');
+        if (!openCardIds[id] && (!interactionType || interactionType === 'none')) {
+          return;
+        }
+
         const info = detectTypeFromElement(foundEl, id);
 
         const imageEl = foundEl.querySelector('image');
@@ -2009,14 +2035,118 @@ const InteractionPanel = ({
     return found;
   }
 
+  const selectedEl = React.useMemo(() => {
+    if (!selectedLayerId) return null;
+    const editorDoc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
+    const activeContainer = editorDoc.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+    return activeContainer ? activeContainer.querySelector(`[id="${CSS.escape(selectedLayerId)}"]`) : editorDoc.getElementById(selectedLayerId);
+  }, [selectedLayerId, activePageIndex, pages]);
+
+  const selectedElName = React.useMemo(() => {
+    if (!selectedLayerId) return null;
+    if (selectedEl) {
+      return selectedEl.getAttribute('data-name') || selectedEl.id || selectedLayerId;
+    }
+    if (selectedElementProps) {
+      return selectedElementProps['data-name'] || selectedLayerId;
+    }
+    return selectedLayerId;
+  }, [selectedLayerId, selectedEl, selectedElementProps]);
+
+  const isPageOrRootElement = React.useCallback((el, idStr) => {
+    if (!el && !idStr) return true;
+    const id = idStr || el?.id || '';
+    const name = el?.getAttribute?.('data-name') || '';
+    const dataType = el?.getAttribute?.('data-type') || '';
+    if (dataType === 'frame') return true;
+    if (el?.tagName?.toLowerCase() === 'svg') return true;
+    if (/^(page|slide)\s*\d+/i.test(name) || name === 'Overlay') return true;
+    if (/^(page|slide)-/i.test(id) || id === 'Overlay') return true;
+    if (el?.parentElement?.tagName?.toLowerCase() === 'svg' && el?.tagName?.toLowerCase() === 'g') return true;
+    return false;
+  }, []);
+
+  const isRealElementSelected = selectedLayerId && !isPageOrRootElement(selectedEl, selectedLayerId);
+
+  const isConvertedDocument = React.useMemo(() => {
+    return Boolean(pages && pages.some(p => p?.html && (
+      p.html.includes('data-name="PDF Background"') ||
+      p.html.includes('PDF Background') ||
+      p.html.includes('pdf-vector-layer') ||
+      p.html.includes('Document Shield')
+    )));
+  }, [pages]);
+
+  const hasInteraction = React.useMemo(() => {
+    if (!selectedLayerId) return false;
+    if (openCardIds[selectedLayerId]) return true;
+    if (selectedElementProps && selectedElementProps['data-interaction'] && selectedElementProps['data-interaction'] !== 'none') return true;
+    if (selectedEl) {
+      const type = selectedEl.getAttribute('data-interaction');
+      const intent = selectedEl.getAttribute('data-interaction-intent');
+      if ((type && type !== 'none') || intent === 'true') return true;
+    }
+    return false;
+  }, [selectedLayerId, openCardIds, selectedElementProps, selectedEl]);
+
+  const handleAddInteractionToSelected = () => {
+    const targetId = selectedLayerId;
+    if (!targetId) return;
+
+    setOpenCardIds(prev => ({ ...prev, [targetId]: true }));
+    setExpandedCardId(targetId);
+    setActiveLayerId(targetId);
+
+    if (updateElementAttribute) {
+      updateElementAttribute(activePageIndex, targetId, {
+        'data-interaction': 'open-link',
+        'data-interaction-value': ''
+      });
+    }
+
+    window.dispatchEvent(new CustomEvent('update-interaction-badge', {
+      detail: {
+        elementId: targetId,
+        actionType: { id: 'open-link', label: 'Open Link', icon: 'ph:link-bold' }
+      }
+    }));
+  };
+
   return (
-    <div className="flex flex-col gap-[2vh] px-[1.5vw] pt-[1.8vh] pb-[1.5vw] bg-[#fbfbfb] h-full overflow-y-auto custom-scrollbar">
+    <div className="flex flex-col gap-[2vh] px-[1.5vw] pt-[1.8vh] pb-[5vw] w-full">
+
+      {/* Selected Element Interaction Status Card (ONLY if selected AND not added yet, hidden for converted documents) */}
+      {!isConvertedDocument && isRealElementSelected && !hasInteraction && (
+        <div className="p-[0.7vw] rounded-[0.8vw] border-[0.15vw] border-indigo-200 bg-indigo-50/60 shadow-2xs flex items-center justify-between gap-[0.6vw]">
+          <div className="flex items-center gap-[0.6vw] min-w-0 flex-1">
+            <div className="w-[2vw] h-[2vw] rounded-[0.4vw] flex items-center justify-center flex-shrink-0 bg-indigo-100 text-[#4D47FF]">
+              <Icon icon="hugeicons:touch-interaction-01" width="1.15vw" height="1.15vw" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[0.8vw] font-semibold text-gray-900 truncate" title={selectedElName}>
+                {selectedElName}
+              </span>
+              <span className="text-[0.68vw] font-medium text-[#4D47FF]">
+                No interaction added
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleAddInteractionToSelected}
+            className="flex-shrink-0 h-[1.9vw] px-[0.7vw] bg-[#4D47FF] hover:bg-[#3d36e8] text-white rounded-[0.4vw] text-[0.75vw] font-semibold flex items-center gap-[0.3vw] shadow-sm transition-all cursor-pointer hover:shadow"
+          >
+            <Icon icon="lucide:plus" width="0.85vw" height="0.85vw" />
+            Click to Add Interaction
+          </button>
+        </div>
+      )}
 
       {/* Interactions in this Page Section */}
       <div className="space-y-[1.5vh] mt-[0.5vh]">
-        <div className="flex items-center gap-[0.75vw]">
-          <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-wider">Interactions in this Page</span>
-          <div className="h-[0.1vw] flex-1 bg-gray-200"></div>
+        <div className="flex items-center gap-[0.8vw]">
+          <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap">Interactions in this Page</span>
+          <div className="flex-1 h-[1px] bg-gray-200" />
         </div>
 
         {/* Interaction List */}
@@ -2025,14 +2155,49 @@ const InteractionPanel = ({
           {interactiveElementsList.length > 0 ? (
             interactiveElementsList.map(item => {
 
-              const isCollapsed = !!collapsedCardIds[item.id];
+              const isExpanded = expandedCardId === item.id;
+              const isCollapsed = !isExpanded;
               const isDropdownOpen = openDropdownId === item.id;
               // Use local override (immediate) if available, else fall back to item.actionId from pages
               const resolvedActionId = cardActionOverrides[item.id] || item.actionId;
               const currentAction = actionTypes.find(a => a.id === resolvedActionId) || actionTypes[0];
               // Respect trigger and value local overrides to bypass DOM parsing lag
               const resolvedValue = itemValueOverrides[item.id] !== undefined ? itemValueOverrides[item.id] : item.value;
-              const isSelected = activeLayerId === item.id;
+              const isSelected = Boolean(selectedLayerId && activeLayerId === item.id);
+
+              const isFreeFrameTarget = item.dataName === 'Free Frame' || item.id?.startsWith('free-frame') || (item.tagName?.toLowerCase() === 'rect' && !item.isHotspot);
+              const isHotspotTarget = item.isHotspot || item.dataName?.toLowerCase().includes('hotspot') || item.id?.startsWith('hotspot');
+
+              let targetTypeBadge = null;
+              if (isFreeFrameTarget) {
+                targetTypeBadge = { label: 'Frame', bg: 'bg-blue-50 text-blue-600 border-blue-200' };
+              } else if (isHotspotTarget) {
+                targetTypeBadge = { label: 'Hotspot', bg: 'bg-purple-50 text-purple-600 border-purple-200' };
+              } else if (item.isInteractiveButton) {
+                targetTypeBadge = { label: 'Button', bg: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
+              } else if (item.label && item.label !== item.id) {
+                const shortLabel = item.label.split(' ')[0];
+                targetTypeBadge = { label: shortLabel, bg: 'bg-gray-100 text-gray-700 border-gray-200' };
+              }
+
+              const selectItemAndHighlight = () => {
+                const targetIdx = item.pageIndex !== undefined ? item.pageIndex : activePageIndex;
+                setActiveLayerId(item.id);
+                if (setSelectedLayerId) setSelectedLayerId(item.id);
+                if (setMultiSelectedIds) setMultiSelectedIds(new Set([item.id]));
+                window.dispatchEvent(new CustomEvent('select-layer', {
+                  detail: { layerId: item.id, ids: [item.id] }
+                }));
+                window.dispatchEvent(new CustomEvent('rebind-selection-overlay', {
+                  detail: { layerId: item.id }
+                }));
+                window.dispatchEvent(new CustomEvent('force-update-selection-box', {
+                  detail: { elementId: item.id }
+                }));
+                window.dispatchEvent(new CustomEvent('blink-canvas-element', {
+                  detail: { elementId: item.id, pageIndex: targetIdx }
+                }));
+              };
 
               return (
                 <div
@@ -2040,16 +2205,11 @@ const InteractionPanel = ({
                   id={`interaction-card-${item.id}`}
                   data-interaction-card-id={item.id}
                   onClick={() => {
-                    if (activeLayerId !== item.id) {
-                      setActiveLayerId(item.id);
-                      window.dispatchEvent(new CustomEvent('select-layer', {
-                        detail: { layerId: item.id }
-                      }));
-                    }
+                    selectItemAndHighlight();
                   }}
-                  className={`w-full mx-auto bg-white/70 backdrop-blur-md border rounded-[0.70vw] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex flex-col relative transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] ${isSelected
-                    ? 'border-[#5145F6]/50 ring-2 ring-[#5145F6]/15 bg-white/95 z-[50]'
-                    : 'border-white/40 hover:border-[#5145F6]/30 z-[10]'
+                  className={`w-full mx-auto bg-white border-[0.15vw] rounded-[0.8vw] overflow-hidden shadow-2xs flex flex-col relative transition-all duration-200 ${isSelected
+                    ? 'border-[#4D47FF] shadow-sm z-[50]'
+                    : 'border-gray-200 hover:border-gray-300 z-[10]'
                     }`}
                 >
 
@@ -2057,29 +2217,23 @@ const InteractionPanel = ({
                   <div className="flex flex-col">
                     {/* Top Row: Icon + Dropdowns (Clicking anywhere toggles open/close) */}
                     <div
-                      className="flex items-center justify-between gap-[0.8vw] py-[1.2vh] pl-[0.8vw] pr-[1.2vw] cursor-pointer select-none rounded-t-[0.70vw]"
+                      className="flex items-center justify-between gap-[0.8vw] py-[0.7vw] px-[0.8vw] cursor-pointer select-none rounded-t-[0.8vw]"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!isSelected) {
-                          setActiveLayerId(item.id);
-                          window.dispatchEvent(new CustomEvent('select-layer', {
-                            detail: { layerId: item.id }
-                          }));
-                        }
+                        selectItemAndHighlight();
 
-                        setCollapsedCardIds(prev => {
-                          const isNowCollapsed = !prev[item.id];
-                          if (isNowCollapsed && resolvedActionId === 'tooltip') {
-                            window.dispatchEvent(new CustomEvent('hide-tooltip-customization'));
-                          }
-                          return { ...prev, [item.id]: isNowCollapsed };
-                        });
+                        const nextExpandedId = isExpanded ? null : item.id;
+                        setExpandedCardId(nextExpandedId);
+
+                        if (isExpanded && resolvedActionId === 'tooltip') {
+                          window.dispatchEvent(new CustomEvent('hide-tooltip-customization'));
+                        }
                       }}
                     >
-                      <div className="flex items-center gap-[1.1vw]">
-                        {/* Touch Icon */}
-                        <div className="flex-shrink-0 text-gray-500 flex items-center pl-[0.6vw]">
-                          <Icon icon="hugeicons:touch-interaction-01" className="text-[1.3vw]" />
+                      <div className="flex items-center gap-[0.8vw]">
+                        {/* Dynamic Action Icon */}
+                        <div className="flex-shrink-0 text-[#4D47FF] flex items-center" title={currentAction?.label || 'Interaction'}>
+                          <Icon icon={currentAction?.icon || 'fluent:zoom-in-32-regular'} className="text-[1.15vw]" />
                         </div>
 
                         {/* Action selector dropdown */}
@@ -2097,24 +2251,26 @@ const InteractionPanel = ({
                           setTooltipSettingsOverrides={setTooltipSettingsOverrides}
                           isCollapsed={isCollapsed}
                           onExpandAccordion={() => {
-                            if (!isSelected) {
-                              setActiveLayerId(item.id);
-                              window.dispatchEvent(new CustomEvent('select-layer', {
-                                detail: { layerId: item.id }
-                              }));
-                            }
-                            setCollapsedCardIds(prev => ({ ...prev, [item.id]: false }));
+                            selectItemAndHighlight();
+                            setExpandedCardId(item.id);
                           }}
                         />
                       </div>
 
-                      {/* Collapse/Expand Toggle Chevron */}
-                      <div
-                        className={`flex-shrink-0 text-gray-800 hover:text-black transition-transform duration-200 p-[0.2vw] ${isCollapsed ? 'rotate-180' : ''}`}
-                      >
-                        <svg width="1.2vw" height="1.2vw" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="18 15 12 9 6 15"></polyline>
-                        </svg>
+                      <div className="flex items-center gap-[0.5vw]">
+                        {targetTypeBadge && (
+                          <span className={`text-[0.62vw] font-semibold px-[0.55vw] py-[0.12vw] rounded-full border leading-normal select-none ${targetTypeBadge.bg}`}>
+                            {targetTypeBadge.label}
+                          </span>
+                        )}
+
+                        {/* Collapse/Expand Toggle Chevron */}
+                        <div className="flex-shrink-0 text-gray-400 hover:text-gray-700 transition-colors p-[0.2vw]">
+                          <ChevronDown
+                            size="0.85vw"
+                            className={`transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -4145,21 +4301,21 @@ const InteractionPanel = ({
 
                                 return (
                                   <div className="flex flex-col w-full gap-[0.8vh]" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex flex-col gap-[0.3vh]">
-                                      <span className="text-[0.8vw] text-gray-800 font-normal select-none">{socialConfig.inputLabel}</span>
-                                      <div className={`w-full h-[4.5vh] border ${
+                                    <div className="flex flex-col gap-[0.4vw]">
+                                      <span className="text-[0.82vw] font-medium text-gray-800 whitespace-nowrap select-none">{socialConfig.inputLabel}</span>
+                                      <div className={`w-full h-[2vw] border ${
                                         isInvalid
-                                          ? 'border-[#EF4444]'
+                                          ? 'border-red-400'
                                           : isValidAndFilled
-                                          ? 'border-[#22C55E]'
-                                          : 'border-[#C5C5C5] hover:border-gray-400 focus-within:border-[#5145F6]'
-                                      } rounded-[0.5vw] flex items-center px-[0.8vw] bg-white overflow-hidden transition-colors shadow-sm relative`}>
-                                        <Icon icon={socialConfig.icon} className={`${socialConfig.iconColor} text-[1.2vw] flex-shrink-0 mr-[0.5vw]`} />
+                                          ? 'border-emerald-500'
+                                          : 'border-gray-300 hover:border-gray-400 focus-within:border-[#4D47FF]'
+                                      } rounded-[0.4vw] flex items-center px-[0.7vw] bg-white overflow-hidden transition-colors shadow-2xs relative`}>
+                                        <Icon icon={socialConfig.icon} className={`${socialConfig.iconColor} text-[1vw] flex-shrink-0 mr-[0.5vw]`} />
                                         <input
                                           type="text"
                                           placeholder={socialConfig.placeholder}
                                           value={currentRawVal}
-                                          className="flex-1 text-[0.85vw] text-gray-600 placeholder-gray-400 bg-transparent outline-none truncate font-medium pr-[1.8vw]"
+                                          className="flex-1 text-[0.8vw] font-medium text-gray-700 placeholder-gray-400 bg-transparent outline-none truncate pr-[1.8vw]"
                                           onChange={(e) => {
                                             const val = e.target.value;
                                             setLocalInputValues(prev => ({ ...prev, [item.id]: val }));
@@ -4170,26 +4326,26 @@ const InteractionPanel = ({
                                           }}
                                         />
                                         {isValidAndFilled && (
-                                          <div className="absolute right-[0.8vw] top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
-                                            <div className="w-[1vw] h-[1vw] bg-[#22C55E] rounded-full flex items-center justify-center">
-                                              <Icon icon="lucide:check" className="text-white text-[0.7vw]" strokeWidth="3" />
+                                          <div className="absolute right-[0.6vw] top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
+                                            <div className="w-[0.9vw] h-[0.9vw] bg-emerald-500 rounded-full flex items-center justify-center">
+                                              <Icon icon="lucide:check" className="text-white text-[0.65vw]" strokeWidth="3" />
                                             </div>
                                           </div>
                                         )}
                                       </div>
                                       {isInvalid && (
-                                        <div className="text-[#EF4444] text-[0.7vw] font-normal whitespace-nowrap pl-[0.2vw] pt-[0.2vh]">
+                                        <div className="text-red-500 text-[0.72vw] font-normal whitespace-nowrap pl-[0.2vw] pt-[0.1vw]">
                                           {socialConfig.errorMessage}
                                         </div>
                                       )}
                                       {isValidAndFilled && (
-                                        <div className="text-[#22C55E] text-[0.7vw] font-normal whitespace-nowrap pl-[0.2vw] pt-[0.2vh]">
+                                        <div className="text-emerald-600 text-[0.72vw] font-normal whitespace-nowrap pl-[0.2vw] pt-[0.1vw]">
                                           {socialConfig.successMessage}
                                         </div>
                                       )}
                                     </div>
-                                    <div className="flex flex-col gap-[0.2vh]">
-                                      <span className="text-[0.8vw] text-gray-800 font-normal select-none">Behavior</span>
+                                    <div className="flex flex-col gap-[0.4vw]">
+                                      <span className="text-[0.82vw] font-medium text-gray-800 whitespace-nowrap select-none">Behavior</span>
                                       <div className="relative w-full">
                                         {(() => {
                                           const behaviorDropId = `link-behavior-${item.id}`;
@@ -4200,7 +4356,7 @@ const InteractionPanel = ({
                                             <>
                                               <div
                                                 data-dropdown-trigger="true"
-                                                className={`w-full h-[4.5vh] border ${isBehaviorDropOpen ? 'border-[#5145F6]' : 'border-[#C5C5C5]'} rounded-[0.5vw] flex items-center justify-between px-[1vw] bg-white cursor-pointer select-none transition-colors shadow-sm hover:border-gray-400`}
+                                                className="w-full h-[2vw] px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:bg-gray-50 hover:border-gray-400 transition-colors flex items-center justify-between cursor-pointer select-none"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   if (!isBehaviorDropOpen) {
@@ -4211,18 +4367,18 @@ const InteractionPanel = ({
                                                   setOpenDropdownId(isBehaviorDropOpen ? null : behaviorDropId);
                                                 }}
                                               >
-                                                <span className="text-[0.85vw] text-gray-600 font-normal truncate">
+                                                <span className="text-[0.8vw] font-medium text-gray-700 truncate">
                                                   {currentBehavior === 'current' ? 'Open in - Current Tab' : 'Open in - New Tab'}
                                                 </span>
-                                                <Icon
-                                                  icon="lucide:chevron-down"
-                                                  className={`text-gray-500 text-[1vw] transition-transform duration-200 ${isBehaviorDropOpen ? 'rotate-180' : ''}`}
+                                                <ChevronDown
+                                                  size="0.8vw"
+                                                  className={`text-gray-400 transition-transform ${isBehaviorDropOpen ? 'rotate-180' : ''}`}
                                                 />
                                               </div>
                                               {isBehaviorDropOpen && (
-                                                <div data-dropdown-menu="true" className={`absolute left-0 z-[99999] w-full bg-white border border-gray-200 rounded-[0.6vw] shadow-lg py-[0.5vh] ${dropdownDirectionOverrides[behaviorDropId] === 'up' ? 'bottom-[calc(100%+0.4vh)] origin-bottom' : 'top-[calc(100%+0.4vh)] origin-top'}`}>
+                                                <div data-dropdown-menu="true" className={`absolute left-0 z-[100] w-full bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl overflow-hidden py-[0.25vw] animate-in fade-in zoom-in-95 duration-150 ${dropdownDirectionOverrides[behaviorDropId] === 'up' ? 'bottom-[calc(100%+0.3vw)] origin-bottom' : 'top-[calc(100%+0.3vw)] origin-top'}`}>
                                                   <div
-                                                    className={`px-[1vw] py-[0.8vh] text-[0.85vw] cursor-pointer transition-colors ${currentBehavior === 'current' ? 'bg-[#F1F5F9] text-gray-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'current' ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
                                                     onClick={(e) => {
                                                       e.stopPropagation();
                                                       setLinkBehaviorOverrides(prev => ({ ...prev, [item.id]: 'current' }));
@@ -4238,7 +4394,7 @@ const InteractionPanel = ({
                                                     Open in - Current Tab
                                                   </div>
                                                   <div
-                                                    className={`px-[1vw] py-[0.8vh] text-[0.85vw] cursor-pointer transition-colors ${currentBehavior === 'new' ? 'bg-[#F1F5F9] text-gray-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'new' ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
                                                     onClick={(e) => {
                                                       e.stopPropagation();
                                                       setLinkBehaviorOverrides(prev => ({ ...prev, [item.id]: 'new' }));
@@ -4633,7 +4789,7 @@ const InteractionPanel = ({
                         </div>
 
                         {/* Card Footer (Highlight Component & Trash) */}
-                        <div className={`bg-white/80 backdrop-blur-sm border-t border-gray-100/60 pl-[1.6vw] pr-[1.2vw] py-[1.8vh] flex items-center justify-between rounded-b-[0.70vw]`}>
+                        <div className="bg-gray-50/70 border-t border-gray-100 px-[0.8vw] py-[0.6vw] flex items-center justify-between rounded-b-[0.8vw]">
                           {(() => {
                             const isHotspotItem = Boolean(item.isHotspot || item.id?.toLowerCase().includes('hotspot'));
                             const isChecked = !isHotspotItem && (
@@ -4644,9 +4800,9 @@ const InteractionPanel = ({
 
                             return (
                               <div 
-                                className={`flex items-center gap-[0.6vw] select-none ${
+                                className={`flex items-center gap-[0.5vw] select-none ${
                                   isHotspotItem 
-                                    ? 'cursor-not-allowed opacity-90' 
+                                    ? 'cursor-not-allowed opacity-60' 
                                     : 'cursor-pointer group'
                                 }`}
                                 title={isHotspotItem ? 'Highlight interaction is disabled for hotspots' : undefined}
@@ -4668,23 +4824,23 @@ const InteractionPanel = ({
                                   }
                                 }}
                               >
-                                <div className={`w-[1.2vw] h-[1.2vw] flex-shrink-0 rounded-[0.25vw] flex items-center justify-center transition-colors ${
+                                <div className={`w-[1.1vw] h-[1.1vw] flex-shrink-0 rounded-[0.3vw] flex items-center justify-center transition-colors border ${
                                   isChecked
-                                    ? 'bg-[#5145F6]'
+                                    ? 'bg-[#4D47FF] border-[#4D47FF]'
                                     : isHotspotItem
-                                    ? 'border border-gray-300 bg-gray-100'
-                                    : 'border border-gray-300 bg-white group-hover:border-[#5145F6]'
+                                    ? 'border-gray-200 bg-gray-100'
+                                    : 'border-gray-300 bg-white group-hover:border-[#4D47FF]'
                                 }`}>
                                   {isChecked && (
-                                    <Icon icon="lucide:check" className="text-white text-[0.9vw]" strokeWidth="3" />
+                                    <Icon icon="lucide:check" className="text-white text-[0.8vw]" strokeWidth="3" />
                                   )}
                                 </div>
-                                <span className={`text-[0.85vw] font-medium transition-colors ${
+                                <span className={`text-[0.8vw] font-medium transition-colors ${
                                   isChecked
-                                    ? 'text-gray-600'
+                                    ? 'text-gray-700'
                                     : isHotspotItem
                                     ? 'text-gray-400'
-                                    : 'text-gray-400 group-hover:text-gray-600'
+                                    : 'text-gray-500 group-hover:text-gray-700'
                                 }`}>
                                   Highlight interaction in preview
                                 </span>
@@ -4709,6 +4865,17 @@ const InteractionPanel = ({
                               if ((isFreeFrame || isHotspot) && deleteLayer) {
                                 deleteLayer(targetIdx, item.id);
                               } else {
+                                if (frameEl) {
+                                  frameEl.removeAttribute('data-interaction');
+                                  frameEl.removeAttribute('data-interaction-value');
+                                  frameEl.removeAttribute('data-interaction-intent');
+                                  frameEl.removeAttribute('data-interaction-config');
+                                  frameEl.removeAttribute('data-interaction-popup-custom-html');
+                                  frameEl.removeAttribute('data-interaction-popup-animation');
+                                  frameEl.removeAttribute('data-interaction-popup-speed');
+                                  frameEl.removeAttribute('data-tooltip-settings');
+                                }
+
                                 if (updateElementAttribute) {
                                   updateElementAttribute(targetIdx, item.id, {
                                     'data-interaction': null,
@@ -4733,6 +4900,11 @@ const InteractionPanel = ({
                                 return next;
                               });
 
+                              // Fire event to notify listeners that interaction was removed
+                              window.dispatchEvent(new CustomEvent('interaction-removed', {
+                                detail: { id: item.id, pageIndex: targetIdx }
+                              }));
+
                               // Fire event to reset canvas badge visual state
                               window.dispatchEvent(new CustomEvent('update-interaction-badge', {
                                 detail: {
@@ -4741,9 +4913,16 @@ const InteractionPanel = ({
                                 }
                               }));
                             }}
-                            className="text-red-400 hover:text-red-600 transition-colors cursor-pointer flex items-center justify-center w-[1.8vw] h-[1.8vw] rounded-full hover:bg-red-50"
+                            className="w-[1.9vw] h-[1.9vw] bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-[0.4vw] border border-gray-300 shadow-2xs hover:border-red-200 flex items-center justify-center cursor-pointer transition-colors"
+                            title="Delete interaction"
                           >
-                            <Icon icon="material-symbols-light:delete-outline-rounded" className="text-[1.5vw]" />
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[0.85vw] h-[0.85vw]">
+                              <path d="M3 6h18"></path>
+                              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                              <line x1="10" y1="11" x2="10" y2="17"></line>
+                              <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
                           </button>
                         </div>
                       </motion.div>
@@ -4754,7 +4933,7 @@ const InteractionPanel = ({
             })
           ) : (
             <div className="text-center text-[0.8vw] text-gray-400 py-[2vh]">
-              Select an element to configure interactions
+              No interactions on this page
             </div>
           )}
 
