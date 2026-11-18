@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 
 const { authenticateUser, optionalAuth } = require('../middlewares/authMiddleware');
 const controller = require('../controllers/customizedEditorController');
@@ -12,7 +13,7 @@ const bookInfoController = require('../controllers/bookInfoController');
 // Multer upload config for memory buffer or temp upload
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 250 * 1024 * 1024 }, // 250MB
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     const allowed = [
@@ -29,6 +30,30 @@ const upload = multer({
   }
 });
 
+const { nanoid } = require('nanoid');
+const { TEMP_UPLOADS_DIR } = require('../services/resumableUploadService');
+
+// Direct streaming to disk storage (0MB RAM heap allocation, zero socket blocking)
+const docDiskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    try {
+      if (!fs.existsSync(TEMP_UPLOADS_DIR)) {
+        fs.mkdirSync(TEMP_UPLOADS_DIR, { recursive: true });
+      }
+    } catch (_) {}
+    cb(null, TEMP_UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.pdf';
+    cb(null, `direct_${nanoid(12)}_${Date.now()}${ext}`);
+  }
+});
+
+const directDocUpload = multer({
+  storage: docDiskStorage,
+  limits: { fileSize: 250 * 1024 * 1024 } // 250MB direct upload ceiling
+});
+
 const chunkUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB chunk ceiling
@@ -38,6 +63,35 @@ const chunkUpload = multer({
 const handleUpload = (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err) {
+      if (err.message === 'Request aborted' || req.aborted) {
+        return res.status(499).end();
+      }
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
+
+// Middleware to handle direct document upload error gracefully
+const handleDirectDocUpload = (req, res, next) => {
+  directDocUpload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.message === 'Request aborted' || req.aborted) {
+        return res.status(499).end();
+      }
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
+
+// Middleware to handle chunk upload error gracefully (e.g. client abort / tab close)
+const handleChunkUploadMiddleware = (req, res, next) => {
+  chunkUpload.single('chunk')(req, res, (err) => {
+    if (err) {
+      if (err.message === 'Request aborted' || req.aborted) {
+        return res.status(499).end();
+      }
       return res.status(400).json({ success: false, message: err.message });
     }
     next();
@@ -47,10 +101,14 @@ const handleUpload = (req, res, next) => {
 // ==========================================
 // 0. Resumable Chunked Ingestion & Redis Extraction Pipeline (10,000+ Pages)
 // ==========================================
-router.post('/upload-chunk', optionalAuth, chunkUpload.single('chunk'), resumableController.uploadChunk);
+router.post('/upload-document', optionalAuth, handleDirectDocUpload, resumableController.uploadDocument);
+router.post('/upload-chunk', optionalAuth, handleChunkUploadMiddleware, resumableController.uploadChunk);
+router.post('/upload-chunk-binary', optionalAuth, resumableController.uploadChunkBinary);
 router.get('/extract-stream/:jobId', optionalAuth, resumableController.extractStream);
 router.get('/job-status/:jobId', optionalAuth, resumableController.getJobStatus);
 router.get('/manifest/:userId/:bookId', optionalAuth, resumableController.getBookManifest);
+router.post('/upload-page-image', optionalAuth, upload.single('file'), resumableController.uploadPageImage);
+router.post('/finalize-edge-book', optionalAuth, resumableController.finalizeEdgeBook);
 
 // ==========================================
 // 1. Health & Auth Status

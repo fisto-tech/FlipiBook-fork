@@ -10,7 +10,7 @@ import {
   getSupabaseBaseUrl,
   resolveUploadsPath,
 } from "../../../utils/assetUtils";
-import { validateInteractions } from "./interactionValidation";
+import { validateInteractions } from "../Interaction/interactionValidation";
 import { useAuth } from "../../../context/AuthContext";
 import { normalizeForeignObjectNamespaces } from "../LeftActionMenu/Elements/utils/tableElementUtils";
 import { sanitizeSvgXml, safeSerializeSvg } from "../utils/editorUtils";
@@ -85,7 +85,7 @@ export const useSaveEngine = ({
         const liveSvg = container?.querySelector('[id^="canvas-content-"] svg') || container?.querySelector('svg:not([id^="highlight-overlay-"]):not(#marquee-selection-overlay)');
         if (liveSvg) {
           const clone = liveSvg.cloneNode(true);
-          clone.querySelectorAll('[data-highlight-id], .frame-boundary, #ghost-layer, .selection-overlay-layer, #vectra-overlay-group, #node-edit-overlay-group, [id="multi-selection-bounds"], .video-damage-rect, [class*="damage-rect"], [data-is-dummy="true"]').forEach(e => e.remove());
+          clone.querySelectorAll('[data-highlight-id], .frame-boundary, #ghost-layer, .selection-overlay-layer, #vectra-overlay-group, #node-edit-overlay-group, [id="multi-selection-bounds"], .video-damage-rect, [class*="damage-rect"], [data-is-dummy="true"], #temp-blink-clone, [id^="temp-blink-"]').forEach(e => e.remove());
           const serialized = safeSerializeSvg(clone);
           if (serialized && serialized.length > 50 && serialized.includes('<svg')) {
             pagesToSave[activePageIndex] = {

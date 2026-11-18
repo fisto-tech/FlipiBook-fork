@@ -14,11 +14,60 @@ try {
 class ExtractionQueueManager extends EventEmitter {
   constructor() {
     super();
+    this.instanceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     this.redis = initRedis();
+    this.subRedis = null;
     this.inMemoryJobs = new Map();
     this.activeWorkers = 0;
-    this.maxConcurrentWorkers = 4; // Caps CPU/RAM at predictable ceiling
+    this.maxConcurrentWorkers = 1; // Dedicate CPU to 1 extraction job at a time to keep Gateway 100% responsive
     this.pendingQueue = [];
+
+    this.setupRedisSubscriber();
+  }
+
+  /**
+   * Set up dedicated Redis subscriber for cross-instance Pub/Sub sync
+   */
+  setupRedisSubscriber() {
+    if (!this.redis || typeof this.redis.duplicate !== 'function') return;
+
+    try {
+      this.subRedis = this.redis.duplicate();
+      this.subRedis.on('error', () => {
+        // Silently handle subscriber connection errors without crashing
+      });
+
+      const subscribeToUpdates = () => {
+        this.subRedis.psubscribe('job:update:*', (err) => {
+          if (err) {
+            console.warn('[QueueManager] Redis psubscribe error:', err.message);
+          }
+        });
+      };
+
+      if (this.subRedis.status === 'ready') {
+        subscribeToUpdates();
+      } else {
+        this.subRedis.once('ready', subscribeToUpdates);
+      }
+
+      this.subRedis.on('pmessage', (pattern, channel, message) => {
+        try {
+          const payload = JSON.parse(message);
+          // Skip if this message originated from this instance to avoid duplicate emits
+          if (payload && payload.instanceId === this.instanceId) {
+            return;
+          }
+          const jobData = (payload && payload.data) ? payload.data : payload;
+          super.emit(channel, jobData);
+          super.emit('job:updated', jobData);
+        } catch (e) {
+          // Ignore invalid JSON payloads
+        }
+      });
+    } catch (err) {
+      console.warn('[QueueManager] Redis subscriber initialization failed:', err.message);
+    }
   }
 
   /**
@@ -85,6 +134,10 @@ class ExtractionQueueManager extends EventEmitter {
     if (this.redis) {
       try {
         await this.redis.set(`job:${jobId}`, JSON.stringify(merged), 'EX', 86400);
+        await this.redis.publish(`job:update:${jobId}`, JSON.stringify({
+          instanceId: this.instanceId,
+          data: merged
+        }));
       } catch (e) {}
     }
     this.inMemoryJobs.set(jobId, merged);

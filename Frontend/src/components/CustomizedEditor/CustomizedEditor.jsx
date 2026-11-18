@@ -488,6 +488,7 @@ const CustomizedEditor = () => {
     bookName,
     setBookName,
     setPages,
+    pages,
     setProjectBaseUrl,
     setLogoSettings,
     setWatermarkSettings,
@@ -623,11 +624,63 @@ const CustomizedEditor = () => {
         return [v.slice(0, i).trim(), v.slice(i + 1).trim()];
       })) : {}}
     >
-      <style>{`:root { ${layoutColorVars} }`}</style>
+      <style>{`
+        :root { ${layoutColorVars} }
+        .sub-panel-dark {
+          background-color: #1a2332 !important;
+          color: #f1f5f9 !important;
+        }
+        .sub-panel-dark > div {
+          background-color: #1a2332 !important;
+        }
+        .sub-panel-dark .bg-white {
+          background-color: #223044 !important;
+          border-color: #2c3d56 !important;
+          color: #f1f5f9 !important;
+        }
+        .sub-panel-dark .bg-gray-50,
+        .sub-panel-dark .bg-gray-50\\/50,
+        .sub-panel-dark .bg-gray-100 {
+          background-color: #16202e !important;
+          border-color: #26354a !important;
+        }
+        .sub-panel-dark .border-gray-100,
+        .sub-panel-dark .border-gray-200,
+        .sub-panel-dark .border-gray-300 {
+          border-color: #26354a !important;
+        }
+        .sub-panel-dark .text-gray-900,
+        .sub-panel-dark .text-gray-800,
+        .sub-panel-dark .text-black {
+          color: #ffffff !important;
+        }
+        .sub-panel-dark .text-gray-700,
+        .sub-panel-dark .text-gray-600 {
+          color: #cbd5e1 !important;
+        }
+        .sub-panel-dark .text-gray-500,
+        .sub-panel-dark .text-gray-400 {
+          color: #94a3b8 !important;
+        }
+        .sub-panel-dark .hover\\:bg-gray-50:hover,
+        .sub-panel-dark .hover\\:bg-gray-100:hover {
+          background-color: #28374d !important;
+        }
+        .sub-panel-dark input,
+        .sub-panel-dark select,
+        .sub-panel-dark textarea {
+          background-color: #16202e !important;
+          color: #ffffff !important;
+          border-color: #2c3d56 !important;
+        }
+        .sub-panel-dark input::placeholder {
+          color: #64748b !important;
+        }
+      `}</style>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main Sidebar - Always Visible */}
-        <div className="w-[16.25vw] h-full flex-shrink-0 bg-white shadow-xl z-20 relative border-r border-gray-100 overflow-visible">
+        <div className="w-[16.25vw] h-full flex-shrink-0 bg-[#151c28] shadow-xl z-20 relative border-r border-[#1f293d] overflow-visible">
           <Sidebar
             bookName={bookName}
             setBookName={setBookName}
@@ -645,24 +698,24 @@ const CustomizedEditor = () => {
 
         {/* Sub-side Panel (Detail View) - Opens next to Main Sidebar */}
         <div
-          className={`h-full bg-white shadow-lg z-10 border-r border-gray-100 transition-all duration-300 ease-in-out flex-shrink-0 ${
+          className={`h-full bg-[#1a2332] shadow-xl z-10 border-r border-[#26354a] transition-all duration-300 ease-in-out flex-shrink-0 ${
             activeSubView && !isPanelCollapsed
               ? 'w-[21.25vw] opacity-100 translate-x-0 overflow-visible'
               : 'w-0 opacity-0 -translate-x-full pointer-events-none overflow-hidden'
           }`}
         >
-          <div className="w-[21vw] h-full flex flex-col overflow-visible">
+          <div className="w-[21vw] h-full flex flex-col overflow-visible bg-[#1a2332] sub-panel-dark">
             {isLoading ? (
               <div className="p-[1.2vw] flex flex-col gap-[1vw] animate-pulse">
                 <div className="flex items-center gap-[0.8vw]">
-                  <div className="w-[1.5vw] h-[1.5vw] bg-gray-200/80 rounded-[0.4vw]"></div>
-                  <div className="h-[1vw] bg-gray-200/80 rounded-[0.3vw] w-1/2"></div>
+                  <div className="w-[1.5vw] h-[1.5vw] bg-[#28374d] rounded-[0.4vw]"></div>
+                  <div className="h-[1vw] bg-[#28374d] rounded-[0.3vw] w-1/2"></div>
                 </div>
-                <div className="h-[1px] bg-gray-100 my-[0.4vw]"></div>
+                <div className="h-[1px] bg-[#26354a] my-[0.4vw]"></div>
                 <div className="flex flex-col gap-[0.8vw]">
-                  <div className="h-[2vw] bg-gray-100/80 rounded-[0.5vw] w-full"></div>
-                  <div className="h-[2vw] bg-gray-100/80 rounded-[0.5vw] w-full"></div>
-                  <div className="h-[4vw] bg-gray-100/80 rounded-[0.5vw] w-full"></div>
+                  <div className="h-[2vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
+                  <div className="h-[2vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
+                  <div className="h-[4vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
                 </div>
               </div>
             ) : (
@@ -802,6 +855,7 @@ const CustomizedEditor = () => {
             bookName={bookName}
             pages={visiblePages}
             targetPage={targetPage}
+            onFlip={setTargetPage}
             logoSettings={logoSettings}
             watermarkSettings={watermarkSettings}
             backgroundSettings={backgroundSettings}

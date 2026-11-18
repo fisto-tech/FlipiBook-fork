@@ -826,7 +826,7 @@ export default function FlipbooksSidebar({
                         {/* Shelf Folders Header */}
                         <div className="flex items-center justify-between mb-[0.75vw] flex-none px-[0.2vw]">
                             <span className="text-[0.95vw] font-bold text-white">
-                                Shelf Folders
+                                Shelf List
                             </span>
                             <button
                                 type="button"

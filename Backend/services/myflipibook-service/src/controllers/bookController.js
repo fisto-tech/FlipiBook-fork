@@ -210,20 +210,31 @@ const formatBook = (doc, settingsDoc = null, currentUserId = null, folderMap = n
   const s = settingsDoc || doc.Customized_Settings || {};
   const bookVId = doc.book_v_id || doc.v_id;
 
+  // Normalize tokens of the requesting user (objectId, email, customUserId)
+  const tokensToCheck = Array.isArray(currentUserId)
+    ? currentUserId.map(t => String(t).trim().toLowerCase())
+    : (currentUserId ? [String(currentUserId).trim().toLowerCase()] : []);
+
+  // Determine if requesting user is the owner
   const isOwner = Boolean(
-    currentUserId && (
-      (doc.userObjectID && String(doc.userObjectID) === String(currentUserId)) ||
-      (doc.userID && String(doc.userID) === String(currentUserId))
+    tokensToCheck.length > 0 && (
+      (doc.userObjectID && tokensToCheck.includes(String(doc.userObjectID).toLowerCase())) ||
+      (doc.userID && tokensToCheck.includes(String(doc.userID).toLowerCase())) ||
+      (doc.userEmail && tokensToCheck.includes(String(doc.userEmail).trim().toLowerCase())) ||
+      (doc.emailId && tokensToCheck.includes(String(doc.emailId).trim().toLowerCase()))
     )
   );
 
   const cleanFavList = Array.isArray(doc.isFavorite)
     ? doc.isFavorite.filter(u => u && u !== false && String(u) !== 'false' && String(u) !== '[ false ]')
     : [];
+
+  // A user can NEVER favorite their own book.
+  // For other users' books, it's only a favorite if THIS requesting user's token is in the book's isFavorite list.
   const isFav = isOwner ? false : (
-    Array.isArray(doc.isFavorite)
-      ? (currentUserId ? cleanFavList.some(u => String(u) === String(currentUserId)) : cleanFavList.length > 0)
-      : (typeof doc.isFavorite === 'boolean' && !isOwner ? doc.isFavorite : false)
+    tokensToCheck.length > 0
+      ? cleanFavList.some(u => tokensToCheck.includes(String(u).trim().toLowerCase()))
+      : false
   );
 
   const extractedPagesSize = Array.isArray(doc.pages)
@@ -421,7 +432,14 @@ exports.getBooks = async (req, res) => {
       }
     }
 
-    const physicalBooks = rawBooks.map((b) => formatBook(b, settingsMap.get(b.v_id) || {}, null, folderMap, reverseFolderMap));
+    const auth = getAuthUser(req);
+    const userTokens = [
+      auth.objectId ? auth.objectId.toString() : null,
+      auth.emailId ? auth.emailId.trim().toLowerCase() : null,
+      auth.customUserId || null
+    ].filter(Boolean);
+
+    const physicalBooks = rawBooks.map((b) => formatBook(b, settingsMap.get(b.v_id) || {}, userTokens, folderMap, reverseFolderMap));
 
     const hasRecentTag = (doc) => {
       if (doc.trash) return false;
@@ -447,7 +465,7 @@ exports.getBooks = async (req, res) => {
     );
 
     const recentBooks = recentDocs.map((doc) => {
-      const base = formatBook(doc, settingsMap.get(doc.v_id) || {}, null, folderMap, reverseFolderMap);
+      const base = formatBook(doc, settingsMap.get(doc.v_id) || {}, userTokens, folderMap, reverseFolderMap);
       return {
         ...base,
         id: `Recent_${doc.v_id || doc._id.toString()}`,
@@ -461,13 +479,6 @@ exports.getBooks = async (req, res) => {
     });
 
     // Fetch other customers' books that this user has favorited
-    const auth = getAuthUser(req);
-    const userTokens = [
-      auth.objectId ? auth.objectId.toString() : null,
-      auth.emailId ? auth.emailId.trim().toLowerCase() : null,
-      auth.customUserId || null
-    ].filter(Boolean);
-
     let favoriteOtherBooks = [];
     if (userTokens.length > 0) {
       const favQuery = {
@@ -476,6 +487,10 @@ exports.getBooks = async (req, res) => {
       };
       if (auth.objectId) favQuery.userObjectID = { $ne: auth.objectId };
       if (auth.customUserId) favQuery.userID = { $ne: auth.customUserId };
+      if (auth.emailId) {
+        favQuery.userEmail = { $ne: auth.emailId.trim().toLowerCase() };
+        favQuery.emailId = { $ne: auth.emailId.trim().toLowerCase() };
+      }
 
       try {
         const favDocs = await Flipbook.find(favQuery).lean();
@@ -491,7 +506,7 @@ exports.getBooks = async (req, res) => {
           }
 
           favoriteOtherBooks = favDocs.map((doc) => {
-            const base = formatBook(doc, favSettingsMap.get(doc.v_id) || {}, null, null, null);
+            const base = formatBook(doc, favSettingsMap.get(doc.v_id) || {}, userTokens, null, null);
             return {
               ...base,
               folder: "Favorites",
@@ -2314,11 +2329,9 @@ exports.savePagesBatch = async (req, res) => {
     book.fileSize = resolvedBatchFileSize;
     book.lastUpdated = new Date();
 
-    try {
-      await book.save();
-    } catch (saveErr) {
-      if (saveErr.name === "VersionError" || saveErr.message?.includes("No matching document found")) {
-        console.warn(`[Book Controller] Version conflict in savePagesBatch for book ${book._id}. Performing atomic update fallback...`);
+    // Persist pages and metadata via atomic update with retry to eliminate TLS/SSL socket drops (alert 80)
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
         await Flipbook.updateOne(
           { _id: book._id },
           {
@@ -2329,10 +2342,18 @@ exports.savePagesBatch = async (req, res) => {
             }
           }
         );
-        const freshBook = await Flipbook.findById(book._id);
-        if (freshBook) book = freshBook;
-      } else {
-        throw saveErr;
+        break;
+      } catch (saveErr) {
+        console.warn(`[Book Controller] Retry ${attempt}/3 updating flipbook pages batch due to:`, saveErr.message);
+        if (attempt === 3) {
+          try {
+            await book.save();
+          } catch (finalErr) {
+            throw saveErr;
+          }
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+        }
       }
     }
 
@@ -2838,14 +2859,14 @@ exports.getBook = async (req, res) => {
           hide: 0
         };
       });
-      // Update MongoDB asynchronously with complete page count
-      Flipbook.updateOne({ _id: book._id }, { $set: { pagesCount: sortedRawPages.length } }).catch(() => {});
+      // Update MongoDB asynchronously with complete pages array and count
+      Flipbook.updateOne({ _id: book._id }, { $set: { pages: sortedRawPages, pagesCount: sortedRawPages.length } }).catch(() => {});
     }
     const populatedPages = await Promise.all(sortedRawPages.map(async (p) => {
       const pageObj = p.toObject ? p.toObject() : { ...p };
       let pageContent = "";
 
-      // MUST load page data directly from local storage file on disk first
+      // MUST load page data directly from local storage file on disk first (text markup files only)
       for (const candDir of dirsToSearch) {
         const candidateFiles = [
           pageObj.fileName
@@ -2861,8 +2882,12 @@ exports.getBook = async (req, res) => {
 
         for (const fPath of candidateFiles) {
           try {
+            // NEVER read binary image files as UTF-8 text! (e.g. .webp, .png, .jpg)
+            if (/\.(webp|png|jpe?g|gif|bmp|ico)$/i.test(fPath)) {
+              continue;
+            }
             const str = await fs.promises.readFile(fPath, "utf8");
-            if (str && str.trim()) {
+            if (str && str.trim() && !str.startsWith("RIFF")) {
               pageContent = str;
               break;
             }
@@ -2872,8 +2897,19 @@ exports.getBook = async (req, res) => {
       }
 
       // Fallback to MongoDB only if local storage file does not exist
-      if (!pageContent) {
+      if (!pageContent || pageContent.startsWith("RIFF")) {
         pageContent = pageObj.content || pageObj.html || "";
+      }
+
+      // If pageContent was corrupted with raw RIFF or empty, wrap image in SVG cleanly
+      if (!pageContent || pageContent.startsWith("RIFF")) {
+        const imageFile = pageObj.fileName && /\.(webp|png|jpe?g)$/i.test(pageObj.fileName)
+          ? pageObj.fileName
+          : `${pageObj.pageNumber}.webp`;
+        const webpRel = pageObj.imageUrl || `/storage/${book.userID || customUserId || 'FLIPI0001'}/books/${book.v_id}/pages/${imageFile}`;
+        const w = (book.meta && book.meta.width) || 210;
+        const h = (book.meta && book.meta.height) || 297;
+        pageContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${pageObj.pageNumber}" data-name="Page ${pageObj.pageNumber}"><image id="img-page-${pageObj.pageNumber}" x="0" y="0" width="${w}" height="${h}" href="${webpRel}" xlink:href="${webpRel}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
       }
 
       const cleanName = String(pageObj.name || "")

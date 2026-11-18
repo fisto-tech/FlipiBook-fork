@@ -23,9 +23,9 @@ import {
   GroupProperties,
   UploadProperties
 } from '../properties';
-import AnimationPanel from './AnimationPanel';
-import InteractionPanel from './InteractionPanel';
-import PopupTemplateSelection from '../modals/PopupTemplateSelection';
+import AnimationPanel from '../Animation';
+import InteractionPanel from '../Interaction';
+import PopupTemplateSelection from '../Interaction/PopupTemplateSelection';
 import CustomScrollbar from '../../CustomScrollbar';
 import { useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -932,6 +932,8 @@ const RightSidebar = ({
                   selectedElementProps={selectedElementProps}
                   activePageIndex={activePageIndex}
                   selectedLayerId={selectedLayerId}
+                  setSelectedLayerId={setSelectedLayerId}
+                  setMultiSelectedIds={setMultiSelectedIds}
                   updateElementAttribute={updateElementAttribute}
                   deleteLayer={deleteLayer}
                   pages={pages}
@@ -1155,15 +1157,46 @@ const RightSidebar = ({
                           onUpdate={(newHtml) => {
                             window.__skipCanvasUpdateForPage = activePageIndex;
                             const editorDoc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
-                            const el = editorDoc.getElementById(selectedLayerId);
+                            const el = editorDoc.getElementById(selectedLayerId) || document.getElementById(selectedLayerId);
                             const targetEl = el?.closest?.('[data-type="map"], g[id^="map-"]') || el;
                             if (targetEl && newHtml) {
                               const parser = new DOMParser();
                               const parsedDoc = parser.parseFromString(newHtml, 'text/html');
+                              const parsedGroup = parsedDoc.querySelector('[data-type="map"], g[id^="map-"]') || parsedDoc.body.firstElementChild;
+                              if (parsedGroup && targetEl) {
+                                Array.from(parsedGroup.attributes).forEach(attr => {
+                                  targetEl.setAttribute(attr.name, attr.value);
+                                });
+                              }
                               const freshContainer = parsedDoc.querySelector('.map-root-container');
                               const currentContainer = targetEl.querySelector('.map-root-container');
                               if (freshContainer && currentContainer) {
-                                currentContainer.innerHTML = freshContainer.innerHTML;
+                                const freshOverlay = freshContainer.querySelector('.map-overlay-wrapper');
+                                const currentOverlay = currentContainer.querySelector('.map-overlay-wrapper');
+                                const freshIframe = freshContainer.querySelector('iframe');
+                                const currentIframe = currentContainer.querySelector('iframe');
+                                if (freshIframe && currentIframe) {
+                                  const freshSrc = (freshIframe.getAttribute('src') || '').replace(/&amp;/g, '&');
+                                  const currSrc = (currentIframe.getAttribute('src') || '').replace(/&amp;/g, '&');
+                                  let activeIframe = currentIframe;
+                                  if (freshSrc !== currSrc) {
+                                    const newIframe = currentIframe.cloneNode(true);
+                                    newIframe.setAttribute('src', freshIframe.getAttribute('src'));
+                                    newIframe.src = freshSrc;
+                                    currentIframe.parentNode.replaceChild(newIframe, currentIframe);
+                                    activeIframe = newIframe;
+                                  }
+                                  const filterStyle = freshIframe.getAttribute('style') || '';
+                                  if (activeIframe.getAttribute('style') !== filterStyle) {
+                                    activeIframe.setAttribute('style', filterStyle);
+                                    activeIframe.style.filter = freshIframe.style.filter || '';
+                                  }
+                                }
+                                if (freshOverlay && currentOverlay) {
+                                  currentOverlay.innerHTML = freshOverlay.innerHTML;
+                                } else {
+                                  currentContainer.innerHTML = freshContainer.innerHTML;
+                                }
                               }
                             }
                             const svgRoot = (() => {
@@ -1523,39 +1556,45 @@ const RightSidebar = ({
             </CustomScrollbar>
           )
         ) : activeTopTool === 'interaction' ? (
-          <InteractionPanel
-            selectedElementProps={selectedElementProps}
-            activePageIndex={activePageIndex}
-            selectedLayerId={selectedLayerId}
-            updateElementAttribute={updateElementAttribute}
-            deleteLayer={deleteLayer}
-            pages={pages}
-            flipbookDimensions={flipbookDimensions}
-            onCustomizePopup={onCustomizePopup}
-            setIs3DModalOpen={setIs3DModalOpen}
-            setCurrent3DItem={setCurrent3DItem}
-            v_id={effectiveVId}
-            folderName={effectiveFolder}
-            flipbookName={effectiveBook}
-          />
+          <div className="flex-1 flex flex-col min-h-0 h-full overflow-y-auto no-scrollbar bg-[#fbfbfb]">
+            <InteractionPanel
+              selectedElementProps={selectedElementProps}
+              activePageIndex={activePageIndex}
+              selectedLayerId={selectedLayerId}
+              setSelectedLayerId={setSelectedLayerId}
+              setMultiSelectedIds={setMultiSelectedIds}
+              updateElementAttribute={updateElementAttribute}
+              deleteLayer={deleteLayer}
+              pages={pages}
+              flipbookDimensions={flipbookDimensions}
+              onCustomizePopup={onCustomizePopup}
+              setIs3DModalOpen={setIs3DModalOpen}
+              setCurrent3DItem={setCurrent3DItem}
+              v_id={effectiveVId}
+              folderName={effectiveFolder}
+              flipbookName={effectiveBook}
+            />
+          </div>
 
         ) : (
           /* Animation Mode */
-          <CustomScrollbar
-            color="#d1d5db"
-            hoverColor="#9ca3af"
-            width="0.12vw"
-            className="flex-1 flex flex-col p-[1.5vw]"
-          >
+          <div className="flex-1 flex flex-col min-h-0 h-full overflow-hidden">
             <AnimationPanel
               selectedElementProps={selectedElementProps}
               flipbookDimensions={flipbookDimensions}
               selectedLayerId={selectedLayerId}
+              setSelectedLayerId={setSelectedLayerId}
               selectedElement={(() => {
                 if (!selectedLayerId) return null;
                 const container = document.querySelector(`.page-svg-container [id="${selectedLayerId}"]`);
-                if (container) return container;
-                return document.getElementById(selectedLayerId) || null;
+                const el = container || document.getElementById(selectedLayerId) || null;
+                if (!el) return null;
+                const name = el.getAttribute('data-name') || '';
+                const id = el.id || '';
+                if (el.getAttribute('data-type') === 'frame' || /^(page|slide)\s*\d+/i.test(name) || /^(page|slide)-/i.test(id) || name === 'Overlay' || id === 'Overlay') {
+                  return null;
+                }
+                return el;
               })()}
               onUpdate={(elementId, attr, value) => {
                 if (elementId && attr) {
@@ -1563,7 +1602,7 @@ const RightSidebar = ({
                 }
               }}
             />
-          </CustomScrollbar>
+          </div>
         )}
       </div>
     </div>

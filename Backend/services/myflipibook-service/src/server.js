@@ -49,8 +49,8 @@ app.use(cors({
 }));
 
 app.use(cookieParser());
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '250mb' }));
+app.use(express.urlencoded({ limit: '250mb', extended: true }));
 
 const fs = require('fs');
 const { getStorageRoot } = require('./utils/storageHelper');
@@ -61,7 +61,7 @@ app.get('/health', (req, res) => {
 });
 
 // Static storage serving with fallback across user folder aliases (e.g. FLIPI0001 vs sanitizedEmail)
-const storageStaticMiddleware = (req, res, next) => {
+const storageStaticMiddleware = async (req, res, next) => {
   const storageRoot = getStorageRoot();
   const relPath = decodeURIComponent(req.path.replace(/^\/+/, ''));
   const directPath = path.join(storageRoot, relPath);
@@ -109,19 +109,17 @@ const storageStaticMiddleware = (req, res, next) => {
       if (targetPagesDir) {
         const targetFilePath = path.join(targetPagesDir, fileName);
         const startTime = Date.now();
-        while (Date.now() - startTime < 8000) {
+        while (Date.now() - startTime < 1500) {
           if (fs.existsSync(targetFilePath)) {
             return res.sendFile(targetFilePath);
           }
-          const waitSync = (ms) => {
-            const end = Date.now() + ms;
-            while (Date.now() < end) {}
-          };
-          waitSync(200);
+          await new Promise(r => setTimeout(r, 150));
         }
         if (fs.existsSync(targetFilePath)) {
           return res.sendFile(targetFilePath);
         }
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.status(404).json({ error: 'Page asset still generating', pageNum, inProgress: true });
       }
     } catch (e) {}
   }
@@ -183,6 +181,15 @@ app.use('/api/profile', shelfRoutes);
 app.use('/profile', shelfRoutes);
 app.use('/', userSettingRoutes);
 app.use('/', myflipibookRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  if (err.type === 'request.aborted' || err.message === 'Request aborted' || err.message === 'request aborted' || req.aborted) {
+    return res.status(499).end();
+  }
+  console.error('[FLIPBOOK Error]:', err.message);
+  res.status(err.status || 500).json({ success: false, message: err.message });
+});
 
 // Fallback 404
 app.use((req, res) => {
