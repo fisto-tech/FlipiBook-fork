@@ -172,7 +172,7 @@ const HotspotPresetPopup = ({ onClose, onSelectPreset }) => {
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-[2.2vw] pl-[1.8vw] pr-[0.6vw] bg-white border border-gray-300 rounded-[0.55vw] text-[0.8vw] font-medium text-gray-700 shadow-2xs hover:border-gray-400 focus:outline-none focus:border-[#4D47FF] transition-colors"
+            className="w-full h-[2.2vw] pl-[1.8vw] pr-[0.6vw] bg-white border border-gray-300 rounded-[0.55vw] text-[0.8vw] font-medium text-gray-700 shadow-2xs hover:border-gray-400 focus:outline-none focus:border-[#EC5137] transition-colors"
           />
         </div>
         {onClose && (

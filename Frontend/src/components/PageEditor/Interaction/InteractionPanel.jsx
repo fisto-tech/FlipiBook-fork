@@ -705,7 +705,7 @@ const ActionDropdown = ({ item, currentAction, actionTypes, isDropdownOpen, setO
           {actionLabel}
         </span>
         {!isLocked && !isCollapsed && (
-          <svg width="0.75vw" height="0.75vw" viewBox="0 0 24 24" fill="none" className="stroke-gray-400 hover:stroke-[#4D47FF] transition-colors flex-shrink-0 ml-[0.1vw]" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="0.75vw" height="0.75vw" viewBox="0 0 24 24" fill="none" className="stroke-gray-400 hover:stroke-[#EC5137] transition-colors flex-shrink-0 ml-[0.1vw]" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 7h16M16 3l4 4-4 4M20 17H4M8 13l-4 4 4 4" />
           </svg>
         )}
@@ -721,7 +721,7 @@ const ActionDropdown = ({ item, currentAction, actionTypes, isDropdownOpen, setO
             <div
               key={action.id}
               className={`flex items-center gap-[0.5vw] px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium transition-colors text-left cursor-pointer ${
-                action.id === currentAction.id ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                action.id === currentAction.id ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -2224,16 +2224,16 @@ const InteractionPanel = ({
 
       {/* Selected Element Interaction Status Card (ONLY if selected AND not added yet, hidden for converted documents and audio elements) */}
       {!isConvertedDocument && isRealElementSelected && !isAudioElementSelected && !hasInteraction && (
-        <div className="p-[0.7vw] rounded-[0.8vw] border-[0.15vw] border-indigo-200 bg-indigo-50/60 shadow-2xs flex items-center justify-between gap-[0.6vw]">
+        <div className="p-[0.7vw] rounded-[0.8vw] border-[0.15vw] border-[#EC5137]/30 bg-[#EC5137]/10 shadow-2xs flex items-center justify-between gap-[0.6vw]">
           <div className="flex items-center gap-[0.6vw] min-w-0 flex-1">
-            <div className="w-[2vw] h-[2vw] rounded-[0.4vw] flex items-center justify-center flex-shrink-0 bg-indigo-100 text-[#4D47FF]">
+            <div className="w-[2vw] h-[2vw] rounded-[0.4vw] flex items-center justify-center flex-shrink-0 bg-[#EC5137]/15 text-[#EC5137]">
               <Icon icon="hugeicons:touch-interaction-01" width="1.15vw" height="1.15vw" />
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-[0.8vw] font-semibold text-gray-900 truncate" title={selectedElName}>
                 {selectedElName}
               </span>
-              <span className="text-[0.68vw] font-medium text-[#4D47FF]">
+              <span className="text-[0.68vw] font-medium text-[#EC5137]">
                 No interaction added
               </span>
             </div>
@@ -2241,7 +2241,7 @@ const InteractionPanel = ({
 
           <button
             onClick={handleAddInteractionToSelected}
-            className="flex-shrink-0 h-[1.9vw] px-[0.7vw] bg-[#4D47FF] hover:bg-[#3d36e8] text-white rounded-[0.4vw] text-[0.75vw] font-semibold flex items-center gap-[0.3vw] shadow-sm transition-all cursor-pointer hover:shadow"
+            className="flex-shrink-0 h-[1.9vw] px-[0.7vw] bg-[#EC5137] hover:bg-[#d6442c] text-white rounded-[0.4vw] text-[0.75vw] font-semibold flex items-center gap-[0.3vw] shadow-sm transition-all cursor-pointer hover:shadow"
           >
             <Icon icon="lucide:plus" width="0.85vw" height="0.85vw" />
             Click to Add Interaction
@@ -2321,7 +2321,7 @@ const InteractionPanel = ({
                     isLocked
                       ? 'border-gray-200 bg-gray-50/70 opacity-60 cursor-not-allowed pointer-events-none'
                       : isSelected
-                      ? 'border-[#4D47FF] shadow-sm z-[50]'
+                      ? 'border-[#EC5137] shadow-sm z-[50]'
                       : 'border-gray-200 hover:border-gray-300 z-[10]'
                   }`}
                 >
@@ -2348,7 +2348,7 @@ const InteractionPanel = ({
                     >
                       <div className="flex items-center gap-[0.8vw]">
                         {/* Dynamic Action Icon */}
-                        <div className="flex-shrink-0 text-[#4D47FF] flex items-center" title={currentAction?.label || 'Interaction'}>
+                        <div className="flex-shrink-0 text-[#EC5137] flex items-center" title={currentAction?.label || 'Interaction'}>
                           <Icon icon={currentAction?.icon || 'fluent:zoom-in-32-regular'} className="text-[1.15vw]" />
                         </div>
 
@@ -4430,7 +4430,7 @@ const InteractionPanel = ({
                                           ? 'border-red-400'
                                           : isValidAndFilled
                                           ? 'border-emerald-500'
-                                          : 'border-gray-300 hover:border-gray-400 focus-within:border-[#4D47FF]'
+                                          : 'border-gray-300 hover:border-gray-400 focus-within:border-[#EC5137]'
                                       } rounded-[0.4vw] flex items-center px-[0.7vw] bg-white overflow-hidden transition-colors shadow-2xs relative`}>
                                         <Icon icon={socialConfig.icon} className={`${socialConfig.iconColor} text-[1vw] flex-shrink-0 mr-[0.5vw]`} />
                                         <input
@@ -4500,7 +4500,7 @@ const InteractionPanel = ({
                                               {isBehaviorDropOpen && (
                                                 <div data-dropdown-menu="true" className={`absolute left-0 z-[100] w-full bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl overflow-hidden py-[0.25vw] animate-in fade-in zoom-in-95 duration-150 ${dropdownDirectionOverrides[behaviorDropId] === 'up' ? 'bottom-[calc(100%+0.3vw)] origin-bottom' : 'top-[calc(100%+0.3vw)] origin-top'}`}>
                                                   <div
-                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'current' ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
+                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'current' ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
                                                     onClick={(e) => {
                                                       e.stopPropagation();
                                                       setLinkBehaviorOverrides(prev => ({ ...prev, [item.id]: 'current' }));
@@ -4516,7 +4516,7 @@ const InteractionPanel = ({
                                                     Open in - Current Tab
                                                   </div>
                                                   <div
-                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'new' ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
+                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'new' ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
                                                     onClick={(e) => {
                                                       e.stopPropagation();
                                                       setLinkBehaviorOverrides(prev => ({ ...prev, [item.id]: 'new' }));
@@ -4948,10 +4948,10 @@ const InteractionPanel = ({
                               >
                                 <div className={`w-[1.1vw] h-[1.1vw] flex-shrink-0 rounded-[0.3vw] flex items-center justify-center transition-colors border ${
                                   isChecked
-                                    ? 'bg-[#4D47FF] border-[#4D47FF]'
+                                    ? 'bg-[#EC5137] border-[#EC5137]'
                                     : isHotspotItem
                                     ? 'border-gray-200 bg-gray-100'
-                                    : 'border-gray-300 bg-white group-hover:border-[#4D47FF]'
+                                    : 'border-gray-300 bg-white group-hover:border-[#EC5137]'
                                 }`}>
                                   {isChecked && (
                                     <Icon icon="lucide:check" className="text-white text-[0.8vw]" strokeWidth="3" />
