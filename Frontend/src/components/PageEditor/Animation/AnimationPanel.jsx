@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 // Text-effects engine added in the new AnimationRunner (adjust path if the file lives elsewhere)
 import { initTextEffectsRunner } from './AnimationRunner';
@@ -10,6 +10,7 @@ import {
   X,
   ScanEye
 } from 'lucide-react';
+import CustomScrollbar from '../../CustomScrollbar';
 
 /* -------------------------------------------------------------------------- */
 /*                                CONSTANTS                                   */
@@ -99,7 +100,7 @@ const WAAPI_ANIMATIONS = {
   'glitch': [{ translate: '0' }, { translate: '-2px 2px', offset: 0.2 }, { translate: '2px -2px', offset: 0.4 }, { translate: '-2px 2px', offset: 0.6 }, { translate: '2px -2px', offset: 0.8 }, { translate: '0' }],
 };
 
-const ANIMATION_GALLERY_ITEMS = [
+const BASE_ANIMATION_GALLERY_ITEMS = [
   { id: 'none', label: 'None', icon: 'None' },
   { id: 'fade-in', label: 'Fade In', icon: 'Bars' },
   { id: 'fade-out', label: 'Fade Out', icon: 'Bars' },
@@ -296,7 +297,10 @@ const EXTRA_GALLERY_ITEMS = [
 
 Object.assign(WAAPI_ANIMATIONS, EXTRA_WAAPI_ANIMATIONS);
 Object.assign(ANIMATION_VARIANTS, EXTRA_ANIMATION_VARIANTS);
-ANIMATION_GALLERY_ITEMS.push(...EXTRA_GALLERY_ITEMS);
+const ANIMATION_GALLERY_ITEMS = [
+  ...BASE_ANIMATION_GALLERY_ITEMS,
+  ...EXTRA_GALLERY_ITEMS
+];
 /* ===== END EXTRA ELEMENT ANIMATIONS ===== */
 
 const EASING_OPTIONS = [
@@ -416,28 +420,139 @@ const isPlainSvgText = (el) =>
   !!el && el.namespaceURI === 'http://www.w3.org/2000/svg' &&
   !el.closest?.('foreignObject') && !el.querySelector?.('foreignObject');
 
+// Detect if an element is a text element (supports Text Effects)
+const isTextElement = (el) => {
+  if (!el) return false;
+  // If element already has text effect set, treat as text
+  if (el.hasAttribute?.('data-text-effect') && el.getAttribute?.('data-text-effect') !== 'none') return true;
+
+  const tag = el.tagName?.toLowerCase() || '';
+  const dataType = (el.getAttribute?.('data-type') || '').toLowerCase();
+  const dataSubtopic = (el.getAttribute?.('data-subtopic') || '').toLowerCase();
+  const id = (el.id || '').toLowerCase();
+  const dataName = (el.getAttribute?.('data-name') || '').toLowerCase();
+
+  // Explicit non-text element tags (shapes, media, containers)
+  if (['circle', 'rect', 'ellipse', 'polygon', 'polyline', 'line', 'path', 'image', 'img', 'video', 'audio', 'canvas'].includes(tag)) {
+    return false;
+  }
+
+  // Explicit non-text data types
+  if (dataType && ['image', 'video', 'audio', 'icon', 'shape', 'button', 'qrcode', 'table', 'embed', 'map', 'slideshow', 'hotspot', 'vector-path'].includes(dataType)) {
+    return false;
+  }
+
+  // Component shape/button flags or IDs
+  if (
+    el.getAttribute?.('data-is-element-shape') === 'true' ||
+    el.getAttribute?.('data-is-shape') === 'true' ||
+    el.getAttribute?.('data-is-element-button') === 'true' ||
+    el.getAttribute?.('data-is-button') === 'true' ||
+    id.startsWith('button-') ||
+    id.startsWith('shape-') ||
+    id.startsWith('circle-') ||
+    id.startsWith('rect-')
+  ) {
+    return false;
+  }
+
+  // Explicit text element tags & types
+  if (tag === 'text' || tag === 'tspan') return true;
+  if (dataType === 'text') return true;
+  if (dataSubtopic === 'text' || dataSubtopic === 'typography') return true;
+  if (el.getAttribute?.('data-is-element-typography') === 'true') return true;
+
+  // foreignObject (HTML text container)
+  if (tag === 'foreignobject') {
+    if (el.querySelector('video, iframe, canvas, audio')) return false;
+    return true;
+  }
+
+  // Groups (<g>)
+  if (tag === 'g') {
+    if (
+      el.getAttribute?.('data-is-shape-group') === 'true' ||
+      el.getAttribute?.('data-is-icon-group') === 'true' ||
+      el.getAttribute?.('data-is-image-group') === 'true'
+    ) {
+      return false;
+    }
+    const hasTextChild = el.querySelector?.('text, tspan, foreignObject');
+    if (hasTextChild && !el.querySelector?.('circle, rect, ellipse, polygon, polyline, image, video')) {
+      return true;
+    }
+    if ((dataName.includes('text') || id.includes('text') || dataName.includes('typography')) && !id.includes('circle') && !id.includes('rect') && !id.includes('shape')) {
+      return true;
+    }
+    return !!hasTextChild;
+  }
+
+  if (el.classList?.contains('text-element') || el.classList?.contains('canvas-text')) {
+    return true;
+  }
+
+  return false;
+};
+
 /* -------------------------------------------------------------------------- */
 /*                                SUB-COMPONENTS                              */
 /* -------------------------------------------------------------------------- */
 
-const SliderControl = React.memo(({ label, value, onChange, min = 0, max = 10, step = 0.1, unit = '' }) => {
-  const percentage = ((value - min) / (max - min)) * 100;
+const SliderControl = React.memo(({ label, value, onChange, onCommit, min = 0, max = 10, step = 0.1, unit = '' }) => {
+  const [localVal, setLocalVal] = React.useState(value);
+  const commitTimeoutRef = React.useRef(null);
+
+  React.useEffect(() => {
+    setLocalVal(value);
+  }, [value]);
+
+  React.useEffect(() => {
+    return () => {
+      if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
+    };
+  }, []);
+
+  const percentage = Math.max(0, Math.min(100, ((localVal - min) / (max - min)) * 100));
+
+  const handleChange = (e) => {
+    const val = parseFloat(e.target.value);
+    setLocalVal(val);
+    if (onChange) onChange(val);
+
+    if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
+    commitTimeoutRef.current = setTimeout(() => {
+      if (onCommit) onCommit(val);
+    }, 250);
+  };
+
+  const handleCommit = () => {
+    if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
+    if (onCommit) onCommit(localVal);
+  };
 
   return (
-    <div className="flex flex-col gap-[0.25vw] w-full">
-      <span className="text-[0.7vw] font-medium text-gray-800">{label} :</span>
+    <div
+      className="flex flex-col gap-[0.2vw] w-full select-none"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <span className="text-[0.82vw] font-medium text-gray-800">{label} :</span>
       <div className="flex items-center gap-[0.5vw] w-full">
         <input
           type="range"
           min={min}
           max={max}
           step={step}
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
+          value={localVal}
+          onChange={handleChange}
+          onMouseUp={handleCommit}
+          onTouchEnd={handleCommit}
+          onKeyUp={handleCommit}
           className="flex-1 cursor-pointer custom-range-slider"
           style={{ backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${percentage}%, #E2E8F0 ${percentage}%, #E2E8F0 100%)` }}
         />
-        <span className="text-[0.7vw] font-medium text-gray-800 min-w-[1.5vw] text-right">{Math.round(value * 100) / 100}{unit}</span>
+        <span className="text-[0.8vw] font-medium text-gray-700 min-w-[1.8vw] text-right">{Math.round(localVal * 100) / 100}{unit}</span>
       </div>
     </div>
   );
@@ -468,14 +583,23 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
 
   const getPrefix = (t) => (t === 'While Opening' ? 'open' : 'interact');
 
-  // 'animation' = classic entrance/interaction animations, 'text' = new cascading text effects
+  const isText = isTextElement(primaryElement);
+
+  // 'animation' = classic entrance/interaction animations, 'text' = new cascading text effects (only for text elements)
   const [mode, setMode] = React.useState(() => {
+    if (!isText) return 'animation';
     const hasFx = primaryElement.hasAttribute('data-text-effect');
     const hasAnim = (primaryElement.getAttribute('data-animation-open-type') || 'none') !== 'none' ||
       (primaryElement.getAttribute('data-animation-interact-type') || 'none') !== 'none';
     return hasFx && !hasAnim ? 'text' : 'animation';
   });
   const [textFx, setTextFx] = React.useState(() => readTextFx(primaryElement));
+
+  React.useEffect(() => {
+    if (!isText && mode !== 'animation') {
+      setMode('animation');
+    }
+  }, [isText, mode, primaryElement]);
 
   const [settings, setSettings] = React.useState({
     type: primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-type`) || 'none',
@@ -505,7 +629,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
     setTextFx(readTextFx(primaryElement));
   }, [primaryElement]);
 
-  const updateTextFx = (key, value) => {
+  const updateTextFx = (key, value, commit = true) => {
     const isRemoval = value === null || value === '' || (key === 'effect' && value === 'none');
     setTextFx(prev => key === 'effect' && isRemoval
       ? { ...prev, effect: 'none', ...TEXT_FX_DEFAULTS, color: '' }
@@ -516,18 +640,31 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
       const id = target.id || target.getAttribute('data-name');
       const attr = TEXT_FX_ATTR_MAP[key];
       if (isRemoval) target.removeAttribute(attr); else target.setAttribute(attr, String(value));
-      if (onUpdate) onUpdate(id, attr, isRemoval ? null : String(value));
+      if (commit && onUpdate) onUpdate(id, attr, isRemoval ? null : String(value));
 
-      if (key === 'effect' && isRemoval) {
-        ['speed', 'step', 'color'].forEach(k => {
-          target.removeAttribute(TEXT_FX_ATTR_MAP[k]);
-          if (onUpdate) onUpdate(id, TEXT_FX_ATTR_MAP[k], null);
-        });
+      if (key === 'effect') {
+        if (isRemoval) {
+          ['speed', 'step', 'color'].forEach(k => {
+            target.removeAttribute(TEXT_FX_ATTR_MAP[k]);
+            if (commit && onUpdate) onUpdate(id, TEXT_FX_ATTR_MAP[k], null);
+          });
+        } else {
+          // When applying a text effect, clear classic animation to prevent duplicate/conflicting animations
+          target.removeAttribute('data-animation-open-type');
+          target.removeAttribute('data-animation-interact-type');
+          target.removeAttribute('data-animation-intent');
+          if (commit && onUpdate) {
+            onUpdate(id, 'data-animation-open-type', null);
+            onUpdate(id, 'data-animation-interact-type', null);
+            onUpdate(id, 'data-animation-intent', null);
+          }
+          setSettings(prev => ({ ...prev, type: 'none' }));
+        }
       }
     });
   };
 
-  const updateSetting = (key, value) => {
+  const updateSetting = (key, value, commit = true) => {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     const prefix = getPrefix(trigger);
@@ -551,7 +688,19 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
         if ((action || 'Click') === 'Click') target.style.cursor = 'pointer';
       }
       target.setAttribute('data-animation-intent', 'true');
-      if (onUpdate) {
+
+      // When applying a classic animation, clear any text effect to prevent duplicate/conflicting effects
+      if (key === 'type' && value && value !== 'none') {
+        target.removeAttribute('data-text-effect');
+        ['speed', 'step', 'color'].forEach(k => target.removeAttribute(TEXT_FX_ATTR_MAP[k]));
+        if (commit && onUpdate) {
+          onUpdate(target.id || target.getAttribute('data-name'), 'data-text-effect', null);
+          ['speed', 'step', 'color'].forEach(k => onUpdate(target.id || target.getAttribute('data-name'), TEXT_FX_ATTR_MAP[k], null));
+        }
+        setTextFx({ effect: 'none', ...TEXT_FX_DEFAULTS, color: '' });
+      }
+
+      if (commit && onUpdate) {
         onUpdate(target.id || target.getAttribute('data-name'), attr, value);
         onUpdate(target.id || target.getAttribute('data-name'), 'data-animation-trigger', trigger);
         onUpdate(target.id || target.getAttribute('data-name'), 'data-animation-intent', 'true');
@@ -704,89 +853,112 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
 
   return (
     <div className="flex flex-col gap-[0.75vw]">
-      {/* Mode toggle: Animation | Text Effect */}
-      <div className="flex p-[0.2vw] bg-gray-100 rounded-[0.6vw] gap-[0.2vw]">
-        {[['animation', 'Animation'], ['text', 'Text Effect']].map(([key, label]) => (
-          <button
-            key={key}
-            onClick={(e) => { e.stopPropagation(); setMode(key); }}
-            className={`flex-1 h-[1.9vw] rounded-[0.45vw] text-[0.7vw] font-medium transition-all ${mode === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Mode toggle: Animation | Text Effect (only shown for text elements) */}
+      {isText && (
+        <div className="flex p-[0.2vw] bg-gray-100 rounded-[0.45vw] gap-[0.2vw]">
+          {[['animation', 'Animation'], ['text', 'Text Effect']].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={(e) => { e.stopPropagation(); setMode(key); }}
+              className={`flex-1 h-[2vw] rounded-[0.4vw] text-[0.8vw] font-medium transition-all ${mode === key ? 'bg-white text-gray-900 shadow-2xs font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {mode === 'text' ? (
+      {mode === 'text' && isText ? (
         <div className="flex flex-col gap-[0.75vw]">
           {isPlainSvgText(primaryElement) && (
-            <div className="text-[0.62vw] leading-snug text-amber-700 bg-amber-50 border border-amber-200 rounded-[0.5vw] px-[0.6vw] py-[0.45vw]">
+            <div className="text-[0.7vw] leading-snug text-amber-700 bg-amber-50 border border-amber-200 rounded-[0.4vw] px-[0.6vw] py-[0.45vw]">
               Text effects need HTML text. Plain SVG &lt;text&gt; cannot show split letters, so use a text box / foreignObject element.
             </div>
           )}
 
           <div className="flex items-center justify-between gap-[0.75vw]">
-            <span className="text-[0.65vw] text-gray-500 leading-tight">Plays each time the text scrolls into view</span>
+            <span className="text-[0.75vw] text-gray-500 leading-tight">Plays each time the text scrolls into view</span>
             <button
               onClick={(e) => { e.stopPropagation(); previewTextEffects(targetList); }}
               disabled={textFx.effect === 'none'}
-              className="w-[2.5vw] h-[2.5vw] flex items-center justify-center bg-indigo-50 border border-indigo-600 rounded-[0.75vw] text-indigo-600 shadow-sm hover:bg-indigo-200 disabled:opacity-40 transition-colors flex-shrink-0"
+              className="w-[2vw] h-[2vw] flex items-center justify-center bg-white border border-gray-300 rounded-[0.4vw] text-[#4D47FF] shadow-2xs hover:border-[#4D47FF] hover:bg-[#4D47FF]/5 disabled:opacity-40 transition-all flex-shrink-0"
               title="Preview Text Effect"
             >
-              <ScanEye size="1vw" />
+              <ScanEye size="0.95vw" />
             </button>
           </div>
 
-          <div className="flex gap-[1vw] items-center">
-            <div className="anim-panel-preview-card w-[5.8vw] h-[7vw] relative group rounded-[0.8vw] overflow-hidden border border-gray-200 bg-white shadow-[0_0.05vw_0.4vw_rgba(0,0,0,0.04)] flex-shrink-0 flex flex-col">
+          <div className="flex gap-[0.8vw] items-center">
+            <div className="anim-panel-preview-card w-[5.5vw] h-[6.5vw] relative group rounded-[0.45vw] overflow-hidden border border-gray-200 bg-white shadow-2xs hover:border-gray-300 transition-all duration-200 flex-shrink-0 flex flex-col">
               <div className="flex-1 relative w-full flex items-center justify-center">
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenGallery(primaryElement, (newEffect) => updateTextFx('effect', newEffect), 'text');
                   }}
-                  className="anim-panel-replace-btn absolute top-[0.5vw] right-[0.5vw] w-[1.75vw] h-[1.75vw] rounded-[0.4vw] flex items-center justify-center cursor-pointer transition-all duration-200 z-20 group-hover:bg-white group-hover:shadow-sm"
+                  className="anim-panel-replace-btn absolute top-[0.4vw] right-[0.4vw] w-[1.4vw] h-[1.4vw] rounded-[0.3vw] flex items-center justify-center cursor-pointer transition-all duration-200 z-20 text-gray-400 hover:text-[#4D47FF] hover:bg-gray-100"
                   title="Replace Text Effect"
                 >
-                  <Icon icon="ph:arrows-left-right" width="0.85vw" height="0.85vw" className="text-gray-400 group-hover:text-gray-900 transition-colors" />
+                  <Icon icon="ph:arrows-left-right" width="0.85vw" height="0.85vw" className="transition-colors" />
                 </div>
-                <div className="pt-[1.5vw] group-hover:opacity-40 transition-opacity duration-100">
+                <div className="pt-[1vw] group-hover:opacity-40 transition-opacity duration-100">
                   {textFx.effect === 'none'
-                    ? <Icon icon="radix-icons:shadow-none" width="2vw" height="2vw" className="text-gray-500" />
-                    : <span className="text-[1.6vw] font-semibold text-gray-700 leading-none">Aa</span>}
+                    ? <Icon icon="radix-icons:shadow-none" width="1.8vw" height="1.8vw" className="text-gray-500" />
+                    : <span className="text-[1.5vw] font-semibold text-gray-700 leading-none">Aa</span>}
                 </div>
               </div>
-              <div className="h-[0.05vw] w-full bg-gray-100" />
-              <div className="h-[2.25vw] w-full flex items-center justify-center bg-white">
-                <span className="text-[0.6vw] font-medium text-gray-500 truncate px-[0.5vw]">{textFxItem?.label || 'None'}</span>
+              <div className="h-[1.8vw] w-full flex items-center justify-center bg-gray-50/70 border-t border-gray-100">
+                <span className="text-[0.72vw] font-medium text-gray-700 truncate px-[0.4vw]">{textFxItem?.label || 'None'}</span>
               </div>
             </div>
 
             <div className="flex-1 space-y-[0.5vw]">
-              <SliderControl label="Speed" value={textFx.speed} onChange={(v) => updateTextFx('speed', v)} unit="s" min={0.05} max={2} step={0.05} />
-              <SliderControl label="Letter Delay" value={textFx.step} onChange={(v) => updateTextFx('step', v)} unit="s" min={0} max={0.5} step={0.01} />
+              <SliderControl
+                label="Speed"
+                value={textFx.speed}
+                onChange={(v) => updateTextFx('speed', v, false)}
+                onCommit={(v) => updateTextFx('speed', v, true)}
+                unit="s"
+                min={0.05}
+                max={2}
+                step={0.05}
+              />
+              <SliderControl
+                label="Letter Delay"
+                value={textFx.step}
+                onChange={(v) => updateTextFx('step', v, false)}
+                onCommit={(v) => updateTextFx('step', v, true)}
+                unit="s"
+                min={0}
+                max={0.5}
+                step={0.01}
+              />
             </div>
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-[0.7vw] font-medium text-gray-800 ml-[0.3vw] leading-none">Text Color :</span>
+            <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Text Color :</span>
             <div className="flex items-center gap-[0.5vw]">
               {textFx.color && (
-                <button onClick={() => updateTextFx('color', '')} className="text-[0.65vw] text-gray-400 hover:text-gray-700 transition-colors">Auto</button>
+                <button onClick={() => updateTextFx('color', '')} className="text-[0.75vw] text-gray-500 hover:text-[#4D47FF] transition-colors">Auto</button>
               )}
               <input
                 type="color"
                 value={/^#[0-9a-fA-F]{6}$/.test(textFx.color) ? textFx.color : '#000000'}
                 onChange={(e) => updateTextFx('color', e.target.value)}
-                className="w-[2vw] h-[1.5vw] p-0 border border-gray-200 rounded-[0.3vw] cursor-pointer bg-white"
+                className="w-[2vw] h-[2vw] p-0 border border-gray-300 rounded-[0.4vw] cursor-pointer bg-white shadow-2xs"
               />
             </div>
           </div>
 
-          <div className="flex flex-col pt-[0.25vw] mt-[0.75vw] border-t border-gray-100 -mx-[1vw] px-[1vw]">
-            <div className="flex items-center justify-end pt-[0.5vw]">
-              <button onClick={handleDeleteTextFx} className="text-red-400 hover:text-red-500 transition-colors p-[0.25vw]" title="Remove text effect">
-                <Icon icon="lucide:trash-2" width="1vw" height="1vw" />
+          <div className="flex flex-col pt-[0.2vw] mt-[0.6vw] border-t border-gray-100 gap-[0.4vw]">
+            <div className="flex items-center justify-end pt-[0.2vw]">
+              <button
+                onClick={handleDeleteTextFx}
+                className="w-[1.9vw] h-[1.9vw] flex items-center justify-center bg-white border border-gray-300 rounded-[0.4vw] text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition-all shadow-2xs"
+                title="Remove text effect"
+              >
+                <Icon icon="lucide:trash-2" width="0.95vw" height="0.95vw" />
               </button>
             </div>
           </div>
@@ -794,19 +966,23 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
       ) : (
       <>
       {/* Top Dropdowns & Preview */}
-      <div className="flex gap-[0.75vw]">
+      <div className="flex gap-[0.6vw]">
         <div className="flex-1 relative">
           <button
             onClick={(e) => { e.stopPropagation(); setShowTriggerSelector(!showTriggerSelector); setShowActionSelector(false); }}
-            className="w-full h-[2.5vw] flex items-center justify-between px-[0.75vw] bg-gray-100 border border-gray-100 rounded-[0.75vw] hover:bg-gray-100 transition-colors group"
+            className="w-full h-[2vw] flex items-center justify-between px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs text-[0.8vw] font-semibold text-gray-700 hover:border-gray-400 focus:border-[#4D47FF] transition-all group"
           >
-            <span className="text-[0.75vw] font-medium text-gray-600 truncate">{trigger}</span>
-            <ArrowRightLeft size="0.75vw" className="text-gray-500 group-hover:rotate-180 transition-transform duration-500" />
+            <span className="text-[0.8vw] font-semibold text-gray-700 truncate">{trigger}</span>
+            <ArrowRightLeft size="0.75vw" className="text-gray-400 group-hover:rotate-180 transition-transform duration-500" />
           </button>
           {showTriggerSelector && (
-            <div className="absolute top-full left-0 w-full mt-[0.5vw] bg-white border border-gray-200 rounded-[0.75vw] shadow-xl z-30 py-[0.25vw] overflow-hidden">
+            <div className="absolute top-full left-0 w-full mt-[0.3vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl z-30 py-[0.25vw] overflow-hidden animate-in fade-in zoom-in-95">
               {['While Opening', 'On Page'].map(t => (
-                <button key={t} onClick={() => handleTriggerChange(t)} className="w-full text-center px-[1vw] py-[0.65vw] text-[0.75vw] font-medium text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition-colors">
+                <button
+                  key={t}
+                  onClick={() => handleTriggerChange(t)}
+                  className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${trigger === t ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
                   {t}
                 </button>
               ))}
@@ -818,15 +994,19 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
           <div className="flex-1 relative">
             <button
               onClick={(e) => { e.stopPropagation(); setShowActionSelector(!showActionSelector); setShowTriggerSelector(false); }}
-              className="w-full h-[2.5vw] flex items-center justify-between px-[0.75vw] bg-gray-100/50 border border-gray-100 rounded-[0.75vw] hover:bg-gray-100 transition-colors group"
+              className="w-full h-[2vw] flex items-center justify-between px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs text-[0.8vw] font-semibold text-gray-700 hover:border-gray-400 focus:border-[#4D47FF] transition-all group"
             >
-              <span className="text-[0.75vw] font-medium text-gray-600 truncate">{action}</span>
+              <span className="text-[0.8vw] font-semibold text-gray-700 truncate">{action}</span>
               <ArrowRightLeft size="0.75vw" className="text-gray-400 group-hover:rotate-180 transition-transform duration-500" />
             </button>
             {showActionSelector && (
-              <div className="absolute top-full left-0 w-full mt-[0.5vw] bg-white border border-gray-100 rounded-[0.75vw] shadow-xl z-30 py-[0.25vw] overflow-hidden">
+              <div className="absolute top-full left-0 w-full mt-[0.3vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl z-30 py-[0.25vw] overflow-hidden animate-in fade-in zoom-in-95">
                 {['Click', 'Hover', 'Always'].map(a => (
-                  <button key={a} onClick={() => handleActionChange(a)} className="w-full text-center px-[1vw] py-[0.65vw] text-[0.75vw] font-medium text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition-colors">
+                  <button
+                    key={a}
+                    onClick={() => handleActionChange(a)}
+                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${action === a ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
                     {a}
                   </button>
                 ))}
@@ -845,17 +1025,17 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
               previewAnimation(e, settings.type, settings, primaryElement);
             }
           }}
-          className="w-[2.5vw] h-[2.5vw] flex items-center justify-center bg-indigo-50 border border-indigo-600 rounded-[0.75vw] text-indigo-600 shadow-sm hover:bg-indigo-200 transition-colors flex-shrink-0"
+          className="w-[2vw] h-[2vw] flex items-center justify-center bg-white border border-gray-300 rounded-[0.4vw] text-[#4D47FF] shadow-2xs hover:border-[#4D47FF] hover:bg-[#4D47FF]/5 transition-all flex-shrink-0"
           title="Preview Animation"
         >
-          <ScanEye size="1vw" />
+          <ScanEye size="0.95vw" />
         </button>
       </div>
 
-      <div className="flex gap-[1vw] items-center">
+      <div className="flex gap-[0.8vw] items-center">
         {/* Style Preview Card */}
         <div
-          className="anim-panel-preview-card w-[5.8vw] h-[7vw] relative group rounded-[0.8vw] overflow-hidden border border-gray-200 bg-white shadow-[0_0.05vw_0.4vw_rgba(0,0,0,0.04)] hover:shadow-xs transition-all duration-300 flex-shrink-0 flex flex-col"
+          className="anim-panel-preview-card w-[5.5vw] h-[6.5vw] relative group rounded-[0.45vw] overflow-hidden border border-gray-200 bg-white shadow-2xs hover:border-gray-300 transition-all duration-200 flex-shrink-0 flex flex-col"
         >
           <div className="flex-1 relative w-full flex items-center justify-center">
             <div
@@ -865,57 +1045,101 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
                   updateSetting('type', newType);
                 });
               }}
-              className="anim-panel-replace-btn absolute top-[0.5vw] right-[0.5vw] w-[1.75vw] h-[1.75vw] rounded-[0.4vw] flex items-center justify-center cursor-pointer transition-all duration-200 z-20 group-hover:bg-white group-hover:shadow-sm"
+              className="anim-panel-replace-btn absolute top-[0.4vw] right-[0.4vw] w-[1.4vw] h-[1.4vw] rounded-[0.3vw] flex items-center justify-center cursor-pointer transition-all duration-200 z-20 text-gray-400 hover:text-[#4D47FF] hover:bg-gray-100"
               title="Replace Animation"
             >
-              <Icon icon="ph:arrows-left-right" width="0.85vw" height="0.85vw" className="text-gray-400 group-hover:text-gray-900 transition-colors overlay:hidden" />
+              <Icon icon="ph:arrows-left-right" width="0.85vw" height="0.85vw" className="transition-colors" />
             </div>
-            <div className="pt-[1.5vw] group-hover:opacity-40 transition-opacity duration-100 relative z-0">
+            <div className="pt-[1vw] group-hover:opacity-40 transition-opacity duration-100 relative z-0">
               {galleryItem?.icon === 'None' ? (
-                <Icon icon="radix-icons:shadow-none" width="2vw" height="2vw" className="text-gray-500" />
+                <Icon icon="radix-icons:shadow-none" width="1.8vw" height="1.8vw" className="text-gray-500" />
               ) : galleryItem?.icon === 'Circle' ? (
-                <Icon icon="game-icons:glass-ball" width="2vw" height="2vw" className="text-gray-700" />
+                <Icon icon="game-icons:glass-ball" width="1.8vw" height="1.8vw" className="text-gray-700" />
               ) : (
-                <div className="anim-panel-bars flex items-end gap-[0.375vw]">
-                  <div className="anim-panel-bar w-[0.625vw] h-[1.75vw] bg-gray-300 rounded-[0.05vw]" />
-                  <div className="anim-panel-bar w-[0.625vw] h-[1.75vw] bg-gray-400 rounded-[0.05vw]" />
-                  <div className="anim-panel-bar w-[0.625vw] h-[1.75vw] bg-gray-600 rounded-[0.05vw]" />
+                <div className="anim-panel-bars flex items-end gap-[0.3vw]">
+                  <div className="anim-panel-bar w-[0.55vw] h-[1.5vw] bg-gray-300 rounded-[0.05vw]" />
+                  <div className="anim-panel-bar w-[0.55vw] h-[1.5vw] bg-gray-400 rounded-[0.05vw]" />
+                  <div className="anim-panel-bar w-[0.55vw] h-[1.5vw] bg-gray-600 rounded-[0.05vw]" />
                 </div>
               )}
             </div>
           </div>
-          <div className="h-[0.05vw] w-full bg-gray-100 relative z-0" />
-          <div className="h-[2.25vw] w-full flex items-center justify-center bg-white relative z-0">
-            <span className="text-[0.6vw] font-medium text-gray-500 truncate px-[0.5vw]">{galleryItem?.label || 'None'}</span>
+          <div className="h-[1.8vw] w-full flex items-center justify-center bg-gray-50/70 border-t border-gray-100 relative z-0">
+            <span className="text-[0.72vw] font-medium text-gray-700 truncate px-[0.4vw]">{galleryItem?.label || 'None'}</span>
           </div>
-          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-300 transition-opacity duration-300 pointer-events-none z-10" />
+          <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10" />
         </div>
 
         {/* Sliders */}
         <div className="flex-1 space-y-[0.5vw]">
-          <SliderControl label="Delay" value={settings.delay} onChange={(v) => updateSetting('delay', v)} unit="s" max={10} />
-          <SliderControl label="Duration" value={settings.duration} onChange={(v) => updateSetting('duration', v)} unit="s" max={10} />
+          <SliderControl
+            label="Delay"
+            value={settings.delay}
+            onChange={(v) => updateSetting('delay', v, false)}
+            onCommit={(v) => updateSetting('delay', v, true)}
+            unit="s"
+            max={10}
+          />
+          <SliderControl
+            label="Duration"
+            value={settings.duration}
+            onChange={(v) => updateSetting('duration', v, false)}
+            onCommit={(v) => updateSetting('duration', v, true)}
+            unit="s"
+            max={10}
+          />
         </div>
       </div>
 
       {/* Easing Dropdown */}
-      <div className="flex items-center justify-between ">
-        <span className="text-[0.7vw] font-medium text-gray-800 ml-[0.3vw] leading-none">Easing Effects :</span>
+      <div className="flex items-center justify-between">
+        <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Easing Effects :</span>
         <div className="relative">
           <button
             onClick={(e) => { e.stopPropagation(); setShowEasingSelector(!showEasingSelector); setShowRepeatSelector(false); }}
-            className="flex items-center justify-between px-[0.75vw] py-[0.5vw] bg-white border border-gray-200 rounded-[0.5vw] hover:bg-gray-50 transition-colors group w-[8.5vw]"
+            className="flex items-center justify-between px-[0.7vw] h-[2vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:border-gray-400 focus:border-[#4D47FF] transition-all group w-[8.8vw]"
           >
-            <span className="text-[0.75vw] font-medium text-gray-600 truncate">{settings.easing}</span>
-            <ChevronDown size="0.85vw" className={`text-gray-400 transition-transform duration-300 ${showEasingSelector ? 'rotate-180' : ''}`} />
+            <span className="text-[0.8vw] font-medium text-gray-700 truncate">{settings.easing}</span>
+            <ChevronDown size="0.85vw" className={`text-gray-400 transition-transform duration-200 ${showEasingSelector ? 'rotate-180' : ''}`} />
           </button>
           {showEasingSelector && (
-            <div className="absolute bottom-full left-0 w-full mb-[0.5vw] bg-white border border-gray-100 rounded-[0.75vw] shadow-xl z-30 py-[0.25vw] overflow-visible">
+            <div className="absolute bottom-full left-0 w-full mb-[0.3vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl z-30 py-[0.25vw] max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95">
               {EASING_OPTIONS.map(opt => (
                 <button
                   key={opt}
-                  onClick={() => { updateSetting('easing', opt); setShowEasingSelector(false); }}
-                  className="w-full text-center overflow-visible px-[1vw] py-[0.65vw] text-[0.75vw] font-medium text-gray-500 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateSetting('easing', opt);
+                    setShowEasingSelector(false);
+
+                    // Defer preview slightly so DOM updates and React re-renders complete cleanly
+                    setTimeout(() => {
+                      const targetEls = elements || (primaryElement ? [primaryElement] : []);
+                      targetEls.forEach(target => {
+                        const targetId = target?.id || target?.getAttribute?.('data-name');
+                        const safeId = (window.CSS && CSS.escape) ? CSS.escape(targetId || '') : (targetId || '');
+                        const liveEl = (targetId && (document.querySelector(`.page-svg-container [id="${safeId}"]`) || document.querySelector(`.page-svg-container [data-name="${safeId}"]`))) ||
+                          (targetId && document.getElementById(targetId)) ||
+                          target;
+
+                        if (!liveEl) return;
+                        const t = liveEl.getAttribute('data-animation-trigger') || trigger || 'While Opening';
+                        const p = t === 'While Opening' ? 'open' : 'interact';
+                        const animType = (settings.type && settings.type !== 'none')
+                          ? settings.type
+                          : liveEl.getAttribute(`data-animation-${p}-type`) || 'slide-right';
+
+                        if (typeof previewAnimation === 'function') {
+                          previewAnimation(null, animType, {
+                            ...settings,
+                            easing: opt,
+                            delay: 0 // Immediate playback so user sees the easing curve without waiting through delays
+                          }, liveEl, elements ? true : false);
+                        }
+                      });
+                    }, 120);
+                  }}
+                  className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${settings.easing === opt ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                 >
                   {opt}
                 </button>
@@ -928,39 +1152,39 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
       {/* Repeat Dropdown */}
       {trigger === 'On Page' && action !== 'Always' && (
         <div className="flex items-center justify-between">
-          <span className="text-[0.7vw] font-medium text-gray-800 ml-[0.3vw] leading-none">Repeat :</span>
+          <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Repeat :</span>
           <div className="relative">
             <button
               onClick={(e) => { e.stopPropagation(); setShowRepeatSelector(!showRepeatSelector); setShowEasingSelector(false); }}
-              className="flex items-center justify-between px-[0.75vw] py-[0.5vw] bg-white border border-gray-200 rounded-[0.5vw] hover:bg-gray-50 transition-colors group w-[8.5vw]"
+              className="flex items-center justify-between px-[0.7vw] h-[2vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:border-gray-400 focus:border-[#4D47FF] transition-all group w-[8.8vw]"
             >
-              <span className="text-[0.75vw] font-medium text-gray-600 truncate">
+              <span className="text-[0.8vw] font-medium text-gray-700 truncate">
                 {['None', 'Once', 'Twice', 'Thrice', 'Infinite'].includes(settings.repeat || 'None') ? (settings.repeat || 'None') : `${settings.repeat} times`}
               </span>
-              <ChevronDown size="0.85vw" className={`text-gray-400 transition-transform duration-300 ${showRepeatSelector ? 'rotate-180' : ''}`} />
+              <ChevronDown size="0.85vw" className={`text-gray-400 transition-transform duration-200 ${showRepeatSelector ? 'rotate-180' : ''}`} />
             </button>
             {showRepeatSelector && (
-              <div className="absolute bottom-full left-0 w-full mb-[0.5vw] bg-white border border-gray-100 rounded-[0.75vw] shadow-xl z-30 py-[0.25vw] overflow-visible">
+              <div className="absolute bottom-full left-0 w-full mb-[0.3vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl z-30 py-[0.25vw] max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95">
                 {['None', 'Once', 'Twice', 'Thrice', 'Infinite'].map(opt => (
                   <button
                     key={opt}
                     onClick={() => { updateSetting('repeat', opt); setShowRepeatSelector(false); }}
-                    className="w-full text-center overflow-visible px-[1vw] py-[0.65vw] text-[0.75vw] font-medium text-gray-500 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${settings.repeat === opt ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
                     {opt}
                   </button>
                 ))}
-                <div className="px-[1vw] py-[0.5vw] flex items-center justify-center gap-[0.5vw] border-t border-gray-100 mt-[0.25vw] pt-[0.5vw]" onClick={(e) => e.stopPropagation()}>
+                <div className="px-[0.8vw] py-[0.4vw] flex items-center justify-center gap-[0.4vw] border-t border-gray-100 mt-[0.2vw]" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="number"
                     min="1"
                     placeholder="Custom"
-                    className="w-[3.5vw] border border-gray-200 rounded-[0.3vw] px-[0.4vw] py-[0.2vw] text-[0.75vw] text-center text-gray-600 outline-none focus:border-indigo-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-[3.5vw] h-[1.8vw] border border-gray-200 rounded-[0.3vw] px-[0.4vw] text-[0.75vw] text-center text-gray-700 outline-none focus:border-[#4D47FF] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={!['None', 'Once', 'Twice', 'Thrice', 'Infinite'].includes(settings.repeat || 'None') ? (settings.repeat || '') : ''}
                     onChange={(e) => updateSetting('repeat', e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') setShowRepeatSelector(false); }}
                   />
-                  <span className="text-[0.7vw] text-gray-500 font-medium">times</span>
+                  <span className="text-[0.75vw] text-gray-500 font-medium">times</span>
                 </div>
               </div>
             )}
@@ -969,19 +1193,21 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
       )}
 
       {/* Bottom Actions */}
-      <div className="flex flex-col pt-[0.25vw] mt-[0.75vw] border-t border-gray-100 -mx-[1vw] px-[1vw] gap-[0.5vw]">
-        {/* Animate in Every Visit Divider */}
-        <div className="h-[1px] w-full bg-gray-200 mt-[0.25vw] mb-[0.25vw]"></div>
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-[0.5vw] ml-[0.3vw] cursor-pointer group">
-            <div className={`w-[1vw] h-[1vw] rounded-[0.2vw] flex items-center justify-center transition-all ${settings.everyVisit ? 'bg-indigo-600 border-indigo-600' : 'border border-gray-300 bg-white'}`}>
-              {settings.everyVisit && <Icon icon="lucide:check" width="0.7vw" height="0.7vw" className="text-white" />}
+      <div className="flex flex-col pt-[0.2vw] mt-[0.6vw] border-t border-gray-100 gap-[0.4vw]">
+        <div className="flex items-center justify-between pt-[0.2vw]">
+          <label className="flex items-center gap-[0.6vw] cursor-pointer group select-none">
+            <div className={`w-[1.1vw] h-[1.1vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.everyVisit ? 'bg-[#4D47FF]' : 'border border-gray-300 bg-white hover:border-gray-400'}`}>
+              {settings.everyVisit && <Icon icon="lucide:check" width="0.75vw" height="0.75vw" className="text-white stroke-[3]" />}
             </div>
             <input type="checkbox" className="hidden" checked={settings.everyVisit} onChange={() => updateSetting('everyVisit', !settings.everyVisit)} />
-            <span className="text-[0.7vw] font-medium text-gray-600 group-hover:text-gray-900 transition-colors">Animate in Every Visit</span>
+            <span className="text-[0.8vw] font-medium text-gray-700 group-hover:text-gray-900 transition-colors">Animate in Every Visit</span>
           </label>
-          <button onClick={handleDelete} className="text-red-400 hover:text-red-500 transition-colors p-[0.25vw]">
-            <Icon icon="lucide:trash-2" width="1vw" height="1vw" />
+          <button
+            onClick={handleDelete}
+            className="w-[1.9vw] h-[1.9vw] flex items-center justify-center bg-white border border-gray-300 rounded-[0.4vw] text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition-all shadow-2xs"
+            title="Delete Animation"
+          >
+            <Icon icon="lucide:trash-2" width="0.95vw" height="0.95vw" />
           </button>
         </div>
       </div>
@@ -995,9 +1221,10 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
 /*                             MAIN COMPONENT                                 */
 /* -------------------------------------------------------------------------- */
 
-const AnimationPanel = ({ selectedElement, onUpdate }) => {
+const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, onUpdate }) => {
   const [animatableElements, setAnimatableElements] = React.useState([]);
   const [expandedElementId, setExpandedElementId] = React.useState(null);
+  const lastSelectedIdRef = React.useRef(null);
   const [editingNameId, setEditingNameId] = React.useState(null);
   const [tempName, setTempName] = React.useState('');
 
@@ -1036,6 +1263,14 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
     stopTextPreview();
     const list = (targets || []).filter(Boolean).map(resolveLiveElement);
     if (!list.length) return 0;
+
+    // Cancel any active WAAPI animation on the targets to prevent duplicate animation collisions
+    list.forEach(el => {
+      if (el.__currentAnimation) {
+        try { el.__currentAnimation.cancel(); } catch { }
+        el.__currentAnimation = null;
+      }
+    });
 
     const restore = [];
     let maxMs = 0;
@@ -1119,7 +1354,7 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
       const hasAnim = el.getAttribute('data-animation-open-type') && el.getAttribute('data-animation-open-type') !== 'none';
       const hasIntent = el.getAttribute('data-animation-intent') === 'true';
       const isForced = id && forceIncludeIds.has(id);
-      const hasTextFx = el.hasAttribute('data-text-effect');
+      const hasTextFx = el.hasAttribute('data-text-effect') && el.getAttribute('data-text-effect') !== 'none' && el.getAttribute('data-text-effect') !== '';
       return hasAnim || hasIntent || isForced || hasTextFx;
     });
 
@@ -1128,7 +1363,7 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
       const hasAnim = selectedElement.getAttribute('data-animation-open-type') && selectedElement.getAttribute('data-animation-open-type') !== 'none';
       const hasIntent = selectedElement.getAttribute('data-animation-intent') === 'true';
       const isForced = id && forceIncludeIds.has(id);
-      const hasTextFx = selectedElement.hasAttribute('data-text-effect');
+      const hasTextFx = selectedElement.hasAttribute('data-text-effect') && selectedElement.getAttribute('data-text-effect') !== 'none' && selectedElement.getAttribute('data-text-effect') !== '';
 
       if (hasAnim || hasIntent || isForced || hasTextFx) {
         const isAlreadyInList = relevantEls.some(el => el === selectedElement || (id && (el.id === id || el.getAttribute('data-name') === id)));
@@ -1151,17 +1386,30 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
     });
     setAnimatableElements(uniqueEls);
 
-    if (selectedElement) {
-      const id = selectedElement.id || selectedElement.getAttribute('data-name');
-      if (id) {
-        const group = selectedElement.getAttribute('data-animation-group');
+    const activeEl = selectedElement || (selectedLayerId ? (document.getElementById(selectedLayerId) || document.querySelector(`[data-name="${selectedLayerId}"]`)) : null);
+    if (activeEl) {
+      const id = activeEl.id || activeEl.getAttribute('data-name');
+      if (id && id !== lastSelectedIdRef.current) {
+        lastSelectedIdRef.current = id;
+        const group = activeEl.getAttribute('data-animation-group');
         const targetId = group || id;
         if (expandedElementId !== targetId) {
           setExpandedElementId(targetId);
         }
       }
+    } else {
+      lastSelectedIdRef.current = null;
+      setExpandedElementId(null);
     }
-  }, [selectedElement, forceIncludeIds]);
+  }, [selectedElement, selectedLayerId, forceIncludeIds]);
+
+  // Clear expanded item when unselected on canvas
+  React.useEffect(() => {
+    if (!selectedElement && !selectedLayerId) {
+      lastSelectedIdRef.current = null;
+      setExpandedElementId(null);
+    }
+  }, [selectedElement, selectedLayerId]);
 
   // Force re-render when DOM attributes change (sync with Canvas Tooltip)
   const [, setTick] = React.useState(0);
@@ -1177,9 +1425,9 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
     if (expandedElementId && itemRefs.current[expandedElementId] && scrollContainerRef.current) {
       const element = itemRefs.current[expandedElementId];
 
-      // Use setTimeout to allow the element's height to expand before calculating center
+      // Use setTimeout to allow the element's height to expand before calculating
       setTimeout(() => {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
     }
   }, [expandedElementId]);
@@ -1188,14 +1436,17 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
     if (e && e.stopPropagation) e.stopPropagation();
     if (!elementToAnimate) return;
 
+    // Stop any active text effect preview so effects don't collide or duplicate
+    stopTextPreview();
+
     let target = elementToAnimate;
-    if (target && !document.body.contains(target)) {
-      const id = target.id || target.getAttribute('data-name');
-      if (id) {
-        const activePage = document.querySelector('.active-page-outline') || document.querySelector('.page-svg-container');
-        const fresh = activePage?.querySelector(`[id="${id}"], [data-name="${id}"]`) || document.getElementById(id);
-        if (fresh) target = fresh;
-      }
+    const targetId = target?.id || target?.getAttribute?.('data-name');
+    if (targetId) {
+      const activePage = document.querySelector('.active-page-outline') || document.querySelector('.page-svg-container');
+      const safeId = (window.CSS && CSS.escape) ? CSS.escape(targetId) : targetId;
+      const fresh = (activePage && (activePage.querySelector(`[id="${safeId}"]`) || activePage.querySelector(`[data-name="${safeId}"]`))) ||
+        document.getElementById(targetId);
+      if (fresh) target = fresh;
     }
 
     if (!isGlobal && previewCleanupRef.current && previewCleanupRef.current.length > 0) {
@@ -1494,8 +1745,69 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
     }
   };
 
+  const isPageOrRootElement = (el, idStr) => {
+    if (!el && !idStr) return true;
+    const id = idStr || el?.id || '';
+    const name = el?.getAttribute?.('data-name') || '';
+    const dataType = el?.getAttribute?.('data-type') || '';
+    if (dataType === 'frame') return true;
+    if (el?.tagName?.toLowerCase() === 'svg') return true;
+    if (/^(page|slide)\s*\d+/i.test(name) || name === 'Overlay') return true;
+    if (/^(page|slide)-/i.test(id) || id === 'Overlay') return true;
+    if (el?.parentElement?.tagName?.toLowerCase() === 'svg' && el?.tagName?.toLowerCase() === 'g') return true;
+    return false;
+  };
+
+  const rawActiveSelectedEl = selectedElement || (() => {
+    if (!selectedLayerId) return null;
+    return document.getElementById(selectedLayerId) || document.querySelector(`[data-name="${selectedLayerId}"]`);
+  })();
+
+  const activeSelectedEl = isPageOrRootElement(rawActiveSelectedEl, selectedLayerId) ? null : rawActiveSelectedEl;
+
+  const selectedElId = activeSelectedEl ? (activeSelectedEl.id || activeSelectedEl.getAttribute('data-name')) : null;
+  const selectedElName = activeSelectedEl ? (activeSelectedEl.getAttribute('data-name') || activeSelectedEl.id) : null;
+  const isSelectedElAnimated = activeSelectedEl ? (
+    (activeSelectedEl.getAttribute('data-animation-open-type') && activeSelectedEl.getAttribute('data-animation-open-type') !== 'none') ||
+    (activeSelectedEl.getAttribute('data-animation-interact-type') && activeSelectedEl.getAttribute('data-animation-interact-type') !== 'none') ||
+    activeSelectedEl.getAttribute('data-animation-intent') === 'true' ||
+    (activeSelectedEl.hasAttribute('data-text-effect') && activeSelectedEl.getAttribute('data-text-effect') !== 'none' && activeSelectedEl.getAttribute('data-text-effect') !== '') ||
+    (selectedElId && forceIncludeIds.has(selectedElId))
+  ) : false;
+
+  const handleAddAnimationToSelected = (elToAdd = activeSelectedEl) => {
+    if (!elToAdd) return;
+    const targetId = elToAdd.id || elToAdd.getAttribute('data-name');
+    if (!targetId) return;
+
+    elToAdd.setAttribute('data-animation-open-type', 'fade-in');
+    elToAdd.setAttribute('data-animation-open-duration', '1');
+    elToAdd.setAttribute('data-animation-open-delay', '0');
+    elToAdd.setAttribute('data-animation-open-easing', 'Linear');
+    elToAdd.setAttribute('data-animation-trigger', 'While Opening');
+    elToAdd.setAttribute('data-animation-intent', 'true');
+
+    if (onUpdate) {
+      onUpdate(targetId, 'data-animation-open-type', 'fade-in');
+      onUpdate(targetId, 'data-animation-open-duration', 1);
+      onUpdate(targetId, 'data-animation-open-delay', 0);
+      onUpdate(targetId, 'data-animation-open-easing', 'Linear');
+      onUpdate(targetId, 'data-animation-trigger', 'While Opening');
+      onUpdate(targetId, 'data-animation-intent', 'true');
+    }
+
+    setForceIncludeIds(prev => new Set(prev).add(targetId));
+    setExpandedElementId(targetId);
+    lastSelectedIdRef.current = targetId;
+    if (setSelectedLayerId) setSelectedLayerId(targetId);
+
+    window.dispatchEvent(new CustomEvent('update-interaction-badge', {
+      detail: { elementId: targetId, actionType: { id: 'fade-in', label: 'Fade In', icon: 'tdesign:animation-1' } }
+    }));
+  };
+
   return (
-    <div className="relative flex flex-col w-full h-full">
+    <div className="relative flex flex-col w-full h-full min-h-0 overflow-hidden">
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 0.25vw; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 0.5vw; }
@@ -1510,44 +1822,78 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
         .custom-range-slider::-webkit-slider-runnable-track { height: 0.2vw; border-radius: 0.1vw; background: inherit; }
         .custom-range-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 1vw; width: 1vw; border-radius: 50%; background: #4D47FF; border: 0.02vw solid #ffffff; box-shadow: 0 0.15vw 0.5vw rgba(77,71,255,0.4); margin-top: -0.4vw; cursor: pointer; transition: box-shadow 0.15s ease; position: relative; z-index: 2; }
         .custom-range-slider::-webkit-slider-thumb:hover { box-shadow: 0 0.15vw 0.75vw rgba(77,71,255,0.6); }
+        .overlay-scrollbar {
+          overflow-y: overlay !important;
+        }
       `}</style>
 
-      {/* Top Banner Button */}
-      <div
-        onClick={handleGlobalPreview}
-        className="relative bg-gray-200/75 p-[0.75vw] rounded-[0.8vw] flex items-center gap-[0.75vw] border border-gray-200 cursor-pointer mb-[1.5vw] hover:bg-gray-200 transition-all overflow-hidden group shadow-[0_0.2vw_1vw_rgba(0,0,0,0.05)]"
-      >
-        {/* Progress Bar Overlay */}
-        {isPreviewing && (
-          <div
-            key={previewKey}
-            className="absolute inset-y-0 left-0 bg-white pointer-events-none z-0"
-            style={{ animation: `anim-panel-progress ${previewMaxTime}s linear forwards` }}
-            onAnimationEnd={() => setIsPreviewing(false)}
-          />
+      {/* Top Fixed Header Area */}
+      <div className="flex-shrink-0 px-[1.5vw] pt-[1.5vw] flex flex-col">
+        {/* Top Banner Button (STICKY AT TOP, NEVER SQUISHED) */}
+        <div
+          onClick={handleGlobalPreview}
+          className="flex-shrink-0 min-h-[3.2vw] relative bg-gray-100 hover:bg-gray-200/80 p-[0.75vw] rounded-[0.8vw] flex items-center gap-[0.75vw] border border-gray-200 cursor-pointer mb-[1.2vw] transition-all overflow-hidden group shadow-2xs select-none"
+        >
+          {/* Progress Bar Overlay */}
+          {isPreviewing && (
+            <div
+              key={previewKey}
+              className="absolute inset-y-0 left-0 bg-white pointer-events-none z-0"
+              style={{ animation: `anim-panel-progress ${previewMaxTime}s linear forwards` }}
+              onAnimationEnd={() => setIsPreviewing(false)}
+            />
+          )}
+
+          <div className="relative z-10 px-[0.2vw] flex-shrink-0">
+            <Icon icon="tdesign:animation-1" width="1.4vw" height="1.4vw" className="text-yellow-400 fill-yellow-400" />
+          </div>
+          <span className="relative z-10 text-[0.75vw] text-gray-500 leading-tight">
+            Click to preview<br />
+            <span className="font-semibold text-gray-900 text-[0.82vw]">Animations</span>
+          </span>
+        </div>
+
+        {/* Selected Element Animation Status Card (ONLY if selected AND not added yet) */}
+        {activeSelectedEl && !isSelectedElAnimated && (
+          <div className="flex-shrink-0 p-[0.7vw] rounded-[0.8vw] border-[0.15vw] border-indigo-200 bg-indigo-50/60 shadow-2xs mb-[1.2vw] flex items-center justify-between gap-[0.6vw]">
+            <div className="flex items-center gap-[0.6vw] min-w-0 flex-1">
+              <div className="w-[2vw] h-[2vw] rounded-[0.4vw] flex items-center justify-center flex-shrink-0 bg-indigo-100 text-[#4D47FF]">
+                <Icon icon="tdesign:animation-1" width="1.15vw" height="1.15vw" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[0.8vw] font-semibold text-gray-900 truncate" title={selectedElName}>
+                  {selectedElName}
+                </span>
+                <span className="text-[0.68vw] font-medium text-[#4D47FF]">
+                  No animation added
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleAddAnimationToSelected(activeSelectedEl)}
+              className="flex-shrink-0 h-[1.9vw] px-[0.7vw] bg-[#4D47FF] hover:bg-[#3d36e8] text-white rounded-[0.4vw] text-[0.75vw] font-semibold flex items-center gap-[0.3vw] shadow-sm transition-all cursor-pointer hover:shadow"
+            >
+              <Icon icon="lucide:plus" width="0.85vw" height="0.85vw" />
+              Click to Add Animation
+            </button>
+          </div>
         )}
 
-        <div className="relative z-10  px-[0.4vw]">
-          <Icon icon="tdesign:animation-1" width="1.5vw" height="1.5vw" className="text-yellow-400 fill-yellow-400" />
+        <div className="flex-shrink-0 flex items-center gap-[0.8vw] mb-[1.2vh]">
+          <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap">Animations in this Page</span>
+          <div className="flex-1 h-[1px] bg-gray-200" />
         </div>
-        <span className="relative z-10 text-[0.75vw] text-gray-500 leading-tight">
-          Click to preview<br />
-          <span className="font-semibold text-gray-900">Animations</span>
-        </span>
       </div>
 
-
-      <div className="flex items-center gap-[0.5vw] mb-[1vw]">
-        <h3 className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap">Animations in this Page</h3>
-        <div className="h-[0.0925vw] bg-gray-200 flex-1" style={{ marginRight: '-1.5vw' }}> </div>
-      </div>
-
-      {/* Accordions List */}
+      {/* Scrollable Accordions List (cards bottom of Animations in this Page text) */}
       <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto space-y-[0.5vw] pr-[0.25vw] relative"
-        style={{ maxHeight: 'calc(100vh - 20vw)' }}
+        className="flex-1 min-h-0 w-full overflow-y-auto no-scrollbar"
       >
+        <div
+          ref={scrollContainerRef}
+          className="flex flex-col gap-[1.5vh] pb-[4vw] pt-[0.2vw] px-[1.5vw]"
+        >
         {(() => {
           const groups = {};
           const items = [];
@@ -1572,156 +1918,212 @@ const AnimationPanel = ({ selectedElement, onUpdate }) => {
             const el = isGroup ? item.elements[0] : item.element;
             const id = isGroup ? item.name : (el.id || el.getAttribute('data-name'));
             const name = isGroup ? item.name : (el.getAttribute('data-name') || el.id);
-            const isExpanded = expandedElementId === id;
+            const hasSelection = Boolean(selectedElement || selectedLayerId);
+            const isExpanded = hasSelection && expandedElementId === id;
+            const isSelected = hasSelection && (
+              isGroup
+                ? item.elements.some(e => e === selectedElement || e.id === selectedElement?.id || (selectedLayerId && e.id === selectedLayerId))
+                : (el === selectedElement || el.id === selectedElement?.id || (selectedLayerId && el.id === selectedLayerId))
+            );
 
             return (
               <div
                 key={id || idx}
                 ref={el => itemRefs.current[id] = el}
-                className={`border rounded-[0.8vw] bg-white transition-all duration-200 overflow-hidden ${isExpanded ? 'border-gray-300 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}
+                className={`w-full mx-auto bg-white border-[0.15vw] rounded-[0.8vw] shadow-2xs flex flex-col relative transition-all duration-200 overflow-hidden ${
+                  isExpanded || isSelected
+                    ? 'border-[#4D47FF] shadow-sm z-[50]'
+                    : 'border-gray-200 hover:border-gray-300 z-[10]'
+                }`}
               >
-                <div className="flex items-center justify-between p-[1vw] cursor-pointer bg-white" onClick={() => {
-                  const nextId = isExpanded ? null : id;
-                  setExpandedElementId(nextId);
-                  if (nextId) {
-                    const targetIds = isGroup ? item.elements.map(e => e.id || e.getAttribute('data-name')) : [el.id || el.getAttribute('data-name')];
-                    window.dispatchEvent(new CustomEvent('select-layer', { detail: { ids: targetIds } }));
-                  }
-                }}>
-                  <div className="flex items-center gap-[0.5vw] flex-1 min-w-0">
-                    <Icon icon="tdesign:animation-1" className="text-gray-500" width="1.1vw" height="1.2vw" />
-                    {editingNameId === id ? (
-                      <input
-                        className="text-[0.8vw] text-gray-700 font-medium bg-gray-50 border-b border-indigo-400 outline-none w-full px-[0.2vw]"
-                        value={tempName}
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          const newVal = e.target.value;
-                          setTempName(newVal);
-                          if (newVal.trim() && !isGroup) {
-                            onUpdate(id, 'data-name', newVal);
-                            // Refresh the list to reflect the name change in the accordion header
-                            setTick(t => t + 1);
-                          }
-                        }}
-                        onBlur={() => {
-                          setEditingNameId(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') e.target.blur();
-                          if (e.key === 'Escape') {
-                            // Revert if escape
-                            if (!isGroup) onUpdate(id, 'data-name', name);
+                <div
+                  className="flex items-center justify-between gap-[0.8vw] py-[0.7vw] px-[0.8vw] cursor-pointer select-none rounded-t-[0.8vw]"
+                  onClick={() => {
+                    const nextId = isExpanded ? null : id;
+                    setExpandedElementId(nextId);
+                    lastSelectedIdRef.current = nextId;
+                    if (nextId) {
+                      if (setSelectedLayerId) setSelectedLayerId(nextId);
+                      const targetIds = isGroup ? item.elements.map(e => e.id || e.getAttribute('data-name')) : [el.id || el.getAttribute('data-name')];
+                      window.dispatchEvent(new CustomEvent('select-layer', { detail: { ids: targetIds, layerId: nextId } }));
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-[0.8vw] flex-1 min-w-0">
+                    {/* Star / Animation Icon */}
+                    <div className="flex-shrink-0 text-[#4D47FF] flex items-center" style={{ stroke: 'currentColor', strokeWidth: '0.35px' }}>
+                      <Icon icon="tdesign:animation-1" className="text-[1.15vw]" width="1.15vw" height="1.15vw" />
+                    </div>
+
+                    {/* Name Container */}
+                    <div className="h-[2vw] flex items-center justify-start gap-[0.4vw] px-[0.7vw] relative select-none">
+                      {editingNameId === id ? (
+                        <input
+                          className="text-[0.8vw] text-gray-700 font-semibold font-sans bg-gray-50 border-b border-[#4D47FF] outline-none w-full px-[0.2vw]"
+                          value={tempName}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            const newVal = e.target.value;
+                            setTempName(newVal);
+                            if (newVal.trim() && !isGroup) {
+                              onUpdate(id, 'data-name', newVal);
+                              setTick(t => t + 1);
+                            }
+                          }}
+                          onBlur={() => {
                             setEditingNameId(null);
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span
-                        className="text-[0.8vw] text-gray-700 font-medium truncate max-w-[14vw] cursor-pointer hover:text-indigo-600"
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          if (!isGroup) {
-                            setEditingNameId(id);
-                            setTempName(name);
-                          }
-                        }}
-                      >
-                        {name}
-                      </span>
-                    )}
-                    {isGroup && <span className="text-[0.6vw] bg-gray-100 text-gray-400 px-[0.3vw] py-[0.1vw] rounded-full">{item.elements.length}</span>}
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.target.blur();
+                            if (e.key === 'Escape') {
+                              if (!isGroup) onUpdate(id, 'data-name', name);
+                              setEditingNameId(null);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span
+                          className="text-[0.8vw] text-gray-700 font-semibold font-sans select-none flex-shrink-0 truncate max-w-[14vw] cursor-pointer hover:text-[#4D47FF] transition-colors"
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            if (!isGroup) {
+                              setEditingNameId(id);
+                              setTempName(name);
+                            }
+                          }}
+                        >
+                          {name}
+                        </span>
+                      )}
+                      {isGroup && (
+                        <span className="text-[0.65vw] bg-gray-100 text-gray-500 px-[0.4vw] py-[0.1vw] rounded-full font-semibold ml-[0.2vw]">
+                          {item.elements.length}
+                        </span>
+                      )}
+                    </div>
                   </div>
+
                   <div className="flex items-center gap-[0.5vw]">
-                    {isExpanded && <Icon icon="lucide:rotate-cw" width="0.8vw" height="0.8vw" className="text-gray-400 hover:text-gray-600" onClick={(e) => {
-                      e.stopPropagation();
-                      if (isGroup) {
-                        if (previewCleanupRef.current.length > 0) {
-                          previewCleanupRef.current.forEach(cancel => cancel());
-                          previewCleanupRef.current = [];
-                        }
-                        item.elements.forEach(target => {
-                          const t = target.getAttribute('data-animation-trigger') || 'While Opening';
-                          const p = t === 'While Opening' ? 'open' : 'interact';
-                          previewAnimation(e, target.getAttribute(`data-animation-${p}-type`), { delay: parseFloat(target.getAttribute(`data-animation-${p}-delay`)) || 0, duration: parseFloat(target.getAttribute(`data-animation-${p}-duration`)) || 1, easing: target.getAttribute(`data-animation-${p}-easing`) || 'Linear', repeat: target.getAttribute(`data-animation-${p}-repeat`) || 'None' }, target, true);
-                        });
-                      } else {
-                        const t = el.getAttribute('data-animation-trigger') || 'While Opening';
-                        const p = t === 'While Opening' ? 'open' : 'interact';
-                        previewAnimation(e, el.getAttribute(`data-animation-${p}-type`), { delay: parseFloat(el.getAttribute(`data-animation-${p}-delay`)) || 0, duration: parseFloat(el.getAttribute(`data-animation-${p}-duration`)) || 1, easing: el.getAttribute(`data-animation-${p}-easing`) || 'Linear', repeat: el.getAttribute(`data-animation-${p}-repeat`) || 'None' }, el);
-                      }
-                      const fxTargets = (isGroup ? item.elements : [el]).filter(t => t.hasAttribute('data-text-effect'));
-                      if (fxTargets.length) previewTextEffects(fxTargets);
-                    }} />}
-                    <Icon icon={isExpanded ? "lucide:chevron-up" : "lucide:chevron-down"} width="1vw" height="1vw" className="text-gray-400" />
+                    {isExpanded && (
+                      <div className="flex-shrink-0 text-gray-400 hover:text-[#4D47FF] transition-colors p-[0.2vw]">
+                        <Icon
+                          icon="lucide:rotate-cw"
+                          width="0.85vw"
+                          height="0.85vw"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isGroup) {
+                              if (previewCleanupRef.current.length > 0) {
+                                previewCleanupRef.current.forEach(cancel => cancel());
+                                previewCleanupRef.current = [];
+                              }
+                              item.elements.forEach(target => {
+                                const t = target.getAttribute('data-animation-trigger') || 'While Opening';
+                                const p = t === 'While Opening' ? 'open' : 'interact';
+                                previewAnimation(e, target.getAttribute(`data-animation-${p}-type`), { delay: parseFloat(target.getAttribute(`data-animation-${p}-delay`)) || 0, duration: parseFloat(target.getAttribute(`data-animation-${p}-duration`)) || 1, easing: target.getAttribute(`data-animation-${p}-easing`) || 'Linear', repeat: target.getAttribute(`data-animation-${p}-repeat`) || 'None' }, target, true);
+                              });
+                            } else {
+                              const t = el.getAttribute('data-animation-trigger') || 'While Opening';
+                              const p = t === 'While Opening' ? 'open' : 'interact';
+                              previewAnimation(e, el.getAttribute(`data-animation-${p}-type`), { delay: parseFloat(el.getAttribute(`data-animation-${p}-delay`)) || 0, duration: parseFloat(el.getAttribute(`data-animation-${p}-duration`)) || 1, easing: el.getAttribute(`data-animation-${p}-easing`) || 'Linear', repeat: el.getAttribute(`data-animation-${p}-repeat`) || 'None' }, el);
+                            }
+                            const fxTargets = (isGroup ? item.elements : [el]).filter(t => t.hasAttribute('data-text-effect'));
+                            if (fxTargets.length) previewTextEffects(fxTargets);
+                          }}
+                        />
+                      </div>
+                    )}
+                    <div className="flex-shrink-0 text-gray-400 hover:text-gray-700 transition-colors p-[0.2vw]">
+                      <ChevronDown
+                        size="0.85vw"
+                        className={`transition-transform duration-200 ${!isExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {isExpanded && (
-                  <div className="p-[1vw] border-t border-gray-100 bg-[#FDFDFD]">
-                    <SingleAnimationEditor
-                      element={isGroup ? null : el}
-                      elements={isGroup ? item.elements : null}
-                      onUpdate={onUpdate}
-                      onDelete={handleDeleteAnimation}
-                      onOpenGallery={(target, cb, kind) => {
-                        if (isGroup && kind !== 'text') {
-                          handleOpenGallery(target, (newType) => {
-                            // 1. Close gallery immediately for better UX
-                            setShowGallery(false);
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                      className="bg-white rounded-b-[0.8vw] overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-full border-t border-gray-100"></div>
+                      <div className="px-[0.8vw] pt-[0.8vw] pb-[0.8vw]">
+                        <SingleAnimationEditor
+                          element={isGroup ? null : el}
+                          elements={isGroup ? item.elements : null}
+                          onUpdate={onUpdate}
+                          onDelete={handleDeleteAnimation}
+                          onOpenGallery={(target, cb, kind) => {
+                            if (isGroup && kind !== 'text') {
+                              handleOpenGallery(target, (newType) => {
+                                // 1. Close gallery immediately for better UX
+                                setShowGallery(false);
 
-                            // 2. Immediate DOM update for all
-                            item.elements.forEach(member => {
-                              const t = member.getAttribute('data-animation-trigger') || 'While Opening';
-                              const p = t === 'While Opening' ? 'open' : 'interact';
-                              member.setAttribute(`data-animation-${p}-type`, newType);
-                            });
+                                // 2. Immediate DOM update for all (and remove duplicate text effects if any)
+                                item.elements.forEach(member => {
+                                  const t = member.getAttribute('data-animation-trigger') || 'While Opening';
+                                  const p = t === 'While Opening' ? 'open' : 'interact';
+                                  member.setAttribute(`data-animation-${p}-type`, newType);
+                                  member.removeAttribute('data-text-effect');
+                                  ['speed', 'step', 'color'].forEach(k => member.removeAttribute(TEXT_FX_ATTR_MAP[k]));
+                                });
 
-                            // 3. Staggered state updates to prevent UI hang
-                            item.elements.forEach((member, i) => {
-                              const t = member.getAttribute('data-animation-trigger') || 'While Opening';
-                              const p = t === 'While Opening' ? 'open' : 'interact';
-                              if (onUpdate) {
+                                // 3. Staggered state updates to prevent UI hang
+                                item.elements.forEach((member, i) => {
+                                  const t = member.getAttribute('data-animation-trigger') || 'While Opening';
+                                  const p = t === 'While Opening' ? 'open' : 'interact';
+                                  if (onUpdate) {
+                                    setTimeout(() => {
+                                      const mid = member.id || member.getAttribute('data-name');
+                                      onUpdate(mid, `data-animation-${p}-type`, newType);
+                                      onUpdate(mid, 'data-text-effect', null);
+                                    }, i * 30);
+                                  }
+                                });
+
+                                // 4. Update the editor UI state
+                                cb(newType);
+
+                                // 5. Play preview for the whole group
                                 setTimeout(() => {
-                                  onUpdate(member.id || member.getAttribute('data-name'), `data-animation-${p}-type`, newType);
-                                }, i * 30);
-                              }
-                            });
-
-                            // 4. Update the editor UI state
-                            cb(newType);
-
-                            // 5. Play preview for the whole group
-                            setTimeout(() => {
-                              item.elements.forEach(member => {
-                                const t = member.getAttribute('data-animation-trigger') || 'While Opening';
-                                const p = t === 'While Opening' ? 'open' : 'interact';
-                                previewAnimation(null, newType, {
-                                  delay: parseFloat(member.getAttribute(`data-animation-${p}-delay`)) || 0,
-                                  duration: parseFloat(member.getAttribute(`data-animation-${p}-duration`)) || 1,
-                                  easing: member.getAttribute(`data-animation-${p}-easing`) || 'Linear',
-                                  repeat: member.getAttribute(`data-animation-${p}-repeat`) || 'None'
-                                }, member, true);
+                                  item.elements.forEach(member => {
+                                    const t = member.getAttribute('data-animation-trigger') || 'While Opening';
+                                    const p = t === 'While Opening' ? 'open' : 'interact';
+                                    previewAnimation(null, newType, {
+                                      delay: parseFloat(member.getAttribute(`data-animation-${p}-delay`)) || 0,
+                                      duration: parseFloat(member.getAttribute(`data-animation-${p}-duration`)) || 1,
+                                      easing: member.getAttribute(`data-animation-${p}-easing`) || 'Linear',
+                                      repeat: member.getAttribute(`data-animation-${p}-repeat`) || 'None'
+                                    }, member, true);
+                                  });
+                                }, 200);
                               });
-                            }, 200);
-                          });
-                        } else {
-                          handleOpenGallery(target, cb, kind);
-                        }
-                      }}
-                      previewAnimation={previewAnimation}
-                      previewTextEffects={previewTextEffects}
-                      ANIMATION_GALLERY_ITEMS={ANIMATION_GALLERY_ITEMS}
-                      EASING_OPTIONS={EASING_OPTIONS}
-                    />
-                  </div>
-                )}
+                            } else {
+                              handleOpenGallery(target, cb, kind);
+                            }
+                          }}
+                          previewAnimation={previewAnimation}
+                          previewTextEffects={previewTextEffects}
+                          ANIMATION_GALLERY_ITEMS={ANIMATION_GALLERY_ITEMS}
+                          EASING_OPTIONS={EASING_OPTIONS}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             );
           });
         })()}
 
+        </div>
       </div>
 
       {/* Animation Gallery Modal */}

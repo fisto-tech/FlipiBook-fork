@@ -20,26 +20,26 @@ const SidebarItem = ({
       <button
         id={id}
         onClick={onClick}
-        className={`w-full flex items-center justify-between p-[0.75vw] rounded-[0.75vw] transition-all duration-300 ${
+        className={`w-full flex items-center justify-between p-[0.75vw] rounded-[0.75vw] transition-all duration-200 group cursor-pointer ${
           isActive 
-            ? 'bg-[#EC5137]/5 border border-[#EC5137] text-[#EC5137] active-sidebar-item' 
-            : 'bg-white text-gray-900 border border-transparent hover:bg-gray-50'
+            ? 'bg-[#2c3749] border border-[#EC5137] text-white active-sidebar-item shadow-sm' 
+            : 'bg-transparent text-gray-300 border border-transparent hover:bg-[#1e2738] hover:text-white'
         }`}
       >
         <div className="flex items-center gap-[1vw]">
           <Icon 
             icon={icon} 
-            className={`w-[1.25vw] h-[1.25vw] transition-colors ${isActive ? 'text-[#EC5137]' : 'text-black'}`} 
+            className={`w-[1.25vw] h-[1.25vw] transition-colors ${isActive ? 'text-[#EC5137]' : 'text-gray-400 group-hover:text-white'}`} 
           />
-          <span className={`text-[0.8125vw] font-semibold transition-colors ${isActive ? 'text-[#EC5137]' : 'text-gray-900'}`}>
+          <span className={`text-[0.8125vw] font-semibold transition-colors ${isActive ? 'text-white' : 'text-gray-300 group-hover:text-white'}`}>
             {label}
           </span>
         </div>
         {hasDropdown && (
           <Icon
             icon="lucide:chevron-down"
-            className={`w-[1vw] h-[1vw] transition-all duration-300 ${
-              isActive ? 'text-[#EC5137]' : 'text-gray-600'
+            className={`w-[1vw] h-[1vw] transition-all duration-200 ${
+              isActive ? 'text-[#EC5137]' : 'text-gray-400 group-hover:text-white'
             } ${isOpen ? "rotate-180" : "rotate-0"}`}
           />
         )}

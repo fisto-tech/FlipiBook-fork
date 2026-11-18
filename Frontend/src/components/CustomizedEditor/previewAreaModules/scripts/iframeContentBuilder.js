@@ -51,8 +51,14 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
 
     let fontImports = '';
     if (fontsToLoad.size > 0) {
-        const fontList = Array.from(fontsToLoad).map(f => f.replace(/\s+/g, '+')).join('|');
-        fontImports = `<link href="https://fonts.googleapis.com/css?family=${fontList}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
+        const fontArray = Array.from(fontsToLoad).map(f => f.replace(/['"]/g, '').trim()).filter(Boolean);
+        const css2Params = fontArray.map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}`).join('&');
+        const css1Params = fontArray.map(f => encodeURIComponent(f).replace(/%20/g, '+')).join('|');
+        fontImports = `
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?${css2Params}&display=swap" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css?family=${css1Params}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
     }
 
     // Inject scripts
@@ -64,8 +70,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                 <style>
                     html, body { cursor: default !important; -webkit-user-select: none; user-select: none; }
                     body { margin: 0; padding: 0; overflow: hidden; background: transparent; width: 100%; height: 100%; }
-                    body > svg,
-                    svg:not(foreignObject svg):not([data-type="icon"]):not([data-type="button"] svg) {
+                    body > svg {
                         width: 100% !important;
                         height: 100% !important;
                         display: block !important;
@@ -119,7 +124,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     .text-edit-box,
                     [contenteditable="true"],
                     [data-scrollable="true"],
-                    foreignObject:not([data-type="map"]) div:not(.map-root-container):not(.map-card-overlay):not(.map-card-overlay *) {
+                    foreignObject:not([data-type="map"]):not([data-type="slideshow"]):not(.slideshow-foreign-object) div:not(.map-root-container):not(.map-card-overlay):not(.map-card-overlay *):not(.flipibook-swiper-container):not(.flipibook-swiper-container *) {
                         white-space: pre-wrap !important;
                         word-wrap: break-word !important;
                         word-break: normal !important;
@@ -215,11 +220,6 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     [data-scrollable="true"]::-webkit-scrollbar-thumb:active,
                     [data-scrollable="true"] *::-webkit-scrollbar-thumb:active {
                         background: #1F2937 !important;
-                    }
-
-                    foreignObject:not([data-scrollable="true"]):not([data-editing="true"])>div:not(.map-root-container):not(.embed-root-container):not(.table-card-wrapper):not(.table-container) {
-                        width: 100% !important;
-                        height: auto !important;
                     }
 
                     .map-root-container,

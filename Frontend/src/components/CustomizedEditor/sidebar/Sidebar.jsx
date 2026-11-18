@@ -28,7 +28,7 @@ const AttachedCurve = ({ position }) => {
     width: '1.5vw',
     height: '1.6vw',
     borderRadius: '60%',
-    boxShadow: '0 0 0 2vw black',
+    boxShadow: '0 0 0 2vw #151c28',
     ...(isTop ? { top: '-0.8vw' } : { bottom: '-0.8vw' }),
     ...(isLeft ? { right: '-0.8vw' } : { left: '-0.8vw' }),
   };
@@ -237,19 +237,19 @@ const Sidebar = ({ bookName, setBookName, activeSubView, setActiveSubView, isPan
   return (
     <div
       ref={sidebarRef}
-      className="w-[16.25vw] h-full bg-white border-r border-gray-100 flex flex-col relative z-30 overflow-visible select-none"
+      className="w-[16.25vw] h-full bg-[#151c28] border-r border-[#1f293d] flex flex-col relative z-30 overflow-visible select-none text-white"
     >
 
       {/* Draggable Tab Handle and Full-height Line — only visible when sub-panel is collapsed */}
       {activeSubView && activeTab && isPanelCollapsed && (
         <div className="absolute left-full top-0 w-[3.5vw] h-full pointer-events-none z-50">
-          {/* The full-height vertical black line (0.25vw wide) */}
-          <div className="absolute left-[-1px] top-0 w-[0.25vw] h-full bg-black pointer-events-auto select-none shadow-[0.1vw_0_0.5vw_rgba(0,0,0,0.1)]" />
+          {/* The full-height vertical line (0.25vw wide) */}
+          <div className="absolute left-[-1px] top-0 w-[0.25vw] h-full bg-[#151c28] pointer-events-auto select-none shadow-[0.1vw_0_0.5vw_rgba(0,0,0,0.2)]" />
 
           {/* The Draggable icon itself - repositioned to overlap with the line */}
           <div
             onMouseDown={handleMouseDown}
-            className={`absolute flex items-stretch rounded-r-[0.6vw] cursor-pointer shadow-[0.2vw_0_1vw_rgba(0,0,0,0.2)] pointer-events-auto select-none group ${isDragging ? 'cursor-grabbing scale-100' : 'cursor-grab'
+            className={`absolute flex items-stretch rounded-r-[0.6vw] cursor-pointer shadow-[0.2vw_0_1vw_rgba(0,0,0,0.3)] pointer-events-auto select-none group ${isDragging ? 'cursor-grabbing scale-100' : 'cursor-grab'
               }`}
             style={{
               top: `${tabTop}px`,
@@ -262,8 +262,8 @@ const Sidebar = ({ bookName, setBookName, activeSubView, setActiveSubView, isPan
             {/* Internal overflow-hidden container for icons/background */}
             <div className="flex items-stretch rounded-r-[0.6vw] overflow-hidden min-h-[2.6vw] ">
               {/* Connector strip to ensure no gap with the line */}
-              <div className="w-[0.25vw] h-full bg-black flex-shrink-0 " />
-              <div className="w-[2.6vw] h-[2.6vw] bg-black text-white flex items-center justify-center select-none">
+              <div className="w-[0.25vw] h-full bg-[#151c28] flex-shrink-0 " />
+              <div className="w-[2.6vw] h-[2.6vw] bg-[#151c28] text-white flex items-center justify-center select-none">
                 <Icon
                   icon={activeTab.icon}
                   className="w-[1.3vw] h-[1.3vw]"
@@ -275,17 +275,17 @@ const Sidebar = ({ bookName, setBookName, activeSubView, setActiveSubView, isPan
       )}
 
       {/* Book Title Section Card */}
-      <div className="px-[0.75vw] py-[0.4vw] shrink-0 border-b border-gray-100">
+      <div className="px-[0.75vw] py-[0.4vw] shrink-0 border-b border-[#1f293d]">
         {isLoading ? (
-          <div className="bg-white rounded-[0.6vw] border border-gray-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.04)] px-[0.75vw] py-[0.55vw] flex flex-col justify-between gap-[0.4vw] animate-pulse">
-            <div className="h-[1vw] bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-[0.3vw] w-4/5 animate-pulse"></div>
+          <div className="bg-[#1e2738] rounded-[0.6vw] border border-[#2c3749] shadow-[0_2px_8px_rgba(0,0,0,0.2)] px-[0.75vw] py-[0.55vw] flex flex-col justify-between gap-[0.4vw] animate-pulse">
+            <div className="h-[1vw] bg-gradient-to-r from-[#2c3749] via-[#243042] to-[#2c3749] rounded-[0.3vw] w-4/5 animate-pulse"></div>
             <div className="flex items-center justify-between mt-[0.25vw]">
-              <div className="h-[0.75vw] bg-gray-200/80 rounded-[0.25vw] w-1/3"></div>
-              <div className="w-[0.95vw] h-[0.95vw] bg-gray-200/80 rounded-full"></div>
+              <div className="h-[0.75vw] bg-[#2c3749] rounded-[0.25vw] w-1/3"></div>
+              <div className="w-[0.95vw] h-[0.95vw] bg-[#2c3749] rounded-full"></div>
             </div>
           </div>
         ) : (
-          <div className={`bg-white rounded-[0.6vw] border ${isNameDuplicate ? 'border-red-500 bg-red-50' : 'border-gray-200/80'} shadow-[0_2px_8px_rgba(0,0,0,0.04)] px-[0.75vw] py-[0.45vw] flex items-center gap-[0.75vw] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]`}>
+          <div className={`bg-[#1e2738] rounded-[0.6vw] border ${isNameDuplicate ? 'border-red-500 bg-red-950/40' : 'border-[#2c3749]'} shadow-[0_2px_8px_rgba(0,0,0,0.2)] px-[0.75vw] py-[0.45vw] flex items-center gap-[0.75vw] transition-all hover:border-[#38465d]`}>
             {/* File Icon */}
             <div className="flex-shrink-0 text-[#EC5137]">
               <Icon icon="basil:document-outline" className="w-[1.8vw] h-[1.8vw]" />
@@ -321,26 +321,26 @@ const Sidebar = ({ bookName, setBookName, activeSubView, setActiveSubView, isPan
                     }
                   }
                 }}
-                className={`text-[0.92vw] font-medium bg-transparent border-none focus:ring-0 focus:outline-none w-full p-0 leading-snug tracking-tight ${isNameDuplicate ? 'text-red-600 placeholder-red-300 font-sans' : 'text-gray-900 placeholder-gray-400 font-sans'}`}
+                className={`text-[0.92vw] font-medium bg-transparent border-none focus:ring-0 focus:outline-none w-full p-0 leading-snug tracking-tight ${isNameDuplicate ? 'text-red-400 placeholder-red-400/50 font-sans' : 'text-white placeholder-gray-400 font-sans'}`}
                 placeholder="Name of the Book"
               />
 
               <div className="flex items-center justify-between mt-[0.25vw]">
-                <span className="text-[0.72vw] text-gray-500 font-medium tracking-wide">
+                <span className="text-[0.72vw] text-gray-400 font-medium tracking-wide">
                   Pages : {pageCount || 10}
                 </span>
                 <div className="relative group/tooltip flex items-center">
                   <button
                     type="button"
                     onClick={() => setIsInfoModalOpen(true)}
-                    className="text-[#EC5137] hover:text-[#d4432b] transition-colors cursor-pointer p-[0.1vw] rounded-[0.2vw] hover:bg-orange-50/80"
+                    className="text-[#EC5137] hover:text-[#ff6b52] transition-colors cursor-pointer p-[0.1vw] rounded-[0.2vw] hover:bg-[#EC5137]/10"
                   >
                     <Icon icon="mdi:rename" className="w-[0.95vw] h-[0.95vw]" />
                   </button>
                   {/* Styled Tooltip on Hover - Positioned below pen icon */}
                   <div className="absolute right-0 top-full mt-[0.4vw] hidden group-hover/tooltip:flex flex-col items-end pointer-events-none z-50 whitespace-nowrap">
-                    <div className="w-0 h-0 border-x-[0.3vw] border-x-transparent border-b-[0.3vw] border-b-gray-900/90 mr-[0.3vw]" />
-                    <div className="bg-gray-900/90 text-white text-[0.65vw] font-medium px-[0.5vw] py-[0.25vw] rounded-[0.3vw] shadow-md backdrop-blur-xs">
+                    <div className="w-0 h-0 border-x-[0.3vw] border-x-transparent border-b-[0.3vw] border-b-[#0f172a] mr-[0.3vw]" />
+                    <div className="bg-[#0f172a] border border-[#2c3749] text-white text-[0.65vw] font-medium px-[0.5vw] py-[0.25vw] rounded-[0.3vw] shadow-md backdrop-blur-xs">
                       Edit Flipbook Information
                     </div>
                   </div>
@@ -357,9 +357,9 @@ const Sidebar = ({ bookName, setBookName, activeSubView, setActiveSubView, isPan
           <div className="flex flex-col">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
               <div key={n} className="flex flex-col px-[0.75vw] py-[0.25vw]">
-                <div className="w-full flex items-center gap-[1vw] p-[0.75vw] rounded-[0.75vw] bg-gray-50 border border-gray-100/80 animate-pulse">
-                  <div className="w-[1.25vw] h-[1.25vw] bg-gray-200/80 rounded-[0.35vw] shrink-0" />
-                  <div className="h-[0.85vw] bg-gray-200/80 rounded-[0.35vw] flex-1" />
+                <div className="w-full flex items-center gap-[1vw] p-[0.75vw] rounded-[0.75vw] bg-[#1e2738] border border-[#2c3749] animate-pulse">
+                  <div className="w-[1.25vw] h-[1.25vw] bg-[#2c3749] rounded-[0.35vw] shrink-0" />
+                  <div className="h-[0.85vw] bg-[#2c3749] rounded-[0.35vw] flex-1" />
                 </div>
               </div>
             ))}
@@ -429,7 +429,7 @@ const Sidebar = ({ bookName, setBookName, activeSubView, setActiveSubView, isPan
               hasDropdown={false}
             />
 
-            <div className="w-[calc(100%-2vw)] h-[1px] bg-gray-200 mx-[1vw] my-[0.5vh]"></div>
+            <div className="w-[calc(100%-2vw)] h-[1px] bg-[#243042] mx-[1vw] my-[0.5vh]"></div>
 
             <SidebarItem
               id="section-branding"
@@ -443,13 +443,14 @@ const Sidebar = ({ bookName, setBookName, activeSubView, setActiveSubView, isPan
         )}
       </div>
       {/* Go to Page Editor Button */}
-      <div className="px-[1vw] py-[2vh] border-t border-gray-100 mt-auto bg-white">
+      <div className="px-[1vw] py-[2vh] border-t border-[#1f293d] mt-auto bg-[#151c28]">
         {isLoading ? (
-          <div className="w-full h-[2.5vw] bg-gray-200/80 rounded-[0.6vw] animate-pulse"></div>
+          <div className="w-full h-[2.5vw] bg-[#2c3749] rounded-[0.6vw] animate-pulse"></div>
         ) : (
           <button
             onClick={handleGoToPageEditor}
-            className="w-full bg-black text-white py-[1.2vh] rounded-[0.6vw] text-[0.8vw] font-semibold flex items-center justify-center gap-[0.8vw] hover:bg-gray-900 transition-all shadow-[0_8px_30px_rgb(0,0,0,0.4)] cursor-pointer"
+            style={{ backgroundColor: '#EC5137' }}
+            className="w-full text-white py-[1.2vh] rounded-[0.6vw] text-[0.8vw] font-semibold flex items-center justify-center gap-[0.8vw] hover:brightness-105 active:scale-[0.98] transition-all shadow-[0_4px_14px_rgba(236,81,55,0.35)] cursor-pointer"
           >
             <ArrowUpRight size="1.2vw" className="rotate-0" />
             <span>Go to Page Editor</span>

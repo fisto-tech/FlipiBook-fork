@@ -855,10 +855,10 @@ const PreviewArea = React.memo(({
 
     // Sync current page with targetPage prop (from PageEditor's activePageIndex or direct URL)
     useEffect(() => {
-        if (prevTargetPageRef.current === targetPage) return;
+        if (targetPage === undefined || prevTargetPageRef.current === targetPage) return;
         prevTargetPageRef.current = targetPage;
 
-        if (targetPage !== undefined && targetPage !== currentPage) {
+        if (targetPage !== currentPage) {
             isExternalJumpRef.current = true;
             setCurrentPage(targetPage);
             if (externalJumpTimerRef.current) clearTimeout(externalJumpTimerRef.current);
@@ -873,7 +873,7 @@ const PreviewArea = React.memo(({
                 isExternalJumpRef.current = false;
             }, 120);
         }
-    }, [targetPage, currentPage]);
+    }, [targetPage]);
 
     const handleToggleAudio = useCallback(() => {
         setIsMuted(prev => !prev);
@@ -1547,7 +1547,6 @@ const PreviewArea = React.memo(({
         // — prevents the circular: targetPage → flip → onFlip → setTargetPage → targetPage loop
         if (isExternalJumpRef.current) return;
         const logicalIndex = e.data;
-        prevTargetPageRef.current = logicalIndex;
         setCurrentPage(logicalIndex);
 
         if (externalOnFlip) {

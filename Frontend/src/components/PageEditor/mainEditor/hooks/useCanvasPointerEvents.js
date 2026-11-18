@@ -2192,6 +2192,25 @@ export const useCanvasPointerEvents = ({
       if (mediaParent && mediaParent.id) {
         resolvedId = mediaParent.id;
       }
+      const mapContainer = el?.closest?.('[data-type="map"], g[id^="map-"]');
+      if (mapContainer) {
+        const rootMap = (mapContainer.tagName?.toLowerCase() === 'g' ? mapContainer : mapContainer.closest('g[id^="map-"], g[data-type="map"]')) || mapContainer;
+        if (rootMap && rootMap.id) {
+          resolvedId = rootMap.id;
+        }
+      }
+      const qrParent = el?.closest?.('[data-type="qrcode"], g[id^="qrcode-"]');
+      if (qrParent && qrParent.id) {
+        resolvedId = qrParent.id;
+      }
+      const embedParent = el?.closest?.('[data-type="embed-frame"], g[id^="embed-"]');
+      if (embedParent && embedParent.id) {
+        resolvedId = embedParent.id;
+      }
+      const slideshowParent = el?.closest?.('[data-is-slideshow="true"], [data-type="slideshow"], g[id^="slideshow-"]');
+      if (slideshowParent && slideshowParent.id) {
+        resolvedId = slideshowParent.id;
+      }
       const finalEl = document.getElementById(resolvedId) || el;
       const isFreeFrame = finalEl ? (
         finalEl.getAttribute('data-name') === 'Free Frame' ||

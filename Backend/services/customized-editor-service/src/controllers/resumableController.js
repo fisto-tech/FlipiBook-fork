@@ -359,3 +359,107 @@ exports.getBookManifest = async (req, res) => {
   }
 };
 
+/**
+ * Direct Client-Edge Page Image Sync
+ * Saves client-extracted WebP image directly to /storage/:userId/books/:bookId/pages/:pageNumber.webp
+ * POST /api/customized-editor/upload-page-image
+ */
+exports.uploadPageImage = async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'No image file provided' });
+    }
+    const {
+      userId = 'FLIPI0001',
+      bookId,
+      pageNumber,
+      width,
+      height
+    } = req.body;
+
+    if (!bookId || !pageNumber) {
+      return res.status(400).json({ success: false, message: 'Missing bookId or pageNumber' });
+    }
+
+    const pagesDir = path.join(storageRoot, userId, 'books', bookId, 'pages');
+    await fs.promises.mkdir(pagesDir, { recursive: true });
+
+    const targetFile = path.join(pagesDir, `${pageNumber}.webp`);
+    if (file.path) {
+      await fs.promises.rename(file.path, targetFile);
+    } else if (file.buffer) {
+      await fs.promises.writeFile(targetFile, file.buffer);
+    }
+
+    const webpUrl = `/storage/${userId}/books/${bookId}/pages/${pageNumber}.webp`;
+    return res.status(200).json({
+      success: true,
+      url: webpUrl,
+      imageUrl: webpUrl,
+      pageNumber: Number(pageNumber),
+      width: Number(width) || 210,
+      height: Number(height) || 297
+    });
+  } catch (error) {
+    console.error('[UploadPageImage] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Finalizes client edge extraction: writes manifest.json on disk matching server-side structure
+ * POST /api/customized-editor/finalize-edge-book
+ */
+exports.finalizeEdgeBook = async (req, res) => {
+  try {
+    const {
+      userId = 'FLIPI0001',
+      bookId,
+      totalPages,
+      width = 210,
+      height = 297,
+      aspectRatio = 0.7071
+    } = req.body;
+
+    if (!bookId || !totalPages) {
+      return res.status(400).json({ success: false, message: 'Missing bookId or totalPages' });
+    }
+
+    const bookDir = path.join(storageRoot, userId, 'books', bookId);
+    await fs.promises.mkdir(bookDir, { recursive: true });
+
+    const total = Number(totalPages);
+    const pages = Array.from({ length: total }, (_, i) => ({
+      pageNumber: i + 1,
+      image: `${i + 1}.webp`,
+      thumb: `${i + 1}.webp`,
+      width: Number(width),
+      height: Number(height),
+      hasInteractive: false
+    }));
+
+    const manifest = {
+      bookId,
+      userId,
+      totalPages: total,
+      width: Number(width),
+      height: Number(height),
+      aspectRatio: Number(aspectRatio),
+      baseUrl: `/storage/${userId}/books/${bookId}/pages/`,
+      pages
+    };
+
+    await fs.promises.writeFile(
+      path.join(bookDir, 'manifest.json'),
+      JSON.stringify(manifest, null, 2)
+    );
+
+    return res.status(200).json({ success: true, manifest });
+  } catch (error) {
+    console.error('[FinalizeEdgeBook] Error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+

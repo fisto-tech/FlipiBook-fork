@@ -506,9 +506,11 @@ export const getInteractionScript = (pageNumber) => `  <style>
 
             function playHighlightBlink(el) {
                 if (el.__isBlinking) return;
-                el.__isBlinking = true;
                 
                 const rect = el.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+                el.__isBlinking = true;
+                
                 const overlay = document.createElement('div');
                 overlay.style.position = 'absolute';
                 overlay.style.left = (rect.left + window.scrollX) + 'px';
@@ -520,6 +522,7 @@ export const getInteractionScript = (pageNumber) => `  <style>
                 overlay.style.pointerEvents = 'none';
                 overlay.style.zIndex = '999999';
                 overlay.style.opacity = '0';
+                overlay.style.borderRadius = 'inherit';
                 
                 document.body.appendChild(overlay);
                 
@@ -550,13 +553,24 @@ export const getInteractionScript = (pageNumber) => `  <style>
                         const visiblePages = e.data.visiblePages || [];
                         if (!visiblePages.includes(window._pageNumber)) return;
                     }
-                    const interactionEls = document.querySelectorAll('[data-interaction]');
-                    interactionEls.forEach(el => {
-                        const showHighlight = el.getAttribute('data-show-highlight');
-                        if (showHighlight !== 'false') {
-                            playHighlightBlink(el);
-                        }
-                    });
+                    
+                    const triggerBlinks = () => {
+                        const interactionEls = document.querySelectorAll('[data-interaction]');
+                        interactionEls.forEach(el => {
+                            const showHighlight = el.getAttribute('data-show-highlight');
+                            if (showHighlight !== 'false') {
+                                playHighlightBlink(el);
+                            }
+                        });
+                    };
+
+                    if (typeof window._waitForEntranceAnimations === 'function') {
+                        window._waitForEntranceAnimations().then(() => {
+                            setTimeout(triggerBlinks, 80);
+                        });
+                    } else {
+                        setTimeout(triggerBlinks, 100);
+                    }
                 }
             });
         };

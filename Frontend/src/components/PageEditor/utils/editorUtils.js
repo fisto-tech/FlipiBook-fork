@@ -314,6 +314,7 @@ export const parseLayersFromSVG = (element) => {
       if (child.getAttribute('data-is-dummy') === 'true') return false;
       if (child.getAttribute('data-hit-rect') === 'true') return false;
       if (child.getAttribute('id') === 'multi-selection-bounds') return false;
+      if (child.id === 'temp-blink-clone' || child.getAttribute('id') === 'temp-blink-clone' || child.id?.startsWith('temp-blink-') || child.getAttribute('id')?.startsWith('temp-blink-')) return false;
       if (Array.from(child.classList).some(cls => cls.includes('damage-rect'))) return false;
 
       // Filter out invisible dummy/compositor helper rects
@@ -1337,7 +1338,8 @@ export const sanitizeSvgXml = (rawContent) => {
   }
 
   // 2. Remove lingering editor overlays, temporary handles, and damage rects
-  str = str.replace(/<[^>]*id="(?:vectra-overlay-group|node-edit-overlay-group|multi-selection-bounds)"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
+  str = str.replace(/<[^>]*id="(?:vectra-overlay-group|node-edit-overlay-group|multi-selection-bounds|temp-blink-clone)"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
+  str = str.replace(/<[^>]*id="(?:temp-blink-clone|temp-blink-[^"]*)"[^>]*\/?>/gi, '');
   str = str.replace(/<[^>]*class="[^"]*(?:slideshow-transition-clone|custom-video-overlay|video-damage-rect)[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
   str = str.replace(/<[^>]*id="custom-ctrl-[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
 

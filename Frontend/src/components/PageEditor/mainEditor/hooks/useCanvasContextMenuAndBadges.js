@@ -1,10 +1,26 @@
 import { useEffect } from 'react';
 import { getTopLevelFrames, getDirectChildFrames, hitTest } from '../utils/frameHierarchyUtils';
+import { useCanvasElementBlink } from './useCanvasElementBlink';
 
 /**
  * Hook managing canvas right-click context menu, selection restoration,
  * free frame selection attributes, and interaction badge icons/ticks.
  */
+const ACTION_ICONS = {
+  'open-link': 'ph:link-bold',
+  'whatsapp': 'ic:outline-whatsapp',
+  'email': 'ic:outline-mail',
+  'call': 'fluent:call-24-regular',
+  'navigate-to': 'iconoir:page-search',
+  '3d-viewer': 'mage:box-3d',
+  'popup': 'carbon:popup',
+  'slideshow': 'clarity:image-gallery-line',
+  'zoom': 'fluent:zoom-in-32-regular',
+  'download': 'mynaui:download',
+  'audio': 'lucide:volume-2',
+  'info-box': 'fontisto:info'
+};
+
 export const useCanvasContextMenuAndBadges = ({
   activeTopTool,
   isConvertedFlipbook,
@@ -153,7 +169,7 @@ export const useCanvasContextMenuAndBadges = ({
       const { layerId } = e.detail || {};
       const targetId = layerId || selectedLayerId;
       if (!targetId) return;
-      const el = document.getElementById(targetId);
+      const el = document.querySelector(`.page-svg-container [id="${CSS.escape(targetId)}"]`) || document.getElementById(targetId);
       if (el && typeof drawOverlayHighlight === 'function') {
         drawOverlayHighlight(el, 'selected');
       }
@@ -211,7 +227,7 @@ export const useCanvasContextMenuAndBadges = ({
         plusBadge.style.width = '0.75vw';
         plusBadge.style.height = '0.75vw';
         plusBadge.innerHTML = `
-          <svg width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg data-badge-status-svg="true" width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M8 0.5C12.1421 0.5 15.5 3.85786 15.5 8C15.5 12.1421 12.1421 15.5 8 15.5C3.85786 15.5 0.5 12.1421 0.5 8C0.5 3.85786 3.85786 0.5 8 0.5Z" fill="white"/>
               <path d="M8 0.5C12.1421 0.5 15.5 3.85786 15.5 8C15.5 12.1421 12.1421 15.5 8 15.5C3.85786 15.5 0.5 12.1421 0.5 8C0.5 3.85786 3.85786 0.5 8 0.5Z" stroke="#4A3AFF"/>
               <path d="M12.0007 8.66536H8.66732V11.9987C8.66732 12.3654 8.36732 12.6654 8.00065 12.6654C7.63398 12.6654 7.33398 12.3654 7.33398 11.9987V8.66536H4.00065C3.63398 8.66536 3.33398 8.36536 3.33398 7.9987C3.33398 7.63203 3.63398 7.33203 4.00065 7.33203H7.33398V3.9987C7.33398 3.63203 7.63398 3.33203 8.00065 3.33203C8.36732 3.33203 8.66732 3.63203 8.66732 3.9987V7.33203H12.0007C12.3673 7.33203 12.6673 7.63203 12.6673 7.9987C12.6673 8.36536 12.3673 8.66536 12.0007 8.66536Z" fill="#4A3AFF"/>
@@ -222,46 +238,58 @@ export const useCanvasContextMenuAndBadges = ({
         return;
       }
 
-      const [prefix, iconName] = actionType.icon.split(':');
+      const rawIcon = (typeof actionType === 'object' && actionType?.icon)
+        ? actionType.icon
+        : (typeof actionType === 'object' && actionType?.id && ACTION_ICONS[actionType.id])
+          ? ACTION_ICONS[actionType.id]
+          : (typeof actionType === 'string' && ACTION_ICONS[actionType])
+            ? ACTION_ICONS[actionType]
+            : (typeof actionType === 'string' && actionType.includes(':'))
+              ? actionType
+              : 'fluent:zoom-in-32-regular';
+
+      const [prefix, iconName] = rawIcon.includes(':') ? rawIcon.split(':') : ['fluent', 'zoom-in-32-regular'];
       const iconUrl = `https://api.iconify.design/${prefix}/${iconName}.svg?color=white&width=16&height=16`;
-      mainBox.innerHTML = `<img src="${iconUrl}" alt="${actionType.label}" style="width:1vw;height:1vw;min-width:12px;min-height:12px;display:block;" />`;
+      const label = (typeof actionType === 'object' ? actionType.label : actionType) || 'Action';
+      mainBox.innerHTML = `<img src="${iconUrl}" alt="${label}" style="width:1vw;height:1vw;min-width:12px;min-height:12px;display:block;" />`;
       mainBox.style.position = 'relative';
       mainBox.style.overflow = 'visible';
 
-      badge.querySelectorAll('[data-badge-plus]').forEach(p => p.remove());
       badge.querySelectorAll('[data-badge-tick]').forEach(t => t.remove());
 
-      const tick = document.createElement('div');
-      tick.setAttribute('data-badge-tick', 'true');
-      tick.style.cssText = [
-        'position:absolute',
-        'top:-6px',
-        'right:-6px',
-        'width:13px',
-        'height:13px',
-        'background:#22C55E',
-        'border-radius:50%',
-        'display:flex',
-        'align-items:center',
-        'justify-content:center',
-        'z-index:20',
-        'border:1.5px solid #ffffff',
-        'box-shadow:0 1px 3px rgba(0,0,0,0.3)',
-        'pointer-events:none'
-      ].join(';');
-      tick.innerHTML = `<svg viewBox="0 0 24 24" fill="none" style="width:7px;height:7px;"><polyline points="20 6 9 17 4 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-      mainBox.appendChild(tick);
+      let plusBadge = badge.querySelector('[data-badge-plus]');
+      if (!plusBadge) {
+        plusBadge = document.createElement('div');
+        plusBadge.setAttribute('data-badge-plus', 'true');
+        plusBadge.className = 'absolute -top-1 -right-1 flex items-center justify-center pointer-events-none z-20';
+        plusBadge.style.width = '0.75vw';
+        plusBadge.style.height = '0.75vw';
+        mainBox.appendChild(plusBadge);
+      }
+      plusBadge.innerHTML = `
+        <svg data-badge-status-svg="true" width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="8" cy="8" r="7.5" fill="#22C55E" stroke="white"/>
+          <path d="M5 8L7 10L11 6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
     };
+
     window.addEventListener('update-interaction-badge', handleBadgeUpdate);
-    return () => window.removeEventListener('update-interaction-badge', handleBadgeUpdate);
+    return () => {
+      window.removeEventListener('update-interaction-badge', handleBadgeUpdate);
+    };
   }, []);
+
+  // Dedicated fill-only blinking on existing frames/overlays (split into separate module)
+  useCanvasElementBlink({ drawOverlayHighlight });
 
   // Listen for force selection box update
   useEffect(() => {
     const handleForceUpdateSelection = (e) => {
       const { elementId } = e.detail || {};
-      if (!elementId) return;
-      const el = document.getElementById(elementId);
+      const targetId = elementId || selectedLayerId;
+      if (!targetId) return;
+      const el = document.querySelector(`.page-svg-container [id="${CSS.escape(targetId)}"]`) || document.getElementById(targetId);
       if (el) {
         setTimeout(() => {
           if (drawOverlayHighlight) drawOverlayHighlight(el, 'selected');
@@ -282,7 +310,7 @@ export const useCanvasContextMenuAndBadges = ({
     };
     window.addEventListener('force-update-selection-box', handleForceUpdateSelection);
     return () => window.removeEventListener('force-update-selection-box', handleForceUpdateSelection);
-  }, [drawOverlayHighlight]);
+  }, [selectedLayerId, drawOverlayHighlight]);
 
   // Listen for add-free-frame to start drawing
   useEffect(() => {
