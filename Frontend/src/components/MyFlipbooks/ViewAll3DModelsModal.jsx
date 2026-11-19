@@ -6,7 +6,7 @@ import { OrbitControls, Environment, Html } from "@react-three/drei";
 import axios from "axios";
 import { X, Search, Plus, Eye, Check, MoreVertical } from "lucide-react";
 import RenderModel from "../ThreedEditor/Components/ModelLoaders";
-import { resolveUploadsPath } from "../../utils/assetUtils";
+import { resolveUploadsPath } from "../../utils/assets/assetUtils";
 import { useAuth } from "../../context/AuthContext";
 import { RECENT_3D_PRESETS } from "./recent3dPresets";
 

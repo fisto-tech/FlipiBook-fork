@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { X, ArrowRight, AlertTriangle } from 'lucide-react';
-import { formatStorageMB } from '../utils/storageValidation';
+import { formatStorageMB } from '../utils/storage/storageValidation';
 
 const StorageLimitModal = ({
   isOpen,

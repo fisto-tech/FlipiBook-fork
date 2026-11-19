@@ -20,6 +20,43 @@ export const svgGlobalStyles = `
     text-rendering: geometricPrecision !important;
   }
 
+  /* Free Frame & Interaction Fill Blink (uses existing frame fill, no stroke) */
+  @keyframes interaction-frame-blink {
+    0% {
+      fill: transparent;
+    }
+    20% {
+      fill: rgba(77, 71, 255, 0.14);
+    }
+    40% {
+      fill: rgba(77, 71, 255, 0.02);
+    }
+    60% {
+      fill: rgba(77, 71, 255, 0.14);
+    }
+    80% {
+      fill: rgba(77, 71, 255, 0.02);
+    }
+    100% {
+      fill: transparent;
+    }
+  }
+
+  .interaction-frame-blinking,
+  .page-svg-container svg rect[data-name="Free Frame" i].interaction-frame-blinking,
+  .page-svg-container svg [data-name="Free Frame" i].interaction-frame-blinking,
+  .page-svg-container svg [data-type="free-frame"].interaction-frame-blinking,
+  .page-svg-container svg [id^="free-frame"].interaction-frame-blinking,
+  .page-svg-container svg [data-is-hotspot="true"].interaction-frame-blinking,
+  .page-svg-container svg [data-is-hotspot="true"].interaction-frame-blinking rect,
+  .page-svg-container svg polygon.interaction-frame-blinking,
+  svg polygon[id^="overlay-poly-"].interaction-frame-blinking,
+  svg path[id^="overlay-path-"].interaction-frame-blinking,
+  polygon.interaction-frame-blinking,
+  path.interaction-frame-blinking {
+    animation: interaction-frame-blink 1.2s ease-in-out !important;
+  }
+
   [data-hidden="true"],
   .page-svg-container [data-hidden="true"] {
     display: none !important;
@@ -358,10 +395,10 @@ export const svgGlobalStyles = `
     transition: fill 0.2s ease, stroke 0.2s ease;
   }
 
-  /* By default, hide Free Frame completely (transparent stroke and fill) unless drawing */
-  .page-svg-container svg rect[data-name="Free Frame" i]:not([data-drawing="true"]),
-  .page-svg-container svg [data-type="free-frame"]:not([data-drawing="true"]),
-  .page-svg-container svg [id^="free-frame"]:not([data-drawing="true"]) {
+  /* By default, hide Free Frame completely (transparent stroke and fill) unless drawing or blinking */
+  .page-svg-container svg rect[data-name="Free Frame" i]:not([data-drawing="true"]):not(.interaction-frame-blinking):not([data-blinking="true"]),
+  .page-svg-container svg [data-type="free-frame"]:not([data-drawing="true"]):not(.interaction-frame-blinking):not([data-blinking="true"]),
+  .page-svg-container svg [id^="free-frame"]:not([data-drawing="true"]):not(.interaction-frame-blinking):not([data-blinking="true"]) {
     stroke: transparent !important;
     fill: transparent !important;
   }
@@ -382,5 +419,52 @@ export const svgGlobalStyles = `
   .hide-free-frames [id^="free-frame"]:not([data-drawing="true"]) {
     display: none !important;
     pointer-events: none !important;
+  }
+
+  /* Disable clicks on Free Frames and Hotspots when not in interaction mode */
+  .page-svg-container.disable-interaction-layers [data-is-hotspot="true"],
+  .page-svg-container.disable-interaction-layers [data-type="hotspot"],
+  .page-svg-container.disable-interaction-layers [id^="hotspot-"],
+  .page-svg-container.disable-interaction-layers [data-is-hotspot="true"] *,
+  .page-svg-container.disable-interaction-layers [data-type="hotspot"] *,
+  .page-svg-container.disable-interaction-layers [id^="hotspot-"] *,
+  .page-svg-container.disable-interaction-layers [data-name="Free Frame" i],
+  .page-svg-container.disable-interaction-layers [data-type="free-frame"],
+  .page-svg-container.disable-interaction-layers [id^="free-frame"],
+  .page-svg-container.disable-interaction-layers [data-name="Free Frame" i] *,
+  .page-svg-container.disable-interaction-layers [data-type="free-frame"] *,
+  .page-svg-container.disable-interaction-layers [id^="free-frame"] *,
+  .disable-interaction-layers [data-is-hotspot="true"],
+  .disable-interaction-layers [data-type="hotspot"],
+  .disable-interaction-layers [id^="hotspot-"],
+  .disable-interaction-layers [data-name="Free Frame" i],
+  .disable-interaction-layers [data-type="free-frame"],
+  .disable-interaction-layers [id^="free-frame"] {
+    pointer-events: none !important;
+  }
+
+  /* Audio elements cannot be clicked or selected when in Interaction mode */
+  .page-svg-container.interaction-mode-active [data-type="audio-frame"],
+  .page-svg-container.interaction-mode-active g[id^="audio-"],
+  .page-svg-container.interaction-mode-active [data-type="audio-frame"] *,
+  .page-svg-container.interaction-mode-active g[id^="audio-"] *,
+  .interaction-mode-active [data-type="audio-frame"],
+  .interaction-mode-active g[id^="audio-"] {
+    pointer-events: none !important;
+    user-select: none !important;
+  }
+
+  /* Locked elements are completely non-clickable, non-selectable, and non-moveable */
+  [data-locked="true"],
+  [data-locked="true"] *,
+  .page-svg-container svg [data-locked="true"],
+  .page-svg-container svg [data-locked="true"] *,
+  svg rect[data-name="Free Frame" i][data-locked="true"],
+  svg [data-type="free-frame"][data-locked="true"],
+  svg [id^="free-frame"][data-locked="true"],
+  svg [data-is-hotspot="true"][data-locked="true"] {
+    pointer-events: none !important;
+    user-select: none !important;
+    cursor: default !important;
   }
 `;

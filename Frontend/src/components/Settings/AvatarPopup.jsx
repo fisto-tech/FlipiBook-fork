@@ -6,7 +6,7 @@ import p2 from '../../assets/settings/p2.png';
 import p3 from '../../assets/settings/p3.png';
 import p4 from '../../assets/settings/p4.png';
 import p5 from '../../assets/settings/p5.png';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 
 const AvatarPopup = ({ isOpen, onClose, onSelectAvatar, onSelectColor, currentAvatar, onStartCrop }) => {
   const [isColorPalletOpen, setIsColorPalletOpen] = useState(false);

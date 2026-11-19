@@ -5,8 +5,9 @@ import { Icon } from '@iconify/react';
 import QRCodeStyling from 'qr-code-styling';
 import html2canvas from 'html2canvas';
 import ColorPicker, { default as TemplateColorPicker } from './ColorPicker';
-import { getAssetBaseUrl, getSupabaseBaseUrl, rewriteHtmlUploadsToSupabase } from '../utils/assetUtils';
+import { getAssetBaseUrl, getSupabaseBaseUrl, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
+import { analyticsApi } from '../api/analyticsApi';
 
 
 // Lazy-load preview iframe: only fetches HTML when card is visible in viewport
@@ -21,48 +22,71 @@ const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl, title, imageUrl
         const el = containerRef.current;
         if (!el) return;
 
+        const effectiveBackendUrl = backendUrl || (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
+
+        const fetchPreview = () => {
+            if (fetching) return;
+            setFetching(true);
+            // Always fetch first-page HTML for both PDF and template books
+            axios
+                .get(`${effectiveBackendUrl}/api/flipbook/preview/${v_id}`, { withCredentials: true })
+                .then((res) => {
+                    if (res.data?.html) {
+                        // Extract and dynamically load Google Fonts found in the SVG
+                        const fontsToLoad = new Set();
+                        const cssRegex = /font-family\s*:\s*(?:['"]([^'"]+)['"]|([^;}'"\s]+))/g;
+                        const attrRegex = /font-family\s*=\s*['"]([^'"]+)['"]/g;
+                        let match;
+                        while ((match = cssRegex.exec(res.data.html)) !== null) {
+                            let f = match[1] || match[2];
+                            if (f) f = f.split(',')[0].replace(/['"]/g, '').trim();
+                            if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) fontsToLoad.add(f);
+                        }
+                        while ((match = attrRegex.exec(res.data.html)) !== null) {
+                            let f = match[1].split(',')[0].replace(/['"]/g, '').trim();
+                            if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) fontsToLoad.add(f);
+                        }
+
+                        let fontImports = '';
+                        if (fontsToLoad.size > 0) {
+                            const fontList = Array.from(fontsToLoad).map(f => f.replace(/\s+/g, '+')).join('|');
+                            fontImports = `<link href="https://fonts.googleapis.com/css?family=${fontList}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
+                        }
+
+                        setHtml({ content: res.data.html, fontImports });
+                    }
+                })
+                .catch(() => { })
+                .finally(() => { setFetching(false); setLoaded(true); });
+        };
+
+        if (typeof IntersectionObserver === 'undefined') {
+            fetchPreview();
+            return;
+        }
+
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting && !loaded && !fetching) {
                     observer.disconnect();
-                    setFetching(true);
-                    // Always fetch first-page HTML for both PDF and template books
-                    axios
-                        .get(`${backendUrl}/api/flipbook/preview/${v_id}`, { withCredentials: true })
-                        .then((res) => {
-                            if (res.data?.html) {
-                                // Extract and dynamically load Google Fonts found in the SVG
-                                const fontsToLoad = new Set();
-                                const cssRegex = /font-family\s*:\s*(?:['"]([^'"]+)['"]|([^;}'"\s]+))/g;
-                                const attrRegex = /font-family\s*=\s*['"]([^'"]+)['"]/g;
-                                let match;
-                                while ((match = cssRegex.exec(res.data.html)) !== null) {
-                                    let f = match[1] || match[2];
-                                    if (f) f = f.split(',')[0].replace(/['"]/g, '').trim();
-                                    if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) fontsToLoad.add(f);
-                                }
-                                while ((match = attrRegex.exec(res.data.html)) !== null) {
-                                    let f = match[1].split(',')[0].replace(/['"]/g, '').trim();
-                                    if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) fontsToLoad.add(f);
-                                }
-
-                                let fontImports = '';
-                                if (fontsToLoad.size > 0) {
-                                    const fontList = Array.from(fontsToLoad).map(f => f.replace(/\s+/g, '+')).join('|');
-                                    fontImports = `<link href="https://fonts.googleapis.com/css?family=${fontList}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
-                                }
-
-                                setHtml({ content: res.data.html, fontImports });
-                            }
-                        })
-                        .catch(() => { })
-                        .finally(() => { setFetching(false); setLoaded(true); });
+                    fetchPreview();
                 }
             },
-            { threshold: 0.1 }
+            { threshold: 0.01 }
         );
         observer.observe(el);
-        return () => observer.disconnect();
+
+        // Fallback timeout in case intersection observer in modal doesn't fire immediately
+        const timer = setTimeout(() => {
+            if (!loaded && !fetching) {
+                fetchPreview();
+            }
+        }, 300);
+
+        return () => {
+            observer.disconnect();
+            clearTimeout(timer);
+        };
     }, [v_id, loaded, fetching, backendUrl, emailId]);
 
     const isLoading = !loaded || fetching;
@@ -276,7 +300,8 @@ const CustomQRCode = React.forwardRef(({
 });
 
 
-const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBook, activeLayout, isTabletLayout = false, isMobileLayout = false, isAbsolutePosition = false }) => {
+const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBook: propCurrentBook, flipbook, activeLayout, isTabletLayout = false, isMobileLayout = false, isAbsolutePosition = false }) => {
+    const currentBook = propCurrentBook || flipbook;
     const { user } = useAuth();
     const [addCover, setAddCover] = useState(false);
 
@@ -907,6 +932,23 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+
+            // Record download event for analytics
+            try {
+                const vidToTrack = currentBook?.v_id || currentBook?.shareId;
+                if (vidToTrack) {
+                    analyticsApi.recordDownload({
+                        v_id: currentBook?.v_id,
+                        shareId: currentBook?.shareId || currentBook?.Customized_Settings?.Visibility?.shareId || '',
+                        bookName: currentBook?.flipbookName || currentBook?.title || 'share-poster',
+                        format: `${fileExt.toUpperCase()} Poster`,
+                        pagesCount: 1,
+                        userEmail: currentBook?.userEmail || ''
+                    }).catch(e => console.warn('[Analytics recordDownload warning]:', e?.message));
+                }
+            } catch (trackErr) {
+                console.warn('[Analytics recordDownload err]:', trackErr);
+            }
         } catch (error) {
             console.error('Error exporting poster image:', error);
             alert('Error generating poster image: ' + error.message);
@@ -1071,6 +1113,15 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
         navigator.clipboard.writeText(publicUrl);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+
+        const vid = currentBook?.v_id || currentBook?.bookId || currentBook?._id;
+        if (vid) {
+            analyticsApi.recordShare({
+                v_id: vid,
+                platform: 'copy-link',
+                bookName: currentBook?.flipbookName || currentBook?.title
+            }).catch(e => console.warn('[Analytics recordShare warning]:', e?.message));
+        }
     };
 
     const shareModel = async (platform = 'native') => {
@@ -1081,6 +1132,17 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
         const shareTitle = currentBook?.flipbookName || 'Check out my flipbook!';
         const shareUrl = publicUrl;
 
+        const vid = currentBook?.v_id || currentBook?.bookId || currentBook?._id;
+        const trackShare = (plat) => {
+            if (vid) {
+                analyticsApi.recordShare({
+                    v_id: vid,
+                    platform: plat,
+                    bookName: currentBook?.flipbookName || currentBook?.title
+                }).catch(e => console.warn('[Analytics recordShare warning]:', e?.message));
+            }
+        };
+
         if (platform === 'native' && navigator.share) {
             try {
                 await navigator.share({
@@ -1088,6 +1150,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                     text: 'I created a flipbook on Fisto. Take a look!',
                     url: shareUrl
                 });
+                trackShare('native');
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     console.error('Error sharing:', err);
@@ -1098,18 +1161,23 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
             switch (platform) {
                 case 'whatsapp':
                     url = `https://wa.me/?text=${encodeURIComponent(shareTitle + ' ' + shareUrl)}`;
+                    trackShare('whatsapp');
                     break;
                 case 'facebook':
                     url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+                    trackShare('facebook');
                     break;
                 case 'x':
                     url = `https://x.com/intent/tweet?text=${encodeURIComponent(shareTitle)}&url=${encodeURIComponent(shareUrl)}`;
+                    trackShare('x');
                     break;
                 case 'mail':
                     url = `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent('Check out this flipbook: ' + shareUrl)}`;
+                    trackShare('mail');
                     break;
                 case 'linkedin':
                     url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+                    trackShare('linkedin');
                     break;
                 case 'drive':
                     // Just copy link for drive

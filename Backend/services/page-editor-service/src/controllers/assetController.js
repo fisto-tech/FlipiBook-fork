@@ -8,6 +8,7 @@ const UserGallery = require("../../../../shared/models/UserGallery");
 const ThreedModel = require("../../../../shared/models/ThreedModel");
 const InteractionThreedModel = require("../../../../shared/models/InteractionThreedModel");
 const backupService = require('../../../../shared/backupService');
+const { processMediaFile } = require('../../../../shared/mediaCompressor');
 const { getAuthUser } = require("../utils/userHelper");
 const {
   generateId,
@@ -339,11 +340,12 @@ const uploadAsset = async (req, res) => {
     const uniqueFilename = `${file_v_id}${fileExt}`;
     const destinationPath = path.join(targetDir, uniqueFilename);
 
-    // Move file from temp to final destination
-    fs.copyFileSync(file.path, destinationPath);
+    // Move & compress file (visually lossless compression for video/gif, direct copy for others)
+    const compressionRes = await processMediaFile(file.path, destinationPath, assetType);
     if (fs.existsSync(file.path)) {
       try { fs.unlinkSync(file.path); } catch (e) {}
     }
+    const finalFileSize = fs.existsSync(destinationPath) ? fs.statSync(destinationPath).size : file.size;
 
     const relativeUrl = `${relativeUrlBase}/${uniqueFilename}`;
     const flipbookPath = isGallery ? null : `../assets/${subFolder}/${uniqueFilename}`;
@@ -368,7 +370,7 @@ const uploadAsset = async (req, res) => {
           convertedName: uniqueFilename,
           filePath: destinationPath,
           url: relativeUrl,
-          size: file.size,
+          size: finalFileSize,
           timestamp: new Date()
         });
         userGallery.markModified('pageEditorgallery');
@@ -401,7 +403,7 @@ const uploadAsset = async (req, res) => {
         convertedName: uniqueFilename,
         page_v_id: finalPageVId,
         url: assetSavedUrl,
-        size: file.size,
+        size: finalFileSize,
         timestamp: new Date()
       });
       assetDoc.markModified('assets');

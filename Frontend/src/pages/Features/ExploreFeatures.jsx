@@ -9,7 +9,7 @@ import Explore2Img from '../../assets/Features/Explore/Explore2.webp';
 export default function ExploreFeatures() {
   const navigate = useNavigate();
   return (
-    <div className="w-full min-h-screen bg-white text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden selection:bg-[#EA580C]/10 selection:text-[#EA580C]">
+    <div className="w-full min-h-screen bg-white text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden">
       <main className="w-full flex-1 pb-2">
         {/* =========================================
             SECTION 1: HERO (EXPLORE BANNER)
@@ -33,9 +33,9 @@ export default function ExploreFeatures() {
                 <button
                   type="button"
                   onClick={() => navigate('/features')}
-                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-gray-200 bg-white/90 text-gray-600 text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-xs transition-all cursor-pointer backdrop-blur-xs hover:bg-white"
+                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-[#EA580C] bg-white/10 text-[#EA580C] text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-sm hover:shadow transition-all cursor-pointer backdrop-blur-xl hover:shadow-[#EA580C]"
                 >
-                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-gray-600" />
+                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-[#EA580C]" />
                   <span>Back to Features</span>
                 </button>
               </div>
@@ -191,12 +191,12 @@ export default function ExploreFeatures() {
         ========================================= */}
         <section className="relative w-full pb-16 bg-white">
           <div className="max-w-[92vw] mx-auto px-4 md:px-[2vw]">
-            <div className="w-full bg-white rounded-3xl border border-[#E2E8F0] shadow-sm p-6 sm:p-8 md:p-10 lg:p-12">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center">
+            <div className="w-full bg-white rounded-3xl border border-[#E2E8F0] shadow-sm p-6 sm:p-8 md:p-8 lg:py-6 lg:px-10">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
                 
                 {/* LEFT COLUMN: EXPLORE BOOKS (4 Cols on LG) */}
                 <div className="lg:col-span-4 flex flex-col items-start">
-                  <div className="flex items-center gap-3.5 mb-3">
+                  <div className="flex items-center gap-3.5 mb-2.5">
                     <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#2F5EA8] flex items-center justify-center text-white shrink-0 shadow-sm">
                       <Icon icon="ph:book-open" className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
@@ -205,11 +205,11 @@ export default function ExploreFeatures() {
                     </h3>
                   </div>
 
-                  <p className="text-xs sm:text-[14px] font-semibold text-[#1E293B] mb-5 sm:mb-6 leading-snug">
+                  <p className="text-xs sm:text-[14px] font-semibold text-[#1E293B] mb-4 sm:mb-5 leading-snug">
                     Explore digital publications from different categories and industries.
                   </p>
 
-                  <ul className="space-y-3 sm:space-y-3.5">
+                  <ul className="space-y-2.5 sm:space-y-3">
                     <li className="flex items-start gap-2.5 sm:gap-3">
                       <Icon icon="ph:check" className="w-4 h-4 text-[#EA580C] shrink-0 mt-0.5 stroke-[2.5]" />
                       <span className="text-xs sm:text-[13.5px] text-[#475569] leading-snug">
@@ -244,22 +244,22 @@ export default function ExploreFeatures() {
                 </div>
 
                 {/* CENTER COLUMN: PREVIEW SCREENSHOTS (4 Cols on LG - STACKED OVERLAPPING) */}
-                <div className="lg:col-span-4 flex justify-center items-center py-4 lg:py-0">
-                  <div className="relative w-full max-w-[340px] sm:max-w-[380px] h-[240px] sm:h-[280px] flex items-center justify-center">
-                    {/* Top card (Explore1Img) */}
-                    <div className="absolute top-0 left-2 sm:left-4 w-[85%] rounded-xl overflow-hidden shadow-lg border border-[#E2E8F0] bg-white z-10 transition-transform hover:scale-[1.02]">
+                <div className="lg:col-span-4 flex justify-center items-center py-2 lg:py-0">
+                  <div className="relative w-full max-w-[340px] sm:max-w-[380px] md:max-w-[400px] h-[250px] sm:h-[280px] md:h-[300px] flex items-center justify-center">
+                    {/* Top image (Explore1Img) */}
+                    <div className="absolute top-0 left-0 w-[86%] z-10 transition-transform hover:scale-[1.02]">
                       <img
                         src={Explore1Img}
                         alt="Explore Books UI Preview"
-                        className="w-full h-auto object-cover block"
+                        className="w-full h-auto object-contain block drop-shadow-md"
                       />
                     </div>
-                    {/* Bottom overlapping card (Explore2Img) */}
-                    <div className="absolute bottom-0 right-2 sm:right-4 w-[85%] rounded-xl overflow-hidden shadow-xl border border-[#E2E8F0] bg-white z-20 transition-transform hover:scale-[1.02]">
+                    {/* Bottom overlapping image (Explore2Img) */}
+                    <div className="absolute bottom-0 right-0 w-[86%] z-20 transition-transform hover:scale-[1.02]">
                       <img
                         src={Explore2Img}
                         alt="Explore Creators UI Preview"
-                        className="w-full h-auto object-cover block"
+                        className="w-full h-auto object-contain block drop-shadow-lg"
                       />
                     </div>
                   </div>
@@ -267,7 +267,7 @@ export default function ExploreFeatures() {
 
                 {/* RIGHT COLUMN: EXPLORE CREATORS (4 Cols on LG) */}
                 <div className="lg:col-span-4 flex flex-col items-start">
-                  <div className="flex items-center gap-3.5 mb-3">
+                  <div className="flex items-center gap-3.5 mb-2.5">
                     <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#14B8A6] flex items-center justify-center text-white shrink-0 shadow-sm">
                       <Icon icon="ph:users" className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
@@ -276,11 +276,11 @@ export default function ExploreFeatures() {
                     </h3>
                   </div>
 
-                  <p className="text-xs sm:text-[14px] font-semibold text-[#1E293B] mb-5 sm:mb-6 leading-snug">
+                  <p className="text-xs sm:text-[14px] font-semibold text-[#1E293B] mb-4 sm:mb-5 leading-snug">
                     Explore creator profiles and discover the digital publications they share.
                   </p>
 
-                  <ul className="space-y-3 sm:space-y-3.5">
+                  <ul className="space-y-2.5 sm:space-y-3">
                     <li className="flex items-start gap-2.5 sm:gap-3">
                       <Icon icon="ph:check" className="w-4 h-4 text-[#EA580C] shrink-0 mt-0.5 stroke-[2.5]" />
                       <span className="text-xs sm:text-[13.5px] text-[#475569] leading-snug">

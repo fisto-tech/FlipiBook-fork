@@ -7,8 +7,8 @@ import { useGoogleLogin } from '@react-oauth/google';
 
 import { useToast } from '../CustomToast';
 import { useAuth } from '../../context/AuthContext';
-import { getErrorMessage, setSessionToken } from '../../utils/authUtils';
-import { getClientDeviceInfo, getPublicClientIpAndLocation } from '../../utils/deviceUtils';
+import { getErrorMessage, setSessionToken } from '../../utils/auth/authUtils';
+import { getClientDeviceInfo, getPublicClientIpAndLocation } from '../../utils/auth/deviceUtils';
 import { prefetchMyFlipbooks } from '../../queryClient';
 
 export default function Signup({ onSwitchToSignin }) {

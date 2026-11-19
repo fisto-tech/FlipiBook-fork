@@ -12,7 +12,7 @@ import {
   VisibilityPrivacyPanel,
   AnalyticsPanel,
   BrandingPanel,
-} from './panels';
+} from './sidebar/panels';
 
 // Supporting components
 import OtherSetup from './components/OtherSetup';

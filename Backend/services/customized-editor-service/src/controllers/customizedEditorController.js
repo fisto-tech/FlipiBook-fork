@@ -11,6 +11,7 @@ const UserGallery = require('../../../../shared/models/UserGallery');
 const EditorPreset = require('../models/editorPreset');
 const Flipbook = require('../../../../shared/models/Flipbook');
 const backupService = require('../../../../shared/backupService');
+const bookInfoController = require('./bookInfoController');
 
 const { getAuthUser, getUserQuery, getUserStorageFolder } = require('../utils/userHelper');
 const {
@@ -398,7 +399,7 @@ const updateSettings = async (req, res) => {
       rawSettings.branding
     );
 
-    // 8. FlipbookInfo
+    // 8. FlipbookInfo & Metadata
     let incFlipbookInfo = pick(
       rawCustomized.FlipbookInfo,
       rawBody.FlipbookInfo,
@@ -406,7 +407,7 @@ const updateSettings = async (req, res) => {
       rawCustomized.flipbookInfo,
       rawBody.flipbookInfo
     );
-    if (!incFlipbookInfo && (width || height || orientation)) {
+    if (!incFlipbookInfo && (width || height || orientation || rawBody.category || rawBody.language || rawBody.quotes || rawBody.about)) {
       incFlipbookInfo = {};
     }
     if (incFlipbookInfo) {
@@ -414,16 +415,37 @@ const updateSettings = async (req, res) => {
       if (width) incFlipbookInfo.width = width;
       if (height) incFlipbookInfo.height = height;
       if (orientation) incFlipbookInfo.orientation = orientation;
+      if (rawBody.category !== undefined) incFlipbookInfo.category = rawBody.category;
+      if (rawBody.language !== undefined) incFlipbookInfo.language = rawBody.language;
+      if (rawBody.quotes !== undefined) incFlipbookInfo.quotes = rawBody.quotes;
+      if (rawBody.about !== undefined) incFlipbookInfo.about = rawBody.about;
     }
 
-    // 9. otherSetup
-    const incOtherSetup = pick(
+    // 9. otherSetup & Cover Picture
+    let incOtherSetup = pick(
       rawCustomized.otherSetup,
       rawBody.otherSetup,
       rawSettings.otherSetup,
       rawCustomized.othersetup,
-      rawBody.othersetup
+      rawBody.othersetup,
+      rawSettings.othersetup
     );
+
+    const incomingCoverPicture = pick(
+      rawBody.coverPicture,
+      rawCustomized.coverPicture,
+      rawSettings.coverPicture,
+      rawSettings.othersetup?.coverPicture,
+      rawBody.settings?.othersetup?.coverPicture,
+      incOtherSetup?.coverPicture
+    );
+
+    if (incomingCoverPicture !== undefined) {
+      if (!incFlipbookInfo) incFlipbookInfo = {};
+      incFlipbookInfo.coverPicture = incomingCoverPicture;
+      if (!incOtherSetup) incOtherSetup = {};
+      incOtherSetup = { ...incOtherSetup, coverPicture: incomingCoverPicture };
+    }
 
     // 3. Merge with existing settings or defaults
     let existingSettings = await CustomizedSettings.findOne({ v_id: resolvedVId });
@@ -439,7 +461,8 @@ const updateSettings = async (req, res) => {
       BookAppearance: { ...(defaults.BookAppearance || {}), ...(existing.BookAppearance || {}), ...(incBookAppearance || {}) },
       leadForm: { ...(defaults.leadForm || {}), ...(existing.leadForm || {}), ...(incLeadForm || {}) },
       Visibility: { ...(defaults.Visibility || {}), ...(existing.Visibility || {}), ...(incVisibility || {}) },
-      otherSetup: { ...(existing.otherSetup || {}), ...(incOtherSetup || {}) }
+      otherSetup: { ...(existing.otherSetup || {}), ...(incOtherSetup || {}) },
+      coverPicture: incomingCoverPicture !== undefined ? incomingCoverPicture : (existing.coverPicture || existing.FlipbookInfo?.coverPicture || null)
     };
     if (cleanSettings.Branding) {
       delete cleanSettings.Branding.profileSettings;
@@ -510,15 +533,24 @@ const updateSettings = async (req, res) => {
       }
     }
 
-    // 5. Synchronize with Flipbook model (lastUpdated, userID)
+    // 5. Synchronize with Flipbook model (lastUpdated, userID, flipbookName, coverPicture, thumbnail)
+    const flipbookSyncUpdates = {
+      userID: targetUserID,
+      lastUpdated: new Date()
+    };
+    if (effectiveBookName) {
+      flipbookSyncUpdates.flipbookName = effectiveBookName;
+    }
+    if (incomingCoverPicture) {
+      flipbookSyncUpdates.coverPicture = incomingCoverPicture;
+      if (incomingCoverPicture.url) {
+        flipbookSyncUpdates.thumbnail = incomingCoverPicture.url;
+      }
+    }
+
     await Flipbook.updateOne(
       { $or: [{ v_id: resolvedVId }, ...(flipbook?._id ? [{ _id: flipbook._id }] : [])] },
-      {
-        $set: {
-          userID: targetUserID,
-          lastUpdated: new Date()
-        }
-      }
+      { $set: flipbookSyncUpdates }
     ).catch((e) => console.warn('[Customized Editor] Could not sync with Flipbook model:', e.message));
 
     return res.status(200).json({
@@ -1451,6 +1483,10 @@ const submitLead = async (req, res) => {
     const effectiveUserEmail = flipbook?.userEmail || userEmail || '';
     const detectedViewerIp = getClientIp(req);
 
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
     const newLead = await Lead.create({
       userId: (ownerUserId && mongoose.Types.ObjectId.isValid(ownerUserId)) ? ownerUserId : undefined,
       userID: flipbook?.userID || null,
@@ -1460,7 +1496,20 @@ const submitLead = async (req, res) => {
       flipbookName: effectiveBookName,
       leadData,
       viewerIp: detectedViewerIp,
-      submittedAt: new Date()
+      submittedAt: now,
+      status: 'New',
+      timeline: [
+        {
+          title: 'Form Submitted',
+          subtitle: `${dateFormatted} ${timeFormatted}`,
+          timestamp: now
+        },
+        {
+          title: 'Lead Created',
+          subtitle: `${dateFormatted} ${timeFormatted}`,
+          timestamp: now
+        }
+      ]
     });
 
     if (flipbook) {
@@ -1664,6 +1713,139 @@ const deleteLead = async (req, res) => {
   } catch (err) {
     console.error('[Customized Editor] Error deleting lead:', err);
     return res.status(500).json({ success: false, message: 'Failed to delete lead', error: err.message });
+  }
+};
+
+/**
+ * PATCH /leads/:leadId/status
+ * Update lead status ('New', 'Contacted', 'Qualified', 'Converted', 'Lost')
+ */
+const updateLeadStatus = async (req, res) => {
+  try {
+    const userQuery = getUserQuery(req);
+    const leadId = req.params?.leadId || req.body?.leadId;
+    const { status } = req.body;
+
+    const validStatuses = ['New', 'Contacted', 'Qualified', 'Converted', 'Lost'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    if (!leadId) {
+      return res.status(400).json({ success: false, message: 'Missing leadId' });
+    }
+
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    // Check existing timeline
+    const leadQuery = mongoose.Types.ObjectId.isValid(leadId)
+      ? { $or: [{ leadId }, { _id: leadId }] }
+      : { leadId };
+
+    const existingLead = await Lead.findOne({ ...userQuery, ...leadQuery });
+    if (!existingLead) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    let initialTimeline = [];
+    if (!Array.isArray(existingLead.timeline) || existingLead.timeline.length === 0) {
+      const createdDate = existingLead.submittedAt || existingLead.createdAt || now;
+      const cTime = new Date(createdDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const cDate = new Date(createdDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+      initialTimeline = [
+        {
+          title: 'Form Submitted',
+          subtitle: `${cDate} ${cTime}`,
+          timestamp: createdDate
+        },
+        {
+          title: 'Lead Created',
+          subtitle: `${cDate} ${cTime}`,
+          timestamp: createdDate
+        }
+      ];
+    }
+
+    const newTimelineItem = {
+      title: 'Status Updated',
+      subtitle: `${status} • ${dateFormatted} ${timeFormatted}`,
+      timestamp: now
+    };
+
+    const finalTimeline = [...(existingLead.timeline && existingLead.timeline.length > 0 ? existingLead.timeline : initialTimeline), newTimelineItem];
+
+    const updated = await Lead.findOneAndUpdate(
+      { ...userQuery, ...leadQuery },
+      {
+        $set: {
+          status,
+          timeline: finalTimeline
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lead status updated successfully',
+      lead: updated
+    });
+  } catch (err) {
+    console.error('[Customized Editor] Error updating lead status:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update lead status', error: err.message });
+  }
+};
+
+/**
+ * POST /leads/:leadId/notes
+ * Add internal note to a lead
+ */
+const addLeadNote = async (req, res) => {
+  try {
+    const userQuery = getUserQuery(req);
+    const leadId = req.params?.leadId;
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Note text required' });
+    }
+
+    const leadQuery = mongoose.Types.ObjectId.isValid(leadId)
+      ? { $or: [{ leadId }, { _id: leadId }] }
+      : { leadId };
+
+    const updated = await Lead.findOneAndUpdate(
+      { ...userQuery, ...leadQuery },
+      {
+        $push: {
+          internalNotes: {
+            noteId: crypto.randomBytes(4).toString('hex'),
+            text: text.trim(),
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Note added successfully',
+      lead: updated
+    });
+  } catch (err) {
+    console.error('[Customized Editor] Error adding lead note:', err);
+    return res.status(500).json({ success: false, message: 'Failed to add note', error: err.message });
   }
 };
 
@@ -2409,16 +2591,25 @@ const getPublicBook = async (req, res) => {
       }
       if (!manifestData) {
         for (const uf of userFolders) {
-          const mPath = path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json');
-          if (fs.existsSync(mPath)) {
-            manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
-            break;
+          const candManifests = [
+            path.join(storageRoot, uf, 'books', primaryFolder, safeBookName, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', 'default', safeBookName, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', 'default', book.v_id, 'manifest.json')
+          ];
+          for (const mPath of candManifests) {
+            if (fs.existsSync(mPath)) {
+              manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+              break;
+            }
           }
+          if (manifestData) break;
         }
       }
 
       if (manifestData && Array.isArray(manifestData.pages) && manifestData.pages.length > 0) {
-        const mBaseUrl = manifestData.baseUrl || `/storage/${effectiveUserFolder}/books/${book.v_id}/pages/`;
+        const defaultBaseUrl = `/storage/${effectiveUserFolder}/books/${primaryFolder}/${safeBookName}/pages/webp_page/`;
+        const mBaseUrl = manifestData.baseUrl || defaultBaseUrl;
         const totalManifestPages = manifestData.pages.length;
 
         const existingMap = new Map();
@@ -2631,6 +2822,8 @@ module.exports = {
   copyThemeAsset,
   submitLead,
   getLeads,
+  updateLeadStatus,
+  addLeadNote,
   deleteLead,
   verifyCredential,
   sendVisibilityOtp,
@@ -2645,5 +2838,8 @@ module.exports = {
   recordPublicView,
   submitPublicRating,
   updatePublicRating,
-  deletePublicRating
+  deletePublicRating,
+  saveBookInfo: bookInfoController.saveBookInfo,
+  getBookInfo: bookInfoController.getBookInfo,
+  saveCoverPicture: bookInfoController.saveCoverPicture
 };

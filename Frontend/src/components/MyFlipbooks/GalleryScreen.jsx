@@ -26,7 +26,7 @@ import {
     Volume2
 } from 'lucide-react';
 import CustomScrollbar from '../CustomScrollbar';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 
 export default function GalleryScreen({
     navigate,

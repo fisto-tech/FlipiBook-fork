@@ -333,6 +333,14 @@ const formatBook = (doc, settingsDoc = null, currentUserId = null, folderMap = n
     height: s?.FlipbookInfo?.height || s?.height || null,
     orientation: s?.FlipbookInfo?.orientation || s?.orientation || null,
     templateId: s?.FlipbookInfo?.templateId || s?.templateId || null,
+    viewsCount: Number(doc.viewsCount) || Number(doc.views) || (Array.isArray(doc.viewers) ? doc.viewers.length : 0),
+    views: Number(doc.viewsCount) || Number(doc.views) || (Array.isArray(doc.viewers) ? doc.viewers.length : 0),
+    coverPicture: s?.FlipbookInfo?.coverPicture || s?.otherSetup?.coverPicture || s?.coverPicture || doc.coverPicture || null,
+    thumbnail: s?.FlipbookInfo?.coverPicture?.url || s?.coverPicture?.url || doc.thumbnail || null,
+    quotes: s?.FlipbookInfo?.quotes || '',
+    about: s?.FlipbookInfo?.about || '',
+    category: s?.FlipbookInfo?.category || '',
+    language: s?.FlipbookInfo?.language || 'English',
     Customized_Settings: s || {},
   };
 };
@@ -432,6 +440,29 @@ exports.getBooks = async (req, res) => {
       auth.emailId ? auth.emailId.trim().toLowerCase() : null,
       auth.customUserId || null
     ].filter(Boolean);
+
+    // Sync session views from analytics if available
+    try {
+      const { FlipbookSessionAnalytics } = require("../analytics_tracking/analyticsModel");
+      if (FlipbookSessionAnalytics && rawBooks.length > 0) {
+        const vIds = rawBooks.map(b => b.book_v_id || b.v_id).filter(Boolean);
+        const sessionCounts = await FlipbookSessionAnalytics.aggregate([
+          { $match: { v_id: { $in: vIds } } },
+          { $group: { _id: "$v_id", count: { $sum: 1 } } }
+        ]);
+        const sMap = new Map();
+        for (const sc of sessionCounts) {
+          if (sc._id) sMap.set(sc._id, sc.count);
+        }
+        for (const b of rawBooks) {
+          const sViews = sMap.get(b.book_v_id || b.v_id);
+          if (sViews && (!b.viewsCount || sViews > b.viewsCount)) {
+            b.viewsCount = sViews;
+            b.views = sViews;
+          }
+        }
+      }
+    } catch (_) {}
 
     const physicalBooks = rawBooks.map((b) => formatBook(b, settingsMap.get(b.v_id) || {}, userTokens, folderMap, reverseFolderMap));
 
@@ -1876,6 +1907,37 @@ exports.saveBook = async (req, res) => {
       );
       initFlipbookStorage(wsBookDir);
 
+      // Self-healing: if an edge-extracted stray directory exists under books/:v_id, migrate its WebP pages into wsBookDir/pages/webp_page/
+      try {
+        const strayVIdDir = path.join(storageRoot, userFolder, "books", resolvedVId);
+        if (fs.existsSync(strayVIdDir) && strayVIdDir !== wsBookDir) {
+          const strayPagesDir = path.join(strayVIdDir, "pages");
+          const targetWebpDir = path.join(wsBookDir, "pages", "webp_page");
+          if (!fs.existsSync(targetWebpDir)) {
+            fs.mkdirSync(targetWebpDir, { recursive: true });
+          }
+          if (fs.existsSync(strayPagesDir)) {
+            const strayFiles = fs.readdirSync(strayPagesDir);
+            for (const sf of strayFiles) {
+              const srcF = path.join(strayPagesDir, sf);
+              const destF = path.join(targetWebpDir, sf);
+              if (fs.statSync(srcF).isFile() && !fs.existsSync(destF)) {
+                fs.copyFileSync(srcF, destF);
+              }
+            }
+          }
+          const strayManifest = path.join(strayVIdDir, "manifest.json");
+          const targetManifest = path.join(wsBookDir, "manifest.json");
+          if (fs.existsSync(strayManifest) && !fs.existsSync(targetManifest)) {
+            fs.copyFileSync(strayManifest, targetManifest);
+          }
+          fs.rmSync(strayVIdDir, { recursive: true, force: true });
+          console.log(`[Book Controller] Successfully migrated & cleaned up stray book folder: ${strayVIdDir}`);
+        }
+      } catch (strayErr) {
+        console.warn('[Book Controller] Warning during stray v_id folder migration:', strayErr.message);
+      }
+
       // Self-healing: clean up any duplicate/stray book directories (e.g. books/fol_* or redundant folder)
       try {
         const booksBase = path.join(storageRoot, userFolder, "books");
@@ -1970,6 +2032,12 @@ exports.saveBook = async (req, res) => {
         });
 
         svgContent = cleanSvgMarkup(svgContent);
+
+        // Normalize WebP page image URLs to point strictly to the book's pages/webp_page/ subfolder
+        const targetWebpBase = `/storage/${userFolder}/books/${targetSubfolder}/${finalFlipbookName}/pages/webp_page/`;
+        svgContent = svgContent
+          .replace(new RegExp(`/storage/[^/]+/books/(?:${resolvedVId}|default/${resolvedVId})/pages/(?:webp_page/)?`, 'g'), targetWebpBase)
+          .replace(new RegExp(`/storage/${userFolder}/books/${targetSubfolder}/${finalFlipbookName}/pages/(\\d+\\.webp)`, 'g'), `${targetWebpBase}$1`);
 
         await fs.promises.writeFile(
           path.join(pagesDir, targetFileName),
@@ -2813,6 +2881,9 @@ exports.getBook = async (req, res) => {
       (a, b) => (Number(a.pageNumber) || 0) - (Number(b.pageNumber) || 0)
     );
 
+    const effectiveFolder = resolvedPhysical || 'default';
+    const effectiveBookName = book.flipbookName || book.realName || book.title || book.v_id || 'flipbook';
+
     // If server-side extractor generated a full manifest with more pages, hydrate from manifest.json
     let manifestData = null;
     const possibleManifestPaths = [];
@@ -2820,10 +2891,18 @@ exports.getBook = async (req, res) => {
       possibleManifestPaths.push(path.join(primaryBookDir, 'manifest.json'));
     }
     for (const uf of [...userFolders, 'FLIPI0001', 'FLIPI0005']) {
-      possibleManifestPaths.push(
-        path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json'),
-        path.join(storageRoot, uf, 'books', 'default', book.v_id, 'manifest.json')
-      );
+      if (!uf) continue;
+      for (const f of folders) {
+        for (const bn of bookNames) {
+          possibleManifestPaths.push(path.join(storageRoot, uf, 'books', f, bn, 'manifest.json'));
+        }
+      }
+      if (book.v_id) {
+        possibleManifestPaths.push(
+          path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json'),
+          path.join(storageRoot, uf, 'books', 'default', book.v_id, 'manifest.json')
+        );
+      }
     }
     for (const mPath of possibleManifestPaths) {
       try {
@@ -2900,7 +2979,7 @@ exports.getBook = async (req, res) => {
         const imageFile = pageObj.fileName && /\.(webp|png|jpe?g)$/i.test(pageObj.fileName)
           ? pageObj.fileName
           : `${pageObj.pageNumber}.webp`;
-        const webpRel = pageObj.imageUrl || `/storage/${book.userID || customUserId || 'FLIPI0001'}/books/${book.v_id}/pages/${imageFile}`;
+        const webpRel = pageObj.imageUrl || `/storage/${book.userID || customUserId || 'FLIPI0001'}/books/${effectiveFolder}/${effectiveBookName}/pages/webp_page/${imageFile}`;
         const w = (book.meta && book.meta.width) || 210;
         const h = (book.meta && book.meta.height) || 297;
         pageContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${pageObj.pageNumber}" data-name="Page ${pageObj.pageNumber}"><image id="img-page-${pageObj.pageNumber}" x="0" y="0" width="${w}" height="${h}" href="${webpRel}" xlink:href="${webpRel}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
@@ -3179,9 +3258,26 @@ exports.previewBook = async (req, res) => {
       } catch (_) {}
     }
 
-    const firstPage =
-      book.pages && book.pages.length > 0 ? book.pages[0] : null;
-    let firstPageHtml = firstPage?.html || firstPage?.content || "";
+    // Determine which page to preview (e.g. if user selected specific page(s) like page 3 in cover template)
+    let requestedPageNum = Number(req.query?.page || req.query?.pageNum || 0);
+    if (!requestedPageNum) {
+      // Check if book has coverPicture with selectedPages
+      const cp = book.coverPicture || book.settings?.othersetup?.coverPicture;
+      if (Array.isArray(cp?.selectedPages) && cp.selectedPages.length > 0) {
+        requestedPageNum = Number(cp.selectedPages[0]) || 1;
+      }
+    }
+    if (!requestedPageNum || requestedPageNum < 1) {
+      requestedPageNum = 1;
+    }
+
+    const sortedPages = (book.pages || []).slice().sort((a, b) => (Number(a.pageNumber) || 0) - (Number(b.pageNumber) || 0));
+    const targetPage =
+      (sortedPages.length >= requestedPageNum && sortedPages[requestedPageNum - 1])
+        ? sortedPages[requestedPageNum - 1]
+        : (sortedPages.length > 0 ? sortedPages[0] : null);
+
+    let firstPageHtml = targetPage?.html || targetPage?.content || "";
 
     if (!firstPageHtml) {
       const storageRoot = getStorageRoot();
@@ -3289,15 +3385,15 @@ exports.previewBook = async (req, res) => {
 
       const uniqueCandidateDirs = Array.from(new Set(candidateDirs));
 
-      // 3. Build candidate file names for the first page
-      const pageNum = firstPage?.pageNumber || 1;
-      const cleanName = firstPage?.name
-        ? String(firstPage.name)
+      // 3. Build candidate file names for the target page
+      const pageNum = targetPage?.pageNumber || requestedPageNum || 1;
+      const cleanName = targetPage?.name
+        ? String(targetPage.name)
             .replace(/[\\/:*?"<>|]/g, "")
             .trim()
         : "";
-      const cleanFileName = firstPage?.fileName
-        ? String(firstPage.fileName)
+      const cleanFileName = targetPage?.fileName
+        ? String(targetPage.fileName)
             .replace(/[\\/:*?"<>|]/g, "")
             .trim()
         : "";

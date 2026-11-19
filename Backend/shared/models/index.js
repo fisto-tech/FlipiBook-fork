@@ -10,6 +10,8 @@ module.exports = {
   Counter: require('./Counter'),
   ForumPost: require('./ForumPost'),
   InteractionThreedModel: require('./InteractionThreedModel'),
-  ThreedModel: require('./ThreedModel')
+  ThreedModel: require('./ThreedModel'),
+  RefreshToken: require('./RefreshToken'),
+  Lead: require('./Lead')
 };
 

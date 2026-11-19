@@ -2,21 +2,60 @@
  * Renders the floating interaction / animation badge directly above selected elements
  * in Interaction and Animation modes.
  */
+const ACTION_ICONS = {
+  'open-link': 'ph:link-bold',
+  'whatsapp': 'ic:outline-whatsapp',
+  'email': 'ic:outline-mail',
+  'call': 'fluent:call-24-regular',
+  'navigate-to': 'iconoir:page-search',
+  '3d-viewer': 'mage:box-3d',
+  'popup': 'carbon:popup',
+  'slideshow': 'clarity:image-gallery-line',
+  'zoom': 'fluent:zoom-in-32-regular',
+  'download': 'mynaui:download',
+  'audio': 'lucide:volume-2',
+  'info-box': 'fontisto:info'
+};
+
 export const createInteractionBadgeOverlay = ({
   activeTopToolRef,
   activePageIndex,
+  selectedLayerIdRef,
+  multiSelectedIdsRef,
   setActiveTopTool,
   updateElementAttribute
 }) => {
   const drawInteractionBadge = (el, mapped, htmlOverlay, zoomScale, bbox) => {
     const isInteraction = activeTopToolRef.current === 'interaction';
     const isAnimation = activeTopToolRef.current === 'animation';
-    if (!isInteraction && !isAnimation) return;
-    if (!htmlOverlay) return;
-    if (isAnimation && el.getAttribute('data-name') === 'Free Frame') return;
+    if (!isInteraction && !isAnimation) {
+      document.querySelectorAll('[id^="interaction-badge-"]').forEach(b => b.remove());
+      return;
+    }
+    if (!htmlOverlay || !el) return;
 
     const badgeId = `interaction-badge-${el.id}`;
     let badge = htmlOverlay.querySelector(`[id="${badgeId}"]`);
+
+    if (isAnimation && el.getAttribute('data-name') === 'Free Frame') {
+      if (badge) badge.remove();
+      return;
+    }
+    if (el.getAttribute('data-type') === 'audio-frame' || el.id?.startsWith('audio-') || (typeof el.closest === 'function' && el.closest('[data-type="audio-frame"], g[id^="audio-"]'))) {
+      if (badge) badge.remove();
+      return;
+    }
+
+    // Clean up any stale badges for elements that are no longer part of current selection
+    document.querySelectorAll('[id^="interaction-badge-"]').forEach(otherBadge => {
+      if (otherBadge.id !== badgeId) {
+        const otherId = otherBadge.id.replace('interaction-badge-', '');
+        const isMulti = multiSelectedIdsRef?.current && multiSelectedIdsRef.current.has(otherId);
+        if (!isMulti) {
+          otherBadge.remove();
+        }
+      }
+    });
 
     const currentTool = activeTopToolRef.current;
     if (badge && badge.getAttribute('data-tool') !== currentTool) {
@@ -24,7 +63,8 @@ export const createInteractionBadgeOverlay = ({
       badge = null;
     }
 
-    const hasInteract = (el.getAttribute('data-interaction') && el.getAttribute('data-interaction') !== 'none') || el.getAttribute('data-interaction-intent') === 'true';
+    const isHotspotEl = el.getAttribute('data-is-hotspot') === 'true' || el.getAttribute('data-type') === 'hotspot';
+    const hasInteract = (el.getAttribute('data-interaction') && el.getAttribute('data-interaction') !== 'none') || el.getAttribute('data-interaction-intent') === 'true' || isHotspotEl;
     const animType = el.getAttribute('data-animation-open-type');
     const interactType = el.getAttribute('data-animation-interact-type');
     const hasAnim = (animType && animType !== 'none') || (interactType && interactType !== 'none') || el.getAttribute('data-animation-intent') === 'true';
@@ -50,12 +90,20 @@ export const createInteractionBadgeOverlay = ({
           </svg>
         `;
       } else {
-        mainBox.innerHTML = `
-          <svg width="1vw" height="1vw" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M7 7.99791H6.176C4.679 7.99791 3.93 7.99791 3.466 7.55791C3 7.12091 3 6.41391 3 5.00091C3 3.58791 3 2.88091 3.465 2.44291C3.93 2.00391 4.679 2.00391 6.176 2.00391H17.823C19.321 2.00391 20.07 2.00391 20.535 2.44291C21 2.88191 21 3.58691 21 4.99991C21 6.41291 21 7.11991 20.535 7.55891C20.07 7.99791 19.321 7.99791 17.823 7.99791H16.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M7.42375 17.5184L6.54475 16.3864L5.42475 14.9414C4.98275 14.3964 4.90275 13.7304 5.18275 13.1414C5.28206 12.9339 5.43587 12.7573 5.62775 12.6304C6.24475 12.2234 7.09575 12.1744 7.62775 12.7114L9.59875 14.3894V6.63744C9.59875 5.77444 10.4187 5.02344 11.3447 5.02344C12.2707 5.02344 13.0967 5.77444 13.0967 6.63744V10.7274C14.6217 10.6054 17.0677 11.1684 18.5117 12.2754C19.7727 13.2404 20.5777 13.7774 19.5257 16.9554C19.1997 17.9384 18.3847 19.2914 18.2527 19.6734C18.1217 20.0534 17.9817 20.2804 18.0317 21.9934M6.54475 16.3864C6.81275 16.7104 7.08375 17.0884 7.42375 17.5184M9.52975 21.9994V21.0534C9.60275 19.8904 8.54675 18.9574 7.42375 17.5184M7.42375 17.5184C7.34275 17.4144 7.49975 17.6154 7.42375 17.5184ZM7.42375 17.5184L8.53075 18.8724" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        `;
+        const interactAction = el.getAttribute('data-interaction') || el.getAttribute('data-preset-id') || 'open-link';
+        const rawActionIcon = ACTION_ICONS[interactAction] || (interactAction && interactAction.includes(':') ? interactAction : null);
+        if (isAssigned && rawActionIcon) {
+          const [prefix, iconName] = rawActionIcon.includes(':') ? rawActionIcon.split(':') : ['fluent', 'zoom-in-32-regular'];
+          const iconUrl = `https://api.iconify.design/${prefix}/${iconName}.svg?color=white&width=16&height=16`;
+          mainBox.innerHTML = `<img src="${iconUrl}" alt="${interactAction}" style="width:1vw;height:1vw;min-width:12px;min-height:12px;display:block;" />`;
+        } else {
+          mainBox.innerHTML = `
+            <svg width="1vw" height="1vw" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7 7.99791H6.176C4.679 7.99791 3.93 7.99791 3.466 7.55791C3 7.12091 3 6.41391 3 5.00091C3 3.58791 3 2.88091 3.465 2.44291C3.93 2.00391 4.679 2.00391 6.176 2.00391H17.823C19.321 2.00391 20.07 2.00391 20.535 2.44291C21 2.88191 21 3.58691 21 4.99991C21 6.41291 21 7.11991 20.535 7.55891C20.07 7.99791 19.321 7.99791 17.823 7.99791H16.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7.42375 17.5184L6.54475 16.3864L5.42475 14.9414C4.98275 14.3964 4.90275 13.7304 5.18275 13.1414C5.28206 12.9339 5.43587 12.7573 5.62775 12.6304C6.24475 12.2234 7.09575 12.1744 7.62775 12.7114L9.59875 14.3894V6.63744C9.59875 5.77444 10.4187 5.02344 11.3447 5.02344C12.2707 5.02344 13.0967 5.77444 13.0967 6.63744V10.7274C14.6217 10.6054 17.0677 11.1684 18.5117 12.2754C19.7727 13.2404 20.5777 13.7774 19.5257 16.9554C19.1997 17.9384 18.3847 19.2914 18.2527 19.6734C18.1217 20.0534 17.9817 20.2804 18.0317 21.9934M6.54475 16.3864C6.81275 16.7104 7.08375 17.0884 7.42375 17.5184M9.52975 21.9994V21.0534C9.60275 19.8904 8.54675 18.9574 7.42375 17.5184M7.42375 17.5184C7.34275 17.4144 7.49975 17.6154 7.42375 17.5184ZM7.42375 17.5184L8.53075 18.8724" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          `;
+        }
       }
 
       const plusBadge = document.createElement('div');
@@ -65,14 +113,14 @@ export const createInteractionBadgeOverlay = ({
       plusBadge.style.height = '0.75vw';
       if (isAssigned) {
         plusBadge.innerHTML = `
-          <svg width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg data-badge-status-svg="true" width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="8" cy="8" r="7.5" fill="#22C55E" stroke="white"/>
             <path d="M5 8L7 10L11 6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         `;
       } else {
         plusBadge.innerHTML = `
-          <svg width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg data-badge-status-svg="true" width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M8 0.5C12.1421 0.5 15.5 3.85786 15.5 8C15.5 12.1421 12.1421 15.5 8 15.5C3.85786 15.5 0.5 12.1421 0.5 8C0.5 3.85786 3.85786 0.5 8 0.5Z" fill="white"/>
             <path d="M8 0.5C12.1421 0.5 15.5 3.85786 15.5 8C15.5 12.1421 12.1421 15.5 8 15.5C3.85786 15.5 0.5 12.1421 0.5 8C0.5 3.85786 3.85786 0.5 8 0.5Z" stroke="#4A3AFF"/>
             <path d="M12.0007 8.66536H8.66732V11.9987C8.66732 12.3654 8.36732 12.6654 8.00065 12.6654C7.63398 12.6654 7.33398 12.3654 7.33398 11.9987V8.66536H4.00065C3.63398 8.66536 3.33398 8.36536 3.33398 7.9987C3.33398 7.63203 3.63398 7.33203 4.00065 7.33203H7.33398V3.9987C7.33398 3.63203 7.63398 3.33203 8.00065 3.33203C8.36732 3.33203 8.66732 3.63203 8.66732 3.9987V7.33203H12.0007C12.3673 7.33203 12.6673 7.63203 12.6673 7.9987C12.6673 8.36536 12.3673 8.66536 12.0007 8.66536Z" fill="#4A3AFF"/>
@@ -94,9 +142,10 @@ export const createInteractionBadgeOverlay = ({
 
       const textSpan = document.createElement('span');
       textSpan.setAttribute('data-badge-text', 'true');
+      const actionName = (el.getAttribute('data-interaction') || '').replace(/-/g, ' ');
       textSpan.textContent = isAnimation
         ? (isAssigned ? 'Animation Added' : 'Click To Add Animation')
-        : (isAssigned ? 'Interaction Added' : 'Click To Add Interaction');
+        : (isAssigned ? (actionName ? actionName.charAt(0).toUpperCase() + actionName.slice(1) : 'Interaction Added') : 'Click To Add Interaction');
 
       label.appendChild(arrow);
       label.appendChild(textSpan);
@@ -168,18 +217,60 @@ export const createInteractionBadgeOverlay = ({
       badge.onmousedown = handleBadgeAction;
       badge.onclick = handleBadgeAction;
 
-      const plusBox = badge.querySelector('[data-badge-plus]');
-      if (plusBox) {
+      const existingMainBox = badge.querySelector('[data-badge-mainbox]');
+      if (existingMainBox) {
+        if (!isAnimation) {
+          const interactAction = el.getAttribute('data-interaction') || el.getAttribute('data-preset-id') || 'open-link';
+          const rawActionIcon = ACTION_ICONS[interactAction] || (interactAction && interactAction.includes(':') ? interactAction : null);
+          if (isAssigned && rawActionIcon) {
+            const [prefix, iconName] = rawActionIcon.includes(':') ? rawActionIcon.split(':') : ['fluent', 'zoom-in-32-regular'];
+            const iconUrl = `https://api.iconify.design/${prefix}/${iconName}.svg?color=white&width=16&height=16`;
+            let currentImg = existingMainBox.querySelector('img');
+            const svgIcon = existingMainBox.querySelector(':scope > svg:not([data-badge-status-svg])');
+            if (svgIcon) svgIcon.remove();
+            if (!currentImg) {
+              currentImg = document.createElement('img');
+              currentImg.style.cssText = 'width:1vw;height:1vw;min-width:12px;min-height:12px;display:block;';
+              existingMainBox.insertBefore(currentImg, existingMainBox.firstChild);
+            }
+            if (currentImg.getAttribute('src') !== iconUrl) currentImg.src = iconUrl;
+            currentImg.alt = interactAction;
+          } else if (!isAssigned) {
+            let currentImg = existingMainBox.querySelector('img');
+            if (currentImg) currentImg.remove();
+            if (!existingMainBox.querySelector(':scope > svg:not([data-badge-status-svg])')) {
+              const svgWrapper = document.createElement('div');
+              svgWrapper.innerHTML = `
+                <svg width="1vw" height="1vw" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 7.99791H6.176C4.679 7.99791 3.93 7.99791 3.466 7.55791C3 7.12091 3 6.41391 3 5.00091C3 3.58791 3 2.88091 3.465 2.44291C3.93 2.00391 4.679 2.00391 6.176 2.00391H17.823C19.321 2.00391 20.07 2.00391 20.535 2.44291C21 2.88191 21 3.58691 21 4.99991C21 6.41291 21 7.11991 20.535 7.55891C20.07 7.99791 19.321 7.99791 17.823 7.99791H16.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M7.42375 17.5184L6.54475 16.3864L5.42475 14.9414C4.98275 14.3964 4.90275 13.7304 5.18275 13.1414C5.28206 12.9339 5.43587 12.7573 5.62775 12.6304C6.24475 12.2234 7.09575 12.1744 7.62775 12.7114L9.59875 14.3894V6.63744C9.59875 5.77444 10.4187 5.02344 11.3447 5.02344C12.2707 5.02344 13.0967 5.77444 13.0967 6.63744V10.7274C14.6217 10.6054 17.0677 11.1684 18.5117 12.2754C19.7727 13.2404 20.5777 13.7774 19.5257 16.9554C19.1997 17.9384 18.3847 19.2914 18.2527 19.6734C18.1217 20.0534 17.9817 20.2804 18.0317 21.9934M6.54475 16.3864C6.81275 16.7104 7.08375 17.0884 7.42375 17.5184M9.52975 21.9994V21.0534C9.60275 19.8904 8.54675 18.9574 7.42375 17.5184M7.42375 17.5184C7.34275 17.4144 7.49975 17.6154 7.42375 17.5184ZM7.42375 17.5184L8.53075 18.8724" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              `;
+              existingMainBox.insertBefore(svgWrapper.firstElementChild, existingMainBox.firstChild);
+            }
+          }
+        }
+
+        // Always ensure the status indicator (green checkmark or plus) is present and accurate!
+        let statusBox = existingMainBox.querySelector('[data-badge-plus]') || existingMainBox.querySelector('[data-badge-tick]');
+        if (!statusBox) {
+          statusBox = document.createElement('div');
+          statusBox.setAttribute('data-badge-plus', 'true');
+          statusBox.className = 'absolute -top-1 -right-1 flex items-center justify-center pointer-events-none z-20';
+          statusBox.style.width = '0.75vw';
+          statusBox.style.height = '0.75vw';
+          existingMainBox.appendChild(statusBox);
+        }
         if (isAssigned) {
-          plusBox.innerHTML = `
-            <svg width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          statusBox.innerHTML = `
+            <svg data-badge-status-svg="true" width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="8" cy="8" r="7.5" fill="#22C55E" stroke="white"/>
               <path d="M5 8L7 10L11 6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           `;
         } else {
-          plusBox.innerHTML = `
-            <svg width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          statusBox.innerHTML = `
+            <svg data-badge-status-svg="true" width="0.75vw" height="0.75vw" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M8 0.5C12.1421 0.5 15.5 3.85786 15.5 8C15.5 12.1421 12.1421 15.5 8 15.5C3.85786 15.5 0.5 12.1421 0.5 8C0.5 3.85786 3.85786 0.5 8 0.5Z" fill="white"/>
               <path d="M8 0.5C12.1421 0.5 15.5 3.85786 15.5 8C15.5 12.1421 12.1421 15.5 8 15.5C3.85786 15.5 0.5 12.1421 0.5 8C0.5 3.85786 3.85786 0.5 8 0.5Z" stroke="#4A3AFF"/>
               <path d="M12.0007 8.66536H8.66732V11.9987C8.66732 12.3654 8.36732 12.6654 8.00065 12.6654C7.63398 12.6654 7.33398 12.3654 7.33398 11.9987V8.66536H4.00065C3.63398 8.66536 3.33398 8.36536 3.33398 7.9987C3.33398 7.63203 3.63398 7.33203 4.00065 7.33203H7.33398V3.9987C7.33398 3.63203 7.63398 3.33203 8.00065 3.33203C8.36732 3.33203 8.66732 3.63203 8.66732 3.9987V7.33203H12.0007C12.3673 7.33203 12.6673 7.63203 12.6673 7.9987C12.6673 8.36536 12.3673 8.66536 12.0007 8.66536Z" fill="#4A3AFF"/>

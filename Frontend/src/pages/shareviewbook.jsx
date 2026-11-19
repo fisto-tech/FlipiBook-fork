@@ -5,7 +5,7 @@ import FlipbookPreview from '../components/PageEditor/modals/FlipbookPreview';
 import { LAYOUT_DEFAULT_COLORS } from '../components/CustomizedEditor/utils/layoutColors';
 import { Icon } from '@iconify/react';
 import { Ghost, ArrowLeft, Home, BookOpen, Clock, X, Heart } from 'lucide-react';
-import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assetUtils';
+import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useToast } from '../components/CustomToast';
 import { useAuth } from '../context/AuthContext';
 
@@ -890,22 +890,37 @@ const ShareViewBook = () => {
             sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
             sessionStorage.setItem(storageKey, sessionId);
         }
+        sessionStorage.setItem('flipi_current_sess', sessionId);
 
         const sessionStartTime = Date.now();
         let currentDuration = 0;
 
         // 1. Session start
-        axios.post(`${backendUrl}/api/analytics/session-start`, {
-            sessionId,
-            v_id,
-            shareId: shareId || bookData?.Customized_Settings?.Visibility?.shareId || bookData?.Visibility?.shareId || '',
-            flipbookName,
-            userEmail: bookData.userEmail || '',
-            totalPages,
-            referrer: typeof document !== 'undefined' ? document.referrer : ''
-        }).catch(err => {
-            console.warn('[Analytics session-start warning]:', err?.message);
-        });
+        const sendSessionStart = (publicIp = '') => {
+            axios.post(`${backendUrl}/api/analytics/session-start`, {
+                sessionId,
+                v_id,
+                shareId: shareId || bookData?.Customized_Settings?.Visibility?.shareId || bookData?.Visibility?.shareId || '',
+                flipbookName,
+                userEmail: bookData.userEmail || '',
+                totalPages,
+                clientIp: publicIp,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                referrer: typeof document !== 'undefined' ? document.referrer : ''
+            }).catch(err => {
+                console.warn('[Analytics session-start warning]:', err?.message);
+            });
+        };
+
+        // If running locally, fetch real outward-facing VPN/network IP so VPN location is detected accurately
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            fetch('https://api.ipify.org?format=json')
+                .then(r => r.json())
+                .then(data => sendSessionStart(data?.ip || ''))
+                .catch(() => sendSessionStart(''));
+        } else {
+            sendSessionStart('');
+        }
 
         // 2. Periodic heartbeat
         const intervalId = setInterval(() => {

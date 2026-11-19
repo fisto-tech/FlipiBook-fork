@@ -11,17 +11,55 @@
  * 6. Progressive Persistence: Batch-saves to server without 413 Payload Too Large errors.
  */
 
-import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs';
+import * as pdfjsLib from 'pdfjs-dist';
 import { extractDocumentViaServer } from './resumableUploader.js';
-import { generatePdfPageSvg } from '../utils/pdfUtils.js';
-import { getHardwareProfile } from '../utils/hardwareCapability.js';
+import { generatePdfPageSvg } from '../utils/pdf/pdfUtils.js';
+import { getHardwareProfile } from '../utils/pdf/hardwareCapability.js';
 
-// Configure standard PDF.js Web Worker for heavy PDF bytecode & stream parsing using standard Vite Web Worker URL
+// Default worker path using .js extension (which Nginx and web servers serve with application/javascript)
+const DEFAULT_WORKER_PATH = '/pdfjs/pdf.worker.min.js';
+
+let workerInitPromise = null;
+let configuredWorkerSrc = DEFAULT_WORKER_PATH;
+
+// Initial worker setup
 if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
-  ).toString();
+  pdfjsLib.GlobalWorkerOptions.workerSrc = DEFAULT_WORKER_PATH;
+}
+
+/**
+ * Ensures PDF.js worker is initialized with a bulletproof MIME type.
+ * Fetches the worker script and converts it into a browser-managed Blob URL
+ * with explicit 'application/javascript' MIME type. This guarantees that strict
+ * HTML5 module MIME type enforcement will never fail, even on servers misconfigured
+ * with application/octet-stream for .mjs files.
+ */
+async function ensureWorkerConfigured() {
+  if (workerInitPromise) return workerInitPromise;
+
+  workerInitPromise = (async () => {
+    if (typeof window === 'undefined' || !pdfjsLib.GlobalWorkerOptions) return;
+
+    try {
+      const response = await fetch(DEFAULT_WORKER_PATH);
+      if (response.ok) {
+        const scriptText = await response.text();
+        if (scriptText && scriptText.length > 1000) {
+          const blob = new Blob([scriptText], { type: 'application/javascript' });
+          configuredWorkerSrc = URL.createObjectURL(blob);
+          pdfjsLib.GlobalWorkerOptions.workerSrc = configuredWorkerSrc;
+          return configuredWorkerSrc;
+        }
+      }
+    } catch (e) {
+      console.warn('[EdgePipeline] Blob worker creation fallback to direct path:', e);
+    }
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = DEFAULT_WORKER_PATH;
+    return DEFAULT_WORKER_PATH;
+  })();
+
+  return workerInitPromise;
 }
 
 /**
@@ -41,13 +79,19 @@ export async function extractPdfDocument({
   backendUrl = '',
   userId = 'FLIPI0001',
   bookId = null,
-  signal = null
+  signal = null,
+  startPageNumber = 1,
+  folderName = 'default',
+  bookName = null
 }) {
   if (signal?.aborted) {
     const abortErr = new Error('Upload cancelled');
     abortErr.name = 'AbortError';
     throw abortErr;
   }
+
+  const resolvedFolder = (folderName && String(folderName).toLowerCase() !== 'my flipbooks' && folderName !== 'fol_default') ? folderName : 'default';
+  const resolvedBookName = bookName || bookId || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g, '').slice(0, 16) : Math.random().toString(36).substring(2, 10));
   // ── STRICT HARDWARE GATE ─────────────────────────────────────────────────
   // Profile the client device with the 1.5x Safety Multiplier for this file.
   // Any capability gap or memory load > 60% → strictly route to VPS immediately.
@@ -85,32 +129,41 @@ export async function extractPdfDocument({
         message: `Cloud VPS Engine active (${profile.reason})`
       });
     }
-    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal });
+    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber, folderName: resolvedFolder, bookName: resolvedBookName });
   }
 
   // ── 100% VERIFIED CLIENT CAPABILITY → Client Edge Engine ─────────────────
   try {
-    return await extractOnEdgeNative(file, { onProgress, signal });
+    return await extractOnEdgeNative(file, { onProgress, signal, userId, bookId, backendUrl, startPageNumber, folderName: resolvedFolder, bookName: resolvedBookName });
   } catch (edgeError) {
     if (edgeError?.name === 'AbortError' || signal?.aborted) {
       throw edgeError;
     }
     console.warn('[EdgePipeline] Edge error, falling back to VPS:', edgeError);
-    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal });
+    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber, folderName: resolvedFolder, bookName: resolvedBookName });
   }
 }
 
 /**
- * Native Edge Extraction with Full Font Engine & 60 FPS Cooperative Scheduling
+ * Native Edge Extraction with Full Font Engine, Real-Time Server Sync & 60 FPS Cooperative Scheduling
  */
-async function extractOnEdgeNative(file, { onProgress, signal }) {
+async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI0001', bookId = null, backendUrl = '', startPageNumber = 1, folderName = 'default', bookName = null }) {
   if (signal?.aborted) {
     const abortErr = new Error('Upload cancelled');
     abortErr.name = 'AbortError';
     throw abortErr;
   }
+  const resolvedBookId = bookId || ((typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+    : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
+  const resolvedFolder = (folderName && String(folderName).toLowerCase() !== 'my flipbooks' && folderName !== 'fol_default') ? folderName : 'default';
+  const resolvedBookName = bookName || resolvedBookId;
+
   const arrayBuffer = await file.arrayBuffer();
   const origin = typeof window !== 'undefined' ? (window.location.origin || '') : '';
+
+  // Ensure worker is configured with verified MIME type
+  await ensureWorkerConfigured();
 
   // Initialize PDF.js with full font & cmap loading (prevents missing letter boxes)
   const loadingTask = pdfjsLib.getDocument({
@@ -138,7 +191,7 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
       current: 0,
       total: totalPages,
       pageCount: totalPages,
-      loadedBytes: file.size,
+      loadedBytes: 0,
       totalBytes: file.size,
       message: `Extracting pages: 0 / ${totalPages}...`
     });
@@ -147,9 +200,11 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
   const pages = [];
   let firstWidthMm = 210;
   let firstHeightMm = 297;
+  const startPage = typeof startPageNumber === 'number' && startPageNumber >= 1 ? startPageNumber : 1;
 
-  // Process pages one by one with cooperative frame yielding
+  // Process pages one by one with cooperative frame yielding and immediate background server sync
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+    const currentGlobalPageNum = startPage + pageNum - 1;
     // Check abort signal at each step
     if (signal?.aborted) {
       try {
@@ -160,12 +215,29 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
       abortErr.name = 'AbortError';
       throw abortErr;
     }
-    // Cooperative Frame Yield: Let browser paint UI frames at 60 FPS before rendering next page
+    // Cooperative Frame Yield: Let browser paint UI frames at 60 FPS before rendering next page.
+    // If the tab is moved to the background or minimized, modern browsers freeze requestAnimationFrame.
+    // We check document.hidden and provide an instant timeout fallback so background tab page extraction NEVER pauses!
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
-        requestAnimationFrame(() => setTimeout(resolve, 8));
+      if (typeof document !== 'undefined' && document.hidden) {
+        setTimeout(resolve, 0);
+      } else if (typeof requestAnimationFrame !== 'undefined') {
+        let finished = false;
+        const fallback = setTimeout(() => {
+          if (!finished) {
+            finished = true;
+            resolve();
+          }
+        }, 25);
+        requestAnimationFrame(() => {
+          if (!finished) {
+            finished = true;
+            clearTimeout(fallback);
+            setTimeout(resolve, 4);
+          }
+        });
       } else {
-        setTimeout(resolve, 8);
+        setTimeout(resolve, 4);
       }
     });
 
@@ -182,7 +254,7 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
       firstHeightMm = heightMm;
     }
 
-    // High-clarity rendering target: ~1300-1400px width for retina screens
+    // High-clarity rendering target: ~1350-1400px width for retina screens
     const renderScale = Math.min(2.5, Math.max(1.2, 1350 / unscaledViewport.width));
     const viewport = page.getViewport({ scale: renderScale });
 
@@ -199,7 +271,7 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
       intent: 'display'
     }).promise;
 
-    // Convert canvas to WebP Blob
+    // Convert canvas to WebP Blob (ultra-fast, ~100-200 KB per page)
     const blob = await new Promise((resolve) => {
       canvas.toBlob(
         (b) => resolve(b),
@@ -208,31 +280,51 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
       );
     });
 
-    // Create native browser Blob URL (hardware-accelerated GPU texture in Turn.js, eliminates 50% flip freeze)
+    // Native blob URL for instantaneous in-memory rendering fallback
     const blobUrl = URL.createObjectURL(blob);
-    const svgString = generatePdfPageSvg(blobUrl, `Page ${pageNum}`, widthMm, heightMm, true);
 
-    // Lazy base64 generator for server disk persistence
-    let base64Cache = null;
-    const getBase64 = () => {
-      if (base64Cache) return Promise.resolve(base64Cache);
-      return new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = () => { base64Cache = reader.result; res(base64Cache); };
-        reader.onerror = rej;
-        reader.readAsDataURL(blob);
+    // Stream-upload WebP blob to backend disk storage inside pages/webp_page/
+    let serverWebpUrl = `/storage/${userId}/books/${resolvedFolder}/${resolvedBookName}/pages/webp_page/${currentGlobalPageNum}.webp`;
+    try {
+      const formData = new FormData();
+      formData.append('file', blob, `${currentGlobalPageNum}.webp`);
+      formData.append('userId', userId);
+      formData.append('bookId', resolvedBookId);
+      formData.append('folderName', resolvedFolder);
+      formData.append('bookName', resolvedBookName);
+      formData.append('pageNumber', currentGlobalPageNum);
+      formData.append('width', widthMm);
+      formData.append('height', heightMm);
+
+      const uploadUrl = `${backendUrl || ''}/api/customized-editor/upload-page-image`;
+      const upRes = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+        signal
       });
-    };
+      if (upRes.ok) {
+        const upData = await upRes.json();
+        if (upData?.url) {
+          serverWebpUrl = upData.url;
+        }
+      }
+    } catch (upErr) {
+      if (upErr.name === 'AbortError' || signal?.aborted) throw upErr;
+      console.warn(`[EdgePipeline] Upload page ${currentGlobalPageNum} sync warning:`, upErr.message);
+    }
+
+    // Standard lightweight 1KB SVG pointing to physical server WebP file (exact same as server-side MuPDF!)
+    const svgString = generatePdfPageSvg(serverWebpUrl, `Page ${currentGlobalPageNum}`, widthMm, heightMm, true);
 
     pages.push({
-      pageNumber: pageNum,
-      pageName: `Page ${pageNum}`,
+      pageNumber: currentGlobalPageNum,
+      pageName: `Page ${currentGlobalPageNum}`,
       content: svgString,
       svgString: svgString,
-      dataUrl: blobUrl,
-      imageUrl: blobUrl,
+      dataUrl: serverWebpUrl,
+      imageUrl: serverWebpUrl,
+      blobUrl: blobUrl,
       blob: blob,
-      getBase64: getBase64,
       width: widthMm,
       height: heightMm,
       isVector: false
@@ -243,9 +335,9 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
     canvas.width = 0;
     canvas.height = 0;
 
-    // Emit live real-time progress update
-    const pct = Math.min(99, Math.round((pageNum / totalPages) * 100));
-    if (onProgress) {
+    // Emit live real-time progress update (0% to 90% during extraction & server sync)
+    const pct = Math.min(92, Math.round((pageNum / totalPages) * 90));
+    if (onProgress && !signal?.aborted) {
       onProgress({
         stage: 'extracting',
         engine: 'edge', // Keeps milk-white theme active
@@ -255,9 +347,31 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
         pageCount: totalPages,
         loadedBytes: file.size,
         totalBytes: file.size,
-        message: `Extracting page ${pageNum} of ${totalPages} (${pct}%)...`
+        message: `Extracting & syncing page ${pageNum} of ${totalPages} (${pct}%)...`
       });
     }
+  }
+
+  // Finalize manifest.json on disk (matches server-side manifest for instant manifest loads)
+  try {
+    await fetch(`${backendUrl || ''}/api/customized-editor/finalize-edge-book`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        bookId: resolvedBookId,
+        folderName: resolvedFolder,
+        bookName: resolvedBookName,
+        totalPages,
+        width: firstWidthMm,
+        height: firstHeightMm,
+        aspectRatio: parseFloat((firstWidthMm / firstHeightMm).toFixed(4))
+      }),
+      signal
+    });
+  } catch (finErr) {
+    if (finErr.name === 'AbortError' || signal?.aborted) throw finErr;
+    console.warn('[EdgePipeline] Finalize manifest warning:', finErr.message);
   }
 
   // Cleanup PDF document
@@ -266,6 +380,8 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
     pdfDoc.destroy();
   } catch (_) {}
 
+  pages.bookId = resolvedBookId;
+  pages.userId = userId;
   pages.totalPages = totalPages;
   pages.isPartial = false;
   pages.width = firstWidthMm;
@@ -277,26 +393,33 @@ async function extractOnEdgeNative(file, { onProgress, signal }) {
 /**
  * Resilient VPS fallback if client encounters any unexpected file issues
  */
-async function extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal }) {
+async function extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber = 1, folderName = 'default', bookName = null }) {
+  const resolvedFolder = (folderName && String(folderName).toLowerCase() !== 'my flipbooks' && folderName !== 'fol_default') ? folderName : 'default';
+  const resolvedBookName = bookName || bookId;
   const data = await extractDocumentViaServer(file, {
     backendUrl,
     userId,
     bookId,
+    folderName: resolvedFolder,
+    bookName: resolvedBookName,
+    title: resolvedBookName || file.name,
     onProgress,
     signal
   });
 
   const resolvedUserId = data.userId || userId || 'FLIPI0001';
   const resolvedBookId = data.bookId || bookId;
-  const baseUrl = `/storage/${resolvedUserId}/books/${resolvedBookId}/pages/`;
+  const baseUrl = data.baseUrl || `/storage/${resolvedUserId}/books/${resolvedFolder}/${resolvedBookName || resolvedBookId}/pages/webp_page/`;
   const initialPages = (data.manifest && data.manifest.pages) || data.initialPages || [];
+  const startPage = typeof startPageNumber === 'number' && startPageNumber >= 1 ? startPageNumber : 1;
 
-  const results = initialPages.map((p) => {
+  const results = initialPages.map((p, idx) => {
+    const currentGlobalPageNum = startPage + idx;
     const webpUrl = `${baseUrl}${p.image}`;
-    const svg = generatePdfPageSvg(webpUrl, `Page ${p.pageNumber}`, p.width, p.height, true);
+    const svg = generatePdfPageSvg(webpUrl, `Page ${currentGlobalPageNum}`, p.width, p.height, true);
     return {
-      pageNumber: p.pageNumber,
-      pageName: `Page ${p.pageNumber}`,
+      pageNumber: currentGlobalPageNum,
+      pageName: `Page ${currentGlobalPageNum}`,
       content: svg,
       svgString: svg,
       dataUrl: webpUrl,

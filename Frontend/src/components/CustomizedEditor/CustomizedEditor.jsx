@@ -4,15 +4,15 @@ import Sidebar from './sidebar/Sidebar';
 import PreviewArea from './PreviewArea';
 import DetailPanelContainer from './components/DetailPanelContainer';
 import PreloaderOverlay from './components/PreloaderOverlay';
-import { ensureCleanBook } from '../../utils/dbUtils';
+import { ensureCleanBook } from '../../utils/storage/dbUtils';
 import { useAuth } from '../../context/AuthContext';
 import { useLayoutColorVars } from './hooks/useLayoutColorVars';
 import { useDynamicLayoutColors } from './hooks/useDynamicLayoutColors';
 import { useCustomizedAutoSave } from './hooks/useCustomizedAutoSave';
 import { useCustomizedActions } from './hooks/useCustomizedActions';
 import { useCustomizedEditorData } from './hooks/useCustomizedEditorData';
-import { loadWindowFromIDB } from '../../utils/pageWindowStore';
-import { clearRasterCache } from '../../utils/pageRasterCache';
+import { loadWindowFromIDB } from '../../utils/customizedEditor/pageWindowStore';
+import { clearRasterCache } from '../../utils/customizedEditor/pageRasterCache';
 import { queryClient } from '../../queryClient';
 import {
   createDefaultLogoSettings,
@@ -559,10 +559,13 @@ const CustomizedEditor = () => {
         visibilitySettings?.Visibility?.shareId || 
         '';
 
+      const effectiveFolder = folder || currentBook?.folder || 'default';
+
       setCurrentBook(prev => {
         const sId = effectiveShareId || prev?.shareId || prev?.share?.shareId || prev?.Customized_Settings?.Visibility?.shareId || v_id;
+        const prevFolder = prev?.folder || 'default';
         if (
-          prev?.folder === folder &&
+          prevFolder === effectiveFolder &&
           prev?.flipbookName === bookName &&
           prev?.v_id === v_id &&
           prev?.shareId === sId &&
@@ -573,7 +576,7 @@ const CustomizedEditor = () => {
 
         return {
           ...(prev || {}),
-          folder,
+          folder: effectiveFolder,
           flipbookName: bookName,
           v_id,
           shareId: sId,
@@ -610,7 +613,7 @@ const CustomizedEditor = () => {
         };
       });
     }
-  }, [setCurrentBook, folder, v_id, bookName, shareSettings?.shareId, visibilitySettings?.access, visibilitySettings?.type, visibilitySettings?.shareId, pages]);
+  }, [setCurrentBook, folder, v_id, bookName, shareSettings?.shareId, visibilitySettings?.access, visibilitySettings?.type, visibilitySettings?.shareId]);
 
   // Build CSS variables for active layout colors
   const layoutColorVars = useLayoutColorVars(layoutSettings, layoutColors);
@@ -624,11 +627,59 @@ const CustomizedEditor = () => {
         return [v.slice(0, i).trim(), v.slice(i + 1).trim()];
       })) : {}}
     >
-      <style>{`:root { ${layoutColorVars} }`}</style>
+      <style>{`
+        :root { ${layoutColorVars} }
+        .sub-panel-dark {
+          color: #f1f5f9 !important;
+        }
+        .sub-panel-dark .bg-white {
+          background-color: #223044 !important;
+          border-color: #2c3d56 !important;
+          color: #f1f5f9 !important;
+        }
+        .sub-panel-dark .bg-gray-50,
+        .sub-panel-dark .bg-gray-50\\/50,
+        .sub-panel-dark .bg-gray-100 {
+          background-color: #16202e !important;
+          border-color: #26354a !important;
+        }
+        .sub-panel-dark .border-gray-100,
+        .sub-panel-dark .border-gray-200,
+        .sub-panel-dark .border-gray-300 {
+          border-color: #26354a !important;
+        }
+        .sub-panel-dark .text-gray-900,
+        .sub-panel-dark .text-gray-800,
+        .sub-panel-dark .text-black {
+          color: #ffffff !important;
+        }
+        .sub-panel-dark .text-gray-700,
+        .sub-panel-dark .text-gray-600 {
+          color: #cbd5e1 !important;
+        }
+        .sub-panel-dark .text-gray-500,
+        .sub-panel-dark .text-gray-400 {
+          color: #94a3b8 !important;
+        }
+        .sub-panel-dark .hover\\:bg-gray-50:hover,
+        .sub-panel-dark .hover\\:bg-gray-100:hover {
+          background-color: #28374d !important;
+        }
+        .sub-panel-dark input,
+        .sub-panel-dark select,
+        .sub-panel-dark textarea {
+          background-color: #16202e !important;
+          color: #ffffff !important;
+          border-color: #2c3d56 !important;
+        }
+        .sub-panel-dark input::placeholder {
+          color: #64748b !important;
+        }
+      `}</style>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main Sidebar - Always Visible */}
-        <div className="w-[16.25vw] h-full flex-shrink-0 bg-white shadow-xl z-20 relative border-r border-gray-100 overflow-visible">
+        <div className="w-[16.25vw] h-full flex-shrink-0 bg-[#151c28] shadow-xl z-20 relative border-r border-[#1f293d] overflow-visible">
           <Sidebar
             bookName={bookName}
             setBookName={setBookName}
@@ -646,66 +697,64 @@ const CustomizedEditor = () => {
 
         {/* Sub-side Panel (Detail View) - Opens next to Main Sidebar */}
         <div
-          className={`h-full bg-white shadow-lg z-10 border-r border-gray-100 transition-all duration-300 ease-in-out flex-shrink-0 ${
+          className={`h-full bg-[#1a2332] text-[#f1f5f9] shadow-xl z-10 border-r border-[#26354a] transition-all duration-300 ease-in-out flex-shrink-0 sub-panel-dark ${
             activeSubView && !isPanelCollapsed
               ? 'w-[21.25vw] opacity-100 translate-x-0 overflow-visible'
               : 'w-0 opacity-0 -translate-x-full pointer-events-none overflow-hidden'
           }`}
         >
-          <div className="w-[21vw] h-full flex flex-col overflow-visible">
-            {isLoading ? (
-              <div className="p-[1.2vw] flex flex-col gap-[1vw] animate-pulse">
-                <div className="flex items-center gap-[0.8vw]">
-                  <div className="w-[1.5vw] h-[1.5vw] bg-gray-200/80 rounded-[0.4vw]"></div>
-                  <div className="h-[1vw] bg-gray-200/80 rounded-[0.3vw] w-1/2"></div>
-                </div>
-                <div className="h-[1px] bg-gray-100 my-[0.4vw]"></div>
-                <div className="flex flex-col gap-[0.8vw]">
-                  <div className="h-[2vw] bg-gray-100/80 rounded-[0.5vw] w-full"></div>
-                  <div className="h-[2vw] bg-gray-100/80 rounded-[0.5vw] w-full"></div>
-                  <div className="h-[4vw] bg-gray-100/80 rounded-[0.5vw] w-full"></div>
-                </div>
+          {isLoading ? (
+            <div className="p-[1.2vw] flex flex-col gap-[1vw] animate-pulse">
+              <div className="flex items-center gap-[0.8vw]">
+                <div className="w-[1.5vw] h-[1.5vw] bg-[#28374d] rounded-[0.4vw]"></div>
+                <div className="h-[1vw] bg-[#28374d] rounded-[0.3vw] w-1/2"></div>
               </div>
-            ) : (
-              activeSubView && (
-                <DetailPanelContainer
-                  activeSubView={activeSubView}
-                  setActiveSubView={setActiveSubView}
-                  setIsPanelCollapsed={setIsPanelCollapsed}
-                  logoSettings={logoSettings}
-                  setLogoSettings={setLogoSettings}
-                  watermarkSettings={watermarkSettings}
-                  setWatermarkSettings={setWatermarkSettings}
-                  preloaderSettings={preloaderSettings}
-                  setPreloaderSettings={setPreloaderSettings}
-                  backgroundSettings={backgroundSettings}
-                  setBackgroundSettings={setBackgroundSettings}
-                  layoutSettings={layoutSettings}
-                  setLayoutSettings={setLayoutSettings}
-                  layoutColors={layoutColors}
-                  setLayoutColors={setLayoutColors}
-                  bookAppearanceSettings={bookAppearanceSettings}
-                  setBookAppearanceSettings={setBookAppearanceSettings}
-                  menuBarSettings={menuBarSettings}
-                  setMenuBarSettings={setMenuBarSettings}
-                  otherSetupSettings={otherSetupSettings}
-                  setOtherSetupSettings={setOtherSetupSettings}
-                  otherSetupTarget={otherSetupTarget}
-                  setOtherSetupTarget={setOtherSetupTarget}
-                  leadFormSettings={leadFormSettings}
-                  setLeadFormSettings={setLeadFormSettings}
-                  visibilitySettings={visibilitySettings}
-                  setVisibilitySettings={setVisibilitySettings}
-                  pages={pages}
-                  folder={folder}
-                  bookName={bookName}
-                  v_id={v_id}
-                  setTocOpenTrigger={setTocOpenTrigger}
-                  setIsLoading={setIsLoading}
-                />
-              )
-            )}
-          </div>
+              <div className="h-[1px] bg-[#26354a] my-[0.4vw]"></div>
+              <div className="flex flex-col gap-[0.8vw]">
+                <div className="h-[2vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
+                <div className="h-[2vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
+                <div className="h-[4vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
+              </div>
+            </div>
+          ) : (
+            activeSubView && (
+              <DetailPanelContainer
+                activeSubView={activeSubView}
+                setActiveSubView={setActiveSubView}
+                setIsPanelCollapsed={setIsPanelCollapsed}
+                logoSettings={logoSettings}
+                setLogoSettings={setLogoSettings}
+                watermarkSettings={watermarkSettings}
+                setWatermarkSettings={setWatermarkSettings}
+                preloaderSettings={preloaderSettings}
+                setPreloaderSettings={setPreloaderSettings}
+                backgroundSettings={backgroundSettings}
+                setBackgroundSettings={setBackgroundSettings}
+                layoutSettings={layoutSettings}
+                setLayoutSettings={setLayoutSettings}
+                layoutColors={layoutColors}
+                setLayoutColors={setLayoutColors}
+                bookAppearanceSettings={bookAppearanceSettings}
+                setBookAppearanceSettings={setBookAppearanceSettings}
+                menuBarSettings={menuBarSettings}
+                setMenuBarSettings={setMenuBarSettings}
+                otherSetupSettings={otherSetupSettings}
+                setOtherSetupSettings={setOtherSetupSettings}
+                otherSetupTarget={otherSetupTarget}
+                setOtherSetupTarget={setOtherSetupTarget}
+                leadFormSettings={leadFormSettings}
+                setLeadFormSettings={setLeadFormSettings}
+                visibilitySettings={visibilitySettings}
+                setVisibilitySettings={setVisibilitySettings}
+                pages={pages}
+                folder={folder}
+                bookName={bookName}
+                v_id={v_id}
+                setTocOpenTrigger={setTocOpenTrigger}
+                setIsLoading={setIsLoading}
+              />
+            )
+          )}
         </div>
 
         {/* Main Preview Area */}

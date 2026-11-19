@@ -19,7 +19,7 @@ import { getVisualBBox } from '../../../mainEditor/utils/geometryUtils';
 import PremiumDropdown from '../../../../CustomizedEditor/components/PremiumDropdown';
 import NavIconStylesPopup, { NavIconRenderer } from '../popups/NavIconStylesPopup';
 import DotStylesPopup, { DotRenderer } from '../popups/DotStylesPopup';
-import { saveToDB, getFromDB } from '../../../../../utils/dbUtils';
+import { saveToDB, getFromDB } from '../../../../../utils/storage/dbUtils';
 import ColorPicker from '../../../../ColorPicker';
 import Color from '../../../properties/Color';
 import { ElementToggle, ElementSlider, ElementDropdown } from './ElementUIControls';

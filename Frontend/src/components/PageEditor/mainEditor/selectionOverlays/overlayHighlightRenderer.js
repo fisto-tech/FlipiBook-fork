@@ -208,11 +208,18 @@ export const createOverlayHighlightRenderer = ({
       }
     }
 
+    const isAudioInInteraction = activeTopToolRef?.current === 'interaction' && (
+      el.getAttribute('data-type') === 'audio-frame' ||
+      (el.id && el.id.startsWith('audio-')) ||
+      (typeof el.closest === 'function' && !!el.closest('[data-type="audio-frame"], g[id^="audio-"]'))
+    );
+
     // Skip if element is hidden or it's the base "Overlay" (background) / Base Page Frame
     const isOverlay = el.getAttribute('data-name') === 'Overlay' ||
       el.getAttribute('data-type') === 'background' ||
       el.getAttribute('data-type') === 'frame' ||
-      el.getAttribute('data-locked') === 'true';
+      el.getAttribute('data-locked') === 'true' ||
+      isAudioInInteraction;
 
     // Skip if this text element is currently in text-edit mode
     const isBeingEdited = isEditingTextRef.current && el.id === selectedLayerIdRef.current;
@@ -379,7 +386,10 @@ export const createOverlayHighlightRenderer = ({
               polygon.setAttribute('stroke-width', String(1 / zoomScale));
             } else if (isBlackSelection) {
               polygon.setAttribute('stroke', (isHover && !isSelected) ? 'transparent' : '#000000');
-              polygon.setAttribute('fill', 'none');
+              if (!polygon.classList.contains('interaction-frame-blinking') && polygon.getAttribute('data-blinking') !== 'true') {
+                polygon.setAttribute('fill', 'none');
+                polygon.style.removeProperty('fill');
+              }
               polygon.setAttribute('points', pointsStr);
               applyCrispSelectionStroke(polygon, pointsStr, zoomScale);
             } else if (isHover) {
@@ -389,7 +399,10 @@ export const createOverlayHighlightRenderer = ({
               applyCrispSelectionStroke(polygon, pointsStr, zoomScale);
             } else if (isSelected || type === 'entered') {
               polygon.setAttribute('stroke', '#5255CA');
-              polygon.setAttribute('fill', 'none');
+              if (!polygon.classList.contains('interaction-frame-blinking') && polygon.getAttribute('data-blinking') !== 'true') {
+                polygon.setAttribute('fill', 'none');
+                polygon.style.removeProperty('fill');
+              }
               polygon.setAttribute('points', pointsStr);
               applyCrispSelectionStroke(polygon, pointsStr, zoomScale);
             } else if (type === 'entered') {
@@ -702,7 +715,10 @@ export const createOverlayHighlightRenderer = ({
           polygon.setAttribute('points', pointsStr);
         } else if (isBlackSelectionFB) {
           polygon.setAttribute('stroke', (isHover && !isSelected) ? 'transparent' : '#000000');
-          polygon.setAttribute('fill', 'none');
+          if (!polygon.classList.contains('interaction-frame-blinking') && polygon.getAttribute('data-blinking') !== 'true') {
+            polygon.setAttribute('fill', 'none');
+            polygon.style.removeProperty('fill');
+          }
           polygon.setAttribute('points', pointsStr);
           applyCrispSelectionStroke(polygon, pointsStr, zoomScale2);
         } else if (isHover) {
@@ -716,7 +732,10 @@ export const createOverlayHighlightRenderer = ({
           applyCrispSelectionStroke(polygon, pointsStr, zoomScale2);
         } else if (isSelected) {
           polygon.setAttribute('stroke', '#5255CA');
-          polygon.setAttribute('fill', 'none');
+          if (!polygon.classList.contains('interaction-frame-blinking') && polygon.getAttribute('data-blinking') !== 'true') {
+            polygon.setAttribute('fill', 'none');
+            polygon.style.removeProperty('fill');
+          }
           polygon.setAttribute('points', pointsStr);
           applyCrispSelectionStroke(polygon, pointsStr, zoomScale2);
         } else if (type === 'entered') {

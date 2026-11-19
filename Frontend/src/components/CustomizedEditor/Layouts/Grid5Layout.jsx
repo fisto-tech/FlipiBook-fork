@@ -64,7 +64,7 @@ const Grid5Layout = ({
 }) => {
     // ... rest of the setup logic
     const flipSoundMasterEnabled = otherSetupSettings?.sound?.flipSoundEnabled !== false;
-    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled !== false;
+    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled === true;
     const isFlipActive = flipSoundMasterEnabled && !isFlipMuted;
     const isBgActive = bgSoundMasterEnabled && !isMuted;
 

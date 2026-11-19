@@ -1,9 +1,45 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
+import { resolveUploadsPath } from '../../../../utils/assets/assetUtils';
+
+const resolveSlideshowSrc = (item, baseUrl) => {
+  if (!item) return '';
+  const src = typeof item === 'string' ? item : (item.data || item.url || '');
+  if (!src) return '';
+  if (src.startsWith('data:') || src.startsWith('blob:')) return src;
+  if (src.startsWith('http://') || src.startsWith('https://')) return src;
+
+  if (src.startsWith('../assets/') || src.startsWith('assets/') || src.startsWith('./assets/')) {
+    const cleanAsset = src.replace(/^(\.\.\/|\.\/)+/, '');
+    if (baseUrl) {
+      try {
+        const urlObj = new URL(baseUrl);
+        const segments = urlObj.pathname.split('/');
+        const pagesIdx = segments.indexOf('pages');
+        if (pagesIdx !== -1) {
+          const bookPath = segments.slice(0, pagesIdx).join('/');
+          return `${urlObj.origin}${bookPath}/${cleanAsset}`;
+        }
+      } catch (e) {}
+    }
+  }
+
+  return resolveUploadsPath(src);
+};
 
 const InteractionSlideshowModal = ({ activeSlideshowInteraction, setActiveSlideshowInteraction }) => {
   if (!activeSlideshowInteraction) return null;
+
+  const images = Array.isArray(activeSlideshowInteraction.images) ? activeSlideshowInteraction.images : [];
+  if (!images.length) return null;
+
+  const currentIndex = typeof activeSlideshowInteraction.currentIndex === 'number'
+    ? Math.max(0, Math.min(activeSlideshowInteraction.currentIndex, images.length - 1))
+    : 0;
+
+  const currentItem = images[currentIndex] || images[0];
+  const currentSrc = resolveSlideshowSrc(currentItem, activeSlideshowInteraction.baseUrl);
 
   return (
     <motion.div
@@ -27,8 +63,9 @@ const InteractionSlideshowModal = ({ activeSlideshowInteraction, setActiveSlides
       >
         <AnimatePresence mode="wait">
           <motion.img
-            key={activeSlideshowInteraction.currentIndex}
-            src={activeSlideshowInteraction.images[activeSlideshowInteraction.currentIndex]}
+            key={currentIndex}
+            src={currentSrc}
+            alt={currentItem?.name || `Slideshow image ${currentIndex + 1}`}
             initial={(() => {
               const effect = activeSlideshowInteraction.effect || 'Play Cards';
               if (effect === 'Spring Bounce') return { scale: 0.5, opacity: 0 };

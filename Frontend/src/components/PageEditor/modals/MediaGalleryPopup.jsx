@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
 import { checkIsAnimatedWebp } from '../utils/editorUtils';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
+import { optimizeImageForWeb } from '../../../utils/assets/imageOptimizer';
 import { useToast } from '../../CustomToast';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -176,13 +177,26 @@ const MediaGalleryPopup = ({ isOpen, onClose, anchorRef, onFileSelect, initialGa
           isAnimated = await checkIsAnimatedWebp(newFile);
         }
 
+        // Optimize image client-side to WebP (20MB-40MB -> ~250KB in <80ms off-thread)
+        let fileToUpload = newFile;
+        let previewUrl = objectUrl;
+        if (!isVideo && !isAnimated) {
+          try {
+            const opt = await optimizeImageForWeb(newFile, { maxDimension: 2048, quality: 0.82 });
+            fileToUpload = opt.file;
+            previewUrl = opt.dataUrl || objectUrl;
+          } catch (optErr) {
+            console.warn('[MediaGalleryPopup] Optimization fallback:', optErr);
+          }
+        }
+
         const tempAsset = {
           id: objectUrl,
           name: newFile.name.replace(/\.[^/.]+$/, ''),
-          url: objectUrl,
+          url: previewUrl,
           type: isVideo ? 'video' : 'image',
           isAnimated,
-          file: newFile
+          file: fileToUpload
         };
 
         const userEmail = user ? (user.emailId || user.email) : 'guest@fisto.tech';
@@ -190,38 +204,22 @@ const MediaGalleryPopup = ({ isOpen, onClose, anchorRef, onFileSelect, initialGa
           try {
             const formData = new FormData();
             formData.append('emailId', userEmail);
-            if (imageOnly) {
-              formData.append('assetType', 'gallery_image');
-              formData.append('folderName', 'My_Flipbooks');
-              formData.append('flipbookName', 'Untitled Document');
-              formData.append('file', newFile);
-              const res = await axios.post(`${backendUrl}/api/flipbook/upload-customized-asset`, formData);
-              if (res.data.url) {
-                return {
-                  ...tempAsset,
-                  id: res.data.fileName || objectUrl,
-                  url: res.data.url,
-                  rawUrl: res.data.url,
-                  file_v_id: res.data.fileName
-                };
-              }
-            } else {
-              formData.append('isGallery', 'true');
-              formData.append('type', isVideo ? 'video' : isAnimated ? 'gif' : 'image');
-              formData.append('file', newFile);
-              formData.append('page_v_id', 'global');
+            formData.append('isGallery', 'true');
+            formData.append('type', isVideo ? 'video' : isAnimated ? 'gif' : 'image');
+            formData.append('assetType', isVideo ? 'video' : isAnimated ? 'gif' : 'image');
+            formData.append('file', fileToUpload);
+            formData.append('page_v_id', 'global');
 
-              const res = await axios.post(`${backendUrl}/api/flipbook/upload-asset`, formData);
-              if (res.data.url) {
-                const serverUrl = resolveUploadsPath(res.data.url);
-                return {
-                  ...tempAsset,
-                  id: res.data.file_v_id || objectUrl,
-                  url: serverUrl,
-                  rawUrl: res.data.url,
-                  file_v_id: res.data.file_v_id
-                };
-              }
+            const res = await axios.post(`${backendUrl}/api/flipbook/upload-asset`, formData);
+            if (res.data.url) {
+              const serverUrl = resolveUploadsPath(res.data.url);
+              return {
+                ...tempAsset,
+                id: res.data.file_v_id || objectUrl,
+                url: serverUrl,
+                rawUrl: res.data.url,
+                file_v_id: res.data.file_v_id
+              };
             }
           } catch (err) {
             console.error('Failed to upload global asset:', err);
@@ -254,15 +252,27 @@ const MediaGalleryPopup = ({ isOpen, onClose, anchorRef, onFileSelect, initialGa
         isAnimated = await checkIsAnimatedWebp(newFile);
       }
 
+      let fileToUpload = newFile;
+      let previewUrl = newUrl;
+      if (!isVideo && !isAnimated) {
+        try {
+          const opt = await optimizeImageForWeb(newFile, { maxDimension: 2048, quality: 0.82 });
+          fileToUpload = opt.file;
+          previewUrl = opt.dataUrl || newUrl;
+        } catch (optErr) {
+          console.warn('[MediaGalleryPopup] Replace optimization fallback:', optErr);
+        }
+      }
+
       const existingAsset = galleryAssets.find(g => g.id === itemToReplaceId);
 
       let updatedAsset = {
         id: newUrl,
         name: newFile.name.replace(/\.[^/.]+$/, ''),
-        url: newUrl,
+        url: previewUrl,
         type: isVideo ? 'video' : 'image',
         isAnimated,
-        file: newFile
+        file: fileToUpload
       };
 
       if (user) {
@@ -271,7 +281,7 @@ const MediaGalleryPopup = ({ isOpen, onClose, anchorRef, onFileSelect, initialGa
         formData.append('emailId', user.emailId || user.email);
         formData.append('isGallery', 'true');
         formData.append('type', isVideo ? 'video' : isAnimated ? 'gif' : 'image');
-        formData.append('file', newFile);
+        formData.append('file', fileToUpload);
         formData.append('page_v_id', 'global');
         if (existingAsset?.rawUrl || existingAsset?.url) {
           formData.append('replacing_file_url', existingAsset.rawUrl || existingAsset.url);

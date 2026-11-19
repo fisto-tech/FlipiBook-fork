@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
 import { useTableOfContents } from '../../popups/useTableOfContents';
+import { PageNumberingContext } from '../../previewAreaModules/pageNumbering';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const getLayoutColorRgba = (id, defaultRgb, defaultOpacity) =>
@@ -12,7 +13,10 @@ const getLayoutColorAlpha = (id, defaultRgb, alpha) => {
     return `rgba(var(--${id}-rgb, ${defaultRgb}), ${alpha})`;
 };
 
-const TabletTableOfContentsPopup = ({ onClose, onNavigate, settings, variant = 'layout1', layoutColors }) => {
+const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage, settings, variant = 'layout1', layoutColors }) => {
+    // TOC page numbers are authored in the editor (no transparent sheets) → convert to book pages
+    const toBookIndex = React.useContext(PageNumberingContext);
+    const onNavigate = onNavigateEditorPage ? (editorIndex) => onNavigateEditorPage(toBookIndex(editorIndex)) : undefined;
     const speakText = (text) => {
         if ('speechSynthesis' in window && text) {
             window.speechSynthesis.cancel();

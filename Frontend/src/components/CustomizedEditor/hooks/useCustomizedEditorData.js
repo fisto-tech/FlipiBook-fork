@@ -4,9 +4,9 @@ import {
   getCustomizedEditorState,
   getPageEditorState,
   cleanupLegacyEditorKeys
-} from '../../../utils/dbUtils';
-import { saveAllPagesToIDB } from '../../../utils/pageWindowStore';
-import { getSupabaseBaseUrl, rewriteHtmlUploads } from '../../../utils/assetUtils';
+} from '../../../utils/storage/dbUtils';
+import { saveAllPagesToIDB } from '../../../utils/customizedEditor/pageWindowStore';
+import { getSupabaseBaseUrl, rewriteHtmlUploads } from '../../../utils/assets/assetUtils';
 import { createDefaultPageData } from '../utils/defaultPageData';
 
 export const useCustomizedEditorData = ({
@@ -506,7 +506,8 @@ export const useCustomizedEditorData = ({
                   customBgSounds: audioCustomBgSounds,
                   flipSound: audioSet.flipSound || loadedOtherSetup?.sound?.flipSound || prev?.sound?.flipSound || 'Soft Paper Flip',
                   pageSpecificSound: audioSet.pageSpecificSound !== undefined ? Boolean(audioSet.pageSpecificSound) : Boolean(loadedOtherSetup?.sound?.pageSpecificSound ?? prev?.sound?.pageSpecificSound),
-                  bgSoundEnabled: audioVal
+                  // Background music is opt-in: on only if the user saved it on (and master audio is on)
+                  bgSoundEnabled: audioVal && ((loadedOtherSetup?.sound?.bgSoundEnabled ?? audioSet.bgSoundEnabled) === true)
                 }
               }));
             }
@@ -686,7 +687,7 @@ export const useCustomizedEditorData = ({
                 let fpContent = fp.content || fp.html || '';
                 // Safety: If payload is raw binary WebP (starts with RIFF), convert it to clean SVG pointing to the image URL
                 if (fpContent && fpContent.startsWith('RIFF')) {
-                  const webpUrl = fp.imageUrl || `/storage/${fp.userId || 'FLIPI0001'}/books/${v_id}/pages/${pNum}.webp`;
+                  const webpUrl = fp.imageUrl || `/storage/${fp.userId || 'FLIPI0001'}/books/${v_id}/pages/webp_page/${pNum}.webp`;
                   fpContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 210 297" width="100%" height="100%" style="overflow: visible"><g id="g-page-${pNum}" data-name="Page ${pNum}"><image id="img-page-${pNum}" x="0" y="0" width="210" height="297" href="${webpUrl}" xlink:href="${webpUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
                 }
                 const isFpReal = fpContent && 
