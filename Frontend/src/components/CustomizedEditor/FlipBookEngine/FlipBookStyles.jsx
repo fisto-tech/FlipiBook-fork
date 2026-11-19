@@ -21,7 +21,8 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
             .fbe-is-flipping .fbe-corner-hotspot {
                 pointer-events: none !important;
             }
-            .fbe-is-flipping .fbe-texture-overlay {
+            .fbe-is-flipping .fbe-texture-overlay,
+            .fbe-is-flipping .fbe-clone-underlay {
                 filter: none !important;
             }
             .fbe-static-bg {

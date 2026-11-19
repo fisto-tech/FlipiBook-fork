@@ -27,6 +27,7 @@ import { getCachedRaster, clearRasterCache, subscribeRasterCache } from '../../.
 
 import FlipPage from './FlipPage';
 import FlipBookStyles from './FlipBookStyles';
+import CloneUnderlay from './CloneUnderlay';
 import ActiveSpreadOverlay from './ActiveSpreadOverlay';
 import CornerHotspots from './CornerHotspots';
 import {
@@ -62,6 +63,7 @@ const applySheetStyle = (layerEl, sheetData = {}) => {
     layerEl.style.setProperty('--sheet-texture-opacity', String(Math.min(1, Math.max(0, (Number(sd.textureIntensity) || 0) / 100))));
     layerEl.style.setProperty('--sheet-texture-scale', String(Math.max(0.2, (Number(sd.textureSize) || 100) / 100)));
 };
+
 
 const FlipBookEngine = forwardRef(function FlipBookEngine(
     {
@@ -190,6 +192,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     const isFlippingRef = useRef(false);
     const turnInProgressRef = useRef(false); // true between Turn.js 'turning' and 'turned'
     const liveControlRef = useRef(null);      // set by ActiveSpreadOverlay: { freeze() }
+    const [cloneUnderlay, setCloneUnderlay] = useState({ left: null, right: null });
 
     const [mobileShadowSide, setMobileShadowSide] = useState('left');
     const prevPageRef = useRef(currentPage);
@@ -250,7 +253,43 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
     const hasInteractiveRight = Boolean(rightIdx !== null && rightIdx >= 0 && pages[rightIdx] && isInteractiveHtml(pages[rightIdx].html || pages[rightIdx].content));
 
+    useEffect(() => {
+        if (!pages || pages.length === 0) return;
 
+        const getNextSolidPage = (startIndex, direction) => {
+            let idx = startIndex;
+            while (idx >= 0 && idx < pages.length) {
+                if (!pages[idx].isTransparentSheet && !pages[idx].isPad) {
+                    return { page: pages[idx], index: idx };
+                }
+                idx += direction;
+            }
+            return null;
+        };
+
+        let leftInfo = null;
+        let rightInfo = null;
+
+        if (leftIdx !== null && leftIdx >= 0 && pages[leftIdx]?.isTransparentSheet) {
+            leftInfo = getNextSolidPage(leftIdx - 1, -1);
+            if (leftInfo) {
+                const blurPercent = pages[leftIdx].sheetData?.blur ?? 100;
+                leftInfo.blurPx = (blurPercent / 100) * 20;
+            }
+        }
+        if (rightIdx !== null && rightIdx < pages.length && pages[rightIdx]?.isTransparentSheet) {
+            rightInfo = getNextSolidPage(rightIdx + 1, 1);
+            if (rightInfo) {
+                const blurPercent = pages[rightIdx].sheetData?.blur ?? 100;
+                rightInfo.blurPx = (blurPercent / 100) * 20;
+            }
+        }
+
+        setCloneUnderlay(prev => {
+            if (!leftInfo && !rightInfo && !prev.left && !prev.right) return prev;
+            return { left: leftInfo, right: rightInfo };
+        });
+    }, [currentPage, pages, singlePage, leftIdx, rightIdx]);
 
     /* ── High-Performance Texture Renderer for 60fps GPU Turns ─────────── */
     const applyPageVisual = useCallback((staticBgEl, rawContent, pageNum) => {
@@ -1479,6 +1518,18 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                 </div>
             )}
 
+            {/* ── CLONE UNDERLAY for Transparent Sheets ── */}
+            <CloneUnderlay
+                showingTurnJs={showingTurnJs}
+                showingReactFlip={showingReactFlip}
+                singlePage={singlePage}
+                width={width}
+                height={height}
+                hardCoverZoom={hardCoverZoom}
+                cloneUnderlay={cloneUnderlay}
+                buildPageDoc={buildPageDoc}
+                externalBuildPageDoc={externalBuildPageDoc}
+            />
             {/* ── TURN.JS ENGINE — centering wrapper ── */}
             {showingTurnJs && (
                 <div

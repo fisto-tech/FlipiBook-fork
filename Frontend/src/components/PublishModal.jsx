@@ -1,4 +1,4 @@
-import { renderTemplateBooks, getShadowRgba } from './FlipbookInfoModal';
+import { renderTemplateBooks, getShadowRgba, TemplatePreview, COVER_TEMPLATES } from './FlipbookInfoModal';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronDown, Plus, Info, Upload } from 'lucide-react';
@@ -48,7 +48,25 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
   const visibilityMode = currentBook?.share?.access || currentBook?.settings?.visibility?.type || 'Public';
   const pageCount = currentBook?.pages?.length || currentBook?.pageCount || 12;
   const thumbnailUrl = currentBook?.thumbnail || currentBook?.coverImage || null;
-  const coverPicture = currentBook?.settings?.othersetup?.coverPicture || currentBook?.coverPicture || currentBook?.meta?.coverPicture;
+  const rawCp = currentBook?.coverPicture ||
+    currentBook?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+    currentBook?.Customized_Settings?.otherSetup?.coverPicture ||
+    currentBook?.Customized_Settings?.coverPicture ||
+    currentBook?.settings?.othersetup?.coverPicture ||
+    currentBook?.settings?.otherSetup?.coverPicture ||
+    currentBook?.settings?.FlipbookInfo?.coverPicture ||
+    currentBook?.meta?.coverPicture ||
+    null;
+
+  const tplId = typeof rawCp?.selectedTemplate === 'object' && rawCp?.selectedTemplate
+    ? rawCp.selectedTemplate.id
+    : Number(rawCp?.selectedTemplate || rawCp?.templateId || 1);
+  const initialTemplate = COVER_TEMPLATES.find(t => t.id === tplId) || COVER_TEMPLATES[0];
+
+  const coverPicture = rawCp ? {
+    ...rawCp,
+    selectedTemplate: initialTemplate
+  } : null;
 
   const handleAddTag = () => {
     if (tags.length >= 5) {
@@ -177,59 +195,20 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
           {/* Left Column */}
           <div className="flex flex-col justify-between gap-[0.9vw]">
             {/* Book Preview Image Card */}
-            <div className="relative rounded-[0.9vw] bg-gray-50 w-full aspect-[4/3] flex items-center justify-center shadow-inner overflow-hidden border border-gray-200/50" style={{ backgroundColor: coverPicture?.bgColor || '#edd8cd' }}>
+            <div className="relative rounded-[0.9vw] bg-gray-50 w-full aspect-[4/3] flex items-center justify-center shadow-inner overflow-hidden border border-gray-200/50">
               {coverPicture?.type === 'template' ? (
-                <div className="w-full h-[25vw] flex flex-col items-center justify-center p-[1vw] text-center relative overflow-hidden bg-[#F2F2F2] rounded-[1.2vw] shadow-inner" style={{ backgroundColor: coverPicture.bgColor || '#D7D8E8' }}>
-                  {coverPicture.selectedTemplate?.id ? (
-                     <div className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none" style={{ opacity: (coverPicture.bgOpacity !== undefined ? coverPicture.bgOpacity : 100) / 100, filter: `drop-shadow(${coverPicture.shadowX || 0}px ${coverPicture.shadowY || 0}px ${(coverPicture.shadowBlur !== undefined ? coverPicture.shadowBlur : 35) / 10}px ${getShadowRgba(coverPicture.shadowColor, coverPicture.shadowOpacity)})` }}>
-                        {renderTemplateBooks(coverPicture.selectedTemplate.id, coverPicture.selectedPages, currentBook?.pages || [], [2, 4].includes(coverPicture.selectedTemplate?.id) ? "scale-[1.2] -translate-y-[0.8vw]" : "scale-[1.35]", coverPicture.text1, coverPicture.text2)}
-                     </div>
-                  ) : coverPicture.selectedTemplate?.src && (
-                    <img 
-                      src={coverPicture.selectedTemplate.src} 
-                      alt="Cover Background" 
-                      className="absolute inset-0 w-full h-full object-cover pointer-events-none" 
-                      style={{ opacity: (coverPicture.bgOpacity !== undefined ? coverPicture.bgOpacity : 100) / 100, filter: `drop-shadow(${coverPicture.shadowX || 0}px ${coverPicture.shadowY || 0}px ${(coverPicture.shadowBlur !== undefined ? coverPicture.shadowBlur : 35) / 10}px ${getShadowRgba(coverPicture.shadowColor, coverPicture.shadowOpacity)})` }}
-                    />
-                  )}
-
-                  {/* Uploaded Logo Rendering */}
-                  {coverPicture.logoUrl && (
-                      <img 
-                          src={coverPicture.logoUrl} 
-                          alt="Logo" 
-                          className="absolute top-[1vw] left-[1vw] z-[20] w-[4vw] h-[4vw] object-contain" 
-                      />
-                  )}
-
-                  <div className={`absolute left-0 right-0 text-center z-10 flex flex-col items-center ${coverPicture.selectedTemplate?.id && (!coverPicture.selectedPages || coverPicture.selectedPages.length === 0) ? 'hidden' : ''}`} style={{ bottom: '2vw', paddingLeft: '1vw', paddingRight: '1vw' }}>
-                    <h3 className="leading-tight break-words w-full" style={{
-                      fontFamily: coverPicture.text1FontFamily || 'Poppins',
-                      fontSize: coverPicture.text1FontSize ? `${(coverPicture.text1FontSize / 16) * 1.5}vw` : '1.2vw',
-                      fontWeight: coverPicture.text1FontWeight === 'Regular' ? '400' : coverPicture.text1FontWeight === 'Medium' ? '500' : coverPicture.text1FontWeight === 'Semi Bold' ? '600' : coverPicture.text1FontWeight === 'Bold' ? '700' : '900',
-                      letterSpacing: coverPicture.text1LetterSpacing === 'Auto' ? 'normal' : `${coverPicture.text1LetterSpacing / 10}em`,
-                      lineHeight: coverPicture.text1LineHeight === 'Auto' ? '1.1' : String(coverPicture.text1LineHeight),
-                      textAlign: coverPicture.text1Align || 'center',
-                      color: coverPicture.text1Color || '#FFFFFF',
-                      opacity: (coverPicture.text1ColorOpacity !== undefined ? coverPicture.text1ColorOpacity : 100) / 100,
-                      fontStyle: coverPicture.text1Italic ? 'italic' : 'normal',
-                      textDecoration: [coverPicture.text1Underline ? 'underline' : '', coverPicture.text1Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-                    }}>{coverPicture.text1 || 'Title'}</h3>
-                    <p className="whitespace-pre-wrap break-words w-full" style={{
-                      marginTop: '0.2vw',
-                      fontFamily: coverPicture.text2FontFamily || 'Outfit',
-                      fontSize: coverPicture.text2FontSize ? `${(coverPicture.text2FontSize / 16) * 1.5}vw` : '0.8vw',
-                      fontWeight: coverPicture.text2FontWeight === 'Regular' ? '400' : coverPicture.text2FontWeight === 'Medium' ? '500' : coverPicture.text2FontWeight === 'Semi Bold' ? '600' : coverPicture.text2FontWeight === 'Bold' ? '700' : '900',
-                      letterSpacing: coverPicture.text2LetterSpacing === 'Auto' ? '0.2em' : `${coverPicture.text2LetterSpacing / 10}em`,
-                      lineHeight: coverPicture.text2LineHeight === 'Auto' ? 'normal' : String(coverPicture.text2LineHeight),
-                      textAlign: coverPicture.text2Align || 'center',
-                      color: coverPicture.text2Color || '#FFFFFF',
-                      opacity: (coverPicture.text2ColorOpacity !== undefined ? coverPicture.text2ColorOpacity : 90) / 100,
-                      fontStyle: coverPicture.text2Italic ? 'italic' : 'normal',
-                      textDecoration: [coverPicture.text2Underline ? 'underline' : '', coverPicture.text2Linethrough ? 'line-through' : ''].filter(Boolean).join(' ') || 'none'
-                    }}>{coverPicture.text2 || 'Supporting Text'}</p>
-                  </div>
+                <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
+                  <TemplatePreview 
+                    {...coverPicture} 
+                    pages={currentBook?.pages || []} 
+                  />
                 </div>
+              ) : coverPicture?.url ? (
+                <img 
+                  src={coverPicture.url} 
+                  alt="Flipbook Cover" 
+                  className="w-full h-full object-cover"
+                />
               ) : thumbnailUrl ? (
                 <img 
                   src={thumbnailUrl} 

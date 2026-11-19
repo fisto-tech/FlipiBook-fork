@@ -287,9 +287,11 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
             if (s.id === 1) {
                 return {
                     ...s,
-                    sublabel: (loadedMB && totalMB)
-                        ? `${loadedMB} / ${totalMB} MB`
-                        : (activeStep > 1 ? 'Uploaded' : 'File received')
+                    sublabel: activeStep > 1
+                        ? (totalMB ? `${totalMB} / ${totalMB} MB` : 'Uploaded')
+                        : (loadedMB && totalMB
+                            ? `${loadedMB} / ${totalMB} MB`
+                            : 'Uploading...')
                 };
             }
             if (s.id === 2) {

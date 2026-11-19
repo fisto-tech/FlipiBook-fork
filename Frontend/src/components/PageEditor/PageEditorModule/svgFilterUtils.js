@@ -10,6 +10,7 @@ export const parseLayersFromSVG = (element) => {
       if (['defs', 'metadata', 'style', 'title', 'desc', 'parsererror'].includes(child.tagName.toLowerCase())) return false;
       if (child.getAttribute('data-name') === 'Overlay' || child.getAttribute('data-name') === 'Document Shield' || child.getAttribute('data-type') === 'shield') return false;
       if (child.id === 'temp-blink-clone' || child.getAttribute('id') === 'temp-blink-clone' || child.id?.startsWith('temp-blink-') || child.getAttribute('id')?.startsWith('temp-blink-')) return false;
+      if (child.getAttribute('style')?.includes('display:none') || child.getAttribute('style')?.includes('display: none')) return false;
       if (child.classList.contains('svg-drop-shadow-caster')) return false;
       if (child.classList.contains('internal-crop-rect')) return false;
       if (child.classList.contains('internal-crop-pattern')) return false;

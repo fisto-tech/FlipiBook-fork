@@ -333,6 +333,12 @@ const formatBook = (doc, settingsDoc = null, currentUserId = null, folderMap = n
     height: s?.FlipbookInfo?.height || s?.height || null,
     orientation: s?.FlipbookInfo?.orientation || s?.orientation || null,
     templateId: s?.FlipbookInfo?.templateId || s?.templateId || null,
+    coverPicture: s?.FlipbookInfo?.coverPicture || s?.otherSetup?.coverPicture || s?.coverPicture || doc.coverPicture || null,
+    thumbnail: s?.FlipbookInfo?.coverPicture?.url || s?.coverPicture?.url || doc.thumbnail || null,
+    quotes: s?.FlipbookInfo?.quotes || '',
+    about: s?.FlipbookInfo?.about || '',
+    category: s?.FlipbookInfo?.category || '',
+    language: s?.FlipbookInfo?.language || 'English',
     Customized_Settings: s || {},
   };
 };
@@ -3179,9 +3185,26 @@ exports.previewBook = async (req, res) => {
       } catch (_) {}
     }
 
-    const firstPage =
-      book.pages && book.pages.length > 0 ? book.pages[0] : null;
-    let firstPageHtml = firstPage?.html || firstPage?.content || "";
+    // Determine which page to preview (e.g. if user selected specific page(s) like page 3 in cover template)
+    let requestedPageNum = Number(req.query?.page || req.query?.pageNum || 0);
+    if (!requestedPageNum) {
+      // Check if book has coverPicture with selectedPages
+      const cp = book.coverPicture || book.settings?.othersetup?.coverPicture;
+      if (Array.isArray(cp?.selectedPages) && cp.selectedPages.length > 0) {
+        requestedPageNum = Number(cp.selectedPages[0]) || 1;
+      }
+    }
+    if (!requestedPageNum || requestedPageNum < 1) {
+      requestedPageNum = 1;
+    }
+
+    const sortedPages = (book.pages || []).slice().sort((a, b) => (Number(a.pageNumber) || 0) - (Number(b.pageNumber) || 0));
+    const targetPage =
+      (sortedPages.length >= requestedPageNum && sortedPages[requestedPageNum - 1])
+        ? sortedPages[requestedPageNum - 1]
+        : (sortedPages.length > 0 ? sortedPages[0] : null);
+
+    let firstPageHtml = targetPage?.html || targetPage?.content || "";
 
     if (!firstPageHtml) {
       const storageRoot = getStorageRoot();
@@ -3289,15 +3312,15 @@ exports.previewBook = async (req, res) => {
 
       const uniqueCandidateDirs = Array.from(new Set(candidateDirs));
 
-      // 3. Build candidate file names for the first page
-      const pageNum = firstPage?.pageNumber || 1;
-      const cleanName = firstPage?.name
-        ? String(firstPage.name)
+      // 3. Build candidate file names for the target page
+      const pageNum = targetPage?.pageNumber || requestedPageNum || 1;
+      const cleanName = targetPage?.name
+        ? String(targetPage.name)
             .replace(/[\\/:*?"<>|]/g, "")
             .trim()
         : "";
-      const cleanFileName = firstPage?.fileName
-        ? String(firstPage.fileName)
+      const cleanFileName = targetPage?.fileName
+        ? String(targetPage.fileName)
             .replace(/[\\/:*?"<>|]/g, "")
             .trim()
         : "";

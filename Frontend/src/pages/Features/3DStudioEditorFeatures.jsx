@@ -11,7 +11,7 @@ export default function ThreeDStudioEditorFeatures() {
   const navigate = useNavigate();
 
   return (
-    <div className="w-full min-h-screen bg-white text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden selection:bg-[#EA580C]/10 selection:text-[#EA580C]">
+    <div className="w-full min-h-screen bg-white text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden">
       <main className="w-full flex-1 pb-12">
         {/* =========================================
             SECTION 1: HERO BANNER
@@ -35,9 +35,9 @@ export default function ThreeDStudioEditorFeatures() {
                 <button
                   type="button"
                   onClick={() => navigate('/features')}
-                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-gray-200 bg-white/90 text-gray-600 text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-xs transition-all cursor-pointer backdrop-blur-xs hover:bg-white"
+                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-[#EA580C] bg-white/10 text-[#EA580C] text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-sm hover:shadow transition-all cursor-pointer backdrop-blur-xl hover:shadow-[#EA580C]"
                 >
-                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-gray-600" />
+                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-[#EA580C]" />
                   <span>Back to Features</span>
                 </button>
               </div>
@@ -85,21 +85,22 @@ export default function ThreeDStudioEditorFeatures() {
         {/* =========================================
             SECTION 2: 3-CARD SHOWCASE SECTION
         ========================================= */}
-        <div className="max-w-[92vw] mx-auto px-4 md:px-[2vw]">
-            <section className="relative w-full pt-10 sm:pt-14 md:pt-16 pb-8 sm:pb-12 md:pb-14 text-center bg-white">
+        <section className="relative w-full pt-6 sm:pt-8 md:pt-10 pb-4 sm:pb-6 md:pb-8 text-center bg-white">
           <div className="max-w-[960px] mx-auto px-4">
             <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
               <span className="w-8 sm:w-14 h-[2.5px] bg-[#EA580C] rounded-full inline-block shrink-0"></span>
               <h2 className="text-xl sm:text-2xl md:text-[28px] font-bold text-[#111827] tracking-tight">
-                  Build, Control &amp; Export Your <span className="text-[#EA580C]">3D Assets</span>
-                </h2>
+                Build, Control &amp; Export Your <span className="text-[#EA580C]">3D Assets</span>
+              </h2>
               <span className="w-8 sm:w-14 h-[2.5px] bg-[#EA580C] rounded-full inline-block shrink-0"></span>
             </div>
             <p className="text-xs sm:text-sm md:text-[14px] text-[#64748B] mt-2 max-w-xl mx-auto leading-relaxed">
-                Create, customize, and export high-quality 3D assets with precise control over materials, lighting, and rendering.
-              </p>
+              Create, customize, and export high-quality 3D assets with precise control over materials, lighting, and rendering.
+            </p>
           </div>
         </section>
+
+        <div className="max-w-[92vw] mx-auto px-4 md:px-[2vw]">
 
             {/* 3 Columns Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-5 items-stretch">

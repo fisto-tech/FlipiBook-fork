@@ -546,6 +546,11 @@ export default function MyFlipbooks() {
             let cumulativeUploadedBytes = 0;
             let cumulativeExtractedPages = 0;
 
+            const assignedBookId = ((typeof crypto !== 'undefined' && crypto.randomUUID)
+                ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+                : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
+            const resolvedUserId = user?.userID || user?.userId || 'FLIPI0001';
+
             // Step 1 — Coordinated sequential extraction across all files (guarantees strict page order)
             for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
                 if (isUploadCancelledRef.current || signal.aborted) return;
@@ -573,10 +578,12 @@ export default function MyFlipbooks() {
                         currentStage = stage || 'converting';
                     }
 
-                    const fileLoaded = (loadedBytes !== undefined && loadedBytes !== null) 
+                    const fileLoaded = (loadedBytes !== undefined && loadedBytes !== null && currentStage === 'uploading') 
                         ? Number(loadedBytes) 
-                        : (currentStage === 'extracting' || currentStage === 'saving' || currentStage === 'done' ? file.size : 0);
-                    const overallLoaded = cumulativeUploadedBytes + fileLoaded;
+                        : file.size;
+                    const overallLoaded = currentStage === 'uploading'
+                        ? Math.min(totalPdfSize, cumulativeUploadedBytes + fileLoaded)
+                        : totalPdfSize;
 
                     const fileCurrent = (current !== undefined && current !== null && !isNaN(Number(current))) 
                         ? Number(current) 
@@ -605,7 +612,7 @@ export default function MyFlipbooks() {
                             engine: engine || prev?.engine || 'edge'
                         };
                     });
-                }, signal);
+                }, signal, assignedBookId, resolvedUserId);
 
                 if (isUploadCancelledRef.current || signal.aborted) return;
 
@@ -704,20 +711,21 @@ export default function MyFlipbooks() {
 
             const extractedPages = await Promise.all(allImages.map(async (img, idx) => {
                 const pageIndex = idx + 1;
-                // Never bake ephemeral blob: URLs into persistent SVG state (fixes ERR_FILE_NOT_FOUND)
+                // If persistent server image URL is available (/storage/... or http...), use it directly!
+                const isServerStorage = (img.dataUrl && !img.dataUrl.startsWith('blob:')) || (img.imageUrl && !img.imageUrl.startsWith('blob:'));
+                let persistentSource = isServerStorage ? (img.dataUrl || img.imageUrl) : '';
+
                 let b64 = '';
-                if (img.getBase64) {
-                    try { b64 = await img.getBase64(); } catch (_) {}
-                }
-                if (!b64 && img.blob) {
-                    try { b64 = await blobToBase64(img.blob); } catch (_) {}
-                }
-                if (!b64 && img.dataUrl && !img.dataUrl.startsWith('blob:')) {
-                    b64 = img.dataUrl;
+                if (!persistentSource) {
+                    if (img.getBase64) {
+                        try { b64 = await img.getBase64(); } catch (_) {}
+                    }
+                    if (!b64 && img.blob) {
+                        try { b64 = await blobToBase64(img.blob); } catch (_) {}
+                    }
+                    persistentSource = b64 || (img.dataUrl && !img.dataUrl.startsWith('blob:') ? img.dataUrl : '');
                 }
 
-                // If we have permanent base64, generate persistent SVG without dead blob references
-                const persistentSource = b64 || (img.dataUrl && !img.dataUrl.startsWith('blob:') ? img.dataUrl : '');
                 let html = persistentSource
                     ? generatePdfPageSvg(persistentSource, `Page ${pageIndex}`, maxWidth, maxHeight, true)
                     : (img.content || '');
@@ -738,7 +746,6 @@ export default function MyFlipbooks() {
                     width: img.width || maxWidth,
                     height: img.height || maxHeight,
                     blob: img.blob,
-                    getBase64: img.getBase64 || (() => Promise.resolve(b64)),
                     dataUrl: img.dataUrl || persistentSource,
                     imageUrl: img.imageUrl || img.dataUrl || persistentSource
                 };
@@ -763,14 +770,14 @@ export default function MyFlipbooks() {
 
             if (isUploadCancelledRef.current) return;
 
-            // Use backend generated book ID if available, or generate a fresh crypto ID
-            const cryptoVId = allImages.bookId || ((typeof crypto !== 'undefined' && crypto.randomUUID)
+            // Use assigned book ID or backend generated book ID
+            const cryptoVId = assignedBookId || allImages.bookId || ((typeof crypto !== 'undefined' && crypto.randomUUID)
                 ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
                 : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
 
             const orientation = maxWidth > maxHeight ? 'landscape' : (Math.abs(maxWidth - maxHeight) < 2 ? 'square' : 'portrait');
 
-            // Save initial batch immediately to create book record safely (prevents 413 Payload Too Large)
+            const isAlreadyServerSynced = allPages.length > 0 && allPages.every(p => p.dataUrl && p.dataUrl.startsWith('/storage/'));
             const INITIAL_BATCH_SIZE = 5;
             const initialBatch = allPages.length > INITIAL_BATCH_SIZE ? allPages.slice(0, INITIAL_BATCH_SIZE) : allPages;
             const readyRemainingPages = allPages.length > INITIAL_BATCH_SIZE ? allPages.slice(INITIAL_BATCH_SIZE) : [];
@@ -822,27 +829,31 @@ export default function MyFlipbooks() {
             const extractedPagesBytes = allPages.reduce((sum, p) => sum + (p.content ? (new Blob([p.content])).size : 0), 0);
             const resolvedBookType = initialDocType === 'powerpoint' ? 'pptx' : initialDocType === 'word' ? 'word' : 'pdf';
 
-            // Prepare initial batch with base64 so server saves physical files to disk
-            const initialBatchForServer = await Promise.all(initialBatch.map(async (p) => {
-                if (p.getBase64) {
-                    const b64 = await p.getBase64();
-                    if (b64) {
-                        const serverSvg = generatePdfPageSvg(b64, p.pageName, p.width, p.height, true);
-                        return { ...p, content: serverSvg, html: serverSvg };
+            // If pages are already synced to disk on the server (like server-side extraction),
+            // send all pages directly in one clean request without huge base64 strings!
+            let pagesPayloadForServer = allPages;
+            if (!isAlreadyServerSynced) {
+                pagesPayloadForServer = await Promise.all(initialBatch.map(async (p) => {
+                    if (p.getBase64) {
+                        const b64 = await p.getBase64();
+                        if (b64) {
+                            const serverSvg = generatePdfPageSvg(b64, p.pageName, p.width, p.height, true);
+                            return { ...p, content: serverSvg, html: serverSvg };
+                        }
                     }
-                }
-                return p;
-            }));
+                    return p;
+                }));
+            }
 
             const createRes = await flipbookApi.saveBook({
                 emailId,
                 flipbookName: uniqueName,
-                pages: initialBatchForServer,
+                pages: pagesPayloadForServer,
                 overwrite: false,
                 folderName: targetFolder,
                 folder_id: targetFolderVId,
                 fol_v_id: targetFolderVId,
-                keepBase64: true,
+                keepBase64: false,
                 v_id: cryptoVId,
                 bookType: resolvedBookType,
                 fileSize: extractedPagesBytes > 0 ? extractedPagesBytes : totalPdfSize,
@@ -894,8 +905,8 @@ export default function MyFlipbooks() {
                 ]).catch(() => {});
             }
 
-            // Queue remaining pages for non-blocking asynchronous cloud sync
-            if (readyRemainingPages.length > 0) {
+            // Queue remaining pages for non-blocking asynchronous cloud sync ONLY if not already synced to server
+            if (!isAlreadyServerSynced && readyRemainingPages.length > 0) {
                 const remainingForServer = await Promise.all(readyRemainingPages.map(async (p) => {
                     if (p.getBase64) {
                         const b64 = await p.getBase64();
@@ -948,9 +959,9 @@ export default function MyFlipbooks() {
             // Smooth transition: brief delay to let spring physics smoothly glide to 100% and show Step 4 complete
             await new Promise(res => setTimeout(res, 700));
 
-            // Navigate to the customized editor IMMEDIATELY (pass initial pages to stay within history quota)
-            // Strip out non-cloneable properties (functions like getBase64, Blobs) so history.pushState never throws DataCloneError
-            const safeStatePages = (allPages.length > 20 ? allPages.slice(0, 10) : allPages).map(p => ({
+            // Navigate to the customized editor IMMEDIATELY
+            // Strip out non-cloneable properties so history.pushState never throws DataCloneError
+            const safeStatePages = allPages.map(p => ({
                 pageName: p.pageName,
                 content: p.content,
                 html: p.html,
