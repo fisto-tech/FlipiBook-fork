@@ -235,6 +235,12 @@ export default function GroupProperties({
     const parent = targetNode.parentNode;
     if (!parent) return;
 
+    // Resolve the page SVG BEFORE the group is removed: the default save looks the page up via the
+    // selected (group) id, which no longer exists after ungrouping -> it saved null and wiped the page.
+    const pageContainer = targetNode.closest('.page-svg-container');
+    const pageSvg = (pageContainer && (pageContainer.querySelector('[id^="canvas-content-"] svg') || pageContainer.querySelector('svg'))) ||
+      (() => { let n = targetNode, last = null; while (n) { if (n.tagName?.toLowerCase() === 'svg') last = n; n = n.parentElement; } return last; })();
+
     const children = Array.from(targetNode.childNodes);
     const groupTransform = targetNode.getAttribute('transform') || '';
     const newIds = new Set();
@@ -256,15 +262,20 @@ export default function GroupProperties({
 
     parent.removeChild(targetNode);
 
+    // Save the page explicitly (overlay helpers stripped) before the selection changes
+    if (onUpdate && pageSvg) {
+      const clone = pageSvg.cloneNode(true);
+      clone.querySelectorAll('[data-highlight-id], .frame-boundary').forEach(n => n.remove());
+      onUpdate(new XMLSerializer().serializeToString(clone));
+    }
+
     if (setMultiSelectedIds && newIds.size > 0) {
       setMultiSelectedIds(newIds);
-      const firstId = Array.from(newIds)[0];
-      if (setSelectedLayerId) setSelectedLayerId(firstId);
+      const ids = Array.from(newIds);
+      if (setSelectedLayerId) setSelectedLayerId(ids[ids.length - 1]);
     } else if (setSelectedLayerId) {
       setSelectedLayerId(null);
     }
-
-    if (onUpdate) onUpdate();
   };
 
   // Quick Action: Duplicate Group

@@ -1472,12 +1472,14 @@ const VideoProperties = ({
         target.setAttribute('data-show-controls', controls ? 'true' : 'false');
         target.setAttribute('data-show-play-pause', playPauseButton ? 'true' : 'false');
         target.setAttribute('data-show-skip-button', (controls && skipButton) ? 'true' : 'false');
-        target.setAttribute('data-show-progress-bar', (controls && progressBar) ? 'true' : 'false');
+        // Progress bar is always available, even when the other player controls are turned off
+        target.setAttribute('data-show-progress-bar', 'true');
         target.setAttribute('data-show-loop-button', (controls && loopButtonControl) ? 'true' : 'false');
         target.setAttribute('data-show-fullscreen-button', fullscreenButtonControl ? 'true' : 'false');
         target.setAttribute('data-show-playback-speed-menu', (controls && playbackSpeedMenu) ? 'true' : 'false');
         target.setAttribute('data-show-volume-control', (controls && volumeControl) ? 'true' : 'false');
         target.setAttribute('data-show-download-button', downloadButton ? 'true' : 'false');
+        target.removeAttribute('data-controls-always-visible');
 
         if (controls) {
           target.classList.remove('hide-controls');
@@ -2450,12 +2452,8 @@ const VideoProperties = ({
 
             <div className="flex flex-col gap-[0.4vw] bg-white p-[0.7vw] rounded-[0.55vw] border border-gray-200 shadow-2xs">
               {[
-                { label: "Play/Pause Button", value: playPauseButton, onChange: (v) => updateElementAttribute('playPauseButton', v), disabled: playVideoWhile === "Manual (Click to Play)" },
                 { label: "Skip Forward/Backward (3 sec)", value: controls && skipButton, onChange: (v) => updateElementAttribute('skipButton', v), disabled: !controls },
-                { label: "Progress Bar", value: controls && progressBar, onChange: (v) => updateElementAttribute('progressBar', v), disabled: !controls },
-                { label: "Loop Button", value: controls && loopButtonControl, onChange: (v) => updateElementAttribute('loopButtonControl', v), disabled: !controls },
                 { label: "Fullscreen Button", value: fullscreenButtonControl, onChange: (v) => updateElementAttribute('fullscreenButtonControl', v), disabled: false },
-                { label: "Playback Speed Menu", value: controls && playbackSpeedMenu, onChange: (v) => updateElementAttribute('playbackSpeedMenu', v), disabled: !controls },
                 { label: "Volume Control", value: controls && volumeControl, onChange: (v) => updateElementAttribute('volumeControl', v), disabled: !controls },
                 { label: "Download Button", value: downloadButton, onChange: (v) => updateElementAttribute('downloadButton', v), disabled: false },
               ].map((item, i) => (

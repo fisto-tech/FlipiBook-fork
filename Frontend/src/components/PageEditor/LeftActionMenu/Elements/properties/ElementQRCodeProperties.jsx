@@ -315,7 +315,33 @@ const TypeIcon = ({ category, value, className = 'w-[0.9vw] h-[0.9vw] flex-shrin
 // Custom Select Component with embedded visual icons
 const CustomSelect = ({ value, onChange, options, category, placeholder = 'Select...' }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef(null);
+
+  // Open upward when there isn't enough room below (inside the scrolling panel or viewport)
+  const toggleOpen = () => {
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      let boundTop = 0;
+      let boundBottom = window.innerHeight;
+      let node = containerRef.current.parentElement;
+      while (node && node !== document.body) {
+        const oy = getComputedStyle(node).overflowY;
+        if (oy === 'auto' || oy === 'scroll' || oy === 'hidden') {
+          const r = node.getBoundingClientRect();
+          boundTop = Math.max(boundTop, r.top);
+          boundBottom = Math.min(boundBottom, r.bottom);
+          break;
+        }
+        node = node.parentElement;
+      }
+      const menuH = Math.min(window.innerWidth * 0.14, options.length * window.innerWidth * 0.022 + 12);
+      const spaceBelow = boundBottom - rect.bottom;
+      const spaceAbove = rect.top - boundTop;
+      setOpenUp(spaceBelow < menuH + 8 && spaceAbove > spaceBelow);
+    }
+    setIsOpen(!isOpen);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -335,7 +361,7 @@ const CustomSelect = ({ value, onChange, options, category, placeholder = 'Selec
     <div ref={containerRef} className="relative w-full">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className={`w-full h-[2vw] min-h-[30px] flex items-center justify-between bg-white border ${
           isOpen ? 'border-[#4D47FF] ring-1 ring-[#4D47FF] shadow-xs' : 'border-gray-300 hover:border-gray-400'
         } rounded-[0.4vw] px-[0.6vw] text-[0.8vw] text-gray-800 transition-colors cursor-pointer shadow-2xs font-medium`}
@@ -357,7 +383,7 @@ const CustomSelect = ({ value, onChange, options, category, placeholder = 'Selec
       {isOpen && (
         <>
           <div className="fixed inset-0 z-[90]" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 right-0 top-full mt-[0.35vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl overflow-hidden z-[100] flex flex-col py-[0.25vw] max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150">
+          <div className={`absolute left-0 right-0 ${openUp ? 'bottom-full mb-[0.35vw]' : 'top-full mt-[0.35vw]'} bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl overflow-hidden z-[100] flex flex-col py-[0.25vw] max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150`}>
             {options.map((opt) => {
               const isSelected = String(opt.value) === String(value);
               return (
@@ -614,7 +640,7 @@ const ElementQRCodeProperties = ({
   const [logoSrc, setLogoSrc] = useState(null);
   const [logoName, setLogoName] = useState('Logo.png');
   const [logoMeta, setLogoMeta] = useState(null);
-  const [logoSize, setLogoSize] = useState(60);
+  const [logoSize, setLogoSize] = useState(70);
   const [logoRadius, setLogoRadius] = useState(0);
   const [logoBgColor, setLogoBgColor] = useState('#FFFFFF');
   const [logoAspect, setLogoAspect] = useState(null);
@@ -717,7 +743,7 @@ const ElementQRCodeProperties = ({
           frame,
           text,
           logoSrc: hasLogo ? logoSrc : null,
-          logoSize: Math.round((logoSize / 100) * 28),
+          logoSize: Math.round((logoSize / 100) * 40),
           logoRadius,
           logoBg: true,
           logoBgColor,
@@ -747,7 +773,7 @@ const ElementQRCodeProperties = ({
           frame,
           text,
           logoSrc: hasLogo ? logoSrc : null,
-          logoSize: Math.round((logoSize / 100) * 28),
+          logoSize: Math.round((logoSize / 100) * 40),
           logoRadius,
           logoBg: true,
           logoBgColor,
@@ -960,7 +986,7 @@ const ElementQRCodeProperties = ({
       }
 
       setQrColor(targetEl.getAttribute('data-qr-color') || '#000000');
-      setBackdrop(targetEl.getAttribute('data-qr-backdrop') || '#FFFFFF');
+      setBackdrop((targetEl.hasAttribute('data-qr-backdrop') ? targetEl.getAttribute('data-qr-backdrop') : '#FFFFFF'));
       setPatternStyle(targetEl.getAttribute('data-qr-pattern') || 'classic-square');
       setEyeFrame(targetEl.getAttribute('data-qr-eye-frame') || 'classic-square');
       setEyeBall(targetEl.getAttribute('data-qr-eye-ball') || 'square');
@@ -974,7 +1000,7 @@ const ElementQRCodeProperties = ({
       setLogoName(targetEl.getAttribute('data-qr-logo-name') || 'Logo.png');
       const meta = targetEl.getAttribute('data-qr-logo-meta') || null;
       setLogoMeta(meta);
-      setLogoSize(parseInt(targetEl.getAttribute('data-qr-logo-size')) || 60);
+      setLogoSize(parseInt(targetEl.getAttribute('data-qr-logo-size')) || 70);
       setLogoRadius(targetEl.getAttribute('data-qr-logo-radius') !== null ? parseInt(targetEl.getAttribute('data-qr-logo-radius')) : 0);
       setLogoBgColor(targetEl.getAttribute('data-qr-logo-bg-color') || '#FFFFFF');
 
@@ -1041,12 +1067,12 @@ const ElementQRCodeProperties = ({
         frameBgColor: targetEl.getAttribute('data-qr-frame-bg') || '#FFFFFF',
         arrowColor: targetEl.getAttribute('data-qr-arrow-color') || '#000000',
         qrColor: targetEl.getAttribute('data-qr-color') || '#000000',
-        backdrop: targetEl.getAttribute('data-qr-backdrop') || '#FFFFFF',
+        backdrop: (targetEl.hasAttribute('data-qr-backdrop') ? targetEl.getAttribute('data-qr-backdrop') : '#FFFFFF'),
         patternStyle: targetEl.getAttribute('data-qr-pattern') || 'classic-square',
         eyeFrame: targetEl.getAttribute('data-qr-eye-frame') || 'classic-square',
         eyeBall: targetEl.getAttribute('data-qr-eye-ball') || 'square',
         logoSrc: existingLogo || null,
-        logoSize: Math.round(((parseInt(targetEl.getAttribute('data-qr-logo-size')) || 60) / 100) * 28),
+        logoSize: Math.round(((parseInt(targetEl.getAttribute('data-qr-logo-size')) || 70) / 100) * 40),
         logoRadius: parseInt(targetEl.getAttribute('data-qr-logo-radius')) || 0,
         logoBgColor: targetEl.getAttribute('data-qr-logo-bg-color') || '#FFFFFF',
         logoAspect: initAspect
@@ -1152,7 +1178,7 @@ const ElementQRCodeProperties = ({
         frame: currentFrame,
         text: currentText,
         logoSrc: currentLogoSrc,
-        logoSize: Math.round((currentLogoSize / 100) * 28), // proportional scale
+        logoSize: Math.round((currentLogoSize / 100) * 40), // proportional scale
         logoRadius: currentLogoRadius,
         logoBg: true,
         logoBgColor: currentLogoBgColor,
@@ -1384,7 +1410,7 @@ const ElementQRCodeProperties = ({
       onChange: (val) => handleChange('frameBgColor', val)
     },
     arrowColor: {
-      label: 'Frame Stroke',
+      label: frame === 'frame-curved-arrow' ? 'Arrow Color' : 'Frame Stroke',
       value: arrowColor,
       onChange: (val) => handleChange('arrowColor', val)
     }
@@ -1887,11 +1913,11 @@ const ElementQRCodeProperties = ({
                   <input
                     type="range"
                     min="20"
-                    max="95"
+                    max="100"
                     value={logoSize}
-                    onChange={(e) => handleChange('logoSize', parseInt(e.target.value) || 60)}
+                    onChange={(e) => handleChange('logoSize', parseInt(e.target.value) || 70)}
                     className="w-full cursor-pointer custom-range-slider"
-                    style={{ backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${((logoSize - 20) / 75) * 100}%, #E2E8F0 ${((logoSize - 20) / 75) * 100}%, #E2E8F0 100%)` }}
+                    style={{ backgroundImage: `linear-gradient(to right, #EC5137 0%, #EC5137 ${((logoSize - 20) / 80) * 100}%, #E2E8F0 ${((logoSize - 20) / 80) * 100}%, #E2E8F0 100%)` }}
                   />
                 </div>
                 <div className="w-[3.3vw] h-[2vw] rounded-[0.4vw] border border-gray-300 bg-white flex items-center justify-center text-[0.8vw] font-medium text-gray-700 shadow-2xs">
@@ -1910,7 +1936,7 @@ const ElementQRCodeProperties = ({
                     value={logoRadius}
                     onChange={(e) => handleChange('logoRadius', parseInt(e.target.value) || 0)}
                     className="w-full cursor-pointer custom-range-slider"
-                    style={{ backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${(logoRadius / 30) * 100}%, #E2E8F0 ${(logoRadius / 30) * 100}%, #E2E8F0 100%)` }}
+                    style={{ backgroundImage: `linear-gradient(to right, #EC5137 0%, #EC5137 ${(logoRadius / 30) * 100}%, #E2E8F0 ${(logoRadius / 30) * 100}%, #E2E8F0 100%)` }}
                   />
                 </div>
                 <div className="w-[3.3vw] h-[2vw] rounded-[0.4vw] border border-gray-300 bg-white flex items-center justify-center text-[0.8vw] font-medium text-gray-700 shadow-2xs">
@@ -2006,7 +2032,7 @@ const ElementQRCodeProperties = ({
 
           {/* Frame Stroke / Accent Color (Fill Color card style matching Color.jsx) */}
           <FillColorCard
-            label="Frame Stroke"
+            label={frame === 'frame-curved-arrow' ? "Arrow Color" : "Frame Stroke"}
             color={arrowColor}
             onColorChange={(val) => handleChange('arrowColor', val)}
             onPickerToggle={() => handleToggleColorPicker('arrowColor')}

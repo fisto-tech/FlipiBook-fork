@@ -544,7 +544,7 @@ const LayerItem = ({
   }, [isEditing]);
 
   return (
-    <div className="flex flex-col select-none">
+    <div className="flex flex-col select-none py-[0.1vh]">
       <div
         ref={itemRef}
         draggable={!isEditing && !isPdfBackgroundLayer && !isInteractionDisabled && !isAudioDisabledInInteraction && !layer.locked}
@@ -553,23 +553,20 @@ const LayerItem = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         title={isInteractionDisabled ? 'Available in Touch Interaction Mode' : isAudioDisabledInInteraction ? 'Audio elements are not selectable in Interaction mode' : undefined}
-        className={`flex items-center gap-[0.45vw] py-[0.55vh] pr-[0.5vw] rounded-[0.4vw] group/layer transition-all border-l-[3px] ${
+        className={`flex items-center gap-[0.45vw] py-[0.55vh] pr-[0.5vw] rounded-[0.5vw] group/layer transition-all border ${
           isDragOver 
-            ? 'border-l-[#EC5137] bg-[#EC5137]/10 shadow-sm' 
+            ? 'border-[#EC5137] bg-[#EC5137]/15 shadow-sm' 
             : isSelected 
-              ? 'border-l-[#EC5137]' 
-              : 'border-l-transparent'
-        } ${isSelected
-          ? 'bg-[#EC5137]/10 text-gray-900 ring-1 ring-[#EC5137]/30 shadow-[0_1px_2px_rgba(236,81,55,0.08)]'
-          : (!isBaseLayer && layer.id === currentFrameId)
-            ? 'bg-[#EC5137]/10 border-l-[#EC5137] ring-1 ring-dashed ring-[#EC5137]/40'
-            : isMultiOnly
-              ? 'bg-[#EC5137]/5 text-gray-800'
-              : (isPdfBackgroundLayer || isInteractionDisabled || isAudioDisabledInInteraction)
-                ? 'opacity-50 cursor-not-allowed bg-transparent'
-                : layer.visible === false
-                  ? 'opacity-60 text-gray-400 hover:bg-gray-100/50 cursor-pointer'
-                  : 'hover:bg-gray-100/70 text-gray-700 cursor-pointer'
+              ? 'border-[#EC5137]/40 border-l-[3.5px] border-l-[#EC5137] bg-[#EC5137]/10 text-gray-900 shadow-2xs' 
+              : (!isBaseLayer && layer.id === currentFrameId)
+                ? 'border-dashed border-[#EC5137]/50 bg-[#EC5137]/[0.04]'
+                : isMultiOnly
+                  ? 'border-[#EC5137]/30 bg-[#EC5137]/5 text-gray-800'
+                  : (isPdfBackgroundLayer || isInteractionDisabled || isAudioDisabledInInteraction)
+                    ? 'border-transparent opacity-50 cursor-not-allowed bg-transparent'
+                    : layer.visible === false
+                      ? 'border-transparent opacity-60 text-gray-400 hover:bg-gray-100/50 cursor-pointer'
+                      : 'border-transparent hover:bg-gray-100/70 hover:border-gray-200/60 text-gray-700 cursor-pointer'
         }`}
         style={{ paddingLeft: `${depth * 0.8 + 0.5}vw` }}
         onMouseEnter={() => {
@@ -673,7 +670,7 @@ const LayerItem = ({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="flex flex-col overflow-hidden"
+            className="flex flex-col gap-[0.1vh] overflow-hidden py-[0.15vh] px-[0.1vw]"
           >
             {[...layer.children].reverse().map((child, idx) => (
               <LayerItem
@@ -1029,7 +1026,7 @@ const Layer = ({
   };
 
   return (
-    <motion.div
+    <motion.div data-layer-panel="true"
       initial={false}
       animate={{ width: isVisible ? '16vw' : '0vw' }}
       className="relative h-full bg-white border-r border-[#EEEEEE] overflow-visible flex-shrink-0"
@@ -1635,10 +1632,10 @@ const Layer = ({
                               className="overflow-hidden bg-white"
                             >
                               <CustomScrollbar
-                                color="#c7d2fe"
-                                hoverColor="#818cf8"
+                                color="#e5e7eb"
+                                hoverColor="#d1d5db"
                                 width="0.25vw"
-                                className="py-[0.8vh] px-[0.5vw] flex flex-col gap-[0.15vh] max-h-[45vh]"
+                                className="py-[0.8vh] px-[0.5vw] flex flex-col gap-[0.2vh] max-h-[45vh]"
                               >
                                 {page.isHidden ? (
                                   <div className="text-[0.75vw] text-gray-500 font-medium italic px-[0.8vw] py-[1vh] text-center bg-gray-50 rounded-[0.4vw]">

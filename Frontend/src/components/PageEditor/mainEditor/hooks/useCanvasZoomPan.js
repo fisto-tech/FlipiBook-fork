@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 
 const calculateFitZoom = (containerWidth, containerHeight, baseWidth, baseHeight) => {
   const padding = window.innerWidth * 0.01;
@@ -42,6 +42,10 @@ export const useCanvasZoomPan = ({
   lastWheelTimeRef,
   suppressClickRef
 }) => {
+  // Smooth wheel-zoom animation state
+  const targetZoomRef = useRef(null);
+  const zoomAnchorRef = useRef({ x: 0, y: 0 });
+
   const handleZoomIn = () => {
     const currentP = currentPanRef.current || pan || { x: 0, y: 0 };
     setZoom(prev => {
@@ -110,13 +114,17 @@ export const useCanvasZoomPan = ({
   }, [activePageIndex, pagesCount, baseWidth, baseHeight, handleAutoFitZoom]);
 
   // Sync pan & zoom tracking refs
+  // (skipped while a wheel-zoom animation runs: the refs are the live source of truth
+  //  then, and syncing from a lagging render would snap the canvas backwards)
   useEffect(() => {
+    if (wheelRafRef.current) return;
     currentPanRef.current = pan;
-  }, [pan, currentPanRef]);
+  }, [pan, currentPanRef, wheelRafRef]);
 
   useEffect(() => {
+    if (wheelRafRef.current) return;
     currentZoomRef.current = zoom;
-  }, [zoom, currentZoomRef]);
+  }, [zoom, currentZoomRef, wheelRafRef]);
 
   // Maintain fit on window/container resize
   useEffect(() => {
@@ -145,64 +153,78 @@ export const useCanvasZoomPan = ({
         const containerEl = zoomContainerRef.current;
         if (!containerEl) return;
 
-        const currentZoom = currentZoomRef.current || zoom || 100;
-        const currentPan = currentPanRef.current || pan || { x: 0, y: 0 };
         const minZ = 10;
         const maxZ = 500;
 
-        let factor;
-        if (Math.abs(e.deltaY) >= 40) {
-          factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
-        } else {
-          factor = Math.exp(-e.deltaY * 0.005);
-        }
+        // Normalize delta (line/page modes) and convert to a continuous zoom factor
+        let delta = e.deltaY;
+        if (e.deltaMode === 1) delta *= 16;
+        else if (e.deltaMode === 2) delta *= 100;
+        delta = Math.max(-100, Math.min(100, delta));
+        const factor = Math.exp(-delta * 0.0035);
 
-        let newZoom = Math.round(currentZoom * factor * 10) / 10;
-        newZoom = Math.min(Math.max(newZoom, minZ), maxZ);
-
-        if (Math.abs(newZoom - currentZoom) < 0.01) return;
-
-        const currentScale = currentZoom / 100;
-        const newScale = newZoom / 100;
-
-        const editorRect = el.getBoundingClientRect();
-        const centerScreenX = editorRect.left + editorRect.width / 2 + currentPan.x;
-        const centerScreenY = editorRect.top + editorRect.height / 2 + currentPan.y;
-
-        const mouseOffsetX = e.clientX - centerScreenX;
-        const mouseOffsetY = e.clientY - centerScreenY;
-
-        const scaleRatio = newScale / currentScale;
-        const newPanX = currentPan.x + mouseOffsetX * (1 - scaleRatio);
-        const newPanY = currentPan.y + mouseOffsetY * (1 - scaleRatio);
-
-        const newPan = { x: newPanX, y: newPanY };
-
-        currentZoomRef.current = newZoom;
-        currentPanRef.current = newPan;
+        // Accumulate on the animation target so rapid wheel ticks stack smoothly
+        const baseZoom = targetZoomRef.current ?? (currentZoomRef.current || zoom || 100);
+        const newTarget = Math.min(Math.max(baseZoom * factor, minZ), maxZ);
+        targetZoomRef.current = newTarget;
+        zoomAnchorRef.current = { x: e.clientX, y: e.clientY };
 
         containerEl.style.transition = 'none';
-        containerEl.style.transform = `translate(${newPanX}px, ${newPanY}px) scale(${newScale})`;
 
-        if (wheelRafRef.current) {
-          cancelAnimationFrame(wheelRafRef.current);
-        }
-        wheelRafRef.current = requestAnimationFrame(() => {
-          setZoom(newZoom);
-          setPan(newPan);
-        });
+        if (wheelRafRef.current) return; // animation already running
 
-        window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: newPan }));
+        const step = () => {
+          const target = targetZoomRef.current;
+          const currentZoom = currentZoomRef.current || 100;
+          const currentPan = currentPanRef.current || { x: 0, y: 0 };
+
+          const diff = target - currentZoom;
+          const done = Math.abs(diff) < 0.02;
+          const nextZoom = done ? target : currentZoom + diff * 0.22;
+
+          // Keep the point under the cursor fixed while scaling
+          const editorRect = el.getBoundingClientRect();
+          const centerX = editorRect.left + editorRect.width / 2 + currentPan.x;
+          const centerY = editorRect.top + editorRect.height / 2 + currentPan.y;
+          const ratio = nextZoom / currentZoom;
+          const nextPan = {
+            x: currentPan.x + (zoomAnchorRef.current.x - centerX) * (1 - ratio),
+            y: currentPan.y + (zoomAnchorRef.current.y - centerY) * (1 - ratio),
+          };
+
+          currentZoomRef.current = nextZoom;
+          currentPanRef.current = nextPan;
+          if (zoomContainerRef.current) {
+            zoomContainerRef.current.style.transform = `translate(${nextPan.x}px, ${nextPan.y}px) scale(${nextZoom / 100})`;
+          }
+          window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextPan }));
+
+          // Commit every frame so selection box / handles (which counter-scale by zoom)
+          // stay a constant on-screen size throughout the animation
+          setZoom(nextZoom); // unrounded so zoom & pan stay consistent (display rounds)
+          setPan(nextPan);
+
+          if (done) {
+            wheelRafRef.current = null;
+            targetZoomRef.current = null;
+            return;
+          }
+          wheelRafRef.current = requestAnimationFrame(step);
+        };
+        wheelRafRef.current = requestAnimationFrame(step);
       }
     };
     el.addEventListener('wheel', handleWheel, { passive: false, capture: true });
     return () => {
       el.removeEventListener('wheel', handleWheel, { capture: true });
-      if (wheelRafRef.current) {
-        cancelAnimationFrame(wheelRafRef.current);
-      }
     };
   }, [currentPanRef, currentZoomRef, editorContainerRef, lastWheelTimeRef, pan, setPan, setZoom, suppressClickRef, wheelRafRef, zoom, zoomContainerRef]);
+
+  // Cancel any running wheel-zoom animation on unmount
+  useEffect(() => () => {
+    if (wheelRafRef.current) cancelAnimationFrame(wheelRafRef.current);
+    wheelRafRef.current = null;
+  }, [wheelRafRef]);
 
   return {
     handleZoomIn,

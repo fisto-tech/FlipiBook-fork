@@ -718,16 +718,17 @@ export const ButtonEditor = ({
     }
     setActiveEffects(effects);
 
+    const dsSettings = {
+      color: el.getAttribute('data-effect-drop-shadow-color') || '#000000',
+      opacity: parseFloat(el.getAttribute('data-effect-drop-shadow-opacity') || 35),
+      x: parseFloat(el.getAttribute('data-effect-drop-shadow-x') || 2),
+      y: parseFloat(el.getAttribute('data-effect-drop-shadow-y') || 2),
+      blur: parseFloat(el.getAttribute('data-effect-drop-shadow-blur') || 4),
+      spread: parseFloat(el.getAttribute('data-effect-drop-shadow-spread') || 0)
+    };
     setEffectSettings(prev => ({
       ...prev,
-      'Drop Shadow': {
-        color: el.getAttribute('data-effect-drop-shadow-color') || '#000000',
-        opacity: parseFloat(el.getAttribute('data-effect-drop-shadow-opacity') || 35),
-        x: parseFloat(el.getAttribute('data-effect-drop-shadow-x') || 2),
-        y: parseFloat(el.getAttribute('data-effect-drop-shadow-y') || 2),
-        blur: parseFloat(el.getAttribute('data-effect-drop-shadow-blur') || 0),
-        spread: parseFloat(el.getAttribute('data-effect-drop-shadow-spread') || 0)
-      }
+      'Drop Shadow': dsSettings
     }));
 
     // Restrict access to sub layers: enforce pointer-events: none on all children
@@ -753,17 +754,29 @@ export const ButtonEditor = ({
 
     const editorDoc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
     const svgRoot = el.closest('svg') || editorDoc.querySelector('.page-svg-container svg') || editorDoc.querySelector('svg');
-    if (!svgRoot) return;
+    const ownerDoc = svgRoot?.ownerDocument || el.ownerDocument || document;
 
-    const ownerDoc = svgRoot.ownerDocument || document;
-    let defs = svgRoot.querySelector('defs');
-    if (!defs) {
-      defs = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "defs");
-      svgRoot.insertBefore(defs, svgRoot.firstChild);
+    // 1. Maintain defs inside button group itself so filters travel with the button
+    let elDefs = el.querySelector(':scope > defs') || el.querySelector('defs');
+    if (!elDefs) {
+      elDefs = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "defs");
+      el.insertBefore(elDefs, el.firstChild);
+    }
+
+    // 2. Also maintain defs in top-level svgRoot if available
+    let rootDefs = svgRoot ? (svgRoot.querySelector(':scope > defs') || svgRoot.querySelector('defs')) : null;
+    if (svgRoot && !rootDefs) {
+      rootDefs = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "defs");
+      svgRoot.insertBefore(rootDefs, svgRoot.firstChild);
     }
 
     const baseFilterId = `filter-${el.id || selectedLayerId}`;
-    Array.from(defs.querySelectorAll(`[id^="${baseFilterId}"]`)).forEach(old => old.remove());
+    if (elDefs) {
+      Array.from(elDefs.querySelectorAll(`[id^="${baseFilterId}"]`)).forEach(old => old.remove());
+    }
+    if (rootDefs) {
+      Array.from(rootDefs.querySelectorAll(`[id^="${baseFilterId}"]`)).forEach(old => old.remove());
+    }
 
     if (!hasDropShadow) {
       el.removeAttribute('filter');
@@ -782,7 +795,7 @@ export const ButtonEditor = ({
     const opacity = (parseFloat(dsSettings?.opacity !== undefined ? dsSettings.opacity : 35)) / 100;
     const dx = dsSettings?.x !== undefined ? dsSettings.x.toString() : '2';
     const dy = dsSettings?.y !== undefined ? dsSettings.y.toString() : '2';
-    const blur = parseFloat(dsSettings?.blur !== undefined ? dsSettings.blur : 2);
+    const blur = parseFloat(dsSettings?.blur !== undefined ? dsSettings.blur : 4);
     const spread = parseFloat(dsSettings?.spread !== undefined ? dsSettings.spread : 0);
 
     let dsSource = 'SourceAlpha';
@@ -831,7 +844,12 @@ export const ButtonEditor = ({
     merge.appendChild(nodeGraphic);
     filterEl.appendChild(merge);
 
-    defs.appendChild(filterEl);
+    if (elDefs) {
+      elDefs.appendChild(filterEl);
+    }
+    if (rootDefs) {
+      rootDefs.appendChild(filterEl.cloneNode(true));
+    }
     el.setAttribute('filter', `url(#${filterId})`);
   };
 
@@ -1968,7 +1986,20 @@ export const ButtonEditor = ({
     el.removeAttribute('data-effect-inner-shadow');
     el.removeAttribute('data-effect-blur');
 
-    syncButtonToCanvas(true, hasDropShadow);
+    const currentDs = effectSettings['Drop Shadow'] || {};
+    const effectiveDs = {
+      ...currentDs,
+      blur: currentDs.blur !== undefined && currentDs.blur !== 0 ? currentDs.blur : 4
+    };
+    if (hasDropShadow && (!currentDs.blur || currentDs.blur === 0)) {
+      el.setAttribute('data-effect-drop-shadow-blur', '4');
+      setEffectSettings(prev => ({
+        ...prev,
+        'Drop Shadow': effectiveDs
+      }));
+    }
+
+    syncButtonToCanvas(true, hasDropShadow, effectiveDs);
   };
 
   const handleSetEffectSettings = (updater) => {
@@ -1987,7 +2018,8 @@ export const ButtonEditor = ({
       if (ds.opacity !== undefined) el.setAttribute('data-effect-drop-shadow-opacity', ds.opacity.toString());
     }
 
-    syncButtonToCanvas(true, activeEffects.includes('Drop Shadow'), next['Drop Shadow']);
+    const isDsActive = el.getAttribute('data-effect-drop-shadow') === 'true' || (Array.isArray(activeEffects) && activeEffects.includes('Drop Shadow'));
+    syncButtonToCanvas(true, isDsActive, next['Drop Shadow']);
   };
 
   // Helper to dynamically adjust icon markup colors to match color
@@ -2045,7 +2077,7 @@ export const ButtonEditor = ({
       </div>
 
       {/* ===================== BUTTON TEXT ===================== */}
-      <div className="flex flex-col gap-[0.6vw]">
+      <div className="flex flex-col gap-[0.45vw]">
         <SectionHeader title="Button Text" />
         <div className="relative w-full">
           <input
@@ -2054,11 +2086,31 @@ export const ButtonEditor = ({
             value={buttonText}
             onChange={(e) => handleTextChange(e.target.value)}
             placeholder="Button"
-            className="w-full h-[2.1vw] px-[0.75vw] pr-[2.2vw] text-[0.8vw] font-medium text-gray-800 bg-white border border-gray-300 rounded-[0.45vw] shadow-2xs placeholder-gray-400 focus:outline-none focus:border-indigo-400 hover:border-gray-400 transition-colors"
+            className={`w-full h-[2.1vw] px-[0.75vw] pr-[2.2vw] text-[0.8vw] font-medium text-gray-800 bg-white border rounded-[0.45vw] shadow-2xs placeholder-gray-400 focus:outline-none transition-colors ${
+              (buttonText || '').length >= 20
+                ? 'border-amber-400 focus:border-amber-500'
+                : 'border-gray-300 focus:border-indigo-400 hover:border-gray-400'
+            }`}
           />
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-[0.75vw] text-gray-400">
             <Pencil size="0.85vw" />
           </div>
+        </div>
+        <div className="flex items-center justify-between px-[0.2vw]">
+          <span className="text-[0.68vw] text-gray-400">
+            {(buttonText || '').length >= 20 ? (
+              <span className="text-amber-500 font-medium">Character limit reached</span>
+            ) : (
+              'Maximum 20 characters allowed'
+            )}
+          </span>
+          <span
+            className={`text-[0.68vw] font-medium tabular-nums ${
+              (buttonText || '').length >= 20 ? 'text-amber-500 font-semibold' : 'text-gray-400'
+            }`}
+          >
+            {(buttonText || '').length}/20
+          </span>
         </div>
       </div>
 
@@ -2444,7 +2496,7 @@ export const ButtonEditor = ({
 
       {/* ===================== APPEARANCE: EFFECTS ===================== */}
       <Effect
-        isShape={true}
+        isShape={false}
         hideBlur={true}
         hideInnerShadow={true}
         openSubSection={openSection === 'effect' ? 'effect' : null}
@@ -2461,7 +2513,7 @@ export const ButtonEditor = ({
       />
 
       {/* ===================== COLOR PICKER PORTAL ===================== */}
-      {activeColorPicker && createPortal(
+      {activeColorPicker && !activeColorPicker.includes('effect-') && createPortal(
         <div
           className="fixed z-[5000]"
           style={{ top: '50%', right: '19.5vw', transform: 'translateY(-50%)' }}

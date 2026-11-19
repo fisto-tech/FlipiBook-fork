@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 const SelectionTooltip = () => null;
 import { checkIsAnimatedWebp } from '../../utils/editorUtils';
-import { syncDOM } from '../utils/geometryUtils';
+import { syncDOM, syncChildrenKeyed } from '../utils/geometryUtils';
 import {
   PENCIL_CURSOR,
   PEN_CURSOR,
@@ -200,8 +200,16 @@ export const CanvasViewport = ({
                                       // Fast path: Direct innerHTML swap is hardware accelerated and avoids recursive syncDOM freezes
                                       // unless actively editing inline text where DOM input focus must be preserved.
                                       const isTextEditing = isEditingTextRef?.current;
+                                      // Same page with live map/embed iframes: patch in place (keyed by id) so the
+                                      // iframes are never detached — avoids reload/glitch on delete, undo, redo.
+                                      const hasLiveFrames = el.__lastPageIndex === displayIndex && !!el.querySelector('foreignObject iframe');
                                       if (el.__lastPageIndex !== displayIndex || !isTextEditing) {
-                                        el.innerHTML = newHtml;
+                                        if (hasLiveFrames) {
+                                          const parsed = new DOMParser().parseFromString(newHtml, 'text/html');
+                                          syncChildrenKeyed(el, parsed.body);
+                                        } else {
+                                          el.innerHTML = newHtml;
+                                        }
                                         el.__lastPageIndex = displayIndex;
                                         el.__lastHtml = newHtml;
                                         // Auto-heal any path.audio-fill-layer into rect.audio-fill-layer
@@ -270,7 +278,8 @@ export const CanvasViewport = ({
                                     const pt = svg.createSVGPoint();
                                     pt.x = e.clientX;
                                     pt.y = e.clientY;
-                                    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+                                    const ctm = svg.getScreenCTM(); // also used to scale dropped icon sizes
+                                    const svgP = pt.matrixTransform(ctm.inverse());
                                     const dropPoint = { x: svgP.x, y: svgP.y };
 
                                     let targetShapeId = undefined;
