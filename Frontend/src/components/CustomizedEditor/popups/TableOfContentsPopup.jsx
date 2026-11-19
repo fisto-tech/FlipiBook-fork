@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useContext } from 'react';
 import { Icon } from '@iconify/react';
 import { motion } from 'framer-motion';
 import { useTableOfContents } from './useTableOfContents';
+import { PageNumberingContext } from '../previewAreaModules/pageNumbering';
 
 const isLightColor = (hex) => {
     if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return false;
@@ -12,7 +13,10 @@ const isLightColor = (hex) => {
     return ((0.299 * r + 0.587 * g + 0.114 * b) / 255) > 0.5;
 };
 
-const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout, isTablet, isMobile, isLandscape, isSidebarOpen, isEditor, layoutColors, isMobileLandscape, isFullscreen, isMobilePortraitOverride, addTextBelowIcons = false }) => {
+const TableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage, settings = {}, activeLayout, isTablet, isMobile, isLandscape, isSidebarOpen, isEditor, layoutColors, isMobileLandscape, isFullscreen, isMobilePortraitOverride, addTextBelowIcons = false }) => {
+    // TOC page numbers are authored in the editor (no transparent sheets) → convert to book pages
+    const toBookIndex = useContext(PageNumberingContext);
+    const onNavigate = onNavigateEditorPage ? (editorIndex) => onNavigateEditorPage(toBookIndex(editorIndex)) : undefined;
     const speakText = (text) => {
         if ('speechSynthesis' in window && text) {
             window.speechSynthesis.cancel();

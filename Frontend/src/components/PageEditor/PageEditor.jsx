@@ -2074,6 +2074,7 @@ const PageEditor = () => {
             pages={pages}
             activePageIndex={activePageIndex}
             setActivePageIndex={setActivePageIndex}
+            activeTopTool={activeTopTool}
             isDoublePage={isDoublePage}
             insertPageAfter={insertPageAfter}
             duplicatePage={duplicatePage}

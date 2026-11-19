@@ -362,7 +362,7 @@ const TooltipCustomization = ({
           {/* Swap/Flip shape icon top-right */}
           <button
             onClick={handleShapePopupToggle}
-            className="shape-trigger absolute top-[0.6vw] right-[0.6vw] text-gray-700 hover:text-[#4D47FF] hover:bg-gray-100 p-[0.35vw] rounded-full transition-colors cursor-pointer flex items-center justify-center"
+            className="shape-trigger absolute top-[0.6vw] right-[0.6vw] text-gray-700 hover:text-[#EC5137] hover:bg-gray-100 p-[0.35vw] rounded-full transition-colors cursor-pointer flex items-center justify-center"
             title="Tooltip Shape Direction"
           >
             <svg width="1.1vw" height="1.1vw" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -427,7 +427,7 @@ const TooltipCustomization = ({
                         setActivePanel(null);
                       }}
                       className={`flex flex-col items-center justify-center h-[9.0vh] rounded-[0.4vw] border cursor-pointer transition-all ${isActive
-                        ? 'border-[#4D47FF] bg-[#4D47FF]/5 text-[#4D47FF] font-semibold shadow-2xs'
+                        ? 'border-[#EC5137] bg-[#EC5137]/5 text-[#EC5137] font-semibold shadow-2xs'
                         : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50'
                         }`}
                     >
@@ -651,7 +651,7 @@ const TooltipCustomization = ({
           <div className="flex items-center gap-[0.4vw]">
             <span
               onMouseDown={(e) => handleDragStart(e, 'w')}
-              className="text-[0.82vw] font-semibold text-gray-700 cursor-ew-resize select-none hover:text-[#4D47FF] transition-colors p-[0.2vw]"
+              className="text-[0.82vw] font-semibold text-gray-700 cursor-ew-resize select-none hover:text-[#EC5137] transition-colors p-[0.2vw]"
               title="Drag horizontally to adjust Width"
             >
               W
@@ -659,7 +659,7 @@ const TooltipCustomization = ({
             <div className="flex items-center gap-[0.1vw]">
               <button
                 onClick={() => updateSetting('w', Math.max(10, settings.w - 5), true)}
-                className="text-gray-400 hover:text-[#4D47FF] transition-colors p-[0.1vw] cursor-pointer"
+                className="text-gray-400 hover:text-[#EC5137] transition-colors p-[0.1vw] cursor-pointer"
               >
                 <ChevronLeft size="0.9vw" />
               </button>
@@ -669,7 +669,7 @@ const TooltipCustomization = ({
                   if (document.activeElement === input) return;
                   handleDragStart(e, 'w', input);
                 }}
-                className="w-[3.5vw] h-[2vw] border border-gray-300 rounded-[0.4vw] bg-white flex items-center justify-between px-[0.4vw] shadow-2xs hover:border-gray-400 focus-within:border-[#4D47FF] cursor-ew-resize transition-colors"
+                className="w-[3.5vw] h-[2vw] border border-gray-300 rounded-[0.4vw] bg-white flex items-center justify-between px-[0.4vw] shadow-2xs hover:border-gray-400 focus-within:border-[#EC5137] cursor-ew-resize transition-colors"
               >
                 <input
                   type="number"
@@ -682,7 +682,7 @@ const TooltipCustomization = ({
               </div>
               <button
                 onClick={() => updateSetting('w', settings.w + 5, true)}
-                className="text-gray-400 hover:text-[#4D47FF] transition-colors p-[0.1vw] cursor-pointer"
+                className="text-gray-400 hover:text-[#EC5137] transition-colors p-[0.1vw] cursor-pointer"
               >
                 <ChevronRight size="0.9vw" />
               </button>
@@ -693,7 +693,7 @@ const TooltipCustomization = ({
           <div className="flex items-center gap-[0.4vw]">
             <span
               onMouseDown={(e) => handleDragStart(e, 'h')}
-              className="text-[0.82vw] font-semibold text-gray-700 cursor-ew-resize select-none hover:text-[#4D47FF] transition-colors p-[0.2vw]"
+              className="text-[0.82vw] font-semibold text-gray-700 cursor-ew-resize select-none hover:text-[#EC5137] transition-colors p-[0.2vw]"
               title="Drag horizontally to adjust Height"
             >
               H
@@ -701,7 +701,7 @@ const TooltipCustomization = ({
             <div className="flex items-center gap-[0.1vw]">
               <button
                 onClick={() => updateSetting('h', Math.max(10, settings.h - 5), true)}
-                className="text-gray-400 hover:text-[#4D47FF] transition-colors p-[0.1vw] cursor-pointer"
+                className="text-gray-400 hover:text-[#EC5137] transition-colors p-[0.1vw] cursor-pointer"
               >
                 <ChevronLeft size="0.9vw" />
               </button>
@@ -711,7 +711,7 @@ const TooltipCustomization = ({
                   if (document.activeElement === input) return;
                   handleDragStart(e, 'h', input);
                 }}
-                className="w-[3.5vw] h-[2vw] border border-gray-300 rounded-[0.4vw] bg-white flex items-center justify-between px-[0.4vw] shadow-2xs hover:border-gray-400 focus-within:border-[#4D47FF] cursor-ew-resize transition-colors"
+                className="w-[3.5vw] h-[2vw] border border-gray-300 rounded-[0.4vw] bg-white flex items-center justify-between px-[0.4vw] shadow-2xs hover:border-gray-400 focus-within:border-[#EC5137] cursor-ew-resize transition-colors"
               >
                 <input
                   type="number"
@@ -724,7 +724,7 @@ const TooltipCustomization = ({
               </div>
               <button
                 onClick={() => updateSetting('h', settings.h + 5, true)}
-                className="text-gray-400 hover:text-[#4D47FF] transition-colors p-[0.1vw] cursor-pointer"
+                className="text-gray-400 hover:text-[#EC5137] transition-colors p-[0.1vw] cursor-pointer"
               >
                 <ChevronRight size="0.9vw" />
               </button>
@@ -740,7 +740,7 @@ const TooltipCustomization = ({
           </div>
 
           {/* Text Input/TextArea */}
-          <div className="relative border border-gray-300 rounded-[0.4vw] p-[0.7vw] bg-white hover:border-gray-400 focus-within:border-[#4D47FF] shadow-2xs transition-colors">
+          <div className="relative border border-gray-300 rounded-[0.4vw] p-[0.7vw] bg-white hover:border-gray-400 focus-within:border-[#EC5137] shadow-2xs transition-colors">
             <textarea
               className="w-full text-[0.8vw] font-medium placeholder-gray-400 bg-transparent outline-none resize-none no-scrollbar h-[5.5vh] text-gray-800 whitespace-pre-wrap"
               value={localText}
@@ -758,7 +758,7 @@ const TooltipCustomization = ({
           {/* Font Family Dropdown */}
           <div className="relative">
             <select
-              className="w-full appearance-none h-[2vw] px-[0.7vw] text-[0.8vw] text-gray-700 border border-gray-300 rounded-[0.4vw] bg-white outline-none hover:border-gray-400 focus:border-[#4D47FF] cursor-pointer font-medium shadow-2xs transition-colors"
+              className="w-full appearance-none h-[2vw] px-[0.7vw] text-[0.8vw] text-gray-700 border border-gray-300 rounded-[0.4vw] bg-white outline-none hover:border-gray-400 focus:border-[#EC5137] cursor-pointer font-medium shadow-2xs transition-colors"
               value={settings.fontFamily}
               onChange={(e) => updateSetting('fontFamily', e.target.value, true)}
             >
@@ -775,7 +775,7 @@ const TooltipCustomization = ({
           <div className="flex gap-[0.6vw]">
             <div className="relative flex-[1.6]">
               <select
-                className="w-full appearance-none h-[2vw] px-[0.7vw] text-[0.8vw] text-gray-700 border border-gray-300 rounded-[0.4vw] bg-white outline-none hover:border-gray-400 focus:border-[#4D47FF] cursor-pointer font-medium shadow-2xs transition-colors"
+                className="w-full appearance-none h-[2vw] px-[0.7vw] text-[0.8vw] text-gray-700 border border-gray-300 rounded-[0.4vw] bg-white outline-none hover:border-gray-400 focus:border-[#EC5137] cursor-pointer font-medium shadow-2xs transition-colors"
                 value={settings.fontWeight}
                 onChange={(e) => updateSetting('fontWeight', e.target.value, true)}
               >
@@ -789,7 +789,7 @@ const TooltipCustomization = ({
 
             <div className="relative flex-1">
               <select
-                className="w-full appearance-none h-[2vw] px-[0.7vw] text-[0.8vw] text-gray-700 border border-gray-300 rounded-[0.4vw] bg-white outline-none hover:border-gray-400 focus:border-[#4D47FF] cursor-pointer font-medium text-center shadow-2xs transition-colors"
+                className="w-full appearance-none h-[2vw] px-[0.7vw] text-[0.8vw] text-gray-700 border border-gray-300 rounded-[0.4vw] bg-white outline-none hover:border-gray-400 focus:border-[#EC5137] cursor-pointer font-medium text-center shadow-2xs transition-colors"
                 value={settings.fontSize}
                 onChange={(e) => updateSetting('fontSize', parseInt(e.target.value) || 14, true)}
               >
@@ -816,10 +816,10 @@ const TooltipCustomization = ({
               </button>
               {activePanel === 'alignment' && (
                 <div className="absolute bottom-[2.5vw] left-0 z-[300] p-[0.35vw] bg-white rounded-[0.5vw] flex gap-[0.35vw] shadow-2xl border border-gray-100 whitespace-nowrap">
-                  <button onClick={() => { updateSetting('align', 'left', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.align === 'left' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><AlignLeft size="0.85vw" /></button>
-                  <button onClick={() => { updateSetting('align', 'center', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.align === 'center' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><AlignCenter size="0.85vw" /></button>
-                  <button onClick={() => { updateSetting('align', 'right', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.align === 'right' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><AlignRight size="0.85vw" /></button>
-                  <button onClick={() => { updateSetting('align', 'justify', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.align === 'justify' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><AlignJustify size="0.85vw" /></button>
+                  <button onClick={() => { updateSetting('align', 'left', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.align === 'left' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><AlignLeft size="0.85vw" /></button>
+                  <button onClick={() => { updateSetting('align', 'center', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.align === 'center' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><AlignCenter size="0.85vw" /></button>
+                  <button onClick={() => { updateSetting('align', 'right', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.align === 'right' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><AlignRight size="0.85vw" /></button>
+                  <button onClick={() => { updateSetting('align', 'justify', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.align === 'justify' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><AlignJustify size="0.85vw" /></button>
                 </div>
               )}
             </div>
@@ -834,10 +834,10 @@ const TooltipCustomization = ({
               </button>
               {activePanel === 'style' && (
                 <div className="absolute bottom-[2.5vw] left-0 z-[300] p-[0.35vw] bg-white rounded-[0.5vw] flex gap-[0.35vw] shadow-2xl border border-gray-100 whitespace-nowrap">
-                  <button onClick={() => updateSetting('bold', !settings.bold, true)} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.bold ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.85vw] font-bold leading-none">B</span></button>
-                  <button onClick={() => updateSetting('italic', !settings.italic, true)} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.italic ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.85vw] font-medium italic leading-none">I</span></button>
-                  <button onClick={() => updateSetting('underline', !settings.underline, true)} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.underline ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.85vw] font-medium underline leading-none">U</span></button>
-                  <button onClick={() => updateSetting('lineThrough', !settings.lineThrough, true)} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.lineThrough ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.85vw] font-medium line-through leading-none">S</span></button>
+                  <button onClick={() => updateSetting('bold', !settings.bold, true)} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.bold ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.85vw] font-bold leading-none">B</span></button>
+                  <button onClick={() => updateSetting('italic', !settings.italic, true)} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.italic ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.85vw] font-medium italic leading-none">I</span></button>
+                  <button onClick={() => updateSetting('underline', !settings.underline, true)} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.underline ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.85vw] font-medium underline leading-none">U</span></button>
+                  <button onClick={() => updateSetting('lineThrough', !settings.lineThrough, true)} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.lineThrough ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.85vw] font-medium line-through leading-none">S</span></button>
                 </div>
               )}
             </div>
@@ -852,10 +852,10 @@ const TooltipCustomization = ({
               </button>
               {activePanel === 'case' && (
                 <div className="absolute bottom-[2.5vw] left-0 z-[300] p-[0.35vw] bg-white rounded-[0.5vw] flex gap-[0.35vw] shadow-2xl border border-gray-100 whitespace-nowrap">
-                  <button onClick={() => { updateSetting('textTransform', 'none', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.textTransform === 'none' || !settings.textTransform ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><Minus size="0.85vw" /></button>
-                  <button onClick={() => { updateSetting('textTransform', 'capitalize', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.textTransform === 'capitalize' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.8vw] font-medium leading-none">Aa</span></button>
-                  <button onClick={() => { updateSetting('textTransform', 'uppercase', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.textTransform === 'uppercase' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.8vw] font-medium leading-none">AB</span></button>
-                  <button onClick={() => { updateSetting('textTransform', 'lowercase', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.textTransform === 'lowercase' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.8vw] font-medium leading-none">ab</span></button>
+                  <button onClick={() => { updateSetting('textTransform', 'none', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.textTransform === 'none' || !settings.textTransform ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><Minus size="0.85vw" /></button>
+                  <button onClick={() => { updateSetting('textTransform', 'capitalize', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.textTransform === 'capitalize' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.8vw] font-medium leading-none">Aa</span></button>
+                  <button onClick={() => { updateSetting('textTransform', 'uppercase', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.textTransform === 'uppercase' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.8vw] font-medium leading-none">AB</span></button>
+                  <button onClick={() => { updateSetting('textTransform', 'lowercase', true); setActivePanel(null); }} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.textTransform === 'lowercase' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><span className="text-[0.8vw] font-medium leading-none">ab</span></button>
                 </div>
               )}
             </div>
@@ -870,9 +870,9 @@ const TooltipCustomization = ({
               </button>
               {activePanel === 'list' && (
                 <div className="absolute bottom-[2.5vw] left-0 z-[300] p-[0.35vw] bg-white rounded-[0.5vw] flex gap-[0.35vw] shadow-2xl border border-gray-100 whitespace-nowrap">
-                  <button type="button" onClick={() => handleListStyleChange('disc')} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.listStyleType === 'disc' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><List size="0.85vw" /></button>
-                  <button type="button" onClick={() => handleListStyleChange('square')} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.listStyleType === 'square' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><List size="0.85vw" /></button>
-                  <button type="button" onClick={() => handleListStyleChange('decimal')} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.listStyleType === 'decimal' ? 'bg-[#4D47FF]/10 text-[#4D47FF]' : 'text-gray-700 hover:bg-gray-100'}`}><ListOrdered size="0.85vw" /></button>
+                  <button type="button" onClick={() => handleListStyleChange('disc')} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.listStyleType === 'disc' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><List size="0.85vw" /></button>
+                  <button type="button" onClick={() => handleListStyleChange('square')} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.listStyleType === 'square' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><List size="0.85vw" /></button>
+                  <button type="button" onClick={() => handleListStyleChange('decimal')} className={`w-[1.8vw] h-[1.8vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.listStyleType === 'decimal' ? 'bg-[#EC5137]/10 text-[#EC5137]' : 'text-gray-700 hover:bg-gray-100'}`}><ListOrdered size="0.85vw" /></button>
                 </div>
               )}
             </div>
@@ -893,12 +893,12 @@ const TooltipCustomization = ({
               {/* Color Square Preview with Custom ColorPicker Popup trigger */}
               <div
                 onClick={(e) => handleColorPickerToggle(e, 'textColor')}
-                className="color-box-trigger w-[2vw] h-[2vw] rounded-[0.4vw] border border-gray-300 shadow-2xs relative cursor-pointer hover:border-[#4D47FF] transition-colors"
+                className="color-box-trigger w-[2vw] h-[2vw] rounded-[0.4vw] border border-gray-300 shadow-2xs relative cursor-pointer hover:border-[#EC5137] transition-colors"
                 style={{ backgroundColor: settings.textColor }}
               />
 
               {/* Hex and Opacity input */}
-              <div className="flex-1 h-[2vw] border border-gray-300 rounded-[0.4vw] bg-white flex items-center justify-between px-[0.7vw] shadow-2xs hover:border-gray-400 focus-within:border-[#4D47FF] transition-colors">
+              <div className="flex-1 h-[2vw] border border-gray-300 rounded-[0.4vw] bg-white flex items-center justify-between px-[0.7vw] shadow-2xs hover:border-gray-400 focus-within:border-[#EC5137] transition-colors">
                 <input
                   type="text"
                   className="w-[5vw] text-[0.8vw] font-mono text-gray-700 outline-none uppercase bg-transparent"
@@ -917,12 +917,12 @@ const TooltipCustomization = ({
               {/* Color Square Preview with Custom ColorPicker Popup trigger */}
               <div
                 onClick={(e) => handleColorPickerToggle(e, 'bgColor')}
-                className="color-box-trigger w-[2vw] h-[2vw] rounded-[0.4vw] border border-gray-300 shadow-2xs relative cursor-pointer hover:border-[#4D47FF] transition-colors"
+                className="color-box-trigger w-[2vw] h-[2vw] rounded-[0.4vw] border border-gray-300 shadow-2xs relative cursor-pointer hover:border-[#EC5137] transition-colors"
                 style={{ backgroundColor: settings.bgColor }}
               />
 
               {/* Hex and Opacity input */}
-              <div className="flex-1 h-[2vw] border border-gray-300 rounded-[0.4vw] bg-white flex items-center justify-between px-[0.7vw] shadow-2xs hover:border-gray-400 focus-within:border-[#4D47FF] transition-colors">
+              <div className="flex-1 h-[2vw] border border-gray-300 rounded-[0.4vw] bg-white flex items-center justify-between px-[0.7vw] shadow-2xs hover:border-gray-400 focus-within:border-[#EC5137] transition-colors">
                 <input
                   type="text"
                   className="w-[5vw] text-[0.8vw] font-mono text-gray-700 outline-none uppercase bg-transparent"

@@ -305,7 +305,6 @@ export const parseLayersFromSVG = (element) => {
     .filter(child => {
       if (['defs', 'metadata', 'style', 'title', 'desc', 'parsererror'].includes(child.tagName.toLowerCase())) return false;
       if (child.getAttribute('data-name') === 'Overlay') return false;
-      if (child.getAttribute('style')?.includes('display:none') || child.getAttribute('style')?.includes('display: none')) return false;
       if (child.classList.contains('svg-drop-shadow-caster')) return false;
       if (child.classList.contains('internal-crop-rect')) return false;
       if (child.classList.contains('internal-crop-pattern')) return false;
@@ -356,11 +355,16 @@ export const parseLayersFromSVG = (element) => {
       const rawName = child.getAttribute('data-name') || id || `${child.tagName.charAt(0).toUpperCase() + child.tagName.slice(1)}`;
       const cleanName = rawName.replace(/^tpl-[a-z0-9]{4}-/, '');
 
+      const isHidden = child.getAttribute('data-hidden') === 'true' ||
+                       child.getAttribute('style')?.includes('display:none') ||
+                       child.getAttribute('style')?.includes('display: none') ||
+                       child.style?.display === 'none';
+
       const layer = {
         id,
         name: cleanName,
         type: child.tagName.toLowerCase(),
-        visible: child.getAttribute('data-hidden') !== 'true',
+        visible: !isHidden,
         locked: child.getAttribute('data-locked') === 'true'
       };
 
@@ -436,12 +440,26 @@ export const parseLayersFromSVG = (element) => {
                            (lowerId.startsWith('typography-') && child.getAttribute('data-type') === 'text')
       );
 
+      const isHotspot = !isPageRoot && (
+        child.getAttribute('data-is-hotspot') === 'true' ||
+        child.getAttribute('data-type') === 'hotspot' ||
+        lowerId.startsWith('hotspot-') ||
+        (child.getAttribute('data-name') || '').toLowerCase().startsWith('hotspot')
+      );
+
+      const isFreeFrame = !isPageRoot && (
+        child.getAttribute('data-name') === 'Free Frame' ||
+        child.getAttribute('data-type') === 'free-frame' ||
+        lowerId.startsWith('free-frame')
+      );
+
       const isGroup = !isPageRoot && (
         child.getAttribute('data-is-image-group') === 'true' ||
         child.getAttribute('data-is-video-group') === 'true' ||
         child.getAttribute('data-is-gif-group') === 'true' ||
         isEmbedGroup || isAudioFrame || isButton || isQRCode ||
-        isMap || isSlideshow || isImageFrame || isShape || isTable || isDecorator || isTypography
+        isMap || isSlideshow || isImageFrame || isShape || isTable || isDecorator || isTypography ||
+        isHotspot || isFreeFrame
       );
 
       const isPdfVector = child.getAttribute('data-type') === 'pdf-vector-layer';
@@ -454,7 +472,8 @@ export const parseLayersFromSVG = (element) => {
         // but never touch dedicated element containers (image-frame, qrcode, audio-frame, etc.) or SVG definition tags (defs, pattern, clipPath, mask, filter, grad)
         const isElementPresetContainer =
           isImageFrame || isQRCode || isAudioFrame || isEmbedGroup ||
-          isButton || isMap || isSlideshow || isTable || isTypography || isShape || isDecorator;
+          isButton || isMap || isSlideshow || isTable || isTypography || isShape || isDecorator ||
+          isHotspot || isFreeFrame;
 
         if (!isElementPresetContainer) {
           const stripIds = (node) => {

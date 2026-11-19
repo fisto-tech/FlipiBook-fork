@@ -24,7 +24,7 @@ export const AUDIO_TEMPLATES = [
     width: 360,
     height: 152,
     getSvg: (uniqueId) => `
-<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="glassmorphism" data-fill-color="#ffffff" data-stroke-color="#e2e8f0" data-icon-color="#334155" data-filename="Dynamic Track.mp3" data-audio-src="${sampleAudio}" data-interaction="audio" data-interaction-value="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" data-fill-opacity="0.9" cursor="pointer">
+<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="glassmorphism" data-fill-color="#ffffff" data-stroke-color="#e2e8f0" data-icon-color="#334155" data-filename="Dynamic Track.mp3" data-audio-src="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" data-fill-opacity="0.9" cursor="pointer">
   <rect class="audio-fill-layer" width="360" height="152" rx="24" fill="#ffffff" fill-opacity="0.92" stroke="#e2e8f0" stroke-width="1.5" />
   <g class="audio-content-group">
     <!-- Album Icon & Track Info -->
@@ -92,7 +92,7 @@ export const AUDIO_TEMPLATES = [
     width: 440,
     height: 124,
     getSvg: (uniqueId) => `
-<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="forest-moss" data-fill-color="#16291a" data-stroke-color="#23422a" data-icon-color="#c9e4b7" data-filename="Forest Melody.mp3" data-audio-src="${sampleAudio}" data-interaction="audio" data-interaction-value="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
+<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="forest-moss" data-fill-color="#16291a" data-stroke-color="#23422a" data-icon-color="#c9e4b7" data-filename="Forest Melody.mp3" data-audio-src="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
   <rect class="audio-fill-layer" width="440" height="124" rx="24" fill="#16291a" stroke="#23422a" stroke-width="1.5" />
   <g class="audio-content-group">
     <!-- Disc on Left -->
@@ -175,7 +175,7 @@ export const AUDIO_TEMPLATES = [
     width: 360,
     height: 114,
     getSvg: (uniqueId) => `
-<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="cyber-blue" data-fill-color="#0c1421" data-stroke-color="#182840" data-icon-color="#00f2fe" data-filename="Cyber Synth.mp3" data-audio-src="${sampleAudio}" data-interaction="audio" data-interaction-value="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
+<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="cyber-blue" data-fill-color="#0c1421" data-stroke-color="#182840" data-icon-color="#00f2fe" data-filename="Cyber Synth.mp3" data-audio-src="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
   <defs>
     <filter id="cyan-glow-${uniqueId}" x="-30%" y="-30%" width="160%" height="160%">
       <feGaussianBlur stdDeviation="3.5" result="glow" />
@@ -244,7 +244,7 @@ export const AUDIO_TEMPLATES = [
     width: 450,
     height: 52,
     getSvg: (uniqueId) => `
-<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="silver-mono" data-fill-color="linear-gradient(180deg, rgba(184, 184, 184, 1) 0%, rgba(140, 140, 140, 1) 50%, rgba(116, 116, 116, 1) 100%)" data-stroke-color="#ffffff" data-icon-color="#1e293b" data-filename="Acoustic Instrumental.mp3" data-audio-src="${sampleAudio}" data-interaction="audio" data-interaction-value="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
+<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="silver-mono" data-fill-color="linear-gradient(180deg, rgba(184, 184, 184, 1) 0%, rgba(140, 140, 140, 1) 50%, rgba(116, 116, 116, 1) 100%)" data-stroke-color="#ffffff" data-icon-color="#1e293b" data-filename="Acoustic Instrumental.mp3" data-audio-src="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
   <defs>
     <linearGradient id="silver-grad-${uniqueId}" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#b8b8b8" />
@@ -312,7 +312,7 @@ export const AUDIO_TEMPLATES = [
     width: 460,
     height: 54,
     getSvg: (uniqueId) => `
-<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="sunset-vibrant" data-fill-color="linear-gradient(90deg, rgba(255, 67, 40, 1) 0%, rgba(255, 42, 85, 1) 35%, rgba(230, 25, 114, 1) 70%, rgba(196, 24, 139, 1) 100%)" data-stroke-color="none" data-icon-color="#ffffff" data-filename="Sunset Vibe.mp3" data-audio-src="${sampleAudio}" data-interaction="audio" data-interaction-value="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
+<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="sunset-vibrant" data-fill-color="linear-gradient(90deg, rgba(255, 67, 40, 1) 0%, rgba(255, 42, 85, 1) 35%, rgba(230, 25, 114, 1) 70%, rgba(196, 24, 139, 1) 100%)" data-stroke-color="none" data-icon-color="#ffffff" data-filename="Sunset Vibe.mp3" data-audio-src="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
   <defs>
     <linearGradient id="sunset-grad-${uniqueId}" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#ff4328" />
@@ -384,7 +384,7 @@ export const AUDIO_TEMPLATES = [
     width: 460,
     height: 74,
     getSvg: (uniqueId) => `
-<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="cyberpunk-wide" data-fill-color="#080d15" data-stroke-color="#162133" data-icon-color="#00f2fe" data-filename="Neon Skyline.mp3" data-audio-src="${sampleAudio}" data-interaction="audio" data-interaction-value="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
+<g id="audio-${uniqueId}" data-type="audio-frame" data-audio-template="cyberpunk-wide" data-fill-color="#080d15" data-stroke-color="#162133" data-icon-color="#00f2fe" data-filename="Neon Skyline.mp3" data-audio-src="${sampleAudio}" data-audio-duration-text="00:19 Mins" data-audio-duration-seconds="19" data-audio-size-text="614 kb" data-audio-format-text="MP3" data-audio-speed="1" data-audio-behaviour="Auto Play on Page Open" data-audio-volume="0.8" data-skip-seconds="5" data-audio-controls="true" data-control-play-pause="true" data-control-skip="true" data-control-duration="true" data-control-volume="true" data-control-loop="true" data-control-mute="true" cursor="pointer">
   <defs>
     <filter id="wide-cyan-glow-${uniqueId}" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="3" result="glow" />

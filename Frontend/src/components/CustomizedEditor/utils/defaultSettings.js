@@ -168,6 +168,7 @@ export const createDefaultMenuBarSettings = () => ({
     audioSettings: {
       flipSound: 'Soft Paper Flip',
       pageSpecificSound: false,
+      bgSoundEnabled: false,
       bgSound: 'BG Sound 1',
       bgSoundFile: '',
       customBgSounds: []
@@ -204,6 +205,7 @@ export const createDefaultOtherSetupSettings = () => ({
     flipSound: 'Soft Paper Flip',
     flipSoundEnabled: true,
     pageSpecificSound: false,
+    bgSoundEnabled: false,
     bgSound: 'BG Sound 1',
     customBgSounds: [],
     bgSoundFile: null

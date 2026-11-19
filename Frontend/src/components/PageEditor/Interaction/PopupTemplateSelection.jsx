@@ -75,7 +75,7 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
                 placeholder="Search.."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-[16vw] h-[2vw] pl-[2.2vw] pr-[1vw] rounded-[0.4vw] border border-gray-300 outline-none text-[0.8vw] font-medium text-gray-700 placeholder-gray-400 shadow-2xs focus:border-[#4D47FF] transition-colors"
+                className="w-[16vw] h-[2vw] pl-[2.2vw] pr-[1vw] rounded-[0.4vw] border border-gray-300 outline-none text-[0.8vw] font-medium text-gray-700 placeholder-gray-400 shadow-2xs focus:border-[#EC5137] transition-colors"
               />
             </div>
 
@@ -109,7 +109,7 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
               key={i}
               onClick={() => setActiveCategory(cat.trim())}
               className={`px-[0.9vw] h-[1.8vw] rounded-[0.4vw] text-[0.8vw] font-medium transition-colors border shadow-2xs whitespace-nowrap cursor-pointer ${activeCategory === cat.trim()
-                  ? 'text-[#4D47FF] bg-gray-50 border-gray-300 font-semibold'
+                  ? 'text-[#EC5137] bg-gray-50 border-gray-300 font-semibold'
                   : 'text-gray-700 bg-white hover:bg-gray-50 border-gray-300 hover:border-gray-400'
                 }`}
             >
@@ -128,7 +128,7 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
                   setLocalSelectedId(tpl.id);
                 }}
                 className={`relative cursor-pointer group transition-all duration-200 rounded-[0.55vw] overflow-hidden ${localSelectedId === tpl.id
-                    ? 'bg-white p-[0.3vw] shadow-md border-2 border-[#4D47FF] ring-2 ring-[#4D47FF]/15'
+                    ? 'bg-white p-[0.3vw] shadow-md border-2 border-[#EC5137] ring-2 ring-[#EC5137]/15'
                     : 'bg-white p-[0.3vw] border border-gray-200 shadow-2xs hover:border-gray-300 hover:shadow-sm'
                   }`}
               >
@@ -166,7 +166,7 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
               Cancel
             </button>
             <button
-              className="h-[2vw] px-[1.2vw] flex items-center gap-[0.35vw] rounded-[0.4vw] bg-white border border-[#4D47FF] text-[#4D47FF] font-medium text-[0.8vw] hover:bg-[#4D47FF]/5 shadow-2xs transition-all cursor-pointer"
+              className="h-[2vw] px-[1.2vw] flex items-center gap-[0.35vw] rounded-[0.4vw] bg-white border border-[#EC5137] text-[#EC5137] font-medium text-[0.8vw] hover:bg-[#EC5137]/5 shadow-2xs transition-all cursor-pointer"
               onClick={async () => {
                 if (localSelectedId !== selectedTemplateId) {
                   if (onSelect) await onSelect(localSelectedId);
@@ -181,7 +181,7 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
               {localSelectedId === selectedTemplateId ? 'Customize the Popup' : 'Apply & Customize'}
             </button>
             <button
-              className="h-[2vw] px-[1.2vw] flex items-center gap-[0.35vw] rounded-[0.4vw] bg-[#4D47FF] text-white font-medium text-[0.8vw] hover:bg-[#3d36e0] shadow-2xs transition-all cursor-pointer"
+              className="h-[2vw] px-[1.2vw] flex items-center gap-[0.35vw] rounded-[0.4vw] bg-[#EC5137] text-white font-medium text-[0.8vw] hover:bg-[#d6442c] shadow-2xs transition-all cursor-pointer"
               onClick={() => {
                 if (onSelect) onSelect(localSelectedId);
                 if (onClose) onClose();

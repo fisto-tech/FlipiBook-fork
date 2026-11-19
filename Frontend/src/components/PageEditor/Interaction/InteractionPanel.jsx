@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Lock } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import PhoneInputModule from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -705,7 +705,7 @@ const ActionDropdown = ({ item, currentAction, actionTypes, isDropdownOpen, setO
           {actionLabel}
         </span>
         {!isLocked && !isCollapsed && (
-          <svg width="0.75vw" height="0.75vw" viewBox="0 0 24 24" fill="none" className="stroke-gray-400 hover:stroke-[#4D47FF] transition-colors flex-shrink-0 ml-[0.1vw]" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="0.75vw" height="0.75vw" viewBox="0 0 24 24" fill="none" className="stroke-gray-400 hover:stroke-[#EC5137] transition-colors flex-shrink-0 ml-[0.1vw]" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 7h16M16 3l4 4-4 4M20 17H4M8 13l-4 4 4 4" />
           </svg>
         )}
@@ -721,7 +721,7 @@ const ActionDropdown = ({ item, currentAction, actionTypes, isDropdownOpen, setO
             <div
               key={action.id}
               className={`flex items-center gap-[0.5vw] px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium transition-colors text-left cursor-pointer ${
-                action.id === currentAction.id ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                action.id === currentAction.id ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -1849,16 +1849,28 @@ const InteractionPanel = ({
     const editorDoc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
     const activeContainer = editorDoc.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
 
+    // Helper to identify dedicated Audio Player elements (which belong to Elements, not Interactions)
+    const isAudioPlayerElement = (el) => {
+      if (!el) return false;
+      return (
+        el.getAttribute?.('data-type') === 'audio-frame' ||
+        (typeof el.getAttribute === 'function' && el.getAttribute('id')?.startsWith('audio-')) ||
+        (typeof el.closest === 'function' && el.closest('[data-type="audio-frame"], g[id^="audio-"]') !== null)
+      );
+    };
+
     // Collect all element IDs strictly on the active page that have interactions or open cards
     const candidateIds = new Set();
     if (activeCached && activeCached.doc) {
       activeCached.doc.querySelectorAll('[data-interaction]').forEach(el => {
+        if (isAudioPlayerElement(el)) return;
         const type = el.getAttribute('data-interaction');
         if (el.id && type && type !== 'none') candidateIds.add(el.id);
       });
     }
     if (activeContainer) {
       activeContainer.querySelectorAll('[data-interaction]').forEach(el => {
+        if (isAudioPlayerElement(el)) return;
         const type = el.getAttribute('data-interaction');
         if (el.id && type && type !== 'none') {
           // If activeCached already knows about this element and it does NOT have an interaction in the cached doc,
@@ -1875,8 +1887,11 @@ const InteractionPanel = ({
     }
     Object.keys(openCardIds).forEach(id => {
       if (openCardIds[id]) {
-        // Only include if it actually belongs to the active page
-        if ((activeCached?.doc?.getElementById(id)) || (activeContainer?.querySelector(`[id="${CSS.escape(id)}"]`))) {
+        // Only include if it actually belongs to the active page and is not an Audio Player element
+        const cachedEl = activeCached?.doc?.getElementById(id);
+        const liveEl = activeContainer?.querySelector(`[id="${CSS.escape(id)}"]`);
+        const targetCandidate = cachedEl || liveEl;
+        if (targetCandidate && !isAudioPlayerElement(targetCandidate)) {
           candidateIds.add(id);
         }
       }
@@ -1906,6 +1921,71 @@ const InteractionPanel = ({
       }
 
       if (foundEl) {
+        if (isAudioPlayerElement(foundEl)) {
+          return;
+        }
+        // If this element or any of its parent layers is hidden, hide its interaction card from the right side!
+        const isElementOrLayerHidden = () => {
+          if (foundEl.getAttribute('data-hidden') === 'true') return true;
+          if (foundEl.getAttribute('style')?.includes('display:none') || foundEl.getAttribute('style')?.includes('display: none')) return true;
+          if (foundEl.style?.display === 'none') return true;
+          if (typeof foundEl.closest === 'function') {
+            const hiddenAncestor = foundEl.closest('[data-hidden="true"], [style*="display:none"], [style*="display: none"]');
+            if (hiddenAncestor) return true;
+          }
+          const checkLayers = (list) => {
+            if (!list) return false;
+            for (const l of list) {
+              if (l.id === id) {
+                return l.visible === false;
+              }
+              if (l.children && l.children.length > 0) {
+                if (l.visible === false) {
+                  const hasTarget = (children) => children.some(c => c.id === id || (c.children && hasTarget(c.children)));
+                  if (hasTarget(l.children)) return true;
+                }
+                const found = checkLayers(l.children);
+                if (found) return true;
+              }
+            }
+            return false;
+          };
+          return checkLayers(pages[activePageIndex]?.layers);
+        };
+
+        if (isElementOrLayerHidden()) {
+          return;
+        }
+
+        // Check if this element or any parent layer is locked
+        const isElementOrLayerLocked = () => {
+          if (foundEl.getAttribute('data-locked') === 'true') return true;
+          if (typeof foundEl.closest === 'function') {
+            const lockedAncestor = foundEl.closest('[data-locked="true"]');
+            if (lockedAncestor) return true;
+          }
+          const checkLayers = (list) => {
+            if (!list) return false;
+            for (const l of list) {
+              if (l.id === id) {
+                return l.locked === true;
+              }
+              if (l.children && l.children.length > 0) {
+                if (l.locked === true) {
+                  const hasTarget = (children) => children.some(c => c.id === id || (c.children && hasTarget(c.children)));
+                  if (hasTarget(l.children)) return true;
+                }
+                const found = checkLayers(l.children);
+                if (found) return true;
+              }
+            }
+            return false;
+          };
+          return checkLayers(pages[activePageIndex]?.layers);
+        };
+
+        const isLocked = isElementOrLayerLocked();
+
         const interactionType = foundEl.getAttribute('data-interaction');
         if (!openCardIds[id] && (!interactionType || interactionType === 'none')) {
           return;
@@ -1982,6 +2062,7 @@ const InteractionPanel = ({
           linkBehavior: foundEl.getAttribute('data-interaction-link-behavior') || 'current',
           zoomTargetId: foundEl.getAttribute('data-zoom-target') || null,
           zoomLevel: foundEl.getAttribute('data-zoom-level') || '2X',
+          isLocked: isLocked,
           isHotspot: isHotspot,
           isInteractiveButton: isInteractiveButton,
           'data-show-highlight': foundEl.getAttribute('data-show-highlight'),
@@ -1999,6 +2080,22 @@ const InteractionPanel = ({
 
     return list;
   }, [pages, openCardIds, activePageIndex]);
+
+  // Automatically close accordion and dropdown when an element is locked
+  useEffect(() => {
+    if (expandedCardId) {
+      const currentItem = interactiveElementsList.find(i => i.id === expandedCardId);
+      if (currentItem?.isLocked) {
+        setExpandedCardId(null);
+      }
+    }
+    if (openDropdownId) {
+      const currentItem = interactiveElementsList.find(i => i.id === openDropdownId);
+      if (currentItem?.isLocked) {
+        setOpenDropdownId(null);
+      }
+    }
+  }, [expandedCardId, openDropdownId, interactiveElementsList]);
 
   // Deep recursive helper: scan all descendants for dominant type
   function deepDetectType(el) {
@@ -2068,6 +2165,16 @@ const InteractionPanel = ({
 
   const isRealElementSelected = selectedLayerId && !isPageOrRootElement(selectedEl, selectedLayerId);
 
+  const isAudioElementSelected = React.useMemo(() => {
+    if (selectedElementProps?.isAudio) return true;
+    if (selectedLayerId && (selectedLayerId.startsWith('audio-') || selectedLayerId.includes('audio-frame'))) return true;
+    if (selectedEl) {
+      if (selectedEl.getAttribute('data-type') === 'audio-frame') return true;
+      if (typeof selectedEl.closest === 'function' && selectedEl.closest('[data-type="audio-frame"], g[id^="audio-"]')) return true;
+    }
+    return false;
+  }, [selectedElementProps, selectedLayerId, selectedEl]);
+
   const isConvertedDocument = React.useMemo(() => {
     return Boolean(pages && pages.some(p => p?.html && (
       p.html.includes('data-name="PDF Background"') ||
@@ -2091,7 +2198,7 @@ const InteractionPanel = ({
 
   const handleAddInteractionToSelected = () => {
     const targetId = selectedLayerId;
-    if (!targetId) return;
+    if (!targetId || isAudioElementSelected) return;
 
     setOpenCardIds(prev => ({ ...prev, [targetId]: true }));
     setExpandedCardId(targetId);
@@ -2115,18 +2222,18 @@ const InteractionPanel = ({
   return (
     <div className="flex flex-col gap-[2vh] px-[1.5vw] pt-[1.8vh] pb-[5vw] w-full">
 
-      {/* Selected Element Interaction Status Card (ONLY if selected AND not added yet, hidden for converted documents) */}
-      {!isConvertedDocument && isRealElementSelected && !hasInteraction && (
-        <div className="p-[0.7vw] rounded-[0.8vw] border-[0.15vw] border-indigo-200 bg-indigo-50/60 shadow-2xs flex items-center justify-between gap-[0.6vw]">
+      {/* Selected Element Interaction Status Card (ONLY if selected AND not added yet, hidden for converted documents and audio elements) */}
+      {!isConvertedDocument && isRealElementSelected && !isAudioElementSelected && !hasInteraction && (
+        <div className="p-[0.7vw] rounded-[0.8vw] border-[0.15vw] border-[#EC5137]/30 bg-[#EC5137]/10 shadow-2xs flex items-center justify-between gap-[0.6vw]">
           <div className="flex items-center gap-[0.6vw] min-w-0 flex-1">
-            <div className="w-[2vw] h-[2vw] rounded-[0.4vw] flex items-center justify-center flex-shrink-0 bg-indigo-100 text-[#4D47FF]">
+            <div className="w-[2vw] h-[2vw] rounded-[0.4vw] flex items-center justify-center flex-shrink-0 bg-[#EC5137]/15 text-[#EC5137]">
               <Icon icon="hugeicons:touch-interaction-01" width="1.15vw" height="1.15vw" />
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-[0.8vw] font-semibold text-gray-900 truncate" title={selectedElName}>
                 {selectedElName}
               </span>
-              <span className="text-[0.68vw] font-medium text-[#4D47FF]">
+              <span className="text-[0.68vw] font-medium text-[#EC5137]">
                 No interaction added
               </span>
             </div>
@@ -2134,7 +2241,7 @@ const InteractionPanel = ({
 
           <button
             onClick={handleAddInteractionToSelected}
-            className="flex-shrink-0 h-[1.9vw] px-[0.7vw] bg-[#4D47FF] hover:bg-[#3d36e8] text-white rounded-[0.4vw] text-[0.75vw] font-semibold flex items-center gap-[0.3vw] shadow-sm transition-all cursor-pointer hover:shadow"
+            className="flex-shrink-0 h-[1.9vw] px-[0.7vw] bg-[#EC5137] hover:bg-[#d6442c] text-white rounded-[0.4vw] text-[0.75vw] font-semibold flex items-center gap-[0.3vw] shadow-sm transition-all cursor-pointer hover:shadow"
           >
             <Icon icon="lucide:plus" width="0.85vw" height="0.85vw" />
             Click to Add Interaction
@@ -2155,15 +2262,16 @@ const InteractionPanel = ({
           {interactiveElementsList.length > 0 ? (
             interactiveElementsList.map(item => {
 
-              const isExpanded = expandedCardId === item.id;
+              const isLocked = Boolean(item.isLocked);
+              const isExpanded = !isLocked && expandedCardId === item.id;
               const isCollapsed = !isExpanded;
-              const isDropdownOpen = openDropdownId === item.id;
+              const isDropdownOpen = !isLocked && openDropdownId === item.id;
               // Use local override (immediate) if available, else fall back to item.actionId from pages
               const resolvedActionId = cardActionOverrides[item.id] || item.actionId;
               const currentAction = actionTypes.find(a => a.id === resolvedActionId) || actionTypes[0];
               // Respect trigger and value local overrides to bypass DOM parsing lag
               const resolvedValue = itemValueOverrides[item.id] !== undefined ? itemValueOverrides[item.id] : item.value;
-              const isSelected = Boolean(selectedLayerId && activeLayerId === item.id);
+              const isSelected = Boolean(!isLocked && selectedLayerId && activeLayerId === item.id);
 
               const isFreeFrameTarget = item.dataName === 'Free Frame' || item.id?.startsWith('free-frame') || (item.tagName?.toLowerCase() === 'rect' && !item.isHotspot);
               const isHotspotTarget = item.isHotspot || item.dataName?.toLowerCase().includes('hotspot') || item.id?.startsWith('hotspot');
@@ -2181,6 +2289,7 @@ const InteractionPanel = ({
               }
 
               const selectItemAndHighlight = () => {
+                if (isLocked) return;
                 const targetIdx = item.pageIndex !== undefined ? item.pageIndex : activePageIndex;
                 setActiveLayerId(item.id);
                 if (setSelectedLayerId) setSelectedLayerId(item.id);
@@ -2205,21 +2314,28 @@ const InteractionPanel = ({
                   id={`interaction-card-${item.id}`}
                   data-interaction-card-id={item.id}
                   onClick={() => {
+                    if (isLocked) return;
                     selectItemAndHighlight();
                   }}
-                  className={`w-full mx-auto bg-white border-[0.15vw] rounded-[0.8vw] overflow-hidden shadow-2xs flex flex-col relative transition-all duration-200 ${isSelected
-                    ? 'border-[#4D47FF] shadow-sm z-[50]'
-                    : 'border-gray-200 hover:border-gray-300 z-[10]'
-                    }`}
+                  className={`w-full mx-auto bg-white border-[0.15vw] rounded-[0.8vw] overflow-hidden shadow-2xs flex flex-col relative transition-all duration-200 ${
+                    isLocked
+                      ? 'border-gray-200 bg-gray-50/70 opacity-60 cursor-not-allowed pointer-events-none'
+                      : isSelected
+                      ? 'border-[#EC5137] shadow-sm z-[50]'
+                      : 'border-gray-200 hover:border-gray-300 z-[10]'
+                  }`}
                 >
 
                   {/* Card Header / Settings */}
                   <div className="flex flex-col">
                     {/* Top Row: Icon + Dropdowns (Clicking anywhere toggles open/close) */}
                     <div
-                      className="flex items-center justify-between gap-[0.8vw] py-[0.7vw] px-[0.8vw] cursor-pointer select-none rounded-t-[0.8vw]"
+                      className={`flex items-center justify-between gap-[0.8vw] py-[0.7vw] px-[0.8vw] select-none rounded-t-[0.8vw] ${
+                        isLocked ? 'cursor-not-allowed' : 'cursor-pointer'
+                      }`}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (isLocked) return;
                         selectItemAndHighlight();
 
                         const nextExpandedId = isExpanded ? null : item.id;
@@ -2232,7 +2348,7 @@ const InteractionPanel = ({
                     >
                       <div className="flex items-center gap-[0.8vw]">
                         {/* Dynamic Action Icon */}
-                        <div className="flex-shrink-0 text-[#4D47FF] flex items-center" title={currentAction?.label || 'Interaction'}>
+                        <div className="flex-shrink-0 text-[#EC5137] flex items-center" title={currentAction?.label || 'Interaction'}>
                           <Icon icon={currentAction?.icon || 'fluent:zoom-in-32-regular'} className="text-[1.15vw]" />
                         </div>
 
@@ -2251,6 +2367,7 @@ const InteractionPanel = ({
                           setTooltipSettingsOverrides={setTooltipSettingsOverrides}
                           isCollapsed={isCollapsed}
                           onExpandAccordion={() => {
+                            if (isLocked) return;
                             selectItemAndHighlight();
                             setExpandedCardId(item.id);
                           }}
@@ -2258,6 +2375,11 @@ const InteractionPanel = ({
                       </div>
 
                       <div className="flex items-center gap-[0.5vw]">
+                        {isLocked && (
+                          <span className="text-[0.62vw] font-semibold px-[0.5vw] py-[0.12vw] rounded-full border leading-normal select-none bg-amber-50 text-amber-600 border-amber-200 flex items-center gap-[0.2vw]" title="Layer is locked">
+                            <Lock size="0.6vw" /> Locked
+                          </span>
+                        )}
                         {targetTypeBadge && (
                           <span className={`text-[0.62vw] font-semibold px-[0.55vw] py-[0.12vw] rounded-full border leading-normal select-none ${targetTypeBadge.bg}`}>
                             {targetTypeBadge.label}
@@ -4308,7 +4430,7 @@ const InteractionPanel = ({
                                           ? 'border-red-400'
                                           : isValidAndFilled
                                           ? 'border-emerald-500'
-                                          : 'border-gray-300 hover:border-gray-400 focus-within:border-[#4D47FF]'
+                                          : 'border-gray-300 hover:border-gray-400 focus-within:border-[#EC5137]'
                                       } rounded-[0.4vw] flex items-center px-[0.7vw] bg-white overflow-hidden transition-colors shadow-2xs relative`}>
                                         <Icon icon={socialConfig.icon} className={`${socialConfig.iconColor} text-[1vw] flex-shrink-0 mr-[0.5vw]`} />
                                         <input
@@ -4378,7 +4500,7 @@ const InteractionPanel = ({
                                               {isBehaviorDropOpen && (
                                                 <div data-dropdown-menu="true" className={`absolute left-0 z-[100] w-full bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl overflow-hidden py-[0.25vw] animate-in fade-in zoom-in-95 duration-150 ${dropdownDirectionOverrides[behaviorDropId] === 'up' ? 'bottom-[calc(100%+0.3vw)] origin-bottom' : 'top-[calc(100%+0.3vw)] origin-top'}`}>
                                                   <div
-                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'current' ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
+                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'current' ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
                                                     onClick={(e) => {
                                                       e.stopPropagation();
                                                       setLinkBehaviorOverrides(prev => ({ ...prev, [item.id]: 'current' }));
@@ -4394,7 +4516,7 @@ const InteractionPanel = ({
                                                     Open in - Current Tab
                                                   </div>
                                                   <div
-                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'new' ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
+                                                    className={`w-full px-[0.8vw] py-[0.4vw] text-[0.8vw] font-medium text-left transition-colors cursor-pointer ${currentBehavior === 'new' ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
                                                     onClick={(e) => {
                                                       e.stopPropagation();
                                                       setLinkBehaviorOverrides(prev => ({ ...prev, [item.id]: 'new' }));
@@ -4826,10 +4948,10 @@ const InteractionPanel = ({
                               >
                                 <div className={`w-[1.1vw] h-[1.1vw] flex-shrink-0 rounded-[0.3vw] flex items-center justify-center transition-colors border ${
                                   isChecked
-                                    ? 'bg-[#4D47FF] border-[#4D47FF]'
+                                    ? 'bg-[#EC5137] border-[#EC5137]'
                                     : isHotspotItem
                                     ? 'border-gray-200 bg-gray-100'
-                                    : 'border-gray-300 bg-white group-hover:border-[#4D47FF]'
+                                    : 'border-gray-300 bg-white group-hover:border-[#EC5137]'
                                 }`}>
                                   {isChecked && (
                                     <Icon icon="lucide:check" className="text-white text-[0.8vw]" strokeWidth="3" />

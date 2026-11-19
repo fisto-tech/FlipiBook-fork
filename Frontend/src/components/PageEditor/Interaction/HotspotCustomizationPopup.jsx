@@ -996,7 +996,7 @@ const HotspotCustomizationPopup = ({ isOpen, onClose, initialData, onSave }) => 
               </button>
               <button 
                 onClick={handleSave}
-                className="h-[2vw] px-[1.2vw] bg-[#4D47FF] text-white text-[0.8vw] font-medium rounded-[0.4vw] shadow-2xs hover:bg-[#3D37E0] transition-colors flex items-center gap-[0.4vw] cursor-pointer"
+                className="h-[2vw] px-[1.2vw] bg-[#EC5137] text-white text-[0.8vw] font-medium rounded-[0.4vw] shadow-2xs hover:bg-[#d6442c] transition-colors flex items-center gap-[0.4vw] cursor-pointer"
               >
                 <Icon icon="lucide:check" className="text-[0.9vw]" /> Save Changes
               </button>
