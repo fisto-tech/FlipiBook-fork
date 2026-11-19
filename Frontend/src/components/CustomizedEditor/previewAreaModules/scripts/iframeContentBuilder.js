@@ -1,6 +1,6 @@
 import sanitizeHtmlForPreview from './sanitizeHtml';
-import { rewriteHtmlUploads } from '../../../../utils/assetUtils';
-import { getCachedRaster } from '../../../../utils/pageRasterCache';
+import { rewriteHtmlUploads } from '../../../../utils/assets/assetUtils';
+import { getCachedRaster } from '../../../../utils/customizedEditor/pageRasterCache';
 import getSlideshowScript from './slideshowScript';
 import getAnimationScript from './animationScript';
 import getInteractionScript from './interactionScript';
@@ -185,6 +185,11 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                         pointer-events: auto !important;
                     }
 
+                    .flipbook-text-scrollbar {
+                        scrollbar-color: var(--scrollbar-color, #4B5563) transparent !important;
+                        scrollbar-width: thin !important;
+                    }
+
                     .flipbook-text-scrollbar::-webkit-scrollbar,
                     [data-scrollable="true"]::-webkit-scrollbar,
                     [data-scrollable="true"] *::-webkit-scrollbar {
@@ -198,14 +203,14 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     .flipbook-text-scrollbar::-webkit-scrollbar-track,
                     [data-scrollable="true"]::-webkit-scrollbar-track,
                     [data-scrollable="true"] *::-webkit-scrollbar-track {
-                        background: #E5E7EB !important;
+                        background: transparent !important;
                         border-radius: 10px !important;
                     }
 
                     .flipbook-text-scrollbar::-webkit-scrollbar-thumb,
                     [data-scrollable="true"]::-webkit-scrollbar-thumb,
                     [data-scrollable="true"] *::-webkit-scrollbar-thumb {
-                        background: #4B5563 !important;
+                        background: var(--scrollbar-color, #4B5563) !important;
                         border-radius: 10px !important;
                         border: none !important;
                     }
@@ -213,13 +218,13 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     .flipbook-text-scrollbar::-webkit-scrollbar-thumb:hover,
                     [data-scrollable="true"]::-webkit-scrollbar-thumb:hover,
                     [data-scrollable="true"] *::-webkit-scrollbar-thumb:hover {
-                        background: #374151 !important;
+                        background: var(--scrollbar-color, #4B5563) !important;
                     }
 
                     .flipbook-text-scrollbar::-webkit-scrollbar-thumb:active,
                     [data-scrollable="true"]::-webkit-scrollbar-thumb:active,
                     [data-scrollable="true"] *::-webkit-scrollbar-thumb:active {
-                        background: #1F2937 !important;
+                        background: var(--scrollbar-color, #4B5563) !important;
                     }
 
                     .map-root-container,
@@ -345,7 +350,6 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     foreignObject[data-scrollable="true"]>div {
                         width: 100% !important;
                         height: 100% !important;
-                        padding: 0 !important;
                         margin: 0 !important;
                         display: block !important;
                         box-sizing: border-box !important;
@@ -360,7 +364,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                         height: 100% !important;
                         display: block !important;
                         box-sizing: border-box !important;
-                        padding: 24px 6px 24px 16px !important;
+                        padding: 0 !important; /* match editor layout */
                         background-color: var(--bg-fill, transparent) !important;
                         border: calc(var(--bg-stroke-width, 0) * 1px) solid var(--bg-stroke, transparent) !important;
                         border-radius: var(--bg-rx, 0px) !important;
@@ -376,6 +380,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     }
                     
                     .flipbook-text-viewport::after {
+                        display: none; /* no dark fade over the text (editor has none) */
                         content: "";
                         position: absolute;
                         bottom: 0;
@@ -398,6 +403,20 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                         box-sizing: border-box !important;
                     }
 
+
+                    /* Scrollable text must clip to its box (generic rule above forces overflow: visible) */
+                    foreignObject[data-scrollable="true"]:not([data-type="map"]):not([data-type="embed-frame"]) {
+                        overflow: hidden !important;
+                    }
+                    foreignObject[data-scrollable="true"] .flipbook-text-viewport,
+                    foreignObject[data-scrollable="true"] .flipbook-text-scrollbar {
+                        max-height: 100% !important;
+                    }
+                    foreignObject[data-scrollable="true"] > div.flipbook-text-scrollbar {
+                        overflow-y: auto !important;
+                        overflow-x: hidden !important;
+                    }
+
                     foreignObject[data-scrollable="true"] * {
                         -webkit-user-select: text !important;
                         user-select: text !important;
@@ -412,6 +431,17 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                 ${getAudioControlsScript()}
                 ${getEmbedScript()}
                 <script>
+                    (function() {
+                        // Per-box scrollbar color -> CSS variable (runs after the page content is parsed)
+                        var applySbColors = function() {
+                            document.querySelectorAll('[data-scrollbar-color]').forEach(function(el) {
+                                var c = el.getAttribute('data-scrollbar-color');
+                                if (c) el.style.setProperty('--scrollbar-color', c);
+                            });
+                        };
+                        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applySbColors);
+                        else applySbColors();
+                    })();
                     (function() {
                         const isRightPage = ${pageNumber} % 2 !== 0;
                         const handleMove = (e) => {

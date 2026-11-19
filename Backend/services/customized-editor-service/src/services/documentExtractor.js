@@ -169,12 +169,34 @@ async function extractSinglePage(doc, pageIndex, outDir, mupdf) {
  * Main Extraction Worker with Multi-Core Parallel Page Sliding Window
  */
 async function processExtractionJob(job) {
-  const { jobId, userId, bookId, filePath } = job;
+  const { jobId, userId, bookId, filePath, folderName, bookName } = job;
 
   try {
-    const bookDir = path.join(storageRoot, userId, 'books', bookId);
+    let fName = folderName;
+    let bName = bookName;
+    if (!fName || !bName) {
+      try {
+        const mongoose = require('mongoose');
+        if (mongoose.connection && mongoose.connection.db) {
+          const bookDoc = await mongoose.connection.db.collection('flipbooks').findOne({ v_id: bookId });
+          if (bookDoc) {
+            if (!bName) bName = bookDoc.flipbookName || bookDoc.realName || bookDoc.title;
+            if (!fName) {
+              const rawF = bookDoc.folder || bookDoc.folderName;
+              fName = (!rawF || rawF === 'default' || rawF === 'fol_default' || String(rawF).toLowerCase() === 'my flipbooks') ? 'default' : rawF;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    if (!fName || String(fName).trim().toLowerCase() === 'my flipbooks' || fName === 'fol_default') fName = 'default';
+    if (!bName) bName = bookId;
+
+    const bookDir = path.join(storageRoot, userId, 'books', fName, bName);
     const pagesDir = path.join(bookDir, 'pages');
-    await fs.promises.mkdir(pagesDir, { recursive: true });
+    const webpPagesDir = path.join(pagesDir, 'webp_page');
+    await fs.promises.mkdir(webpPagesDir, { recursive: true });
+    const baseUrl = `/storage/${userId}/books/${fName}/${bName}/pages/webp_page/`;
 
     const mupdf = await getMuPdf();
     const pdfBytes = await fs.promises.readFile(filePath);
@@ -209,7 +231,7 @@ async function processExtractionJob(job) {
     // ==========================================
     const initialBatchSize = Math.min(4, totalPages);
     for (let p = 0; p < initialBatchSize; p++) {
-      const pageInfo = await extractSinglePage(doc, p, pagesDir, mupdf);
+      const pageInfo = await extractSinglePage(doc, p, webpPagesDir, mupdf);
       allPages[p] = pageInfo;
       extractedCount++;
 
@@ -254,7 +276,7 @@ async function processExtractionJob(job) {
           const currentIndex = nextQueueIndex++;
           const pageIdx = remainingPageIndices[currentIndex];
 
-          const pageInfo = await extractSinglePage(doc, pageIdx, pagesDir, mupdf);
+          const pageInfo = await extractSinglePage(doc, pageIdx, webpPagesDir, mupdf);
           allPages[pageIdx] = pageInfo;
           extractedCount++;
 
@@ -276,7 +298,7 @@ async function processExtractionJob(job) {
               const mongoose = require('mongoose');
               if (mongoose.connection && mongoose.connection.db) {
                 const currentPagesFormatted = allPages.filter(Boolean).map(ap => {
-                  const webpUrl = `/storage/${userId}/books/${bookId}/pages/${ap.pageNumber}.webp`;
+                  const webpUrl = `${baseUrl}${ap.pageNumber}.webp`;
                   const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthMm || 210} ${heightMm || 297}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${ap.pageNumber}" data-name="Page ${ap.pageNumber}"><image id="img-page-${ap.pageNumber}" x="0" y="0" width="${widthMm || 210}" height="${heightMm || 297}" href="${webpUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
                   return {
                     id: ap.pageNumber,
@@ -311,11 +333,13 @@ async function processExtractionJob(job) {
     const manifest = {
       bookId,
       userId,
+      folderName: fName,
+      bookName: bName,
       totalPages,
       width: widthMm,
       height: heightMm,
       aspectRatio,
-      baseUrl: `/storage/${userId}/books/${bookId}/pages/`,
+      baseUrl,
       pages: finalPages
     };
 

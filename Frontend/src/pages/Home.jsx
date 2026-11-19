@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import CreateFlipbookModal from '../components/CreateFlipbookModal';
 import AlertModal from '../components/AlertModal';
 import Footer from './Footer';
-import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdfUtils';
+import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdf/pdfUtils';
 import { useDocumentUpload } from '../context/DocumentUploadContext';
 
 // Modular Sections
@@ -122,6 +122,18 @@ export default function Home() {
       }
       let allImages = [];
 
+      const now = new Date();
+      const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+      const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
+      let uniqueName = customName;
+      if (!uniqueName || (uniqueName.startsWith('PDF_Flipbook_') && initialDocType !== 'pdf')) {
+        uniqueName = customName ? customName.replace(/^PDF_Flipbook_/, defaultPrefix) : `${defaultPrefix}${timeString}`;
+      }
+      const assignedBookId = ((typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+        : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
+      const resolvedUserId = user?.userID || user?.userId || 'FLIPI0001';
+
       for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
         if (isUploadCancelledRef.current) return;
         const file = files[fileIndex];
@@ -180,7 +192,7 @@ export default function Home() {
               stage: currentStage || prev?.stage || 'converting'
             };
           });
-        }, null, null, 'FLIPI0001', startPageForFile);
+        }, null, assignedBookId, resolvedUserId, startPageForFile, 'default', uniqueName);
         if (isUploadCancelledRef.current) return;
         allImages = [...allImages, ...images];
       }
@@ -205,13 +217,6 @@ export default function Home() {
       const maxWidth = firstW;
       const maxHeight = firstH;
 
-      const now = new Date();
-      const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-      const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
-      let uniqueName = customName;
-      if (!uniqueName || (uniqueName.startsWith('PDF_Flipbook_') && initialDocType !== 'pdf')) {
-        uniqueName = customName ? customName.replace(/^PDF_Flipbook_/, defaultPrefix) : `${defaultPrefix}${timeString}`;
-      }
       const targetFolder = 'My_Flipbooks';
 
       const totalDocPages = (allImages.totalPages && allImages.totalPages > allImages.length)

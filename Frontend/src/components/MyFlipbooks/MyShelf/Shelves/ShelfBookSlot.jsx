@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-import { getAssetBaseUrl } from '../../../../utils/assetUtils';
+import { getAssetBaseUrl } from '../../../../utils/assets/assetUtils';
 
 const ShelfBookSlot = ({
   book,

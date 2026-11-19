@@ -6,7 +6,7 @@ import { Monitor, Laptop, Home } from 'lucide-react';
 const ExportModal = React.lazy(() => import('../components/ExportModal'));
 const PublishModal = React.lazy(() => import('../components/PublishModal'));
 import axios from 'axios';
-import { getFromDB, saveToDB } from '../utils/dbUtils';
+import { getFromDB, saveToDB } from '../utils/storage/dbUtils';
 import { useAuth, useActiveBook, useUIModals } from '../store/hooks';
 import { queryClient } from '../queryClient';
 

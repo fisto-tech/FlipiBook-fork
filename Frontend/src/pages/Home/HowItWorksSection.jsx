@@ -13,7 +13,7 @@ export default function HowItWorksSection() {
       desc: "Upload your PDF or choose a ready-made template to start building your digital catalogue.",
       image: workImg1,
       textPosition: "bottom",
-      imgClass: "w-[96%] sm:w-[95%] lg:w-[96%] h-auto max-h-[82%] object-contain drop-shadow-md translate-y-3.5 sm:translate-y-5"
+      imgClass: "w-[94%] sm:w-[93%] lg:w-[94%] h-auto max-h-[85%] object-contain drop-shadow-md translate-y-3.5 sm:translate-y-5"
     },
     {
       number: "02",
@@ -21,7 +21,7 @@ export default function HowItWorksSection() {
       desc: "Customize your pages with product videos, 3D models, and clickable links that help customers explore.",
       image: workImg2,
       textPosition: "top",
-      imgClass: "w-[98%] sm:w-[97%] lg:w-[98%] h-auto max-h-[80%] object-contain drop-shadow-md"
+      imgClass: "w-[108%] sm:w-[106%] lg:w-[108%] max-w-none h-auto max-h-[88%] object-contain drop-shadow-md scale-105"
     },
     {
       number: "03",
@@ -29,7 +29,7 @@ export default function HowItWorksSection() {
       desc: "Publish your catalogue and share it through a link, QR code, or website embed.",
       image: workImg3,
       textPosition: "bottom",
-      imgClass: "w-[92%] sm:w-[90%] lg:w-[92%] h-auto max-h-[86%] object-contain drop-shadow-md translate-y-3.5 sm:translate-y-5"
+      imgClass: "w-[102%] sm:w-[100%] lg:w-[102%] max-w-none h-auto max-h-[95%] object-contain drop-shadow-md translate-y-7 sm:translate-y-9"
     },
     {
       number: "04",
@@ -37,7 +37,7 @@ export default function HowItWorksSection() {
       desc: "Review catalogue views and viewer activity to understand engagement and refine your content.",
       image: workImg4,
       textPosition: "top",
-      imgClass: "w-[92%] sm:w-[90%] lg:w-[92%] h-auto max-h-[86%] object-contain drop-shadow-md translate-y-2 sm:translate-y-3"
+      imgClass: "w-[96%] sm:w-[94%] lg:w-[96%] h-auto max-h-[89%] object-contain drop-shadow-md translate-y-3.5 sm:translate-y-5"
     }
   ];
 
@@ -118,7 +118,7 @@ export default function HowItWorksSection() {
               }`}
             >
               {/* Giant Step Number in top left matching screenshot (absolute to avoid pushing image down) */}
-              <span className="absolute top-2.5 left-3 sm:top-3 sm:left-4 lg:top-[0.8vw] lg:left-[0.9vw] text-6xl sm:text-7xl lg:text-[4.6vw] font-black text-white leading-none tracking-tight select-none z-0">
+              <span className="absolute top-2.5 left-3 sm:top-3 sm:left-4 lg:top-[0.8vw] lg:left-[0.9vw] text-6xl sm:text-7xl lg:text-[4.6vw] font-normal text-white leading-none tracking-tight select-none z-0">
                 {step.number}
               </span>
               

@@ -194,7 +194,7 @@ export const CropController = ({
           ${imgSrc ? `<image class="crop-ghost-img" href="${imgSrc}" x="${gMinX}" y="${gMinY}" width="${gWidth}" height="${gHeight}" preserveAspectRatio="${imgPreserve}" style="pointer-events: none;" />` : ''}
 
           <!-- Black Transparent Shade ON OUTER UNCROPPED IMAGE ONLY -->
-          <rect class="crop-shade" x="${gMinX}" y="${gMinY}" width="${gWidth}" height="${gHeight}" fill="rgba(0, 0, 0, 0.65)" mask="url(#${maskId})" pointer-events="none" />
+          ${imgSrc ? `<image class="crop-shade" href="${imgSrc}" x="${gMinX}" y="${gMinY}" width="${gWidth}" height="${gHeight}" preserveAspectRatio="${imgPreserve}" mask="url(#${maskId})" style="pointer-events: none; filter: brightness(0.35);" />` : ''}
 
           <!-- 3x3 Rule-of-Thirds Grid Lines Inside Crop Frame -->
           <line class="crop-l1" x1="${minX + cWidth / 3}" y1="${minY}" x2="${minX + cWidth / 3}" y2="${minY + cHeight}" stroke="rgba(255, 255, 255, 0.75)" stroke-width="1" pointer-events="none" />
@@ -226,6 +226,31 @@ export const CropController = ({
         
         const l4 = maskGroup.querySelector('.crop-l4');
         if (l4) { l4.setAttribute('x1', minX); l4.setAttribute('y1', minY + (cHeight * 2) / 3); l4.setAttribute('x2', minX + cWidth); l4.setAttribute('y2', minY + (cHeight * 2) / 3); }
+      }
+
+      // Keep the applied stroke visible while panning/zooming: mirror the element's stroke
+      // layer on top of the crop overlay (the ghost/shade would otherwise cover its outer half).
+      const strokeEl = cropEl.querySelector(':scope > .svg-image-stroke-overlay') ||
+        cropEl.parentElement?.querySelector(':scope > .svg-image-stroke-overlay') ||
+        cropEl.querySelector('.svg-image-stroke-overlay');
+      let strokeClone = maskGroup.querySelector('.crop-stroke-clone');
+      const strokeCtm = strokeEl?.getScreenCTM?.();
+      if (strokeEl && strokeCtm) {
+        if (!strokeClone) {
+          strokeClone = strokeEl.cloneNode(true);
+          strokeClone.removeAttribute('id');
+          strokeClone.setAttribute('class', 'crop-stroke-clone');
+          strokeClone.setAttribute('fill', 'none');
+          strokeClone.setAttribute('pointer-events', 'none');
+          strokeClone.style.pointerEvents = 'none';
+          strokeClone.removeAttribute('clip-path');
+          strokeClone.style.removeProperty('clip-path');
+          maskGroup.appendChild(strokeClone);
+        }
+        const m = overlayCtm.inverse().multiply(strokeCtm);
+        strokeClone.setAttribute('transform', `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`);
+      } else if (strokeClone) {
+        strokeClone.remove();
       }
     };
 

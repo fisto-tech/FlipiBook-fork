@@ -1,4 +1,4 @@
-import flipbookApi from '../api/flipbookApi';
+import flipbookApi from '../../api/flipbookApi';
 
 /**
  * Format bytes into MB display string (e.g., '289 MB', '11.5 MB')

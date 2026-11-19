@@ -139,7 +139,7 @@ export const getInteractionScript = (pageNumber) => `  <style>
                    }  else if (type === 'slideshow') {
                        e.preventDefault();
                        e.stopPropagation();
-                       var effect = el.dataset.interactionSlideshowEffect || el.getAttribute('data-interaction-slideshow-effect') || 'Play Cards';
+                       var effect = el.dataset.interactionSlideshowEffect || el.getAttribute('data-interaction-slideshow-effect') || '3D Flip';
                        var speed = el.dataset.interactionSlideshowSpeed || el.getAttribute('data-interaction-slideshow-speed') || 'Medium';
                        try {
                            var parsedImages = JSON.parse(value);
@@ -148,7 +148,8 @@ export const getInteractionScript = (pageNumber) => `  <style>
                                    type: 'show-slideshow-interaction',
                                    images: parsedImages,
                                    effect: effect,
-                                   speed: speed
+                                   speed: speed,
+                                   baseUrl: window.location.href
                                }, '*');
                            }
                        } catch(e) {

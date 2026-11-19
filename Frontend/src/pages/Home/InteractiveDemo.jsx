@@ -475,7 +475,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
   const books = [
     {
       id: 0,
-      title: "Beyond The",
+      title: "Beyond the",
       subtitle: "Plate",
       cover: demoBook1,
       isFood: true,
@@ -483,35 +483,35 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
     },
     {
       id: 1,
-      title: "Beyond",
-      subtitle: "Horizons",
+      title: "Fashion",
+      subtitle: "Collection",
       cover: demoBook2,
       isDress: true,
-      headerTitle: "FASHION PRODUCTS",
+      headerTitle: "FASHION COLLECTION",
     },
     {
       id: 2,
-      title: "Design",
-      subtitle: "Essential",
-      cover: demoBook3,
-      isHospital: true,
-      headerTitle: "HOSPITAL PRODUCTS",
+      title: "Explore",
+      subtitle: "Travel",
+      cover: demoBook4,
+      isTravel: true,
+      headerTitle: "EXPLORE TRAVEL",
     },
     {
       id: 3,
-      title: "Future",
-      subtitle: "Forward",
-      cover: demoBook4,
-      isTravel: true,
-      headerTitle: "TRAVEL STORIES",
+      title: "Medical",
+      subtitle: "Solutions",
+      cover: demoBook3,
+      isHospital: true,
+      headerTitle: "MEDICAL SOLUTIONS",
     },
     {
       id: 4,
-      title: "Culinary",
-      subtitle: "Stories",
+      title: "Beyond",
+      subtitle: "Machinery",
       cover: demoBook5,
       isCompany: true,
-      headerTitle: "COMPANY BROCHURE",
+      headerTitle: "BEYOND MACHINERY",
     }
   ];
 
@@ -522,7 +522,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
       transition={{ duration: 0.6 }}
       id="interactive-demo-section"
-      className="w-full bg-[#f6f6f6] pt-8 pb-10 sm:pt-10 sm:pb-14 lg:pt-[2.6vw] lg:pb-[3.5vw] px-6 sm:px-8 md:px-10 lg:px-[4.2vw] font-poppins select-none [--book-shadow:2px_4px_7px_rgba(0,0,0,0.18)] sm:[--book-shadow:4px_7px_12px_rgba(0,0,0,0.22)] lg:[--book-shadow:8px_14px_20px_rgba(0,0,0,0.28)] [--book-shadow-hover:4px_6px_10px_rgba(0,0,0,0.24)] sm:[--book-shadow-hover:6px_10px_16px_rgba(0,0,0,0.28)] lg:[--book-shadow-hover:10px_18px_24px_rgba(0,0,0,0.36)]"
+      className="w-full bg-[#f6f6f6] pt-5 pb-6 sm:pt-6 sm:pb-8 lg:pt-[1.5vw] lg:pb-[1.8vw] px-6 sm:px-8 md:px-10 lg:px-[4.2vw] font-poppins select-none [--book-shadow:2px_4px_7px_rgba(0,0,0,0.18)] sm:[--book-shadow:4px_7px_12px_rgba(0,0,0,0.22)] lg:[--book-shadow:8px_14px_20px_rgba(0,0,0,0.28)] [--book-shadow-hover:4px_6px_10px_rgba(0,0,0,0.24)] sm:[--book-shadow-hover:6px_10px_16px_rgba(0,0,0,0.28)] lg:[--book-shadow-hover:10px_18px_24px_rgba(0,0,0,0.36)]"
     >
       <div className="w-full mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 sm:gap-8 lg:gap-[4.2vw]">
 
@@ -550,11 +550,11 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
             transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="text-[32px] xs:text-[36px] sm:text-[44px] md:text-[48px] lg:text-[2.6vw] font-bold text-[#202227] leading-[1.25] sm:leading-[1.2] md:leading-[1.18] lg:leading-[3.5vw] tracking-tight text-left"
+            className="text-[32px] xs:text-[36px] sm:text-[44px] md:text-[48px] lg:text-[2.6vw] font-bold text-[#202227] leading-[1.08] sm:leading-[1.05] md:leading-[1.05] lg:leading-[1.1] tracking-tight text-left"
           >
             <span>Explore</span> <br />
-            <span>Interactive</span> <br />
-            <span className="text-[#ED5B43]">Demo Books</span>
+            <span className="text-[#ED5B43]">Demo</span> <br />
+            <span>Books</span>
           </motion.h2>
 
           {/* Thin Divider Line */}
@@ -572,9 +572,9 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
             transition={{ duration: 0.85, delay: 0.42, ease: [0.22, 1, 0.36, 1] }}
-            className="text-[12px] sm:text-[13.5px] md:text-[14px] lg:text-[0.82vw] text-[#6d7178] font-normal leading-[165%] text-justify w-full max-w-full sm:max-w-[480px] lg:max-w-[17vw]"
+            className="text-[12px] sm:text-[13px] md:text-[13.5px] lg:text-[0.8vw] text-[#6d7178] font-normal leading-[165%] text-left w-full max-w-full sm:max-w-[480px] lg:max-w-[18vw]"
           >
-            Explore our interactive digital catalogue demos. Turn the pages, watch product videos, and rotate 3D models to see products from different angles. Discover how FlipiBook helps customers understand what you sell.
+            Explore interactive demo catalogues featuring realistic page flips, videos, and 3D experiences. Discover how FlipiBook brings digital content to life.
           </motion.p>
 
           {/* CTA Button: Explore Demo Catalogues */}
@@ -604,6 +604,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
           <div className="w-full flex items-start justify-center gap-4 sm:gap-6 md:contents">
             {books.slice(0, 3).map((book, idx) => {
               const isHovered = selectedBook === idx;
+              const isFirstBook = idx === 0;
               return (
                 <motion.div
                   key={book.id}
@@ -614,7 +615,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                   onMouseEnter={() => setSelectedBook(idx)}
                   onMouseLeave={() => setSelectedBook(null)}
                   onClick={() => setActiveModalBook(book)}
-                  className="flex flex-col items-center flex-1 max-w-[120px] xs:max-w-[135px] sm:max-w-[160px] md:max-w-[195px] lg:max-w-[215px] xl:max-w-[230px] cursor-pointer group transition-all duration-300"
+                  className="flex flex-col items-center flex-1 max-w-[85px] xs:max-w-[100px] sm:max-w-[115px] md:max-w-[135px] lg:max-w-[145px] xl:max-w-[155px] cursor-pointer group transition-all duration-300"
                 >
                   <div className="relative w-full flex flex-col items-center">
                     <div
@@ -624,7 +625,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                       <img
                         src={book.cover}
                         alt={`${book.title} ${book.subtitle}`}
-                        className="w-full max-w-[115px] xs:max-w-[128px] sm:max-w-[150px] md:max-w-full h-auto aspect-[595/842] object-contain select-none pointer-events-none rounded-[3px] border border-black/[0.08] transition-all duration-300"
+                        className="w-full max-w-[80px] xs:max-w-[95px] sm:max-w-[110px] md:max-w-[130px] lg:max-w-[140px] xl:max-w-[150px] h-auto aspect-[595/842] object-contain select-none pointer-events-none rounded-[3px] border border-black/[0.08] transition-all duration-300"
                         style={{
                           filter: isHovered
                             ? 'drop-shadow(var(--book-shadow-hover, 5px 8px 12px rgba(0, 0, 0, 0.28)))'
@@ -634,11 +635,11 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
                   </div>
 
-                  <div className="mt-2 sm:mt-3 md:mt-4 lg:mt-[1.2vw] text-center select-none flex flex-col items-center w-full px-0.5">
-                    <h4 className="text-[11.5px] sm:text-[13.5px] md:text-[15px] lg:text-[1.05vw] font-semibold text-[#2c2f35] tracking-tight sm:tracking-wide leading-tight sm:leading-snug truncate max-w-full">
+                  <div className="mt-2 sm:mt-2.5 md:mt-3 lg:mt-[0.7vw] text-center select-none flex flex-col items-center w-full px-0.5">
+                    <h4 className="text-[10.5px] sm:text-[11.5px] md:text-[12.5px] lg:text-[0.82vw] font-semibold text-[#2c2f35] tracking-tight sm:tracking-wide leading-tight sm:leading-snug truncate max-w-full">
                       {book.title}
                     </h4>
-                    <p className="text-[10px] sm:text-[12px] md:text-[13px] lg:text-[0.9vw] font-normal text-[#5a5e65] tracking-tight sm:tracking-wide leading-tight sm:leading-snug mt-0.5 truncate max-w-full">
+                    <p className="text-[9px] sm:text-[10px] md:text-[11px] lg:text-[0.72vw] font-normal text-[#5a5e65] tracking-tight sm:tracking-wide leading-tight sm:leading-snug mt-0.5 truncate max-w-full">
                       {book.subtitle}
                     </p>
                   </div>
@@ -662,7 +663,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                   onMouseEnter={() => setSelectedBook(idx)}
                   onMouseLeave={() => setSelectedBook(null)}
                   onClick={() => setActiveModalBook(book)}
-                  className="flex flex-col items-center flex-1 max-w-[120px] xs:max-w-[135px] sm:max-w-[160px] md:max-w-[195px] lg:max-w-[215px] xl:max-w-[230px] cursor-pointer group transition-all duration-300"
+                  className="flex flex-col items-center flex-1 max-w-[85px] xs:max-w-[100px] sm:max-w-[115px] md:max-w-[135px] lg:max-w-[145px] xl:max-w-[155px] cursor-pointer group transition-all duration-300"
                 >
                   <div className="relative w-full flex flex-col items-center">
                     <div
@@ -672,7 +673,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                       <img
                         src={book.cover}
                         alt={`${book.title} ${book.subtitle}`}
-                        className="w-full max-w-[115px] xs:max-w-[128px] sm:max-w-[150px] md:max-w-full h-auto aspect-[595/842] object-contain select-none pointer-events-none rounded-[3px] border border-black/[0.08] transition-all duration-300"
+                        className="w-full max-w-[80px] xs:max-w-[95px] sm:max-w-[110px] md:max-w-[130px] lg:max-w-[140px] xl:max-w-[150px] h-auto aspect-[595/842] object-contain select-none pointer-events-none rounded-[3px] border border-black/[0.08] transition-all duration-300"
                         style={{
                           filter: isHovered
                             ? 'drop-shadow(var(--book-shadow-hover, 5px 8px 12px rgba(0, 0, 0, 0.28)))'
@@ -682,11 +683,11 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
                   </div>
 
-                  <div className="mt-2 sm:mt-3 md:mt-4 lg:mt-[1.2vw] text-center select-none flex flex-col items-center w-full px-0.5">
-                    <h4 className="text-[11.5px] sm:text-[13.5px] md:text-[15px] lg:text-[1.05vw] font-semibold text-[#2c2f35] tracking-tight sm:tracking-wide leading-tight sm:leading-snug truncate max-w-full">
+                  <div className="mt-2 sm:mt-2.5 md:mt-3 lg:mt-[0.7vw] text-center select-none flex flex-col items-center w-full px-0.5">
+                    <h4 className="text-[10.5px] sm:text-[11.5px] md:text-[12.5px] lg:text-[0.82vw] font-semibold text-[#2c2f35] tracking-tight sm:tracking-wide leading-tight sm:leading-snug truncate max-w-full">
                       {book.title}
                     </h4>
-                    <p className="text-[10px] sm:text-[12px] md:text-[13px] lg:text-[0.9vw] font-normal text-[#5a5e65] tracking-tight sm:tracking-wide leading-tight sm:leading-snug mt-0.5 truncate max-w-full">
+                    <p className="text-[9px] sm:text-[10px] md:text-[11px] lg:text-[0.72vw] font-normal text-[#5a5e65] tracking-tight sm:tracking-wide leading-tight sm:leading-snug mt-0.5 truncate max-w-full">
                       {book.subtitle}
                     </p>
                   </div>

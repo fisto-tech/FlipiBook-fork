@@ -56,7 +56,7 @@ export default function HeroSection({ navigate }) {
   }, []);
 
   return (
-    <section className="relative w-full bg-[#fdfdfd] min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] lg:h-[calc(100vh-7vh)] flex flex-col justify-start pt-[1.5vh] pb-[2vh] px-[4vw] lg:px-[5.5vw] font-poppins overflow-hidden">
+    <section className="relative w-full bg-[#fdfdfd] min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] lg:h-[calc(100vh-7vh)] flex flex-col justify-start pt-3 sm:pt-4 lg:pt-[1.5vh] pb-6 sm:pb-8 lg:pb-[2vh] px-5 sm:px-8 lg:px-[5.5vw] font-poppins overflow-hidden">
       
       {/* Top Tag: IDC FOR ALL INDUSTRY and line */}
       <motion.div
@@ -64,19 +64,19 @@ export default function HeroSection({ navigate }) {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, amount: 0.3 }}
         transition={{ duration: 0.85, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full flex items-center gap-[0.9vw] pt-[1vh] mb-[1.2vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-1 sm:pt-2 lg:pt-[1vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
-        <span className="text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
           IDC FOR ALL INDUSTRY
         </span>
-        <div className="w-[3.6vw] h-[0.15vh] bg-[#35363A]"></div>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
       </motion.div>
 
-      {/* Main 2-Column Grid - Viewport Responsive */}
-      <div className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-[1.5vw] xl:gap-[2vw] items-start">
+      {/* Main 2-Column Grid - Viewport Responsive on desktop, clean vertical stack on mobile */}
+      <div className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-[1.5vw] xl:gap-[2vw] items-start">
         
         {/* Left Column: Headings, description & buttons */}
-        <div className="lg:col-span-5 flex flex-col justify-start text-left items-start z-10 pt-2 lg:pt-[3.8vh]">
+        <div className="lg:col-span-5 flex flex-col justify-start text-left items-start z-10 pt-1 sm:pt-2 lg:pt-[3.8vh]">
           
           {/* Main Headline */}
           <motion.h1
@@ -84,7 +84,7 @@ export default function HeroSection({ navigate }) {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.9, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="text-[3.2vw] xl:text-[3.4vw] font-bold text-[#1a1a1a] leading-[1.12] tracking-tight uppercase"
+            className="text-[28px] xs:text-[32px] sm:text-[40px] md:text-[44px] lg:text-[3.2vw] xl:text-[3.4vw] font-bold text-[#1a1a1a] leading-[1.15] sm:leading-[1.12] tracking-tight uppercase"
           >
             INTERACTIVE DIGITAL <br />
             <span className="text-[#EC5137] tracking-tight">CATALOGUE</span>
@@ -96,18 +96,18 @@ export default function HeroSection({ navigate }) {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full mt-[1.2vh] flex flex-col items-start"
+            className="w-full mt-2.5 sm:mt-3 lg:mt-[1.2vh] flex flex-col items-start"
           >
             {/* Extended red line with WITH positioned at the right under CATALOGUE */}
-            <div className="flex items-center gap-[0.8vw] w-full max-w-[18vw] xl:max-w-[19vw]">
-              <div className="flex-1 h-[0.15vh] bg-[#EC5137]"></div>
-              <span className="text-[0.78vw] font-semibold text-[#555555] uppercase tracking-wider flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-2.5 lg:gap-[0.8vw] w-full max-w-[240px] sm:max-w-[280px] lg:max-w-[18vw] xl:max-w-[19vw]">
+              <div className="flex-1 h-[1.5px] lg:h-[0.15vh] bg-[#EC5137]"></div>
+              <span className="text-[11px] sm:text-xs lg:text-[0.78vw] font-semibold text-[#555555] uppercase tracking-wider flex-shrink-0">
                 WITH
               </span>
             </div>
 
             {/* IMMERSIVE EXPERIENCE */}
-            <h2 className="text-[1.85vw] xl:text-[2.1vw] font-bold text-[#555555] tracking-tight uppercase mt-[3.8vh]">
+            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-[1.85vw] xl:text-[2.1vw] font-bold text-[#555555] tracking-tight uppercase mt-2.5 sm:mt-3 lg:mt-[3.8vh]">
               IMMERSIVE EXPERIENCE
             </h2>
           </motion.div>
@@ -118,7 +118,7 @@ export default function HeroSection({ navigate }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="text-[0.82vw] xl:text-[0.86vw] font-normal text-[#666666] leading-[165%] max-w-[25vw] text-left mt-[2.5vh]"
+            className="text-xs sm:text-sm lg:text-[0.82vw] xl:text-[0.86vw] font-normal text-[#666666] leading-[165%] max-w-[480px] lg:max-w-[25vw] text-left mt-3.5 sm:mt-4 lg:mt-[2.5vh]"
           >
             Turn your PDF into an interactive digital catalogue with FlipiBook. Add product videos, 3D models, and clickable links so customers can see how your products work, explore the details, and contact your team. Share your catalogue through a single link.
           </motion.p>
@@ -129,7 +129,7 @@ export default function HeroSection({ navigate }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-center justify-start gap-[1vw] mt-[6.5vh] flex-wrap"
+            className="flex items-center justify-start gap-2.5 sm:gap-3.5 lg:gap-[1vw] mt-5 sm:mt-6 lg:mt-[6.5vh] flex-wrap"
           >
             {/* View Live Demo Button */}
             <button
@@ -137,23 +137,23 @@ export default function HeroSection({ navigate }) {
                 const el = document.getElementById('interactive-demo-section');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
               }}
-              style={{ borderRadius: '0.8vw' }}
-              className="group flex items-center gap-[0.6vw] px-[1.4vw] py-[0.62vw] bg-white hover:bg-[#141b24] border border-gray-200 hover:border-[#141b24] text-[#35363A] hover:text-white font-medium text-[0.82vw] shadow-[0_0.4vw_1.2vw_rgba(0,0,0,0.06)] hover:shadow-[0_0.6vw_1.5vw_rgba(20,27,36,0.22)] transition-all duration-300 active:scale-95 cursor-pointer"
+              style={{ borderRadius: '12px' }}
+              className="group flex items-center gap-2 sm:gap-2.5 lg:gap-[0.6vw] px-4 py-2 sm:px-5 sm:py-2.5 lg:px-[1.4vw] lg:py-[0.62vw] lg:!rounded-[0.8vw] bg-white hover:bg-[#141b24] border border-gray-200 hover:border-[#141b24] text-[#35363A] hover:text-white font-medium text-xs sm:text-sm lg:text-[0.82vw] shadow-[0_0.4vw_1.2vw_rgba(0,0,0,0.06)] hover:shadow-[0_0.6vw_1.5vw_rgba(20,27,36,0.22)] transition-all duration-300 active:scale-95 cursor-pointer"
             >
-              <div className="w-[1.25vw] h-[1.25vw] rounded-full bg-[#35363A] group-hover:bg-[#EC5137] text-white flex items-center justify-center transition-colors duration-300">
-                <Icon icon="ic:round-play-arrow" className="w-[0.85vw] h-[0.85vw] fill-current ml-0.5" />
+              <div className="w-5 h-5 lg:w-[1.25vw] lg:h-[1.25vw] rounded-full bg-[#35363A] group-hover:bg-[#EC5137] text-white flex items-center justify-center transition-colors duration-300 flex-shrink-0">
+                <Icon icon="ic:round-play-arrow" className="w-3.5 h-3.5 lg:w-[0.85vw] lg:h-[0.85vw] fill-current ml-0.5" />
               </div>
-              <span className="font-semibold">View Live Demo</span>
+              <span className="font-semibold whitespace-nowrap">View Live Demo</span>
             </button>
 
             {/* My Flipbook Button */}
             <button
               onClick={() => navigate && navigate('/my-flipbooks')}
-              style={{ borderRadius: '0.8vw' }}
-              className="group flex items-center gap-[0.6vw] px-[1.4vw] py-[0.62vw] bg-[#141b24] hover:bg-[#EC5137] text-white font-medium text-[0.82vw] shadow-[0_0.4vw_1.4vw_rgba(20,27,36,0.25)] hover:shadow-[0_0.6vw_1.6vw_rgba(236,81,55,0.35)] transition-all duration-300 active:scale-95 cursor-pointer"
+              style={{ borderRadius: '12px' }}
+              className="group flex items-center gap-2 sm:gap-2.5 lg:gap-[0.6vw] px-4 py-2 sm:px-5 sm:py-2.5 lg:px-[1.4vw] lg:py-[0.62vw] lg:!rounded-[0.8vw] bg-[#141b24] hover:bg-[#EC5137] text-white font-medium text-xs sm:text-sm lg:text-[0.82vw] shadow-[0_0.4vw_1.4vw_rgba(20,27,36,0.25)] hover:shadow-[0_0.6vw_1.6vw_rgba(236,81,55,0.35)] transition-all duration-300 active:scale-95 cursor-pointer"
             >
-              <span className="font-semibold">My Flipbook</span>
-              <Icon icon="lucide:arrow-right" className="w-[0.95vw] h-[0.95vw] group-hover:translate-x-1 transition-transform duration-300" />
+              <span className="font-semibold whitespace-nowrap">My Flipbook</span>
+              <Icon icon="lucide:arrow-right" className="w-4 h-4 lg:w-[0.95vw] lg:h-[0.95vw] group-hover:translate-x-1 transition-transform duration-300 flex-shrink-0" />
             </button>
           </motion.div>
 

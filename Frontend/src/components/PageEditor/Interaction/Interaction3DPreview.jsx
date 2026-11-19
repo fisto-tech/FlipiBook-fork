@@ -7,7 +7,7 @@ import { CustomQRCode } from '../properties/Model3DEditor';
 import ColorPicker from '../properties/ColorPicker';
 import Hotspot3DOverlay from '../../ThreedEditor/Components/Hotspot3DOverlay';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 
 const ModelScene = ({ 
   url, 

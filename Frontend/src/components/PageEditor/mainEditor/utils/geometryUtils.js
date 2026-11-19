@@ -18,7 +18,37 @@ export const formatSmoothPathD = (pts) => {
   return d;
 };
 
+// ── Frame-Level Bounding Box Cache ───────────────────────────────────────────
+// Caches bounding boxes within the current animation frame to eliminate layout thrashing
+// when multiple subsystems (smart guides, highlight overlay, marquee, drag) query BBox.
+const visualBBoxCache = new WeakMap();
+let activeFrameId = 0;
+
+if (typeof window !== 'undefined') {
+  const advanceFrameTick = () => {
+    activeFrameId++;
+    requestAnimationFrame(advanceFrameTick);
+  };
+  requestAnimationFrame(advanceFrameTick);
+}
+
+export const invalidateVisualBBox = (el) => {
+  if (el) visualBBoxCache.delete(el);
+  else activeFrameId++;
+};
+
 export const getVisualBBox = (el) => {
+  if (!el || typeof el.getBBox !== 'function') return { x: 0, y: 0, width: 0, height: 0 };
+  const cached = visualBBoxCache.get(el);
+  if (cached && cached.frameId === activeFrameId) {
+    return cached.bbox;
+  }
+  const result = calculateRawVisualBBox(el);
+  visualBBoxCache.set(el, { frameId: activeFrameId, bbox: result });
+  return result;
+};
+
+const calculateRawVisualBBox = (el) => {
   if (!el || typeof el.getBBox !== 'function') return { x: 0, y: 0, width: 0, height: 0 };
 
   // ── TABLE ELEMENT BOUNDING BOX ──
@@ -759,4 +789,88 @@ export const getLocalPoint = (svg, element, clientX, clientY) => {
   } catch {
     return { x: clientX, y: clientY };
   }
+};
+
+/**
+ * Keyed DOM patch: like syncDOM, but children with an `id` are matched by id instead of
+ * by position. Existing nodes are reused in place, so live content (map / embed iframes)
+ * is never detached and reloaded when a sibling is deleted, restored (undo/redo) or edited.
+ */
+const domKeyOf = (n) => (n.nodeType === 1 && n.getAttribute && n.getAttribute('id')) ? n.getAttribute('id') : null;
+
+export const syncDOMKeyed = (oldNode, newNode) => {
+  if (!oldNode || !newNode) return;
+  if (oldNode.isEqualNode && oldNode.isEqualNode(newNode)) return;
+
+  if (oldNode.nodeType !== newNode.nodeType || oldNode.nodeName !== newNode.nodeName) {
+    oldNode.replaceWith(newNode.cloneNode(true));
+    return;
+  }
+  if (oldNode.nodeType === Node.TEXT_NODE || oldNode.nodeType === Node.COMMENT_NODE) {
+    if (oldNode.nodeValue !== newNode.nodeValue) oldNode.nodeValue = newNode.nodeValue;
+    return;
+  }
+
+  const oldAttrs = oldNode.attributes;
+  const newAttrs = newNode.attributes;
+  if (oldAttrs && newAttrs) {
+    for (let i = oldAttrs.length - 1; i >= 0; i--) {
+      const name = oldAttrs[i].name;
+      if (!newNode.hasAttribute(name)) oldNode.removeAttribute(name);
+    }
+    for (let i = 0; i < newAttrs.length; i++) {
+      const { name, value } = newAttrs[i];
+      if (oldNode.getAttribute(name) !== value) oldNode.setAttribute(name, value);
+    }
+  }
+
+  syncChildrenKeyed(oldNode, newNode);
+};
+
+export const syncChildrenKeyed = (oldParent, newParent) => {
+  const oldChildren = Array.from(oldParent.childNodes);
+  const newChildren = Array.from(newParent.childNodes);
+
+  const oldByKey = new Map();
+  const unkeyedOld = [];
+  oldChildren.forEach((c) => {
+    const k = domKeyOf(c);
+    if (k && !oldByKey.has(k)) oldByKey.set(k, c);
+    else unkeyedOld.push(c);
+  });
+
+  const used = new Set();
+  let ui = 0;
+  const result = newChildren.map((nc) => {
+    const k = domKeyOf(nc);
+    let match = null;
+    if (k) {
+      const cand = oldByKey.get(k);
+      if (cand && cand.nodeName === nc.nodeName && !used.has(cand)) match = cand;
+    } else {
+      // Unkeyed: next unused old unkeyed node of the same type, in order
+      let j = ui;
+      while (j < unkeyedOld.length && (used.has(unkeyedOld[j]) || unkeyedOld[j].nodeName !== nc.nodeName)) j++;
+      if (j < unkeyedOld.length) { match = unkeyedOld[j]; ui = j + 1; }
+    }
+    if (match) {
+      used.add(match);
+      syncDOMKeyed(match, nc);
+      return match;
+    }
+    return nc.cloneNode(true);
+  });
+
+  // Remove nodes that no longer exist
+  oldChildren.forEach((c) => { if (!used.has(c) && c.parentNode === oldParent) oldParent.removeChild(c); });
+
+  // Place nodes in order, only moving/inserting what is out of place
+  let ref = oldParent.firstChild;
+  result.forEach((node) => {
+    if (node === ref) {
+      ref = ref.nextSibling;
+    } else {
+      oldParent.insertBefore(node, ref);
+    }
+  });
 };

@@ -19,7 +19,7 @@
  *   turned event fires → shift window, evict far page
  */
 
-import { saveToDB, getFromDB } from './dbUtils';
+import { saveToDB, getFromDB } from '../storage/dbUtils';
 
 // Number of pages kept active in memory (current spread ± buffer)
 export const WINDOW_SIZE = 7; // must be odd; covers current spread + 2 on each side

@@ -14,6 +14,8 @@ export async function uploadAndExtractDocument({
   bookId,
   userId = 'FLIPI0001',
   title,
+  folderName = 'default',
+  bookName = null,
   backendUrl = '',
   onProgress,
   onInitialReady,
@@ -65,6 +67,8 @@ export async function uploadAndExtractDocument({
         xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
         xhr.setRequestHeader('X-User-Id', userId);
         xhr.setRequestHeader('X-Book-Id', resolvedBookId);
+        xhr.setRequestHeader('X-Folder-Name', encodeURIComponent(folderName || 'default'));
+        xhr.setRequestHeader('X-Book-Name', encodeURIComponent(bookName || title || file.name));
         xhr.setRequestHeader('X-Title', encodeURIComponent(title || file.name));
         xhr.setRequestHeader('X-Job-Id', clientJobId);
 
@@ -165,6 +169,8 @@ export async function uploadAndExtractDocument({
               xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
               xhr.setRequestHeader('X-User-Id', userId);
               xhr.setRequestHeader('X-Book-Id', resolvedBookId);
+              xhr.setRequestHeader('X-Folder-Name', encodeURIComponent(folderName || 'default'));
+              xhr.setRequestHeader('X-Book-Name', encodeURIComponent(bookName || title || file.name));
               xhr.setRequestHeader('X-Title', encodeURIComponent(title || file.name));
               xhr.setRequestHeader('X-Job-Id', clientJobId);
 
@@ -358,6 +364,8 @@ export function extractDocumentViaServer(file, options = {}) {
       bookId: options.bookId,
       userId: resolvedUserId || 'FLIPI0001',
       title: options.title || file.name,
+      folderName: options.folderName || 'default',
+      bookName: options.bookName || options.title || file.name,
       backendUrl: options.backendUrl || '',
       onProgress: options.onProgress,
       onComplete: (data) => {

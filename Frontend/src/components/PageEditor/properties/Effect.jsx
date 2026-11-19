@@ -1,10 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronUp, Trash2, Plus, X, Pipette, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { handleScrubHelper } from './Color';
 import ColorPicker from './ColorPicker';
 import { ElementToggle } from '../LeftActionMenu/Elements/properties/ElementUIControls';
+
+export const EffectDecimalInput = ({ value, onChange, min, max, className = '' }) => {
+  const [localVal, setLocalVal] = useState(() => (value !== undefined && value !== null && !isNaN(value) ? String(value) : '0'));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalVal(value !== undefined && value !== null && !isNaN(value) ? String(value) : '0');
+    }
+  }, [value, isFocused]);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+      setLocalVal(val);
+      if (val !== '' && val !== '-' && val !== '.' && val !== '-.' && !isNaN(parseFloat(val))) {
+        const num = parseFloat(val);
+        if (min !== undefined && num < min) return;
+        if (max !== undefined && num > max) return;
+        onChange(val);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (localVal === '' || localVal === '-' || localVal === '.' || localVal === '-.' || isNaN(parseFloat(localVal))) {
+      const fallback = min !== undefined ? min : 0;
+      setLocalVal(String(fallback));
+      onChange(String(fallback));
+    } else {
+      const num = parseFloat(localVal);
+      const clamped = min !== undefined && num < min ? min : (max !== undefined && num > max ? max : num);
+      const normalized = String(Math.round(clamped * 100) / 100);
+      setLocalVal(normalized);
+      onChange(normalized);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.target.blur();
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={isFocused ? localVal : (value !== undefined && value !== null && !isNaN(value) ? String(value) : '0')}
+      onFocus={() => {
+        setIsFocused(true);
+        setLocalVal(value !== undefined && value !== null && !isNaN(value) ? String(value) : '0');
+      }}
+      onBlur={handleBlur}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      className={className}
+    />
+  );
+};
 
 const Effect = ({
   openSubSection, setOpenSubSection,
@@ -235,17 +298,16 @@ const Effect = ({
                 handleEffectRowClick(target, effect.id);
               }
             }}
-            className={`effect-row flex items-center justify-between px-[1vw] py-[0.8vw] bg-gray-50/50 rounded-[0.8vw] border transition-all group cursor-pointer ${
-              activeEffectPopupId === effect.id ? 'border-[#E05638] bg-[#FFF2EE]/40' : 'border-gray-100 hover:border-gray-300'
+            className={`effect-row flex items-center justify-between h-[2.2vw] px-[0.75vw] bg-white rounded-[0.45vw] border transition-all group cursor-pointer shadow-2xs ${
+              activeEffectPopupId === effect.id ? 'border-indigo-400 bg-indigo-50/20 text-indigo-700' : 'border-gray-300 hover:border-gray-400 text-gray-700'
             }`}
           >
-            <span className={`text-[0.85vw] font-semibold transition-colors ${activeEffectPopupId === effect.id ? 'text-[#E05638]' : 'text-gray-800'}`}>
+            <span className={`text-[0.8vw] font-medium transition-colors ${activeEffectPopupId === effect.id ? 'text-indigo-700' : 'text-gray-700'}`}>
               {effect.label}
             </span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                const target = e.currentTarget;
                 if (!isActive) {
                   setShouldOpenPopupId(effect.id);
                   updateAttr(`data-effect-${effect.id}`, 'true');
@@ -253,9 +315,9 @@ const Effect = ({
                   updateAttr(`data-effect-${effect.id}`, 'false');
                 }
               }}
-              className={`transition-colors cursor-pointer ${isActive ? 'text-red-500 hover:text-red-700' : 'text-gray-500 hover:text-[#E05638]'}`}
+              className={`transition-colors cursor-pointer ${isActive ? 'text-red-500 hover:text-red-700' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              {isActive ? <Trash2 size="1vw" /> : <Plus size="1vw" />}
+              {isActive ? <Trash2 size="0.9vw" /> : <Plus size="0.9vw" />}
             </button>
           </div>
         );
@@ -291,9 +353,11 @@ const Effect = ({
                       handleEffectRowClick(target, effect.id);
                     }
                   }}
-                  className={`effect-row flex items-center justify-between px-[0.9vw] py-[0.7vw] bg-white rounded-[0.5vw] border transition-all cursor-pointer shadow-2xs ${activeEffectPopupId === effect.id ? 'border-indigo-400 bg-indigo-50/20' : 'border-gray-200 hover:border-gray-300'}`}
+                  className={`effect-row flex items-center justify-between h-[2.2vw] px-[0.75vw] bg-white rounded-[0.45vw] border transition-all cursor-pointer shadow-2xs ${
+                    activeEffectPopupId === effect.id ? 'border-indigo-400 bg-indigo-50/20 text-indigo-700' : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                  }`}
                 >
-                  <span className={`text-[0.82vw] font-medium transition-colors ${activeEffectPopupId === effect.id ? 'text-indigo-600' : 'text-gray-800'}`}>{effect.label}</span>
+                  <span className={`text-[0.8vw] font-medium transition-colors ${activeEffectPopupId === effect.id ? 'text-indigo-700' : 'text-gray-700'}`}>{effect.label}</span>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -305,9 +369,9 @@ const Effect = ({
                         updateAttr(`data-effect-${effect.id}`, 'false');
                       }
                     }}
-                    className={`transition-colors cursor-pointer ${isActive ? 'text-red-500 hover:text-red-700' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`transition-colors cursor-pointer ${isActive ? 'text-red-500 hover:text-red-700' : 'text-gray-400 hover:text-gray-600'}`}
                   >
-                    {isActive ? <Trash2 size="0.95vw" /> : <Plus size="0.95vw" />}
+                    {isActive ? <Trash2 size="0.9vw" /> : <Plus size="0.9vw" />}
                   </button>
                 </div>
               );
@@ -356,23 +420,24 @@ const Effect = ({
 
       {activeEffectPopupId && createPortal(
         <div
-          className="effect-popup-container fixed z-[4000] w-[19vw] bg-white rounded-[1vw] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] border border-gray-100 p-[1.2vw] animate-in fade-in zoom-in-95 duration-200"
+          className="effect-popup-container fixed z-[4000] w-[19vw] bg-white rounded-[0.6vw] shadow-[0_1vw_3vw_-0.5vw_rgba(0,0,0,0.18)] border border-gray-300 p-[1.1vw] animate-in fade-in zoom-in-95 duration-200 select-none font-sans"
           style={{
             top: effectPopupPos.top,
             right: effectPopupPos.right
           }}
         >
-          <div className="flex flex-col space-y-[1vw]">
-            <div className="flex items-center gap-[0.5vw]">
-              <span className="text-[0.9vw] font-semibold text-gray-800 whitespace-nowrap">
+          <div className="flex flex-col space-y-[0.9vw]">
+            <div className="flex items-center gap-[0.8vw]">
+              <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">
                 {{
                   'drop-shadow': 'Drop Shadow',
                   'inner-shadow': 'Inner Shadow',
                   'blur': 'Blur'
                 }[activeEffectPopupId]}
               </span>
-              <div className="h-px flex-grow bg-gray-200"></div>
+              <div className="flex-1 h-[1px] bg-gray-200" />
               <button
+                type="button"
                 onClick={() => {
                   setActiveEffectPopupId(null);
                   if (activeColorPicker?.includes('effect-')) {
@@ -380,17 +445,18 @@ const Effect = ({
                     if (setShowDetailedPicker) setShowDetailedPicker(false);
                   }
                 }}
-                className="p-[0.3vw] hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
+                className="p-[0.2vw] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
               >
-                <X size="1.1vw" className="text-gray-400" />
+                <X size="0.95vw" />
               </button>
             </div>
 
             {activeEffectPopupId.includes('shadow') && (
               <>
-                <div className="flex items-center">
+                <div className="flex items-center gap-[0.6vw]">
+                  {/* Swatch */}
                   <div
-                    className={`w-[3.5vw] h-[3.5vw] mt-[0.5vw] rounded-[0.5vw] cursor-pointer shadow-sm border border-gray-100 flex-shrink-0 transition-all active:scale-95 ${activeColorPicker === `data-effect-${activeEffectPopupId}-color` ? 'border-gray-800 ' : 'hover:border-gray-300'}`}
+                    className={`w-[3.6vw] h-[2.1vw] rounded-[0.45vw] border shadow-2xs cursor-pointer flex-shrink-0 relative overflow-hidden transition-transform hover:scale-105 ${activeColorPicker === `data-effect-${activeEffectPopupId}-color` ? 'border-gray-800 ring-1 ring-gray-800' : 'border-gray-300'}`}
                     style={{
                       backgroundColor: pseudoProps[`data-effect-${activeEffectPopupId}-color`] || '#000000'
                     }}
@@ -400,120 +466,142 @@ const Effect = ({
                       if (setActiveColorPicker) setActiveColorPicker(`data-effect-${activeEffectPopupId}-color`);
                       if (setShowDetailedPicker) setShowDetailedPicker(true);
                     }}
+                    title="Change shadow color"
                   />
 
-                  <div className="flex-grow min-w-0 flex flex-col justify-center space-y-[0.4vw] w-full ml-[0.6vw]">
-                    <div className="flex items-center gap-[0.3vw] w-full">
-                      <span className="text-[0.8vw] font-semibold text-gray-800 w-[3vw] flex-shrink-0 text-left whitespace-nowrap">Code :</span>
-                      <div className={`flex-grow flex items-center h-[2.2vw] bg-white border rounded-[0.5vw] px-[0.4vw] transition-all overflow-hidden ${activeColorPicker === `data-effect-${activeEffectPopupId}-color` ? 'border-[#E05638]' : 'border-gray-200 hover:border-[#E05638]/40'}`}>
-                        <input
-                          type="text"
-                          value={(pseudoProps[`data-effect-${activeEffectPopupId}-color`] || '#000000').toUpperCase()}
-                          onChange={(e) => updateAttr(`data-effect-${activeEffectPopupId}-color`, e.target.value)}
-                          className="w-full bg-transparent outline-none text-[0.75vw] font-mono font-semibold text-gray-700 min-w-0"
-                        />
-                        <Pipette
-                          size="0.9vw"
-                          className="text-gray-400 flex-shrink-0 cursor-pointer hover:text-gray-600 transition-colors"
-                          onClick={async () => {
-                            if (!window.EyeDropper) return;
-                            try {
-                              const eyeDropper = new window.EyeDropper();
-                              const result = await eyeDropper.open();
-                              updateAttr(`data-effect-${activeEffectPopupId}-color`, result.sRGBHex);
-                            } catch (e) {
-                              console.log(e);
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-[0.4vw] w-full">
-                      <span
-                        className="text-[0.8vw] font-medium text-gray-800 w-[3vw] flex-shrink-0 text-left whitespace-nowrap cursor-ew-resize select-none hover:text-[#E05638] transition-colors"
-                        onPointerDown={(e) => {
-                          const currentVal = pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35;
-                          handleScrub(e, currentVal, (val) => {
-                            const clamped = Math.max(0, Math.min(100, parseInt(val)));
-                            updateAttr(`data-effect-${activeEffectPopupId}-opacity`, clamped.toString());
-                          });
-                        }}
-                      >Opacity :</span>
-                      <div className="flex-grow flex items-center gap-[0.4vw] min-w-0">
-                        <div className="flex-1 flex items-center h-[1.5vw] rounded-full outline-none">
-                          <input
-                            type="range"
-                            min="0" max="100"
-                            value={pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35}
-                            onChange={(e) => updateAttr(`data-effect-${activeEffectPopupId}-opacity`, e.target.value)}
-                            className="w-full cursor-pointer custom-range-slider"
-                            style={{ backgroundImage: `linear-gradient(to right, #E05638 0%, #E05638 ${pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35}%, #E2E8F0 ${pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35}%, #E2E8F0 100%)` }}
-                          />
-                        </div>
-                        <span className="text-[0.75vw] font-semibold text-gray-800 min-w-[2vw] text-left whitespace-nowrap flex-shrink-0 select-none">
-                          {pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35}%
-                        </span>
-                      </div>
-                    </div>
+                  {/* Hex input box */}
+                  <div className={`flex-1 h-[2.1vw] rounded-[0.45vw] border bg-white flex items-center justify-between px-[0.75vw] transition-colors shadow-2xs ${activeColorPicker === `data-effect-${activeEffectPopupId}-color` ? 'border-gray-800' : 'border-gray-300 hover:border-gray-400'}`}>
+                    <input
+                      type="text"
+                      value={(pseudoProps[`data-effect-${activeEffectPopupId}-color`] || '#000000').toUpperCase()}
+                      onChange={(e) => updateAttr(`data-effect-${activeEffectPopupId}-color`, e.target.value)}
+                      className="text-[0.8vw] font-mono font-medium text-gray-800 outline-none bg-transparent flex-1 uppercase"
+                    />
+                    <Pipette
+                      size="0.85vw"
+                      className="text-gray-400 flex-shrink-0 cursor-pointer hover:text-gray-600 transition-colors ml-[0.3vw]"
+                      onClick={async () => {
+                        if (!window.EyeDropper) return;
+                        try {
+                          const eyeDropper = new window.EyeDropper();
+                          const result = await eyeDropper.open();
+                          updateAttr(`data-effect-${activeEffectPopupId}-color`, result.sRGBHex);
+                        } catch (e) {
+                          console.log(e);
+                        }
+                      }}
+                      title="Pick color from screen"
+                    />
                   </div>
                 </div>
 
-                <div className="space-y-[0.5vw]">
+                {/* Opacity row */}
+                <div className="flex items-center gap-[0.6vw] pt-[0.2vw]">
+                  <span
+                    className="text-[0.78vw] font-medium text-gray-700 w-[4.5vw] flex-shrink-0 select-none cursor-ew-resize hover:text-gray-900 transition-colors"
+                    onPointerDown={(e) => {
+                      const currentVal = pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35;
+                      handleScrub(e, currentVal, (val) => {
+                        const clamped = Math.max(0, Math.min(100, parseInt(val)));
+                        updateAttr(`data-effect-${activeEffectPopupId}-opacity`, clamped.toString());
+                      });
+                    }}
+                  >
+                    Opacity :
+                  </span>
+                  <div className="flex-1 flex items-center gap-[0.5vw]">
+                    <div className="flex-1 flex items-center h-[1.5vw] rounded-full outline-none">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35}
+                        onChange={(e) => updateAttr(`data-effect-${activeEffectPopupId}-opacity`, e.target.value)}
+                        className="w-full cursor-pointer custom-range-slider"
+                        style={{
+                          backgroundImage: `linear-gradient(to right, #E05638 0%, #E05638 ${pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35}%, #E2E8F0 ${pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35}%, #E2E8F0 100%)`
+                        }}
+                      />
+                    </div>
+                    <span className="text-[0.78vw] font-medium text-gray-700 min-w-[2.2vw] text-right select-none">
+                      {pseudoProps[`data-effect-${activeEffectPopupId}-opacity`] ?? 35}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Steppers */}
+                <div className="flex flex-col gap-[0.55vw] pt-[0.2vw]">
                   {[
-                    { id: 'x', label: 'X Axis :', default: 2 },
-                    { id: 'y', label: 'Y Axis :', default: 2 },
-                    { id: 'blur', label: 'Blur % :', default: 1, min: 0 },
-                    !(props.isText) ? { id: 'spread', label: 'Spread :', default: 0 } : null
+                    { id: 'x', label: 'X Axis', default: 2 },
+                    { id: 'y', label: 'Y Axis', default: 2 },
+                    { id: 'blur', label: 'Blur %', default: 1, min: 0 },
+                    !(props.isText) ? { id: 'spread', label: 'Spread', default: 0 } : null
                   ].filter(Boolean).map((row) => {
                     let currentVal = pseudoProps[`data-effect-${activeEffectPopupId}-${row.id}`] ?? row.default;
                     let displayVal = currentVal;
 
                     const updateVal = (val) => {
-                      let numVal = parseInt(val);
+                      let numVal = parseFloat(val);
                       if (isNaN(numVal)) numVal = 0;
                       if (row.min !== undefined) {
                         numVal = Math.max(row.min, numVal);
                       }
-                      updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, numVal.toString());
+                      const cleanVal = Math.round(numVal * 100) / 100;
+                      updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, cleanVal.toString());
                     };
 
                     return (
-                      <div key={row.id} className="flex items-center pt-[0.4vw]">
+                      <div key={row.id} className="flex items-center justify-between">
                         <span
-                          className="text-[0.8vw] font-medium text-gray-800 w-[5.5vw] cursor-ew-resize select-none hover:text-[#E05638] transition-colors"
+                          className="text-[0.78vw] font-medium text-gray-700 cursor-ew-resize select-none hover:text-gray-900 transition-colors"
                           onPointerDown={(e) => {
                             handleScrub(e, displayVal, updateVal);
                           }}
-                        >{row.label}</span>
-                        <div className="flex items-center justify-center gap-[0.8vw] flex-grow">
-                          <ChevronLeft
-                            size="1vw"
-                            className="text-gray-400 cursor-pointer hover:text-[#E05638] transition-colors"
-                            onClick={() => updateVal(parseInt(displayVal) - 1)}
-                          />
-                          <div
-                            className="w-[4.5vw] h-[2.2vw] border border-gray-100 rounded-[0.4vw] flex items-center justify-center bg-gray-50/50 shadow-sm hover:border-[#E05638]/40 transition-all cursor-ew-resize select-none"
-                            onPointerDown={(e) => {
-                              if (e.target.tagName === 'INPUT') return;
-                              handleScrubHelper(e, displayVal, updateVal);
+                        >
+                          {row.label} :
+                        </span>
+                        <div
+                          className="w-[7.5vw] h-[2.1vw] bg-white border border-gray-300 rounded-[0.45vw] flex items-center justify-between px-[0.4vw] shadow-2xs hover:border-gray-400 transition-colors cursor-ew-resize select-none relative"
+                          onPointerDown={(e) => {
+                            if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
+                            handleScrubHelper(e, displayVal, updateVal);
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const current = parseFloat(displayVal || 0);
+                              const next = Math.round((current - 1) * 100) / 100;
+                              updateVal(next);
                             }}
+                            className="text-gray-300 hover:text-gray-600 transition-colors cursor-pointer h-full flex items-center justify-center px-[0.2vw] z-10"
+                            title="Decrease"
                           >
-                            <input
-                              type="number"
-                              value={displayVal}
-                              onChange={(e) => updateVal(e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-full text-center text-[0.85vw] font-semibold text-gray-800 outline-none no-spin bg-transparent cursor-text"
-                            />
-                          </div>
-                          <ChevronRight
-                            size="1vw"
-                            className="text-gray-400 cursor-pointer hover:text-[#E05638] transition-colors"
-                            onClick={() => updateVal(parseInt(displayVal) + 1)}
+                            <ChevronLeft size="0.8vw" />
+                          </button>
+                          <EffectDecimalInput
+                            value={displayVal}
+                            min={row.min}
+                            onChange={(val) => updateVal(val)}
+                            className="w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent cursor-text z-10"
                           />
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const current = parseFloat(displayVal || 0);
+                              const next = Math.round((current + 1) * 100) / 100;
+                              updateVal(next);
+                            }}
+                            className="text-gray-300 hover:text-gray-600 transition-colors cursor-pointer h-full flex items-center justify-center px-[0.2vw] z-10"
+                            title="Increase"
+                          >
+                            <ChevronRight size="0.8vw" />
+                          </button>
                         </div>
-                        <div className="w-[0.5vw]"></div>
                       </div>
                     );
                   })}
@@ -522,78 +610,85 @@ const Effect = ({
             )}
 
             {activeEffectPopupId === 'blur' && (
-              <div className="space-y-[0.8vw] pt-[0.2vw]">
+              <div className="flex flex-col gap-[0.6vw]">
                 {[
-                  { id: 'value', label: 'Blur % :', default: 0.3, step: 0.1, displayMultiplier: 10 }
+                  { id: 'value', label: 'Blur %', default: 0.3, step: 0.1, displayMultiplier: 10 }
                 ].map((row) => {
                   const rawVal = parseFloat(pseudoProps[`data-effect-${activeEffectPopupId}-${row.id}`] ?? row.default);
                   const displayVal = row.displayMultiplier ? Math.round(rawVal * row.displayMultiplier) : rawVal;
 
                   return (
-                    <div key={row.id} className="flex items-center">
+                    <div key={row.id} className="flex items-center justify-between">
                       <span
-                        className="text-[0.8vw] font-medium text-gray-800 w-[5.5vw] cursor-ew-resize select-none hover:text-[#E05638] transition-colors"
+                        className="text-[0.78vw] font-medium text-gray-700 cursor-ew-resize select-none hover:text-gray-900 transition-colors"
                         onPointerDown={(e) => {
                           handleScrub(e, displayVal, (val) => {
                             const finalVal = row.displayMultiplier ? val / row.displayMultiplier : val;
                             updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, finalVal);
                           });
                         }}
-                      >{row.label}</span>
-                      <div className="flex items-center justify-center gap-[0.8vw] flex-grow">
-                        <ChevronLeft
-                          size="1vw"
-                          className="text-gray-400 cursor-pointer hover:text-[#E05638] transition-colors"
-                          onClick={() => {
+                      >
+                        {row.label} :
+                      </span>
+                      <div
+                        className="w-[7.5vw] h-[2.1vw] bg-white border border-gray-300 rounded-[0.45vw] flex items-center justify-between px-[0.4vw] shadow-2xs hover:border-gray-400 transition-colors cursor-ew-resize select-none relative"
+                        onPointerDown={(e) => {
+                          if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
+                          handleScrubHelper(e, displayVal, (val) => {
+                            const finalVal = row.displayMultiplier ? val / row.displayMultiplier : val;
+                            updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, finalVal);
+                          });
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
                             const val = parseFloat(pseudoProps[`data-effect-${activeEffectPopupId}-${row.id}`] ?? row.default);
                             const step = row.step || 1;
-                            const newVal = Math.max(0, val - step);
+                            const newVal = Math.max(0, Math.round((val - step) * 100) / 100);
                             updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, newVal.toFixed(1).replace(/\.0$/, ''));
                           }}
-                        />
-                        <div
-                          className="w-[4.5vw] h-[2.2vw] border border-gray-100 rounded-[0.4vw] flex items-center justify-center bg-gray-50/50 shadow-sm hover:border-[#E05638]/40 transition-all cursor-ew-resize select-none"
-                          onPointerDown={(e) => {
-                            if (e.target.tagName === 'INPUT') return;
-                            handleScrubHelper(e, displayVal, (val) => {
-                              const finalVal = row.displayMultiplier ? val / row.displayMultiplier : val;
-                              updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, finalVal);
-                            });
-                          }}
+                          className="text-gray-300 hover:text-gray-600 transition-colors cursor-pointer h-full flex items-center justify-center px-[0.2vw] z-10"
+                          title="Decrease"
                         >
-                          <input
-                            type="number"
-                            step={row.displayMultiplier ? 1 : (row.step || 1)}
-                            value={displayVal}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              if (isNaN(val)) return;
-                              const finalVal = row.displayMultiplier ? val / row.displayMultiplier : val;
-                              updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, finalVal);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-full text-center text-[0.85vw] font-semibold text-gray-800 outline-none no-spin bg-transparent cursor-text"
-                          />
-                        </div>
-                        <ChevronRight
-                          size="1vw"
-                          className="text-gray-400 cursor-pointer hover:text-[#E05638] transition-colors"
-                          onClick={() => {
+                          <ChevronLeft size="0.8vw" />
+                        </button>
+                        <EffectDecimalInput
+                          value={displayVal}
+                          min={0}
+                          onChange={(val) => {
+                            const num = parseFloat(val);
+                            if (isNaN(num)) return;
+                            const finalVal = row.displayMultiplier ? num / row.displayMultiplier : num;
+                            updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, finalVal);
+                          }}
+                          className="w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent cursor-text z-10"
+                        />
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
                             const val = parseFloat(pseudoProps[`data-effect-${activeEffectPopupId}-${row.id}`] ?? row.default);
                             const step = row.step || 1;
-                            const newVal = val + step;
+                            const newVal = Math.round((val + step) * 100) / 100;
                             updateAttr(`data-effect-${activeEffectPopupId}-${row.id}`, newVal.toFixed(1).replace(/\.0$/, ''));
                           }}
-                        />
+                          className="text-gray-300 hover:text-gray-600 transition-colors cursor-pointer h-full flex items-center justify-center px-[0.2vw] z-10"
+                          title="Increase"
+                        >
+                          <ChevronRight size="0.8vw" />
+                        </button>
                       </div>
-                      <div className="w-[0.5vw]"></div>
                     </div>
-                  )
+                  );
                 })}
 
-                <div className="h-px bg-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ml-[-1.2vw] mr-[-1.2vw] mt-[2vw] mb-[0.5vw]"></div>
-                <div className={`flex items-center justify-between pt-[0.4vw] transition-opacity ${parseFloat(pseudoProps['data-effect-blur-value'] || 0) === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <span className="text-[0.8vw] font-medium text-gray-800">Clip Content</span>
+                <div className="h-px bg-gray-200 my-[0.4vw]"></div>
+                <div className={`flex items-center justify-between transition-opacity ${parseFloat(pseudoProps['data-effect-blur-value'] || 0) === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <span className="text-[0.78vw] font-medium text-gray-700">Clip Content</span>
                   <ElementToggle
                     checked={pseudoProps['data-effect-blur-clip'] === 'true'}
                     disabled={parseFloat(pseudoProps['data-effect-blur-value'] || 0) === 0}

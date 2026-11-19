@@ -41,7 +41,10 @@ export const useCanvasDOMOverlays = ({ activePageIndex = 0 }) => {
       els.forEach(el => {
         if (el.id) {
           if (el.hasAttribute('data-scrollbar-color')) {
-            cssRules += `[id="${el.id}"] .flipbook-text-scrollbar::-webkit-scrollbar-thumb { background-color: ${el.getAttribute('data-scrollbar-color')} !important; border-radius: 20px !important; border: 3px solid transparent !important; background-clip: padding-box !important; }\n`;
+            const sbc = el.getAttribute('data-scrollbar-color');
+            // Standard property (wins in modern Chrome/Firefox) + WebKit fallback
+            cssRules += `[id="${el.id}"] .flipbook-text-scrollbar, [id="${el.id}"] > div.flipbook-text-scrollbar { scrollbar-color: ${sbc} transparent !important; scrollbar-width: thin !important; }\n`;
+            cssRules += `[id="${el.id}"] .flipbook-text-scrollbar::-webkit-scrollbar-thumb { background-color: ${sbc} !important; border-radius: 20px !important; border: 3px solid transparent !important; background-clip: padding-box !important; }\n`;
           }
           if (el.hasAttribute('data-bg-fill')) {
             const bgFill = el.getAttribute('data-bg-fill');

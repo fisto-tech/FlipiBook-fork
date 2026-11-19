@@ -2,8 +2,8 @@ import React, { useRef, useState, useEffect, memo } from 'react';
 import axios from 'axios';
 import { BookOpen } from 'lucide-react';
 import { flipbookApi } from '../../api/flipbookApi';
-import { resolveUploadsPath, getAssetBaseUrl } from '../../utils/assetUtils';
-import { sanitizeSvgXml } from '../../utils/editorUtils';
+import { resolveUploadsPath, getAssetBaseUrl } from '../../utils/assets/assetUtils';
+import { sanitizeSvgXml } from '../../utils/pageEditor/editorUtils';
 import { TemplatePreview, COVER_TEMPLATES } from '../FlipbookInfoModal';
 
 // Global font cache across all preview cards to prevent duplicate Google Fonts requests

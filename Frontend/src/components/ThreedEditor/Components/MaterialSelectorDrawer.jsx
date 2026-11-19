@@ -2,7 +2,7 @@ import React, { useRef, useState, useMemo, useEffect, useCallback } from "react"
 import { Icon } from "@iconify/react";
 import axios from "axios";
 import { textureData, fetchMaterials } from "../../../data/textureData";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 import AddMaterial from "./AddMaterial";
 import AlertModal from "../../../components/AlertModal";
 import { useAuth } from "../../../context/AuthContext";

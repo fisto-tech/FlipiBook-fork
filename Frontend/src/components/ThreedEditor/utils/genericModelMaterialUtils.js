@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 
 // Global cache and shared loader to prevent redundant network requests and decoding
 // We use a private LoadingManager to avoid triggering the global useProgress spinner

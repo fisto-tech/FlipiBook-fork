@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
-import { sanitizeSvgXml } from '../../../utils/editorUtils';
-import { getAssetBaseUrl, resolveUploadsPath } from '../../../utils/assetUtils';
+import { sanitizeSvgXml } from '../../../utils/pageEditor/editorUtils';
+import { getAssetBaseUrl, resolveUploadsPath } from '../../../utils/assets/assetUtils';
 
 const BACKEND_URL = (import.meta.env?.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
 

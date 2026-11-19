@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Icon } from '@iconify/react';
 import ReplaceMediaModal from '../../PageEditor/modals/ReplaceMediaModal';
 import { useAuth } from '../../../context/AuthContext';
-import { getInitialUser } from '../../../utils/authUtils';
+import { getInitialUser } from '../../../utils/auth/authUtils';
 import { useToast } from '../../CustomToast';
 
 import {

@@ -5,8 +5,8 @@ import ProfileModal from '../Settings/ProfileModal';
 import NotificationDrawer from '../Notification/NotificationDrawer';
 import { Bell, ArrowRight, ChevronDown, Menu, X, Monitor, Laptop } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { verifyToken, getInitialUser } from '../../utils/authUtils';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { verifyToken, getInitialUser } from '../../utils/auth/authUtils';
+import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 
 const FlipibookLogo = '/Login/logo.svg';
 
@@ -28,11 +28,12 @@ const DEFAULT_NAV_LINKS = [
 const MY_FLIPBOOKS_NAV_LINKS = [
   { name: 'My Flipibooks', path: '/my-flipbooks' },
   { name: 'Analytics', path: '/analytics' },
+  { name: 'Lead Form', path: '/lead-form' },
   { name: 'Templates', path: '/templates' },
   { name: 'Guide', path: '/guide' },
 ];
 
-const PROTECTED_NAV_ITEMS = new Set(['/my-flipbooks', '/analytics', '/overview']);
+const PROTECTED_NAV_ITEMS = new Set(['/my-flipbooks', '/analytics', '/overview', '/lead-form']);
 
 const getAvatarColor = (identifier, customColor) => {
   if (customColor && customColor !== '#E8D4C8' && customColor !== '#ffffff' && customColor !== 'transparent') {
@@ -49,9 +50,10 @@ const getAvatarColor = (identifier, customColor) => {
 const checkIsLinkActive = (link, currentPath) => {
   return currentPath === link.path || 
          (link.name === 'Home' && currentPath === '/') ||
-         (link.name === 'Analytics' && (currentPath === '/analytics' || currentPath === '/overview')) ||
-         (link.name === 'Overview' && currentPath === '/overview') ||
-         (link.name === 'Over View' && currentPath === '/overview') ||
+         (link.name === 'Analytics' && (currentPath.startsWith('/analytics') || currentPath.startsWith('/overview'))) ||
+         (link.name === 'Lead Form' && currentPath.startsWith('/lead-form')) ||
+         (link.name === 'Overview' && currentPath.startsWith('/overview')) ||
+         (link.name === 'Over View' && currentPath.startsWith('/overview')) ||
          (link.name === 'My Flipibooks' && currentPath.startsWith('/my-flipbooks')) ||
          (link.path === '/contact' && currentPath === '/contact-us') ||
          (link.path === '/help' && (currentPath === '/help' || currentPath === '/contact'));
@@ -61,7 +63,7 @@ export default function HomeNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const isMyFlipbooksPage = currentPath.startsWith('/my-flipbooks') || currentPath.startsWith('/templates') || currentPath.startsWith('/settings') || currentPath.startsWith('/analytics') || currentPath.startsWith('/overview') || currentPath.startsWith('/guide');
+  const isMyFlipbooksPage = currentPath.startsWith('/my-flipbooks') || currentPath.startsWith('/templates') || currentPath.startsWith('/settings') || currentPath.startsWith('/analytics') || currentPath.startsWith('/overview') || currentPath.startsWith('/guide') || currentPath.startsWith('/lead-form');
   
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);

@@ -1,4 +1,4 @@
-import { flipbookApi } from '../api/flipbookApi';
+import { flipbookApi } from '../../api/flipbookApi';
 
 /**
  * BackgroundSyncManager

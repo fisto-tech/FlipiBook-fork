@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
-import { Switch } from '../components';
-import { useToast } from '../../CustomToast';
-import { useAuth } from '../../../context/AuthContext';
+import { Switch } from '../../components';
+import { useToast } from '../../../CustomToast';
+import { useAuth } from '../../../../context/AuthContext';
 
 const VISIBILITY_OPTIONS = [
   {
@@ -840,9 +840,9 @@ const Visibility = ({ onBack, settings, onUpdate, bookName, v_id, folder }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f8f9fa] text-[0.8vw]">
+    <div className="flex flex-col h-full bg-transparent text-[0.8vw]">
       {/* Header */}
-      <div className="h-[8vh] flex items-center justify-between px-[1.25vw] bg-white border-b border-gray-100">
+      <div className="h-[8vh] flex items-center justify-between px-[1.25vw] bg-transparent border-b border-gray-100">
         <div className="flex items-center gap-[0.75vw]">
           <Icon
             icon="si:lock-line"

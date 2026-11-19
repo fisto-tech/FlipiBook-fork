@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import { covers } from '../constants';
 import CustomScrollbar from '../../../CustomScrollbar';
 import { LazyPreview } from '../../LazyPreview';
-import { getAssetBaseUrl } from '../../../../utils/assetUtils';
+import { getAssetBaseUrl } from '../../../../utils/assets/assetUtils';
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
 
