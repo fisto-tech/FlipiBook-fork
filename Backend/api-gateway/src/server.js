@@ -270,6 +270,53 @@ app.use('/uploads', express.static(storageRoot, staticConfig));
 const templateAssetsRoot = path.resolve(__dirname, '../../services/page-editor-service/src/assets');
 app.use('/assets', express.static(templateAssetsRoot, staticConfig));
 
+// Dynamic Template Books API
+app.get('/api/templates/books', async (req, res) => {
+  try {
+    const templatesDir = path.join(templateAssetsRoot, 'Templates');
+    if (!fs.existsSync(templatesDir)) {
+      return res.json({ success: true, books: [] });
+    }
+
+    const entries = await fs.promises.readdir(templatesDir, { withFileTypes: true });
+    const bookFolders = entries.filter(e => e.isDirectory());
+
+    const books = await Promise.all(
+      bookFolders.map(async (folder) => {
+        const folderPath = path.join(templatesDir, folder.name);
+        const files = await fs.promises.readdir(folderPath);
+        const svgFiles = files
+          .filter(f => f.toLowerCase().endsWith('.svg'))
+          .sort((a, b) => {
+            const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
+            return numA - numB;
+          });
+
+        const id = folder.name.toLowerCase();
+        const pages = svgFiles.map(f => `/assets/Templates/${folder.name}/${f}`);
+        const thumbnail = pages.length > 0 ? pages[0] : '';
+
+        return {
+          id,
+          folder: folder.name,
+          title: folder.name === 'Interior_Book' ? 'Corporate Modern' : folder.name === 'Mobile_Book' ? 'Mobile App & Tech Showcase' : folder.name.replace(/_/g, ' '),
+          category: folder.name === 'Interior_Book' ? 'Industrial' : 'Product Catalog',
+          pagesCount: svgFiles.length,
+          thumbnail,
+          pages,
+          isMultiPageBook: svgFiles.length > 1
+        };
+      })
+    );
+
+    res.json({ success: true, books });
+  } catch (error) {
+    console.error('Error fetching template books:', error);
+    res.status(500).json({ success: false, message: 'Failed to read template books', error: error.message });
+  }
+});
+
 app.use(['/storage', '/uploads'], (req, res) => {
   res.status(404).json({ success: false, message: `Asset not found: ${req.path}` });
 });

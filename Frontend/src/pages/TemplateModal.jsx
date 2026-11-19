@@ -203,9 +203,9 @@ export default function TemplateModal({
 
   if (!isOpen || !template) return null;
 
-  return (
+  const modalContent = (
     <div
-      className="absolute inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-[2vw] select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100000] w-screen h-screen bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-[2vw] select-none animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -604,4 +604,6 @@ export default function TemplateModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

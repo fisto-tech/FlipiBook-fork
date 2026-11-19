@@ -2,30 +2,32 @@ import React, { useState } from 'react';
 import { getPopupTemplateUrl } from '../utils/templateAssets';
 
 export const TEMPLATES = [
-  { id: 'template1', image: getPopupTemplateUrl(1), category: 'Image Based' },
-  { id: 'template2', image: getPopupTemplateUrl(2), category: 'Image Based' },
-  { id: 'template3', image: getPopupTemplateUrl(3), category: 'Image Based' },
-  { id: 'template4', image: getPopupTemplateUrl(4), category: 'Image Based' },
-  { id: 'template5', image: getPopupTemplateUrl(5), category: 'Image Based' },
-  { id: 'template6', image: getPopupTemplateUrl(6), category: 'Image Based' },
-  { id: 'template7', image: getPopupTemplateUrl(7), category: 'Image Based' },
-  { id: 'template8', image: getPopupTemplateUrl(8), category: 'Image Based' },
-  { id: 'template9', image: getPopupTemplateUrl(9), category: 'Image Based' }
+  { id: 'template1', name: 'Template 1', image: getPopupTemplateUrl(1), category: 'Image Based' },
+  { id: 'template2', name: 'Template 2', image: getPopupTemplateUrl(2), category: 'Image Based' },
+  { id: 'template3', name: 'Template 3', image: getPopupTemplateUrl(3), category: 'Image Based' }
 ];
 
 const CATEGORIES = [
+  "All",
   "Image Based",
   "Video Focused",
   "Image & Text",
   "Tables",
-  "Animated Popups",
-  "Image & Text "
+  "Animated Popups"
 ];
 
 const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, selectedTemplateId }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('Image Based');
+  const [activeCategory, setActiveCategory] = useState('All');
   const [localSelectedId, setLocalSelectedId] = useState(selectedTemplateId || null);
+
+  const filteredTemplates = TEMPLATES.filter((tpl) => {
+    const matchesCategory = activeCategory === 'All' || tpl.category === activeCategory;
+    const matchesSearch = !searchQuery.trim() || 
+      (tpl.name && tpl.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      tpl.id.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   React.useEffect(() => {
     if (isOpen) {
@@ -75,13 +77,13 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
                 placeholder="Search.."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-[16vw] h-[2vw] pl-[2.2vw] pr-[1vw] rounded-[0.4vw] border border-gray-300 outline-none text-[0.8vw] font-medium text-gray-700 placeholder-gray-400 shadow-2xs focus:border-[#4D47FF] transition-colors"
+                className="w-[16vw] h-[2vw] pl-[2.2vw] pr-[1vw] rounded-[0.4vw] border border-gray-300 outline-none text-[0.8vw] font-medium text-gray-700 placeholder-gray-400 shadow-2xs focus:border-[#ea543a] transition-colors"
               />
             </div>
 
             {/* Filter Button */}
-            <button className="flex items-center justify-center gap-[0.4vw] h-[2vw] px-[1vw] rounded-[0.4vw] border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-[0.8vw] font-medium shadow-2xs hover:border-gray-400 transition-colors cursor-pointer">
-              <svg width="0.85vw" height="0.85vw" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <button className="flex items-center justify-center gap-[0.4vw] h-[2vw] px-[1vw] rounded-[0.4vw] border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 hover:text-[#ea543a] text-[0.8vw] font-medium shadow-2xs hover:border-[#ea543a]/40 transition-colors cursor-pointer">
+              <svg width="0.85vw" height="0.85vw" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#ea543a]">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
               </svg>
               Filter
@@ -109,7 +111,7 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
               key={i}
               onClick={() => setActiveCategory(cat.trim())}
               className={`px-[0.9vw] h-[1.8vw] rounded-[0.4vw] text-[0.8vw] font-medium transition-colors border shadow-2xs whitespace-nowrap cursor-pointer ${activeCategory === cat.trim()
-                  ? 'text-[#4D47FF] bg-gray-50 border-gray-300 font-semibold'
+                  ? 'text-[#ea543a] bg-[#FFF5F3] border-[#ea543a] font-semibold'
                   : 'text-gray-700 bg-white hover:bg-gray-50 border-gray-300 hover:border-gray-400'
                 }`}
             >
@@ -120,32 +122,38 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
 
         {/* Templates Grid */}
         <div className="flex-1 min-h-0 overflow-y-auto px-[2vw] pt-[0.5vh] pb-[2vh] popup-template-scrollbar">
-          <div className="grid grid-cols-3 gap-[1.2vw] pb-[2vh]">
-            {TEMPLATES.map((tpl) => (
-              <div
-                key={tpl.id}
-                onClick={() => {
-                  setLocalSelectedId(tpl.id);
-                }}
-                className={`relative cursor-pointer group transition-all duration-200 rounded-[0.55vw] overflow-hidden ${localSelectedId === tpl.id
-                    ? 'bg-white p-[0.3vw] shadow-md border-2 border-[#4D47FF] ring-2 ring-[#4D47FF]/15'
-                    : 'bg-white p-[0.3vw] border border-gray-200 shadow-2xs hover:border-gray-300 hover:shadow-sm'
-                  }`}
-              >
-                <div className="relative w-full h-full bg-[#F9FAFB] rounded-[0.4vw] overflow-hidden flex items-center justify-center">
-                  <img
-                    src={tpl.image}
-                    alt={`Template ${tpl.id}`}
-                    className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-[1.01]"
-                  />
-                  {/* Inner Shadow Overlay for Selected State */}
-                  {localSelectedId === tpl.id && (
-                    <div className="absolute inset-0 shadow-[inset_0_4px_20px_rgba(0,0,0,0.15)] pointer-events-none rounded-[0.4vw]"></div>
-                  )}
+          {filteredTemplates.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 py-[4vh]">
+              <p className="text-[0.9vw]">No templates found</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-[1.2vw] pb-[2vh]">
+              {filteredTemplates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  onClick={() => {
+                    setLocalSelectedId(tpl.id);
+                  }}
+                  className={`relative cursor-pointer group transition-all duration-200 rounded-[0.55vw] overflow-hidden ${localSelectedId === tpl.id
+                      ? 'bg-white p-[0.3vw] shadow-md border-2 border-[#ea543a] ring-2 ring-[#ea543a]/15'
+                      : 'bg-white p-[0.3vw] border border-gray-200 shadow-2xs hover:border-gray-300 hover:shadow-sm'
+                    }`}
+                >
+                  <div className="relative w-full aspect-[16/9] bg-[#F9FAFB] rounded-[0.4vw] overflow-hidden flex items-center justify-center">
+                    <img
+                      src={tpl.image}
+                      alt={tpl.name || `Template ${tpl.id}`}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    />
+                    {/* Inner Shadow Overlay for Selected State */}
+                    {localSelectedId === tpl.id && (
+                      <div className="absolute inset-0 shadow-[inset_0_4px_20px_rgba(0,0,0,0.15)] pointer-events-none rounded-[0.4vw]"></div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons Overlay / Footer */}
@@ -166,7 +174,7 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
               Cancel
             </button>
             <button
-              className="h-[2vw] px-[1.2vw] flex items-center gap-[0.35vw] rounded-[0.4vw] bg-white border border-[#4D47FF] text-[#4D47FF] font-medium text-[0.8vw] hover:bg-[#4D47FF]/5 shadow-2xs transition-all cursor-pointer"
+              className="h-[2vw] px-[1.2vw] flex items-center gap-[0.35vw] rounded-[0.4vw] bg-white border border-[#ea543a] text-[#ea543a] font-medium text-[0.8vw] hover:bg-[#ea543a]/5 shadow-2xs transition-all cursor-pointer"
               onClick={async () => {
                 if (localSelectedId !== selectedTemplateId) {
                   if (onSelect) await onSelect(localSelectedId);
@@ -181,7 +189,7 @@ const PopupTemplateSelection = ({ isOpen, onClose, onSelect, onCustomize, select
               {localSelectedId === selectedTemplateId ? 'Customize the Popup' : 'Apply & Customize'}
             </button>
             <button
-              className="h-[2vw] px-[1.2vw] flex items-center gap-[0.35vw] rounded-[0.4vw] bg-[#4D47FF] text-white font-medium text-[0.8vw] hover:bg-[#3d36e0] shadow-2xs transition-all cursor-pointer"
+              className="h-[2vw] px-[1.2vw] flex items-center gap-[0.35vw] rounded-[0.4vw] bg-[#ea543a] text-white font-medium text-[0.8vw] hover:bg-[#d9482f] shadow-2xs transition-all cursor-pointer"
               onClick={() => {
                 if (onSelect) onSelect(localSelectedId);
                 if (onClose) onClose();
