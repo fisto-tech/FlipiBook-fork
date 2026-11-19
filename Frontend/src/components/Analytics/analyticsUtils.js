@@ -84,4 +84,109 @@ export const getPaginationPages = (currentPage, totalPages) => {
   return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
 };
 
+/**
+ * Generate a dynamic day-by-day timeline array based on selected Date Preset or Custom Range
+ */
+export const buildDynamicTimeline = (preset = '7 Days', customRange = {}, rawDailyData = [], durationSeconds = 0) => {
+  const map = new Map();
+  (rawDailyData || []).forEach(d => {
+    if (d && d._id) map.set(d._id, d);
+  });
+
+  const now = new Date();
+  let startDate = new Date();
+  let endDate = new Date();
+
+  const normPreset = (preset || '7 Days').toLowerCase().trim();
+
+  if (normPreset === 'today') {
+    startDate = new Date(now);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (normPreset === 'yesterday') {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 1);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(startDate);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (normPreset === '7 days' || normPreset === '7d') {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 6);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (normPreset === '30 days' || normPreset === '30d') {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 29);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (normPreset === 'custom' && customRange?.startDate && customRange?.endDate) {
+    startDate = new Date(customRange.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(customRange.endDate);
+    endDate.setHours(23, 59, 59, 999);
+  } else {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 6);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+  }
+
+  const result = [];
+  const cur = new Date(startDate);
+  while (cur <= endDate) {
+    const yyyy = cur.getFullYear();
+    const mm = String(cur.getMonth() + 1).padStart(2, '0');
+    const dd = String(cur.getDate()).padStart(2, '0');
+    const key = `${yyyy}-${mm}-${dd}`;
+
+    const found = map.get(key);
+    const views = found ? (Number(found.views) || Number(found.count) || 0) : 0;
+    const readers = found ? (found.readers || Math.max(0, Math.round(views * 0.8))) : 0;
+    const durSec = found ? (found.avgDuration || durationSeconds || 0) : (durationSeconds || 0);
+
+    result.push({
+      dateKey: key,
+      date: key,
+      dt: new Date(cur),
+      formattedShort: formatShortDate(cur),
+      formattedFull: formatFullDate(cur),
+      views,
+      readers,
+      totalDuration: formatDuration(views * durSec),
+      avgDuration: formatDuration(durSec),
+      rawItem: found || null
+    });
+
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  return result;
+};
+
+/**
+ * Downsample timeline points so the bottom X-axis displays at most 7 evenly-spaced tick labels
+ */
+export const getSampledXLabels = (points = [], maxLabels = 7) => {
+  if (!points || points.length === 0) return [];
+  if (points.length <= maxLabels) return points;
+
+  const step = (points.length - 1) / (maxLabels - 1);
+  const seenIndices = new Set();
+  const labels = [];
+
+  for (let i = 0; i < maxLabels; i++) {
+    const idx = Math.min(points.length - 1, Math.round(i * step));
+    if (!seenIndices.has(idx)) {
+      seenIndices.add(idx);
+      labels.push(points[idx]);
+    }
+  }
+
+  return labels;
+};
+
 

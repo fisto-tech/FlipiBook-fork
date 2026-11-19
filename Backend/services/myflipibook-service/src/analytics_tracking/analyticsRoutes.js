@@ -6,6 +6,7 @@ const {
   recordSessionEnd,
   recordPageFlip,
   recordDownload,
+  recordShare,
   getFlipbookAnalytics,
   getUserAnalytics
 } = require("./analyticsController");
@@ -20,6 +21,9 @@ router.post("/session-start", recordSessionStart);
 
 // When flipbook is downloaded
 router.post("/record-download", recordDownload);
+
+// When flipbook is shared / link copied
+router.post("/record-share", recordShare);
 
 // Periodic heartbeat every 15-30s while viewer is active
 router.post("/heartbeat", recordHeartbeat);

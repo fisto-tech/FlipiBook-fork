@@ -1483,6 +1483,10 @@ const submitLead = async (req, res) => {
     const effectiveUserEmail = flipbook?.userEmail || userEmail || '';
     const detectedViewerIp = getClientIp(req);
 
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
     const newLead = await Lead.create({
       userId: (ownerUserId && mongoose.Types.ObjectId.isValid(ownerUserId)) ? ownerUserId : undefined,
       userID: flipbook?.userID || null,
@@ -1492,7 +1496,20 @@ const submitLead = async (req, res) => {
       flipbookName: effectiveBookName,
       leadData,
       viewerIp: detectedViewerIp,
-      submittedAt: new Date()
+      submittedAt: now,
+      status: 'New',
+      timeline: [
+        {
+          title: 'Form Submitted',
+          subtitle: `${dateFormatted} ${timeFormatted}`,
+          timestamp: now
+        },
+        {
+          title: 'Lead Created',
+          subtitle: `${dateFormatted} ${timeFormatted}`,
+          timestamp: now
+        }
+      ]
     });
 
     if (flipbook) {
@@ -1696,6 +1713,139 @@ const deleteLead = async (req, res) => {
   } catch (err) {
     console.error('[Customized Editor] Error deleting lead:', err);
     return res.status(500).json({ success: false, message: 'Failed to delete lead', error: err.message });
+  }
+};
+
+/**
+ * PATCH /leads/:leadId/status
+ * Update lead status ('New', 'Contacted', 'Qualified', 'Converted', 'Lost')
+ */
+const updateLeadStatus = async (req, res) => {
+  try {
+    const userQuery = getUserQuery(req);
+    const leadId = req.params?.leadId || req.body?.leadId;
+    const { status } = req.body;
+
+    const validStatuses = ['New', 'Contacted', 'Qualified', 'Converted', 'Lost'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    if (!leadId) {
+      return res.status(400).json({ success: false, message: 'Missing leadId' });
+    }
+
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    // Check existing timeline
+    const leadQuery = mongoose.Types.ObjectId.isValid(leadId)
+      ? { $or: [{ leadId }, { _id: leadId }] }
+      : { leadId };
+
+    const existingLead = await Lead.findOne({ ...userQuery, ...leadQuery });
+    if (!existingLead) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    let initialTimeline = [];
+    if (!Array.isArray(existingLead.timeline) || existingLead.timeline.length === 0) {
+      const createdDate = existingLead.submittedAt || existingLead.createdAt || now;
+      const cTime = new Date(createdDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const cDate = new Date(createdDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+      initialTimeline = [
+        {
+          title: 'Form Submitted',
+          subtitle: `${cDate} ${cTime}`,
+          timestamp: createdDate
+        },
+        {
+          title: 'Lead Created',
+          subtitle: `${cDate} ${cTime}`,
+          timestamp: createdDate
+        }
+      ];
+    }
+
+    const newTimelineItem = {
+      title: 'Status Updated',
+      subtitle: `${status} • ${dateFormatted} ${timeFormatted}`,
+      timestamp: now
+    };
+
+    const finalTimeline = [...(existingLead.timeline && existingLead.timeline.length > 0 ? existingLead.timeline : initialTimeline), newTimelineItem];
+
+    const updated = await Lead.findOneAndUpdate(
+      { ...userQuery, ...leadQuery },
+      {
+        $set: {
+          status,
+          timeline: finalTimeline
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lead status updated successfully',
+      lead: updated
+    });
+  } catch (err) {
+    console.error('[Customized Editor] Error updating lead status:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update lead status', error: err.message });
+  }
+};
+
+/**
+ * POST /leads/:leadId/notes
+ * Add internal note to a lead
+ */
+const addLeadNote = async (req, res) => {
+  try {
+    const userQuery = getUserQuery(req);
+    const leadId = req.params?.leadId;
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Note text required' });
+    }
+
+    const leadQuery = mongoose.Types.ObjectId.isValid(leadId)
+      ? { $or: [{ leadId }, { _id: leadId }] }
+      : { leadId };
+
+    const updated = await Lead.findOneAndUpdate(
+      { ...userQuery, ...leadQuery },
+      {
+        $push: {
+          internalNotes: {
+            noteId: crypto.randomBytes(4).toString('hex'),
+            text: text.trim(),
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Note added successfully',
+      lead: updated
+    });
+  } catch (err) {
+    console.error('[Customized Editor] Error adding lead note:', err);
+    return res.status(500).json({ success: false, message: 'Failed to add note', error: err.message });
   }
 };
 
@@ -2672,6 +2822,8 @@ module.exports = {
   copyThemeAsset,
   submitLead,
   getLeads,
+  updateLeadStatus,
+  addLeadNote,
   deleteLead,
   verifyCredential,
   sendVisibilityOtp,

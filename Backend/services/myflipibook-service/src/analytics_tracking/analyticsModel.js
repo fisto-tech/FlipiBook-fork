@@ -155,8 +155,32 @@ const FlipbookDownloadEvent = mongoose.models.FlipbookDownloadEvent || mongoose.
   downloadEventSchema
 );
 
+// Flipbook Share Event schema for granular share tracking
+const shareEventSchema = new mongoose.Schema(
+  {
+    v_id: { type: String, required: true, index: true },
+    shareId: { type: String, default: "", index: true },
+    userEmail: { type: String, default: "", index: true },
+    flipbookName: { type: String, default: "" },
+    platform: { type: String, default: "copy-link" }, // copy-link, whatsapp, facebook, x, linkedin, native, etc.
+    location: { type: locationSchema, default: () => ({}) },
+    device: { type: deviceSchema, default: () => ({}) },
+    sharedAt: { type: Date, default: Date.now, index: true }
+  },
+  { timestamps: true }
+);
+
+shareEventSchema.index({ v_id: 1, sharedAt: -1 });
+shareEventSchema.index({ userEmail: 1, sharedAt: -1 });
+
+const FlipbookShareEvent = mongoose.models.FlipbookShareEvent || mongoose.model(
+  "FlipbookShareEvent",
+  shareEventSchema
+);
+
 module.exports = {
   FlipbookSessionAnalytics,
-  FlipbookDownloadEvent
+  FlipbookDownloadEvent,
+  FlipbookShareEvent
 };
 

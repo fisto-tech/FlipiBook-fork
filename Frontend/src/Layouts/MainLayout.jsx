@@ -6,7 +6,11 @@ import { ChatBotButton, ChatBotDrawer } from '../components/ChatBot';
 export default function MainLayout({ children }) {
   const location = useLocation();
   const mainRef = useRef(null);
-  const isDashboard = location.pathname.startsWith('/my-flipbooks') || location.pathname.startsWith('/guide');
+  const isDashboard = location.pathname.startsWith('/my-flipbooks') || 
+    location.pathname.startsWith('/guide') || 
+    location.pathname.startsWith('/lead-form') ||
+    location.pathname.startsWith('/analytics') ||
+    location.pathname.startsWith('/overview');
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Feature flag: set to true whenever you are ready to enable the chatbot
