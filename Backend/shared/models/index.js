@@ -11,6 +11,7 @@ module.exports = {
   ForumPost: require('./ForumPost'),
   InteractionThreedModel: require('./InteractionThreedModel'),
   ThreedModel: require('./ThreedModel'),
+  RefreshToken: require('./RefreshToken'),
   Lead: require('./Lead')
 };
 

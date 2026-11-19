@@ -27,9 +27,11 @@ export const sanitizeHtmlForPreview = (rawHtml) => {
 
             const currentStyle = iframe.getAttribute('style') || '';
             if (isMap) {
-                // Keep map iframe non-interactive so scroll/drag flips book pages without triggering "Use ctrl + scroll to zoom the map" overlay
+                // Map must be interactive here: on pages that also hold a slideshow/link/video, this live
+                // document is the overlay ABOVE the Turn.js page, so it is the only map the reader can reach.
+                // (Page turning still works: the overlay forwards corner-zone drags to the book.)
                 const cleanedStyle = currentStyle.replace(/pointer-events\s*:\s*(?:auto|none)\s*(?:!important)?\s*;?/gi, '');
-                iframe.setAttribute('style', cleanedStyle + (cleanedStyle.endsWith(';') || !cleanedStyle ? '' : ';') + ' pointer-events: none !important;');
+                iframe.setAttribute('style', cleanedStyle + (cleanedStyle.endsWith(';') || !cleanedStyle ? '' : ';') + ' pointer-events: auto !important;');
             } else if (currentStyle) {
                 const cleanedStyle = currentStyle.replace(/pointer-events\s*:\s*none\s*(?:!important)?\s*;?/gi, '');
                 iframe.setAttribute('style', cleanedStyle + (cleanedStyle.endsWith(';') || !cleanedStyle ? '' : ';') + ' pointer-events: auto !important;');

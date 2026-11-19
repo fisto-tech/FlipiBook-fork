@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
 import BannerImage from '../assets/pricing/Banner-image.png';
 import { Icon } from '@iconify/react';
@@ -2274,49 +2275,81 @@ const Pricing = () => {
       {/* ------------------------------------------------------------- */}
       {/* 4. FREQUENTLY ASKED QUESTIONS SECTION */}
       {/* ------------------------------------------------------------- */}
-      <section className="py-[3.5vw] px-[4vw] bg-[#f8f9fa] border-t border-b border-gray-200 w-full">
-        <div className="max-w-[75vw] mx-auto">
+      <section className="py-14 lg:py-[4.5vw] px-4 sm:px-6 lg:px-[4vw] bg-[#f8f9fa] border-t border-b border-gray-200/80 w-full font-poppins">
+        <div className="max-w-6xl lg:max-w-[76vw] mx-auto">
           {/* FAQ Title Header */}
-          <div className="text-center mb-[2vw]">
-            <h2 className="text-[1.5vw] font-bold text-gray-800 tracking-tight leading-tight">
+          <div className="text-center mb-8 lg:mb-[2.5vw]">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ec5137]/10 text-[#ec5137] text-xs font-semibold uppercase tracking-wider mb-2.5">
+              Common Questions
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-[2.2vw] font-bold text-gray-900 tracking-tight leading-tight">
               Frequently Asked <span className="text-[#ec5137]">Questions</span>
             </h2>
-            <p className="text-gray-500 mt-[0.25vw] text-[0.78vw] font-normal">
+            <p className="text-gray-600 mt-2 text-xs sm:text-sm lg:text-[0.9vw] font-normal max-w-xl mx-auto leading-relaxed">
               Everything you need to know about our billing, features, and plan access.
             </p>
           </div>
 
-          {/* 2-Column FAQ Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[1vw]">
-            {faqItems.map((item, idx) => {
-              const isOpen = openFaqIndex === idx;
+          {/* 2-Column FAQ Layout with independent column stacks (no awkward stretching) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-[1.2vw] items-start">
+            {[
+              faqItems.map((item, idx) => ({ ...item, originalIndex: idx })).filter((_, i) => i % 2 === 0),
+              faqItems.map((item, idx) => ({ ...item, originalIndex: idx })).filter((_, i) => i % 2 !== 0),
+            ].map((colItems, colIdx) => (
+              <div key={colIdx} className="flex flex-col gap-3.5 sm:gap-4 lg:gap-[1.1vw]">
+                {colItems.map((item) => {
+                  const isOpen = openFaqIndex === item.originalIndex;
 
-              return (
-                <div 
-                  key={idx}
-                  onClick={() => toggleFaqCard(idx)}
-                  className={`bg-white rounded-[0.75vw] border transition-all cursor-pointer select-none p-[1.1vw] shadow-xs hover:border-gray-300 ${
-                    isOpen ? 'border-[#ec5137]/40 ring-1 ring-[#ec5137]/10' : 'border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-[0.8vw]">
-                    <span className={`text-[0.84vw] font-medium transition-colors ${
-                      isOpen ? 'text-[#ec5137]' : 'text-gray-800 hover:text-[#ec5137]'
-                    }`}>
-                      {item.q}
-                    </span>
-                    <ChevronDown className={`w-[0.95vw] h-[0.95vw] shrink-0 text-gray-400 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-[#ec5137]' : ''
-                    }`} />
-                  </div>
-                  {isOpen && (
-                    <p className="mt-[0.55vw] pt-[0.45vw] border-t border-gray-100 text-gray-600 text-[0.86vw] font-normal leading-relaxed">
-                      {item.a}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+                  return (
+                    <div
+                      key={item.originalIndex}
+                      onClick={() => toggleFaqCard(item.originalIndex)}
+                      className={`bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 cursor-pointer select-none p-4 sm:p-5 lg:p-[1.2vw] shadow-xs hover:shadow-sm ${
+                        isOpen
+                          ? 'border-[#ec5137] ring-2 ring-[#ec5137]/15 shadow-sm'
+                          : 'border-gray-200/90 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span
+                          className={`text-sm sm:text-[15px] lg:text-[0.95vw] font-semibold transition-colors duration-200 leading-snug ${
+                            isOpen ? 'text-[#ec5137]' : 'text-gray-900 hover:text-[#ec5137]'
+                          }`}
+                        >
+                          {item.q}
+                        </span>
+                        <div
+                          className={`p-1 sm:p-1.5 rounded-full transition-colors duration-200 shrink-0 ${
+                            isOpen ? 'bg-[#ec5137]/10 text-[#ec5137]' : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          <ChevronDown
+                            className={`w-4 h-4 lg:w-[1vw] lg:h-[1vw] transition-transform duration-300 ${
+                              isOpen ? 'rotate-180 text-[#ec5137]' : ''
+                            }`}
+                          />
+                        </div>
+                      </div>
+                      <AnimatePresence initial={false}>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            className="overflow-hidden"
+                          >
+                            <p className="mt-3 pt-3 border-t border-gray-100 text-gray-600 text-xs sm:text-sm lg:text-[0.88vw] font-normal leading-relaxed">
+                              {item.a}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
       </section>

@@ -506,7 +506,8 @@ export const useCustomizedEditorData = ({
                   customBgSounds: audioCustomBgSounds,
                   flipSound: audioSet.flipSound || loadedOtherSetup?.sound?.flipSound || prev?.sound?.flipSound || 'Soft Paper Flip',
                   pageSpecificSound: audioSet.pageSpecificSound !== undefined ? Boolean(audioSet.pageSpecificSound) : Boolean(loadedOtherSetup?.sound?.pageSpecificSound ?? prev?.sound?.pageSpecificSound),
-                  bgSoundEnabled: audioVal
+                  // Background music is opt-in: on only if the user saved it on (and master audio is on)
+                  bgSoundEnabled: audioVal && ((loadedOtherSetup?.sound?.bgSoundEnabled ?? audioSet.bgSoundEnabled) === true)
                 }
               }));
             }

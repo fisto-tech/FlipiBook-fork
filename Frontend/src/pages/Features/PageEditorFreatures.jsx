@@ -13,7 +13,7 @@ export default function PageEditorFeatures() {
   const navigate = useNavigate();
 
   return (
-    <div className="w-full min-h-screen bg-[#FBFBFC] text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden selection:bg-[#EA580C]/10 selection:text-[#EA580C]">
+    <div className="w-full min-h-screen bg-[#FBFBFC] text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden">
       <main className="w-full flex-1">
         {/* =========================================
             SECTION 1: HERO (Editor Banner)
@@ -37,9 +37,9 @@ export default function PageEditorFeatures() {
                 <button
                   type="button"
                   onClick={() => navigate('/features')}
-                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-gray-200 bg-white/90 text-gray-600 text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-xs transition-all cursor-pointer backdrop-blur-xs hover:bg-white"
+                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-[#EA580C] bg-white/10 text-[#EA580C] text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-sm hover:shadow transition-all cursor-pointer backdrop-blur-xl hover:shadow-[#EA580C]"
                 >
-                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-gray-600" />
+                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-[#EA580C]" />
                   <span>Back to Features</span>
                 </button>
               </div>
@@ -105,22 +105,22 @@ export default function PageEditorFeatures() {
         {/* =========================================
             SECTION 3: MEDIA INTEGRATION
         ========================================= */}
-        <section className="relative w-full py-8 md:py-[1.5vw] overflow-hidden bg-[#FBF9F7] border-t border-[#F1F5F9]/80">
-          <div className="relative z-10 max-w-[92vw] mx-auto px-4 md:px-[2vw]">
-            <div className="flex flex-col-reverse lg:grid lg:grid-cols-10 gap-6 lg:gap-[2.5vw] items-center">
-              {/* Left Column: UI Mockup Showcase (lg:col-span-6) */}
-              <div className="w-full lg:col-span-6 flex justify-center lg:justify-start mt-4 lg:mt-0">
-                <div className="relative w-full max-w-[460px] flex justify-center lg:justify-start">
+        <section className="relative w-full py-8 md:py-[2vw] overflow-hidden bg-[#FBF9F7] border-t border-[#F1F5F9]/80">
+          <div className="relative z-10 max-w-[88vw] mx-auto px-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+              {/* Left Column: UI Mockup Showcase (lg:col-span-7) */}
+              <div className="w-full lg:col-span-6 flex justify-center lg:justify-end">
+                <div className="relative w-full mr-[30px] max-w-[600px]">
                   <img
                     src={mediaIntegrationMock}
                     alt="Media Integration in Page Editor"
-                    className="w-full max-h-[300px] md:max-h-[340px] lg:max-h-[360px] object-contain rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.06)]"
+                    className="w-full h-auto object-contain block"
                   />
                 </div>
               </div>
 
-              {/* Right Column: Details (lg:col-span-4) */}
-              <div className="w-full lg:col-span-4 flex flex-col justify-center">
+              {/* Right Column: Details (lg:col-span-5) */}
+              <div className="w-full lg:col-span-6 flex flex-col justify-center">
                 <h2 className="text-2xl sm:text-3xl md:text-[2.3vw] font-semibold tracking-tight text-[#111827] leading-tight md:leading-[1.2]">
                   Media Integration
                 </h2>
@@ -180,11 +180,11 @@ export default function PageEditorFeatures() {
         {/* =========================================
             SECTION 4: INTERACTIVE ELEMENTS
         ========================================= */}
-        <section className="relative w-full py-8 md:py-[1.5vw] overflow-hidden bg-[#F8FAFC]">
-          <div className="relative z-10 max-w-[92vw] mx-auto px-4 md:px-[2vw]">
-            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 lg:gap-[2.5vw] items-center">
-              {/* Left Column: Details (lg:col-span-5) */}
-              <div className="lg:col-span-5 flex flex-col justify-center">
+        <section className="relative w-full py-8 md:py-[2vw] overflow-hidden bg-[#F8FAFC]">
+          <div className="relative z-10 max-w-[88vw] mx-auto px-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+              {/* Left Column: Details (lg:col-span-6) */}
+              <div className="lg:col-span-6 flex flex-col justify-center">
                 <h2 className="text-2xl sm:text-3xl md:text-[2.3vw] font-semibold tracking-tight text-[#111827] leading-tight md:leading-[1.2]">
                   Interactive Elements
                 </h2>
@@ -313,13 +313,13 @@ export default function PageEditorFeatures() {
                 </div>
               </div>
 
-              {/* Right Column: UI Mockup Showcase (lg:col-span-5) */}
-              <div className="lg:col-span-5 flex justify-center lg:justify-end mt-4 lg:mt-0">
-                <div className="relative w-full max-w-[420px] flex justify-center lg:justify-end">
+              {/* Right Column: UI Mockup Showcase (lg:col-span-6) */}
+              <div className="lg:col-span-6 flex justify-center lg:justify-start">
+                <div className="relative w-full max-w-[560px]">
                   <img
                     src={interactiveElementsMock}
                     alt="Interactive Elements Showcase"
-                    className="w-full max-h-[380px] md:max-h-[440px] lg:max-h-[480px] object-contain"
+                    className="w-full max-h-[620px] md:max-h-[680px] lg:max-h-[700px] object-contain"
                   />
                 </div>
               </div>
@@ -330,12 +330,12 @@ export default function PageEditorFeatures() {
         {/* =========================================
             SECTION 5: ANIMATIONS & INTERACTIVE HOTSPOTS
         ========================================= */}
-        <section className="relative w-full py-8 md:py-[1.5vw] overflow-hidden bg-[#FBF9F7] border-t border-[#F1F5F9]/80">
-          <div className="relative z-10 max-w-[92vw] mx-auto px-4 md:px-[2vw]">
-            <div className="flex flex-col-reverse lg:grid lg:grid-cols-10 gap-6 lg:gap-[2.5vw] items-center">
-              {/* Left Column: UI Mockup Showcase (lg:col-span-6) */}
-              <div className="w-full lg:col-span-6 flex justify-center lg:justify-start mt-4 lg:mt-0">
-                <div className="relative w-full max-w-[560px] flex justify-center lg:justify-start">
+        <section className="relative w-full py-8 md:py-[2vw] overflow-hidden bg-[#FBF9F7] border-t border-[#F1F5F9]/80">
+          <div className="relative z-10 max-w-[88vw] mx-auto px-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+              {/* Left Column: UI Mockup Showcase (lg:col-span-7) */}
+              <div className="w-full lg:col-span-7 flex justify-center lg:justify-end">
+                <div className="relative mr-[70px] w-full max-w-[600px]">
                   <img
                     src={animationsMock}
                     alt="Animations and Interactive Hotspots Showcase"
@@ -344,8 +344,8 @@ export default function PageEditorFeatures() {
                 </div>
               </div>
 
-              {/* Right Column: Details (lg:col-span-4) */}
-              <div className="w-full lg:col-span-4 flex flex-col justify-center">
+              {/* Right Column: Details (lg:col-span-5) */}
+              <div className="w-full lg:col-span-5 flex flex-col justify-center">
                 <h2 className="text-2xl sm:text-3xl md:text-[2.3vw] font-semibold tracking-tight text-[#111827] leading-tight md:leading-[1.2]">
                   Animations &amp; interactive Hotspots
                 </h2>

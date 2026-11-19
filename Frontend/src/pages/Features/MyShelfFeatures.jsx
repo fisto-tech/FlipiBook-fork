@@ -9,7 +9,7 @@ import Shelf2Img from '../../assets/Features/Shelf/Shelf2.webp';
 export default function MyShelfFeatures() {
   const navigate = useNavigate();
   return (
-    <div className="w-full min-h-screen bg-[#F6F6F6] text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden selection:bg-[#EA580C]/10 selection:text-[#EA580C]">
+    <div className="w-full min-h-screen bg-[#F6F6F6] text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden">
       <main className="w-full flex-1 pb-2">
         {/* =========================================
             SECTION 1: HERO (SHELF BANNER)
@@ -33,9 +33,9 @@ export default function MyShelfFeatures() {
                 <button
                   type="button"
                   onClick={() => navigate('/features')}
-                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-gray-200 bg-white/90 text-gray-600 text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-xs transition-all cursor-pointer backdrop-blur-xs hover:bg-white"
+                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-[#EA580C] bg-white/10 text-[#EA580C] text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-sm hover:shadow transition-all cursor-pointer backdrop-blur-xl hover:shadow-[#EA580C]"
                 >
-                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-gray-600" />
+                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-[#EA580C]" />
                   <span>Back to Features</span>
                 </button>
               </div>
@@ -82,7 +82,7 @@ export default function MyShelfFeatures() {
         {/* =========================================
             SECTION 2: CENTER HEADING & SUBTITLE
         ========================================= */}
-        <section className="relative w-full pt-10 sm:pt-14 md:pt-16 pb-8 sm:pb-12 md:pb-14 text-center bg-[#F6F6F6]">
+        <section className="relative w-full pt-10 sm:pt-14 md:pt-16 pb-4 sm:pb-6 md:pb-5 text-center bg-[#F6F6F6]">
           <div className="max-w-[960px] mx-auto px-4">
             <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
               <span className="w-8 sm:w-14 h-[2.5px] bg-[#EA580C] rounded-full inline-block shrink-0"></span>
@@ -101,26 +101,26 @@ export default function MyShelfFeatures() {
             SECTION 3: INTERACTIVE SHELVES & FEATURE CARDS
         ========================================= */}
         <section className="relative w-full bg-[#F6F6F6] py-6 sm:py-8">
-          <div className="max-w-[92vw] mx-auto px-4 md:px-[2vw]">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-14">
+          <div className="max-w-[92vw] mx-auto px-4 md:px-[1vw]">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-10">
 
               {/* DESKTOP VIEW: Overlapping visual pair on the left */}
               <div className="hidden lg:flex w-full lg:w-[58%] relative flex-col gap-4 justify-center">
                 {/* Shelf 1 (Top Blue Wall Book Shelf) */}
-                <div className="relative w-full sm:w-[92%] rounded-2xl overflow-hidden shadow-lg border border-black/5 bg-[#1B3247] z-10 transition-transform duration-300 hover:scale-[1.01]">
+                <div className="relative w-full sm:w-[90%] rounded-2xl overflow-hidden shadow-lg border border-black/5 z-10 transition-transform duration-300 hover:scale-[1.01]">
                   <img
                     src={Shelf1Img}
                     alt="Customized Branded Book Shelf"
-                    className="w-full max-h-[280px] object-cover object-top block"
+                    className="w-full max-h-[260px] object-cover object-top block"
                   />
                 </div>
 
                 {/* Shelf 2 (Overlapping Lower Light Wall Book Shelf) */}
-                <div className="relative w-full sm:w-[92%] sm:ml-[8%] rounded-2xl overflow-hidden shadow-2xl border border-black/5 bg-[#E6DDD3] z-20 transition-transform duration-300 hover:scale-[1.01]">
+                <div className="relative w-full sm:w-[90%] sm:ml-[10%] rounded-2xl overflow-hidden shadow-2xl border border-black/5  z-20 transition-transform duration-300 hover:scale-[1.01]">
                   <img
                     src={Shelf2Img}
                     alt="Warm Wooden Ambient Shelf"
-                    className="w-full max-h-[280px] object-cover object-top block"
+                    className="w-full max-h-[260px] object-cover object-top block"
                   />
                 </div>
               </div>

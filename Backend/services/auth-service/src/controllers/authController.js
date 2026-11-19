@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const User = require("../../../../shared/models/User");
+const RefreshToken = require("../../../../shared/models/RefreshToken");
 const LoginLog = require("../models/loginLog");
 const SignupOtp = require("../models/signupOtp");
 const {
@@ -69,6 +70,54 @@ const purgeCachedUserProfile = async (userId) => {
   try {
     await redis.del(`user:profile:${userId}`);
   } catch (_) {}
+};
+
+/**
+ * Hash raw Refresh Token using SHA-256 before database storage
+ */
+const hashToken = (token) => {
+  if (!token) return null;
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
+};
+
+/**
+ * Securely store refresh token hash in DB with 7-day TTL index
+ */
+const storeRefreshTokenInDB = async ({ user, refreshToken, sessionId, deviceId, deviceInfo, ipAddress, req = null }) => {
+  if (!user || !refreshToken) return null;
+  try {
+    const tokenHash = hashToken(refreshToken);
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    let resolvedDeviceInfo = deviceInfo;
+    let resolvedIp = ipAddress;
+    if (req) {
+      if (!resolvedIp) resolvedIp = getClientIp(req);
+      if (!resolvedDeviceInfo) {
+        const userAgent = req.headers["user-agent"] || "";
+        const parsed = parseUserAgent(userAgent);
+        const b = req.body?.browser || req.headers["x-client-browser"] || parsed.browser || "Browser";
+        const os = req.body?.operatingSystem || req.headers["x-client-os"] || parsed.operatingSystem || "OS";
+        resolvedDeviceInfo = `${b} on ${os}`;
+      }
+    }
+
+    return await RefreshToken.create({
+      userId: user._id,
+      userCanonicalId: user.userID || user.userId,
+      emailId: (user.emailId || user.email || "").trim().toLowerCase(),
+      sessionId: sessionId ? String(sessionId) : undefined,
+      tokenHash,
+      deviceId: deviceId || undefined,
+      deviceInfo: resolvedDeviceInfo || "Desktop / Mobile",
+      ipAddress: resolvedIp || undefined,
+      isRevoked: false,
+      expiresAt: new Date(Date.now() + SEVEN_DAYS_MS),
+    });
+  } catch (err) {
+    console.error("[RefreshToken DB Save Error]:", err.message);
+    return null;
+  }
 };
 
 /**
@@ -562,6 +611,16 @@ const verifySignupOtp = async (req, res) => {
       deviceId: clientDeviceId,
     });
 
+    await storeRefreshTokenInDB({
+      user,
+      refreshToken,
+      sessionId,
+      deviceId: clientDeviceId,
+      deviceInfo: `${browser || "Browser"} on ${operatingSystem || "OS"}`,
+      ipAddress,
+      req,
+    });
+
     setAuthCookies(res, token, refreshToken, req, user);
 
     return res.status(201).json({
@@ -794,6 +853,16 @@ const login = async (req, res) => {
       deviceId: clientDeviceId,
     });
 
+    await storeRefreshTokenInDB({
+      user,
+      refreshToken,
+      sessionId,
+      deviceId: clientDeviceId,
+      deviceInfo: `${browser || "Browser"} on ${operatingSystem || "OS"}`,
+      ipAddress,
+      req,
+    });
+
     setAuthCookies(res, token, refreshToken, req, user);
 
     // Ensure user storage workspace & subfolders exist
@@ -990,6 +1059,16 @@ const googleLogin = async (req, res) => {
       id: user._id,
       sessionId: sessionId,
       deviceId: clientDeviceId,
+    });
+
+    await storeRefreshTokenInDB({
+      user,
+      refreshToken,
+      sessionId,
+      deviceId: clientDeviceId,
+      deviceInfo: `${browser || "Browser"} on ${operatingSystem || "OS"}`,
+      ipAddress,
+      req,
     });
 
     setAuthCookies(res, token, refreshToken, req, user);
@@ -1190,6 +1269,12 @@ const setPasswordWithOtp = async (req, res) => {
 
     await user.save();
 
+    // Revoke all refresh tokens on password change
+    await RefreshToken.updateMany(
+      { userId: user._id },
+      { $set: { isRevoked: true, revokedAt: new Date() } }
+    ).catch(() => {});
+
     return res.status(200).json({
       success: true,
       message: "Password has been added successfully",
@@ -1275,6 +1360,12 @@ const resetPassword = async (req, res) => {
 
     await user.save();
 
+    // Revoke all refresh tokens on password change
+    await RefreshToken.updateMany(
+      { userId: user._id },
+      { $set: { isRevoked: true, revokedAt: new Date() } }
+    ).catch(() => {});
+
     // Revoke any existing active sessions in Redis & DB upon password reset (OWASP standard)
     try {
       const activeSessions = await LoginLog.find({ userId: user.userID, status: "ACTIVE" }).select("sessionId");
@@ -1332,6 +1423,21 @@ const logout = async (req, res) => {
     }
     if (decoded?.id) {
       purgeCachedUserProfile(decoded.id);
+    }
+
+    // Instantly revoke active RefreshToken in MongoDB
+    if (refreshToken) {
+      const rHash = hashToken(refreshToken);
+      RefreshToken.updateMany(
+        { tokenHash: rHash },
+        { $set: { isRevoked: true, revokedAt: new Date() } }
+      ).catch((err) => console.warn("[Logout RefreshToken Revoke Warning]:", err.message));
+    }
+    if (targetSessionId) {
+      RefreshToken.updateMany(
+        { sessionId: String(targetSessionId) },
+        { $set: { isRevoked: true, revokedAt: new Date() } }
+      ).catch((err) => console.warn("[Logout Session Revoke Warning]:", err.message));
     }
 
     try {
@@ -1595,6 +1701,25 @@ const verifySession = async (req, res) => {
     if (!targetUserId && refreshToken) {
       const decodedRefresh = verifyToken(refreshToken);
       if (decodedRefresh && decodedRefresh.id) {
+        // Strict DB Verification: Verify refresh token exists in DB and is active
+        const incomingHash = hashToken(refreshToken);
+        const storedRefreshToken = await RefreshToken.findOne({
+          tokenHash: incomingHash,
+          isRevoked: false,
+        });
+
+        // If the refresh token was not found in DB or has been revoked: REJECT!
+        if (!storedRefreshToken) {
+          console.warn("[Verify Session] Refresh token rejected: not found in DB or revoked");
+          clearAuthCookies(res, req);
+          return res.status(200).json({
+            success: true,
+            isAuthenticated: false,
+            user: null,
+            message: "Session has expired or was revoked. Please sign in again.",
+          });
+        }
+
         tokenEmail = decodedRefresh.emailId || null;
         // Verify session is active in LoginLog (safeguarded against DB buffering delay)
         if (decodedRefresh.sessionId) {
@@ -1974,6 +2099,12 @@ const revokeSession = async (req, res) => {
     targetSession.logoutTime = new Date();
     await targetSession.save();
 
+    // Revoke matching RefreshToken in DB
+    await RefreshToken.updateMany(
+      { sessionId: String(sessionId) },
+      { $set: { isRevoked: true, revokedAt: new Date() } }
+    ).catch(() => {});
+
     // Instantly blacklist revoked session in Redis (< 0.5ms)
     if (targetSession.sessionId) {
       await markSessionRevokedInRedis(targetSession.sessionId);
@@ -2040,6 +2171,24 @@ const revokeOtherSessions = async (req, res) => {
         logoutTime: new Date(),
       },
     });
+
+    // Revoke all other RefreshTokens in DB
+    try {
+      const userRefQuery = userQueries
+        .map((q) => (q.userObjectId ? { userId: q.userObjectId } : q.userId ? { userCanonicalId: q.userId } : null))
+        .filter(Boolean);
+      if (userRefQuery.length > 0) {
+        const tokenRevokeFilter = {
+          $or: userRefQuery,
+        };
+        if (currentSessionId) {
+          tokenRevokeFilter.sessionId = { $ne: String(currentSessionId) };
+        }
+        await RefreshToken.updateMany(tokenRevokeFilter, {
+          $set: { isRevoked: true, revokedAt: new Date() },
+        });
+      }
+    } catch (_) {}
 
     return res.status(200).json({
       success: true,

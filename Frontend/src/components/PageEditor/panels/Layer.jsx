@@ -42,9 +42,23 @@ const MemoizedPagePreview = React.memo(({ pageId, pageHtml, isHidden }) => {
       .replace(/\bid=(["'])(.*?)\1/gi, (m, q, id) => `id=${q}${prefix}${id}${q}`)
       .replace(/\bhref=(["'])#(.*?)\1/gi, (m, q, id) => `href=${q}#${prefix}${id}${q}`)
       .replace(/\bxlink:href=(["'])#(.*?)\1/gi, (m, q, id) => `xlink:href=${q}#${prefix}${id}${q}`)
-      .replace(/url\((['"]?)#([^)'"]+)\1\)/gi, (m, q, id) => `url(${q}#${prefix}${id}${q})`);
+      .replace(/url\((['"]?)#([^)'"]+)\1\)/gi, (m, q, id) => `url(${q}#${prefix}${id}${q})`)
+      .replace(/\bvector-effect\s*=\s*["']non-scaling-stroke["']/gi, 'vector-effect="none"')
+      .replace(/\bvectorEffect\s*=\s*["']non-scaling-stroke["']/gi, 'vectorEffect="none"')
+      .replace(/vector-effect\s*:\s*non-scaling-stroke\s*;?/gi, 'vector-effect: none;');
 
-    containerRef.current.innerHTML = `<style>#preview-${pageId} [data-name="Free Frame"] { display: none !important; }</style>` + cleanSvg;
+    containerRef.current.innerHTML = `
+      <style>
+        #preview-${pageId} svg,
+        #preview-${pageId} svg * {
+          vector-effect: none !important;
+        }
+        #preview-${pageId} [data-name="Free Frame"],
+        #preview-${pageId} [data-type="free-frame"] {
+          display: none !important;
+        }
+      </style>
+    ` + cleanSvg;
   }, [pageId, pageHtml]);
 
   return (
@@ -70,7 +84,7 @@ const PageThumbnail = ({ page, index, activePageIndex }) => {
   if (!page || !page.html) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400 gap-1 select-none">
-        <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-[#EC5137] border-t-transparent rounded-full animate-spin" />
         <span className="text-[0.65vw] font-medium">Loading...</span>
       </div>
     );
@@ -107,10 +121,31 @@ const PageThumbnail = ({ page, index, activePageIndex }) => {
   );
 };
 
+export const isInteractionLayer = (layer) => {
+  if (!layer) return false;
+  const name = (layer.name || '').toLowerCase();
+  const id = (layer.id || '').toLowerCase();
+  const type = (layer.type || '').toLowerCase();
+  const dataType = (layer['data-type'] || '').toLowerCase();
+  return (
+    name === 'free frame' ||
+    name.startsWith('hotspot-') ||
+    name.startsWith('hotspot') ||
+    id.startsWith('free-frame') ||
+    id.startsWith('hotspot-') ||
+    dataType === 'free-frame' ||
+    dataType === 'hotspot' ||
+    layer['data-is-hotspot'] === 'true' ||
+    type === 'free-frame' ||
+    type === 'hotspot'
+  );
+};
+
 const LayerItem = ({
   layer,
   depth = 0,
   isBaseLayer = false,
+  activeTopTool = 'editor',
   onToggleVisibility,
   onToggleLock,
   selectedLayerId,
@@ -131,7 +166,8 @@ const LayerItem = ({
   const [editName, setEditName] = useState(layer.name);
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef(null);
-  const isGroup = layer.type === 'g' || (layer.children && layer.children.length > 0);
+  const isInteraction = isInteractionLayer(layer);
+  const isGroup = !isInteraction && Boolean(layer.children && layer.children.length > 0);
   const itemRef = useRef(null);
 
   // Listen for custom trigger to start editing from context menu
@@ -146,9 +182,24 @@ const LayerItem = ({
     return () => window.removeEventListener('trigger-rename-layer', handleTriggerRename);
   }, [layer.id, layer.name]);
 
+  const isAudioLayerItem = (() => {
+    const name = (layer.name || '').toLowerCase();
+    const id = (layer.id || '').toLowerCase();
+    const type = (layer.type || '').toLowerCase();
+    const dataType = (layer['data-type'] || '').toLowerCase();
+    return (
+      dataType === 'audio-frame' ||
+      type === 'audio-frame' ||
+      name.includes('audio') ||
+      id.startsWith('audio-')
+    );
+  })();
+  const isAudioDisabledInInteraction = activeTopTool === 'interaction' && isAudioLayerItem;
+
   // Determine if this item should be styled as "Selected"
   // Handles primary selection, multi-selection, and compound element / child matching
   const isSelected = (() => {
+    if (isAudioDisabledInInteraction) return false;
     if (selectedLayerId === layer.id) return true;
     if (multiSelectedIds && multiSelectedIds.has(layer.id)) return true;
     if (layer.isVirtualImageChild && (selectedLayerId === layer.parentId || (multiSelectedIds && multiSelectedIds.has(layer.parentId)))) return true;
@@ -172,9 +223,13 @@ const LayerItem = ({
             : '[data-typography-type="motion-graphic"], [data-subtopic="Titles"], [data-motion-template], ') +
           '[data-is-element-shape="true"], [data-shape-type], [data-type="shape"], g[id^="shape-"], ' +
           '[data-is-element-button="true"], [data-type="button"], g[id^="button-"], [data-type="audio-frame"], g[id^="audio-"], ' +
+          '[data-type="map"], g[id^="map-"], [data-type="qrcode"], g[id^="qrcode-"], [data-type="embed-frame"], g[id^="embed-"], [data-is-slideshow="true"], [data-type="slideshow"], g[id^="slideshow-"], ' +
           '[data-is-image-group="true"], [data-is-video-group="true"], [data-is-gif-group="true"]'
         );
-        if (compound && compound.id === layer.id) return true;
+        if (compound) {
+          const rootCompound = (compound.tagName?.toLowerCase() === 'g' ? compound : compound.closest?.('g[id^="map-"], g[data-type="map"], g[id^="embed-"], g[id^="qrcode-"], g[id^="slideshow-"]')) || compound;
+          if (rootCompound && rootCompound.id === layer.id) return true;
+        }
       }
     }
 
@@ -183,8 +238,11 @@ const LayerItem = ({
       for (const id of multiSelectedIds) {
         const el = pageContainer?.querySelector(`[id="${id}"]`) || doc.getElementById(id);
         if (el) {
-          const comp = el.closest?.('[data-is-element-typography="true"], [data-typography-type], [data-subtopic="Titles"], g[id^="typography-"], [data-is-element-shape="true"], [data-shape-type], [data-type="shape"], g[id^="shape-"], [data-is-element-button="true"], [data-type="button"], g[id^="button-"], [data-type="audio-frame"], g[id^="audio-"], [data-is-image-group="true"], [data-is-video-group="true"], [data-is-gif-group="true"]');
-          if (comp && comp.id === layer.id) return true;
+          const comp = el.closest?.('[data-is-element-typography="true"], [data-typography-type], [data-subtopic="Titles"], g[id^="typography-"], [data-is-element-shape="true"], [data-shape-type], [data-type="shape"], g[id^="shape-"], [data-is-element-button="true"], [data-type="button"], g[id^="button-"], [data-type="audio-frame"], g[id^="audio-"], [data-type="map"], g[id^="map-"], [data-type="qrcode"], g[id^="qrcode-"], [data-type="embed-frame"], g[id^="embed-"], [data-is-slideshow="true"], [data-type="slideshow"], g[id^="slideshow-"], [data-is-image-group="true"], [data-is-video-group="true"], [data-is-gif-group="true"]');
+          if (comp) {
+            const rootComp = (comp.tagName?.toLowerCase() === 'g' ? comp : comp.closest?.('g[id^="map-"], g[data-type="map"], g[id^="embed-"], g[id^="qrcode-"], g[id^="slideshow-"]')) || comp;
+            if (rootComp && rootComp.id === layer.id) return true;
+          }
         }
       }
     }
@@ -258,64 +316,74 @@ const LayerItem = ({
     const nameLower = (layer.name || '').toLowerCase();
     const typeLower = (layer.type || '').toLowerCase();
 
+    // 0. Check Hotspot & Free Frame (Interaction elements)
+    const isHotspot = typeLower === 'hotspot' || layer['data-is-hotspot'] === 'true' || layer['data-type'] === 'hotspot' || nameLower.includes('hotspot') || (layer.id && layer.id.startsWith('hotspot-'));
+    if (isHotspot) {
+      return <MousePointerClick size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+    }
+    const isFreeFrame = nameLower === 'free frame' || typeLower === 'free-frame' || layer['data-type'] === 'free-frame' || (layer.id && layer.id.startsWith('free-frame'));
+    if (isFreeFrame) {
+      return <Layout size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+    }
+
     // 1. Check Video
     const isVideo = typeLower === 'video' || nameLower.includes('video') || typeLower === 'foreignobject' || layer['data-type'] === 'video';
     if (isVideo) {
-      return <Video size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <Video size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 2. Check GIF
     const isGif = typeLower === 'gif' || nameLower.includes('gif') || layer['data-type'] === 'gif' || layer['data-is-gif-group'] === 'true';
     if (isGif) {
-      return <ImagePlay size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <ImagePlay size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 3. Check Image & Image Frame
     const isImageByName = typeLower === 'image' || typeLower === 'image-frame' || nameLower.includes('image frame') || nameLower.includes('image-frame') || nameLower.includes('image');
     if (isImageByName) {
-      return <ImageIcon size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <ImageIcon size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 4. Check Audio
     const isAudio = typeLower === 'audio-frame' || layer['data-interaction'] === 'audio' || nameLower.includes('audio');
     if (isAudio) {
-      return <Music size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <Music size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 5. Check QR Code
     const isQRCode = typeLower === 'qrcode' || typeLower === 'qr-code' || layer['data-type'] === 'qrcode' || nameLower.includes('qr code') || nameLower.includes('qrcode');
     if (isQRCode) {
-      return <QrCode size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <QrCode size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 6. Check Button
     const isButton = typeLower === 'button' || layer['data-type'] === 'button' || nameLower.includes('button');
     if (isButton) {
-      return <MousePointerClick size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <MousePointerClick size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 7. Check Map
     const isMap = typeLower === 'map' || layer['data-type'] === 'map' || nameLower === 'map' || nameLower.includes('map');
     if (isMap) {
-      return <MapPin size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <MapPin size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 8. Check Slideshow
     const isSlideshow = typeLower === 'slideshow' || layer['data-type'] === 'slideshow' || nameLower.includes('slideshow');
     if (isSlideshow) {
-      return <SlidersHorizontal size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <SlidersHorizontal size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 9. Check Table
     const isTable = typeLower === 'table' || typeLower === 'table-frame' || layer['data-type'] === 'table' || layer['data-type'] === 'table-frame' || nameLower.includes('table');
     if (isTable) {
-      return <Table2 size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <Table2 size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 10. Check Decorator
     const isDecorator = typeLower === 'decorator' || layer['data-type'] === 'decorator' || nameLower.includes('decorator');
     if (isDecorator) {
-      return <Sparkles size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <Sparkles size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 11. Check Shape
@@ -323,36 +391,38 @@ const LayerItem = ({
     if (isShape) {
       const shapeType = (layer['data-shape-type'] || layer['data-shape-title'] || '').toLowerCase();
       if (nameLower.includes('circle') || nameLower.includes('ellipse') || shapeType.includes('circle') || shapeType.includes('ellipse')) {
-        return <Circle size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+        return <Circle size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
       }
       if (nameLower.includes('star') || shapeType.includes('star')) {
-        return <Star size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+        return <Star size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
       }
       if (nameLower.includes('triangle') || shapeType.includes('triangle') || shapeType.includes('polygon')) {
-        return <Triangle size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+        return <Triangle size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
       }
-      return <Square size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      return <Square size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     switch (typeLower) {
-      case 'g': return <Folder size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
-      case 'text': return <Type size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
-      case 'rect': return <Square size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      case 'g': return <Folder size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+      case 'text': return <Type size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+      case 'rect': return <Square size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
       case 'circle':
-      case 'ellipse': return <Circle size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      case 'ellipse': return <Circle size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
       case 'triangle':
-      case 'path': return <Triangle size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
-      case 'star': return <Star size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
-      case 'line': return <Minus size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
-      default: return <Layers size="0.85vw" className="text-gray-400 group-hover/layer:text-[#6366F1]" />;
+      case 'path': return <Triangle size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+      case 'star': return <Star size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+      case 'line': return <Minus size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+      default: return <Layers size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
   };
 
   const isPdfBackgroundLayer = (layer.name && layer.name.toLowerCase().endsWith('-pdf')) || layer.name === 'PDF Background' || layer['data-type'] === 'pdf-background';
+  const isInteractionDisabled = isInteractionLayer(layer) && activeTopTool !== 'interaction';
 
   const handleItemClick = (e) => {
     e.stopPropagation();
-    if (isPdfBackgroundLayer) return;
+    window.dispatchEvent(new CustomEvent('layer-hover', { detail: { isHovered: false } }));
+    if (isPdfBackgroundLayer || isInteractionDisabled || isAudioDisabledInInteraction) return;
     
     if (setActivePageIndex && pageIndex !== undefined) {
       setActivePageIndex(pageIndex);
@@ -396,7 +466,7 @@ const LayerItem = ({
       if (isGroup && layer.children && layer.children.length > 0) setIsOpen(!isOpen);
     }
 
-    window.dispatchEvent(new CustomEvent('force-update-selection-box'));
+    window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: targetId } }));
   };
 
   const handleContextMenu = (e) => {
@@ -413,7 +483,14 @@ const LayerItem = ({
     }
   };
 
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(new CustomEvent('layer-hover', { detail: { isHovered: false } }));
+    };
+  }, []);
+
   const handleDragStart = (e) => {
+    window.dispatchEvent(new CustomEvent('layer-hover', { detail: { isHovered: false } }));
     if (layer.isVirtualImageChild || isPdfBackgroundLayer) {
       e.preventDefault();
       return;
@@ -443,7 +520,7 @@ const LayerItem = ({
 
   const handleDoubleClick = (e) => {
     e.stopPropagation();
-    if (layer.isVirtualImageChild || isPdfBackgroundLayer) return; // Disallow renaming effect layers and PDF Backgrounds
+    if (layer.isVirtualImageChild || isPdfBackgroundLayer || isInteractionDisabled) return; // Disallow renaming effect layers, PDF Backgrounds, or disabled interaction layers
     setIsEditing(true);
   };
 
@@ -470,30 +547,55 @@ const LayerItem = ({
     <div className="flex flex-col select-none">
       <div
         ref={itemRef}
-        draggable={!isEditing && !isPdfBackgroundLayer}
+        draggable={!isEditing && !isPdfBackgroundLayer && !isInteractionDisabled && !isAudioDisabledInInteraction && !layer.locked}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        title={isInteractionDisabled ? 'Available in Touch Interaction Mode' : isAudioDisabledInInteraction ? 'Audio elements are not selectable in Interaction mode' : undefined}
         className={`flex items-center gap-[0.45vw] py-[0.55vh] pr-[0.5vw] rounded-[0.4vw] group/layer transition-all border-l-[3px] ${
           isDragOver 
-            ? 'border-l-[#6366F1] bg-indigo-50/80 shadow-sm' 
+            ? 'border-l-[#EC5137] bg-[#EC5137]/10 shadow-sm' 
             : isSelected 
-              ? 'border-l-[#6366F1]' 
+              ? 'border-l-[#EC5137]' 
               : 'border-l-transparent'
         } ${isSelected
-          ? 'bg-indigo-50/90 text-indigo-900 ring-1 ring-indigo-200/70 shadow-[0_1px_2px_rgba(99,102,241,0.06)]'
+          ? 'bg-[#EC5137]/10 text-gray-900 ring-1 ring-[#EC5137]/30 shadow-[0_1px_2px_rgba(236,81,55,0.08)]'
           : (!isBaseLayer && layer.id === currentFrameId)
-            ? 'bg-purple-50/80 border-l-purple-500 ring-1 ring-dashed ring-purple-300'
+            ? 'bg-[#EC5137]/10 border-l-[#EC5137] ring-1 ring-dashed ring-[#EC5137]/40'
             : isMultiOnly
-              ? 'bg-indigo-50/50 text-indigo-800'
-              : isPdfBackgroundLayer
-                ? 'opacity-60 cursor-not-allowed bg-gray-50'
-                : 'hover:bg-gray-100/70 text-gray-700 cursor-pointer'
+              ? 'bg-[#EC5137]/5 text-gray-800'
+              : (isPdfBackgroundLayer || isInteractionDisabled || isAudioDisabledInInteraction)
+                ? 'opacity-50 cursor-not-allowed bg-transparent'
+                : layer.visible === false
+                  ? 'opacity-60 text-gray-400 hover:bg-gray-100/50 cursor-pointer'
+                  : 'hover:bg-gray-100/70 text-gray-700 cursor-pointer'
         }`}
         style={{ paddingLeft: `${depth * 0.8 + 0.5}vw` }}
+        onMouseEnter={() => {
+          if (isEditing || layer.visible === false || layer.locked || isBaseLayer) return;
+          const targetId = layer.isVirtualImageChild ? layer.parentId : layer.id;
+          if (!targetId) return;
+          window.dispatchEvent(new CustomEvent('layer-hover', {
+            detail: { layerId: targetId, isHovered: true, pageIndex }
+          }));
+        }}
+        onMouseLeave={() => {
+          if (isBaseLayer) return;
+          const targetId = layer.isVirtualImageChild ? layer.parentId : layer.id;
+          if (!targetId) return;
+          window.dispatchEvent(new CustomEvent('layer-hover', {
+            detail: { layerId: targetId, isHovered: false, pageIndex }
+          }));
+        }}
         onClick={handleItemClick}
-        onContextMenu={handleContextMenu}
+        onContextMenu={(e) => {
+          if (isInteractionDisabled || isAudioDisabledInInteraction) {
+            e.preventDefault();
+            return;
+          }
+          handleContextMenu(e);
+        }}
       >
         {/* Expand/Collapse Chevron */}
         <div className="w-[1vw] flex items-center justify-center">
@@ -503,7 +605,7 @@ const LayerItem = ({
         </div>
 
         {/* Layer Type Icon */}
-        <div className={`w-[1.2vw] h-[1.2vw] flex items-center justify-center ${isSelected ? 'text-indigo-600' : 'text-gray-400'}`}>
+        <div className={`w-[1.2vw] h-[1.2vw] flex items-center justify-center ${isSelected ? 'text-[#EC5137]' : 'text-gray-400'}`}>
           {getLayerIcon()}
         </div>
 
@@ -518,31 +620,28 @@ const LayerItem = ({
               onBlur={handleRenameSubmit}
               onKeyDown={handleKeyDown}
               onClick={(e) => e.stopPropagation()}
-              className="block w-full bg-white px-[0.3vw] py-[0.1vh] rounded-[0.2vw] border border-indigo-400 outline-none focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[0.7vw] font-medium text-gray-900 shadow-sm"
+              className="block w-full bg-white px-[0.3vw] py-[0.1vh] rounded-[0.2vw] border border-[#EC5137] outline-none focus:outline-none focus:ring-1 focus:ring-[#EC5137] text-[0.7vw] font-medium text-gray-900 shadow-sm"
             />
           ) : (
             <span className={`block text-[0.7vw] truncate transition-colors ${
-              isSelected ? 'font-semibold text-indigo-950' : 'font-medium text-gray-700 group-hover/layer:text-gray-900'
+              isSelected ? 'font-semibold text-gray-900' : layer.visible === false ? 'text-gray-400 italic' : 'font-medium text-gray-700 group-hover/layer:text-gray-900'
             }`}>
               {layer.name}
             </span>
           )}
         </div>
 
-        {/* Selection indicator dot - only for primary selection */}
-        {isSelected && (
-          <div className="w-[0.35vw] h-[0.35vw] rounded-full bg-[#6366F1] flex-shrink-0 shadow-[0_0_4px_rgba(99,102,241,0.5)]" title="Primary selection" />
-        )}
-
         {/* Secondary Visibility/Lock Status (Small) */}
         {!isBaseLayer && (
           <div className="flex items-center gap-[0.2vw]">
           <button
-            className={`p-[0.2vw] rounded-[0.2vw] hover:bg-white/80 transition-all ${layer.visible === false ? 'opacity-100 text-gray-500 hover:text-indigo-600' : 'opacity-0 group-hover/layer:opacity-100 text-gray-400 hover:text-indigo-600'}`}
+            className={`p-[0.2vw] rounded-[0.2vw] hover:bg-white/80 transition-all ${layer.visible === false ? 'opacity-100 text-gray-500 hover:text-[#EC5137]' : 'opacity-0 group-hover/layer:opacity-100 text-gray-400 hover:text-[#EC5137]'}`}
             title={layer.visible === false ? "Show layer" : "Hide layer"}
             onClick={(e) => {
               e.stopPropagation();
               const targetId = layer.isVirtualImageChild ? layer.parentId : layer.id;
+              if (setSelectedLayerId) setSelectedLayerId(targetId);
+              if (setMultiSelectedIds) setMultiSelectedIds(new Set([targetId]));
               const ids = multiSelectedIds.has(targetId) ? Array.from(multiSelectedIds) : [targetId];
               onToggleVisibility && onToggleVisibility(ids);
             }}
@@ -550,11 +649,13 @@ const LayerItem = ({
             {layer.visible === false ? <EyeOff size="0.72vw" /> : <Eye size="0.72vw" />}
           </button>
           <button
-            className={`p-[0.2vw] rounded-[0.2vw] hover:bg-white/80 transition-all ${layer.locked === true ? 'opacity-100 text-amber-500 hover:text-amber-600' : 'opacity-0 group-hover/layer:opacity-100 text-gray-400 hover:text-indigo-600'}`}
+            className={`p-[0.2vw] rounded-[0.2vw] hover:bg-white/80 transition-all ${layer.locked === true ? 'opacity-100 text-amber-500 hover:text-amber-600' : 'opacity-0 group-hover/layer:opacity-100 text-gray-400 hover:text-[#EC5137]'}`}
             title={layer.locked === true ? "Unlock layer" : "Lock layer"}
             onClick={(e) => {
               e.stopPropagation();
               const targetId = layer.isVirtualImageChild ? layer.parentId : layer.id;
+              if (setSelectedLayerId) setSelectedLayerId(targetId);
+              if (setMultiSelectedIds) setMultiSelectedIds(new Set([targetId]));
               const ids = multiSelectedIds.has(targetId) ? Array.from(multiSelectedIds) : [targetId];
               onToggleLock && onToggleLock(ids);
             }}
@@ -574,11 +675,12 @@ const LayerItem = ({
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className="flex flex-col overflow-hidden"
           >
-            {[...layer.children].filter(c => c.name !== 'Free Frame' && !c.name?.toLowerCase().startsWith('hotspot-')).reverse().map((child, idx) => (
+            {[...layer.children].reverse().map((child, idx) => (
               <LayerItem
                 key={child.id || idx}
                 layer={child}
                 depth={depth + 1}
+                activeTopTool={activeTopTool}
                 onToggleVisibility={onToggleVisibility}
                 onToggleLock={onToggleLock}
                 selectedLayerId={selectedLayerId}
@@ -607,6 +709,7 @@ const Layer = ({
   pages,
   activePageIndex,
   setActivePageIndex,
+  activeTopTool = 'editor',
   isDoublePage,
   insertPageAfter,
   duplicatePage,
@@ -992,14 +1095,13 @@ const Layer = ({
                 : [activeLayerMenu.layerId];
 
               const page = pages[activePageIndex];
-              const clickedLayerName = page?.layers?.find(l => l.id === activeLayerMenu.layerId)?.name;
+              const clickedLayer = page?.layers?.find(l => l.id === activeLayerMenu.layerId);
               
-              const realLayers = page?.layers ? page.layers.filter(l => l.name !== 'Free Frame' && !l.name?.toLowerCase().startsWith('hotspot-')) : [];
+              const realLayers = page?.layers || [];
               const rootGroupLayer = (realLayers.length === 1 && (realLayers[0].name === page?.name || realLayers[0].name?.startsWith('Page '))) ? realLayers[0] : null;
               
               const isPageBackground = activeLayerMenu.isOverlay || 
                                        (page && activeLayerMenu.layerId === page.id) || 
-                                       clickedLayerName === 'Free Frame' || clickedLayerName?.toLowerCase().startsWith('hotspot-') ||
                                        (rootGroupLayer && activeLayerMenu.layerId === rootGroupLayer.id);
 
               const isRootLayer = isPageBackground ||
@@ -1008,7 +1110,7 @@ const Layer = ({
               if (isRootLayer) {
                 let pageLayerIds = [];
                 if (rootGroupLayer) {
-                  pageLayerIds = (rootGroupLayer.children || []).filter(c => c.name !== 'Free Frame' && !c.name?.toLowerCase().startsWith('hotspot-')).map(l => l.id);
+                  pageLayerIds = (rootGroupLayer.children || []).map(l => l.id);
                 } else {
                   pageLayerIds = realLayers.map(l => l.id);
                 }
@@ -1320,7 +1422,7 @@ const Layer = ({
           >
             {/* Sidebar Header */}
             <div className="flex items-center justify-between px-[0.2vw] flex-shrink-0" style={{ height: '8vh', gap: '0.8vw' }}>
-              <div className={`flex-1 min-w-0 flex items-center bg-[#F1F3F4] px-[0.6vw] py-[0.5vh] rounded-[0.5vw] border transition-all ${isNameDuplicate ? 'border-red-500 bg-red-50' : 'border-transparent focus-within:border-indigo-400 focus-within:bg-white'
+              <div className={`flex-1 min-w-0 flex items-center bg-[#F1F3F4] px-[0.6vw] py-[0.5vh] rounded-[0.5vw] border transition-all ${isNameDuplicate ? 'border-red-500 bg-red-50' : 'border-transparent focus-within:border-[#EC5137] focus-within:bg-white'
                 }`}>
                 <input
                   ref={nameInputRef}
@@ -1384,7 +1486,7 @@ const Layer = ({
                     setMultiSelectedIds(new Set());
                   }}
                   className={`flex-1 py-[0.7vh] rounded-[0.45vw] text-[0.75vw] font-semibold transition-all ${activeTab === 'pages'
-                    ? 'bg-white text-indigo-600 shadow-sm border border-gray-200/60'
+                    ? 'bg-white text-[#EC5137] shadow-sm border border-gray-200/60'
                     : 'text-gray-500 hover:text-gray-800'
                     }`}
                 >
@@ -1393,7 +1495,7 @@ const Layer = ({
                 <button
                   onClick={() => setActiveTab('layers')}
                   className={`flex-1 py-[0.7vh] rounded-[0.45vw] text-[0.75vw] font-semibold transition-all ${activeTab === 'layers'
-                    ? 'bg-white text-indigo-600 shadow-sm border border-gray-200/60'
+                    ? 'bg-white text-[#EC5137] shadow-sm border border-gray-200/60'
                     : 'text-gray-500 hover:text-gray-800'
                     }`}
                 >
@@ -1428,7 +1530,7 @@ const Layer = ({
                     >
                       {/* Rebuild Indicator (Top) */}
                       {dragOverIndex === index && draggedPageIndex !== index && draggedPageIndex > index && (
-                        <div className="absolute -top-[0.4vh] left-0 right-0 h-[0.2vw] bg-indigo-500 rounded-full z-10" />
+                        <div className="absolute -top-[0.4vh] left-0 right-0 h-[0.2vw] bg-[#EC5137] rounded-full z-10" />
                       )}
 
                       <motion.div
@@ -1436,7 +1538,7 @@ const Layer = ({
                         className={`flex flex-col rounded-[0.6vw] transition-all duration-200 relative group overflow-hidden ${
                           draggedPageIndex === index ? 'opacity-40 scale-[0.98]' : ''
                         } ${isExpanded
-                          ? 'bg-white border border-indigo-200/90 shadow-[0_2px_8px_rgba(99,102,241,0.06)]'
+                          ? 'bg-white border border-[#EC5137]/40 shadow-[0_2px_8px_rgba(236,81,55,0.08)]'
                           : 'bg-white hover:bg-gray-50/80 border border-gray-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
                         }`}
                       >
@@ -1472,7 +1574,7 @@ const Layer = ({
                           }}
                           onContextMenu={(e) => handleMenuClick(e, page.id)}
                           className={`flex items-center py-[1vh] px-[0.8vw] relative group/pageitem cursor-pointer transition-colors ${
-                            isExpanded ? 'bg-indigo-50/40 border-b border-indigo-100/60' : 'hover:bg-gray-50'
+                            isExpanded ? 'bg-[#EC5137]/10 border-b border-[#EC5137]/20' : 'hover:bg-gray-50'
                           }`}
                         >
                           {!editingPageId && (
@@ -1496,11 +1598,11 @@ const Layer = ({
                                 onClick={(e) => e.stopPropagation()}
                                 onFocus={(e) => e.target.select()}
                                 autoFocus
-                                className="w-full text-left text-[0.8vw] font-semibold border-b border-indigo-600 py-[0.1vw] focus:outline-none bg-transparent"
+                                className="w-full text-left text-[0.8vw] font-semibold border-b border-[#EC5137] py-[0.1vw] focus:outline-none bg-transparent"
                               />
                             ) : (
                                 <span className={`text-[0.78vw] font-semibold truncate tracking-tight transition-colors duration-200 ${
-                                  page.isHidden ? 'text-gray-400' : (isExpanded ? 'text-indigo-900' : 'text-gray-700 group-hover/pageitem:text-gray-900')
+                                  page.isHidden ? 'text-gray-400' : (isExpanded ? 'text-[#EC5137]' : 'text-gray-700 group-hover/pageitem:text-gray-900')
                                 }`}>
                                   {page.name}
                                 </span>
@@ -1509,7 +1611,7 @@ const Layer = ({
 
                           <div className="flex items-center gap-[0.35vw] flex-shrink-0">
                             {page.isHidden && <EyeOff size="0.85vw" className="text-gray-400" />}
-                            <div className={`p-[0.2vw] rounded-[0.25vw] flex items-center justify-center ${isExpanded ? 'text-indigo-600' : 'text-gray-400 group-hover/pageitem:text-gray-600'}`}>
+                            <div className={`p-[0.2vw] rounded-[0.25vw] flex items-center justify-center ${isExpanded ? 'text-[#EC5137]' : 'text-gray-400 group-hover/pageitem:text-gray-600'}`}>
                               <Layers size="0.95vw" strokeWidth={isExpanded ? 2.5 : 2} />
                             </div>
                             {!editingPageId && (
@@ -1573,7 +1675,7 @@ const Layer = ({
                                       }
                                     } catch (e) {}
                                   }
-                                  const realLayers = (effectiveLayers || []).filter(l => l.name !== 'Free Frame' && !l.name?.toLowerCase().startsWith('hotspot-'));
+                                  const realLayers = effectiveLayers || [];
                                   if (realLayers.length === 0) {
                                     return (
                                       <div className="text-[0.7vw] text-gray-400 italic px-[0.8vw] py-[0.5vh]">
@@ -1590,6 +1692,7 @@ const Layer = ({
                                         layer={layer}
                                         depth={0}
                                         isBaseLayer={isBaseLayer}
+                                        activeTopTool={activeTopTool}
                                         onToggleVisibility={(layerId) => toggleLayerVisibility(index, layerId)}
                                         onToggleLock={(layerId) => toggleLayerLock(index, layerId)}
                                         selectedLayerId={selectedLayerId}
@@ -1615,7 +1718,7 @@ const Layer = ({
                       </motion.div>
 
                       {dragOverIndex === index && draggedPageIndex !== index && draggedPageIndex < index && (
-                        <div className="absolute -bottom-[0.4vh] left-0 right-0 h-[0.2vw] bg-indigo-500 rounded-full z-10" />
+                        <div className="absolute -bottom-[0.4vh] left-0 right-0 h-[0.2vw] bg-[#EC5137] rounded-full z-10" />
                       )}
                     </div>
                   );
@@ -1643,13 +1746,13 @@ const Layer = ({
                         >
                           {/* Drag Indicator Top */}
                           {dragOverIndex === index && draggedPageIndex !== index && draggedPageIndex > index && (
-                            <div className="absolute -top-[1.25vh] left-0 right-0 h-[0.25vw] bg-indigo-500 rounded-full z-20 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                            <div className="absolute -top-[1.25vh] left-0 right-0 h-[0.25vw] bg-[#EC5137] rounded-full z-20 shadow-[0_0_8px_rgba(236,81,55,0.5)]" />
                           )}
 
                           <div
                             draggable
                             onDragStart={(e) => handleDragStart(e, index)}
-                            className={`flex flex-col rounded-[1vw] overflow-hidden bg-white shadow-sm transition-all cursor-pointer relative border-[0.15vw] ${activePageIndex === index ? 'border-indigo-500 shadow-md' : 'border-gray-200 hover:border-gray-300'
+                            className={`flex flex-col rounded-[1vw] overflow-hidden bg-white shadow-sm transition-all cursor-pointer relative border-[0.15vw] ${activePageIndex === index ? 'border-[#EC5137] shadow-md' : 'border-gray-200 hover:border-gray-300'
                               } ${draggedPageIndex === index ? 'opacity-40 grayscale-[0.5]' : ''}`}
                             id={`page-card-preview-${page.id}`}
                             onClick={() => {
@@ -1663,7 +1766,7 @@ const Layer = ({
                             }}
                           >
                             {/* Page Header */}
-                            <div className={`flex items-center justify-between px-[1vw] py-[1vh] border-b transition-colors ${activePageIndex === index ? 'border-indigo-100 bg-[#EEF2FF]/50' : 'border-gray-100'
+                            <div className={`flex items-center justify-between px-[1vw] py-[1vh] border-b transition-colors ${activePageIndex === index ? 'border-[#EC5137]/20 bg-[#EC5137]/5' : 'border-gray-100'
                               }`}>
                               <div className="flex-1 min-w-0 mr-[0.5vw]">
                                 {editingPageId === page.id ? (
@@ -1680,7 +1783,7 @@ const Layer = ({
                                     onClick={(e) => e.stopPropagation()}
                                     onFocus={(e) => e.target.select()}
                                     autoFocus
-                                    className="w-full text-left text-[0.8vw] font-semibold border-b border-indigo-600 py-[0.1vw] focus:outline-none bg-transparent"
+                                    className="w-full text-left text-[0.8vw] font-semibold border-b border-[#EC5137] py-[0.1vw] focus:outline-none bg-transparent"
                                   />
                                 ) : (
                                   <span className={`text-[0.8vw] font-semibold text-gray-900 truncate block ${page.isHidden ? 'text-gray-400' : ''}`}>
@@ -1707,7 +1810,7 @@ const Layer = ({
 
                             {/* Page Preview */}
                             <div
-                              className={`relative flex items-center justify-center p-[1vw] overflow-hidden transition-all ${activePageIndex === index ? 'bg-[#EEF2FF]' : 'bg-gray-50'
+                              className={`relative flex items-center justify-center p-[1vw] overflow-hidden transition-all ${activePageIndex === index ? 'bg-[#EC5137]/5' : 'bg-gray-50'
                                 }`}
                               style={{ aspectRatio: `${aspectRatio}` }}
                             >
@@ -1724,7 +1827,7 @@ const Layer = ({
 
                           {/* Drag Indicator Bottom */}
                           {dragOverIndex === index && draggedPageIndex !== index && draggedPageIndex < index && (
-                            <div className="absolute -bottom-[1.25vh] left-0 right-0 h-[0.25vw] bg-indigo-500 rounded-full z-20 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                            <div className="absolute -bottom-[1.25vh] left-0 right-0 h-[0.25vw] bg-[#EC5137] rounded-full z-20 shadow-[0_0_8px_rgba(236,81,55,0.5)]" />
                           )}
                         </div>
                       );

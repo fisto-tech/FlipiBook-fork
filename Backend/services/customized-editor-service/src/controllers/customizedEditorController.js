@@ -11,6 +11,7 @@ const UserGallery = require('../../../../shared/models/UserGallery');
 const EditorPreset = require('../models/editorPreset');
 const Flipbook = require('../../../../shared/models/Flipbook');
 const backupService = require('../../../../shared/backupService');
+const bookInfoController = require('./bookInfoController');
 
 const { getAuthUser, getUserQuery, getUserStorageFolder } = require('../utils/userHelper');
 const {
@@ -398,7 +399,7 @@ const updateSettings = async (req, res) => {
       rawSettings.branding
     );
 
-    // 8. FlipbookInfo
+    // 8. FlipbookInfo & Metadata
     let incFlipbookInfo = pick(
       rawCustomized.FlipbookInfo,
       rawBody.FlipbookInfo,
@@ -406,7 +407,7 @@ const updateSettings = async (req, res) => {
       rawCustomized.flipbookInfo,
       rawBody.flipbookInfo
     );
-    if (!incFlipbookInfo && (width || height || orientation)) {
+    if (!incFlipbookInfo && (width || height || orientation || rawBody.category || rawBody.language || rawBody.quotes || rawBody.about)) {
       incFlipbookInfo = {};
     }
     if (incFlipbookInfo) {
@@ -414,16 +415,37 @@ const updateSettings = async (req, res) => {
       if (width) incFlipbookInfo.width = width;
       if (height) incFlipbookInfo.height = height;
       if (orientation) incFlipbookInfo.orientation = orientation;
+      if (rawBody.category !== undefined) incFlipbookInfo.category = rawBody.category;
+      if (rawBody.language !== undefined) incFlipbookInfo.language = rawBody.language;
+      if (rawBody.quotes !== undefined) incFlipbookInfo.quotes = rawBody.quotes;
+      if (rawBody.about !== undefined) incFlipbookInfo.about = rawBody.about;
     }
 
-    // 9. otherSetup
-    const incOtherSetup = pick(
+    // 9. otherSetup & Cover Picture
+    let incOtherSetup = pick(
       rawCustomized.otherSetup,
       rawBody.otherSetup,
       rawSettings.otherSetup,
       rawCustomized.othersetup,
-      rawBody.othersetup
+      rawBody.othersetup,
+      rawSettings.othersetup
     );
+
+    const incomingCoverPicture = pick(
+      rawBody.coverPicture,
+      rawCustomized.coverPicture,
+      rawSettings.coverPicture,
+      rawSettings.othersetup?.coverPicture,
+      rawBody.settings?.othersetup?.coverPicture,
+      incOtherSetup?.coverPicture
+    );
+
+    if (incomingCoverPicture !== undefined) {
+      if (!incFlipbookInfo) incFlipbookInfo = {};
+      incFlipbookInfo.coverPicture = incomingCoverPicture;
+      if (!incOtherSetup) incOtherSetup = {};
+      incOtherSetup = { ...incOtherSetup, coverPicture: incomingCoverPicture };
+    }
 
     // 3. Merge with existing settings or defaults
     let existingSettings = await CustomizedSettings.findOne({ v_id: resolvedVId });
@@ -439,7 +461,8 @@ const updateSettings = async (req, res) => {
       BookAppearance: { ...(defaults.BookAppearance || {}), ...(existing.BookAppearance || {}), ...(incBookAppearance || {}) },
       leadForm: { ...(defaults.leadForm || {}), ...(existing.leadForm || {}), ...(incLeadForm || {}) },
       Visibility: { ...(defaults.Visibility || {}), ...(existing.Visibility || {}), ...(incVisibility || {}) },
-      otherSetup: { ...(existing.otherSetup || {}), ...(incOtherSetup || {}) }
+      otherSetup: { ...(existing.otherSetup || {}), ...(incOtherSetup || {}) },
+      coverPicture: incomingCoverPicture !== undefined ? incomingCoverPicture : (existing.coverPicture || existing.FlipbookInfo?.coverPicture || null)
     };
     if (cleanSettings.Branding) {
       delete cleanSettings.Branding.profileSettings;
@@ -510,15 +533,24 @@ const updateSettings = async (req, res) => {
       }
     }
 
-    // 5. Synchronize with Flipbook model (lastUpdated, userID)
+    // 5. Synchronize with Flipbook model (lastUpdated, userID, flipbookName, coverPicture, thumbnail)
+    const flipbookSyncUpdates = {
+      userID: targetUserID,
+      lastUpdated: new Date()
+    };
+    if (effectiveBookName) {
+      flipbookSyncUpdates.flipbookName = effectiveBookName;
+    }
+    if (incomingCoverPicture) {
+      flipbookSyncUpdates.coverPicture = incomingCoverPicture;
+      if (incomingCoverPicture.url) {
+        flipbookSyncUpdates.thumbnail = incomingCoverPicture.url;
+      }
+    }
+
     await Flipbook.updateOne(
       { $or: [{ v_id: resolvedVId }, ...(flipbook?._id ? [{ _id: flipbook._id }] : [])] },
-      {
-        $set: {
-          userID: targetUserID,
-          lastUpdated: new Date()
-        }
-      }
+      { $set: flipbookSyncUpdates }
     ).catch((e) => console.warn('[Customized Editor] Could not sync with Flipbook model:', e.message));
 
     return res.status(200).json({
@@ -2789,5 +2821,8 @@ module.exports = {
   recordPublicView,
   submitPublicRating,
   updatePublicRating,
-  deletePublicRating
+  deletePublicRating,
+  saveBookInfo: bookInfoController.saveBookInfo,
+  getBookInfo: bookInfoController.getBookInfo,
+  saveCoverPicture: bookInfoController.saveCoverPicture
 };

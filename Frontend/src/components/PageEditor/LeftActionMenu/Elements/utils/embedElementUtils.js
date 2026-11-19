@@ -150,7 +150,7 @@ export const getEmbedSvgCode = (isClick = false) => {
       <g class="embed-content-group" pointer-events="none">
         <foreignObject x="0" y="0" width="${w}" height="${h}" pointer-events="all" style="border-radius: 0px; overflow: hidden;">
           <div xmlns="http://www.w3.org/1999/xhtml" class="embed-root-container" style="position: relative; width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; border-radius: 0px; background: transparent;">
-            <iframe srcdoc="${srcdocHtml}" width="100%" height="100%" style="display:block; width:100%; height:100%; border:none; margin:0; padding:0; background:transparent; border-radius: 0px;" scrolling="auto" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen="true" allowtransparency="true"></iframe>
+            <iframe class="fbe-embed-iframe" srcdoc="${srcdocHtml}" width="100%" height="100%" style="display:block; width:100%; height:100%; border:none; margin:0; padding:0; background:transparent; border-radius: 0px;" scrolling="auto" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen="true" allowtransparency="true"></iframe>
             ${overlayHtml}
           </div>
         </foreignObject>
@@ -214,7 +214,7 @@ export function createEmbedElementNode(cx = 105, cy = 148, customCode = '') {
       <g class="embed-content-group" pointer-events="none">
         <foreignObject x="0" y="0" width="${w}" height="${h}" pointer-events="all" style="border-radius: 0px; overflow: hidden;">
           <div xmlns="http://www.w3.org/1999/xhtml" class="embed-root-container" style="position: relative; width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; border-radius: 0px; background: transparent;">
-            <iframe srcdoc="${srcdocHtml}" width="100%" height="100%" style="display:block; width:100%; height:100%; border:none; margin:0; padding:0; background:transparent; border-radius: 0px;" scrolling="auto" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen="true" allowtransparency="true"></iframe>
+            <iframe class="fbe-embed-iframe" srcdoc="${srcdocHtml}" width="100%" height="100%" style="display:block; width:100%; height:100%; border:none; margin:0; padding:0; background:transparent; border-radius: 0px;" scrolling="auto" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen="true" allowtransparency="true"></iframe>
             ${overlayHtml}
           </div>
         </foreignObject>

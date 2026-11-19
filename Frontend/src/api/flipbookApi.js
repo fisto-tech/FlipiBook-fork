@@ -44,9 +44,25 @@ export const flipbookApi = {
 
     // Flipbooks API
     getBooks: (params) => api.get('/api/flipbook/list', params ? { params: typeof params === 'string' ? { emailId: params } : params } : undefined),
-    getPreview: (v_id, arg2, arg3) => {
-        const signal = (arg2 && arg2.aborted !== undefined) ? arg2 : arg3;
-        return api.get(`/api/flipbook/preview/${v_id}`, signal ? { signal } : undefined);
+    getPreview: (v_id, arg2, arg3, arg4) => {
+        let signal, emailId, page;
+        [arg2, arg3, arg4].forEach(arg => {
+            if (!arg) return;
+            if (arg.aborted !== undefined || arg instanceof AbortSignal) {
+                signal = arg;
+            } else if (typeof arg === 'number' || (!isNaN(arg) && typeof arg === 'string' && /^\d+$/.test(arg))) {
+                page = Number(arg);
+            } else if (typeof arg === 'string') {
+                emailId = arg;
+            }
+        });
+        const config = {};
+        if (signal) config.signal = signal;
+        config.params = {};
+        if (emailId) config.params.emailId = emailId;
+        if (page) config.params.page = page;
+        if (Object.keys(config.params).length === 0) delete config.params;
+        return api.get(`/api/flipbook/preview/${v_id}`, config);
     },
     saveBook: (payload) => api.post('/api/flipbook/save', payload),
     savePagesBatch: (payload) => api.post('/api/flipbook/save-pages-batch', payload),

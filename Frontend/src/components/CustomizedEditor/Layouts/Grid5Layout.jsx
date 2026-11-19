@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 const Grid5Layout = ({
     children,
@@ -63,7 +64,7 @@ const Grid5Layout = ({
 }) => {
     // ... rest of the setup logic
     const flipSoundMasterEnabled = otherSetupSettings?.sound?.flipSoundEnabled !== false;
-    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled !== false;
+    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled === true;
     const isFlipActive = flipSoundMasterEnabled && !isFlipMuted;
     const isBgActive = bgSoundMasterEnabled && !isMuted;
 
@@ -625,14 +626,12 @@ const Grid5Layout = ({
 
                 {/* Right: Brand Logo */}
                 <div className="flex items-center">
-                    {settings.brandingProfile.logo && logoSettings?.src && (
-                        <img
-                            src={logoSettings.src}
-                            alt="Brand Logo"
-                            className={`${isTablet ? 'h-[1.6vw]' : 'h-[2.2vw]'} w-auto transition-all`}
-                            style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                        />
-                    )}
+                    <BrandLogo
+                        logoSettings={logoSettings}
+                        settings={settings}
+                        isTablet={isTablet}
+                        className={`${isTablet ? 'h-[1.6vw]' : 'h-[2.2vw]'}`}
+                    />
                 </div>
             </div>
             )}

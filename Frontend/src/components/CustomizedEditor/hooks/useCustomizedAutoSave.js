@@ -71,6 +71,26 @@ export const useCustomizedAutoSave = ({
     }
   }, [otherSetupSettings?.sound, setMenuBarSettings]);
 
+  // 1b. Turning off the last enabled sound (flip + background both off) also turns off the
+  //     master "Audio Features" toggle. Reacts only to that transition, so it never fights
+  //     the user (re-enabling the master is handled in LayoutSettingsPanel).
+  const prevBothSoundsOffRef = useRef(null);
+  useEffect(() => {
+    const snd = otherSetupSettings?.sound;
+    if (!snd) return;
+    const bothOff = snd.flipSoundEnabled === false && snd.bgSoundEnabled !== true;
+    const prev = prevBothSoundsOffRef.current;
+    prevBothSoundsOffRef.current = bothOff;
+    if (prev === null || prev === bothOff) return;
+    // bothOff: last sound switched off → master off.  !bothOff: a sound switched back on → master on.
+    const masterOn = !bothOff;
+    setMenuBarSettings(p => {
+      const media = p?.media || {};
+      if (media.audio === masterOn && media.backgroundAudio === masterOn) return p;
+      return { ...(p || {}), media: { ...media, audio: masterOn, backgroundAudio: masterOn } };
+    });
+  }, [otherSetupSettings?.sound?.flipSoundEnabled, otherSetupSettings?.sound?.bgSoundEnabled, setMenuBarSettings]);
+
   // 2. Keep menuBarSettings.interaction.gallerySettings strictly in sync with otherSetupSettings.gallery
   useEffect(() => {
     if (otherSetupSettings?.gallery?.images) {

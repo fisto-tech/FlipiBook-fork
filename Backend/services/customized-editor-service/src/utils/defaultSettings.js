@@ -256,7 +256,8 @@ const DEFAULT_FLIPBOOK_INFO = {
   width: null,
   height: null,
   templateId: '',
-  orientation: 'horizontal'
+  orientation: 'horizontal',
+  coverPicture: null
 };
 
 const crypto = require('crypto');

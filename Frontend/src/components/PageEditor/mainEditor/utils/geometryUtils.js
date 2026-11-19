@@ -239,6 +239,71 @@ export const getVisualBBox = (el) => {
     return { x: 0, y: 0, width: 650, height: 400 };
   }
 
+  // ── SHAPE ELEMENT BOUNDING BOX (Account for stroke expansion) ──
+  const isShape = el.getAttribute?.('data-is-element-shape') === 'true' ||
+                  el.getAttribute?.('data-shape-type') !== null ||
+                  el.getAttribute?.('data-type') === 'shape' ||
+                  (el.id && el.id.startsWith('shape-')) ||
+                  !!el.querySelector?.('[data-is-element-shape="true"], [data-shape-type]');
+  if (isShape) {
+    const strokeEl = (el.getAttribute('stroke') || el.getAttribute('data-stroke-width'))
+      ? el
+      : (el.querySelector?.('[data-is-element-shape="true"], [data-stroke-width], [stroke]') || el);
+
+    let baseBBox = null;
+    try {
+      baseBBox = el.getBBox();
+    } catch { /* ignored */ }
+
+    if (baseBBox && (baseBBox.width > 0 || baseBBox.height > 0)) {
+      const strokeVal = strokeEl.getAttribute('stroke') || strokeEl.style?.stroke;
+      const hasStroke = strokeVal && strokeVal !== 'none' && strokeVal !== 'transparent';
+      if (hasStroke) {
+        const dataSw = parseFloat(strokeEl.getAttribute('data-stroke-width'));
+        const attrSw = parseFloat(strokeEl.getAttribute('stroke-width') || strokeEl.style?.strokeWidth || '0');
+        const strokePos = (strokeEl.getAttribute('data-stroke-position') || 'Outside').toLowerCase();
+
+        let outerStrokePx = 0;
+        if (strokePos === 'outside') {
+          outerStrokePx = (!isNaN(dataSw) && dataSw > 0) ? dataSw : (attrSw > 0 ? attrSw / 2 : 0);
+        } else if (strokePos === 'center') {
+          outerStrokePx = ((!isNaN(dataSw) && dataSw > 0) ? dataSw : attrSw) / 2;
+        } else if (strokePos === 'inside') {
+          outerStrokePx = 0;
+        }
+
+        if (outerStrokePx > 0) {
+          const isNonScaling = (strokeEl.getAttribute('vector-effect') || strokeEl.style?.vectorEffect) === 'non-scaling-stroke';
+          let scaleX = 1;
+          let scaleY = 1;
+          if (isNonScaling) {
+            try {
+              const ctm = el.getCTM();
+              if (ctm) {
+                scaleX = Math.sqrt(ctm.a * ctm.a + ctm.b * ctm.b) || 1;
+                scaleY = Math.sqrt(ctm.c * ctm.c + ctm.d * ctm.d) || 1;
+              }
+            } catch { /* ignored */ }
+          }
+          const offsetX = outerStrokePx / scaleX;
+          const offsetY = outerStrokePx / scaleY;
+          return {
+            x: baseBBox.x - offsetX,
+            y: baseBBox.y - offsetY,
+            width: baseBBox.width + (offsetX * 2),
+            height: baseBBox.height + (offsetY * 2)
+          };
+        }
+      }
+      return {
+        x: baseBBox.x,
+        y: baseBBox.y,
+        width: baseBBox.width,
+        height: baseBBox.height
+      };
+    }
+  }
+
   const isUserGroup = el.tagName?.toLowerCase() === 'g' && (
     el.getAttribute('data-type') === 'group' ||
     (el.getAttribute('data-name') || '').toLowerCase() === 'group' ||
@@ -668,10 +733,15 @@ export const clearOverlayType = (typePattern) => {
     if (typePattern.includes('selected')) {
       htmlOverlay.querySelectorAll('.resize-handle').forEach(h => h.remove());
       if (!window.__isRotatingActive) {
-        htmlOverlay.querySelectorAll('.corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"]').forEach(h => h.remove());
+        htmlOverlay.querySelectorAll('.corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"], [id^="interaction-badge-"]').forEach(h => h.remove());
+      } else {
+        htmlOverlay.querySelectorAll('[id^="interaction-badge-"]').forEach(h => h.remove());
       }
     }
   });
+  if (typePattern.includes('selected')) {
+    document.querySelectorAll('[id^="interaction-badge-"]').forEach(b => b.remove());
+  }
 };
 
 export const getLocalPoint = (svg, element, clientX, clientY) => {

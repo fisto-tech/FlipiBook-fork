@@ -13,7 +13,7 @@ export default function AnalyticsFeatures() {
   const navigate = useNavigate();
 
   return (
-    <div className="w-full min-h-screen bg-white text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden selection:bg-[#EC5137]/10 selection:text-[#EC5137]">
+    <div className="w-full min-h-screen bg-white text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden">
       <main className="w-full flex-1">
         {/* =========================================
             SECTION 1: HERO (STATISTICS BANNER)
@@ -36,9 +36,9 @@ export default function AnalyticsFeatures() {
                 <button
                   type="button"
                   onClick={() => navigate('/features')}
-                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-gray-200 bg-white/90 text-gray-600 text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-xs transition-all cursor-pointer backdrop-blur-xs hover:bg-white"
+                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-[#EA580C] bg-white/10 text-[#EA580C] text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-sm hover:shadow transition-all cursor-pointer backdrop-blur-xl hover:shadow-[#EA580C]"
                 >
-                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-gray-600" />
+                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-[#EA580C]" />
                   <span>Back to Features</span>
                 </button>
               </div>
@@ -119,7 +119,7 @@ export default function AnalyticsFeatures() {
                   <h3 className="text-sm md:text-[14.5px] font-semibold text-[#111827] tracking-wider uppercase mb-1">
                     VIEWS &amp; TIME SPENT
                   </h3>
-                  <p className="text-xs md:text-[12px] text-[#64748B] italic max-w-[250px] leading-relaxed font-normal">
+                  <p className="text-xs md:text-[12px] text-[#64748B] max-w-[250px] leading-relaxed font-normal">
                     Track total publication views and average reading time down to each individual page
                   </p>
                 </div>
@@ -151,7 +151,7 @@ export default function AnalyticsFeatures() {
                   <h3 className="text-sm md:text-[14.5px] font-semibold text-[#111827] tracking-wider uppercase mb-1">
                     INTERACTIVE CLICKS
                   </h3>
-                  <p className="text-xs md:text-[12px] text-[#64748B] italic max-w-[250px] leading-relaxed font-normal">
+                  <p className="text-xs md:text-[12px] text-[#64748B] max-w-[250px] leading-relaxed font-normal">
                     Track total clicks across all embedded links
                   </p>
                 </div>
@@ -167,7 +167,7 @@ export default function AnalyticsFeatures() {
                   <h3 className="text-sm md:text-[14.5px] font-semibold text-[#111827] tracking-wider uppercase mb-1">
                     REACH &amp; DOWNLOADS
                   </h3>
-                  <p className="text-xs md:text-[12px] text-[#64748B] italic max-w-[250px] leading-relaxed font-normal">
+                  <p className="text-xs md:text-[12px] text-[#64748B]  max-w-[250px] leading-relaxed font-normal">
                     Measure social shares along side total downloads of your original PDF file.
                   </p>
                 </div>

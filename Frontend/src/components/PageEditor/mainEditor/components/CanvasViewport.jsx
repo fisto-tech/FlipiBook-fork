@@ -144,7 +144,7 @@ export const CanvasViewport = ({
                   >
                     {/* Page Content */}
                     <div
-                      className={`flex-1 w-full relative page-svg-container ${isConvertedFlipbook ? 'is-pdf-project' : ''} ${localTrimView ? 'trim-view-on' : 'trim-view-off'} overflow-visible tool-${selectedSelectTool} ${(activeTopTool !== 'interaction' && activeTopTool !== 'animation') ? 'hide-free-frames' : ''} ${(activeMainTool === 'pen' && selectedPenTool === 'pencil') ? 'pencil-mode' : ''} ${(activeMainTool === 'pen' && selectedPenTool === 'pen') ? 'pen-mode' : ''} ${(activeMainTool === 'shapes') ? 'shape-mode' : ''} ${(activeMainTool === 'type') ? 'type-mode' : ''}`}
+                      className={`flex-1 w-full relative page-svg-container ${isConvertedFlipbook ? 'is-pdf-project' : ''} ${localTrimView ? 'trim-view-on' : 'trim-view-off'} overflow-visible tool-${selectedSelectTool} ${(activeTopTool !== 'interaction' && activeTopTool !== 'animation') ? 'hide-free-frames' : ''} ${activeTopTool !== 'interaction' ? 'disable-interaction-layers' : ''} ${activeTopTool === 'interaction' ? 'interaction-mode-active' : ''} ${(activeMainTool === 'pen' && selectedPenTool === 'pencil') ? 'pencil-mode' : ''} ${(activeMainTool === 'pen' && selectedPenTool === 'pen') ? 'pen-mode' : ''} ${(activeMainTool === 'shapes') ? 'shape-mode' : ''} ${(activeMainTool === 'type') ? 'type-mode' : ''}`}
                       data-page-index={activePageIndex}
                     >
                       <style>{svgGlobalStyles}</style>

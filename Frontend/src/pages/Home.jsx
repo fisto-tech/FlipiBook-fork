@@ -5,9 +5,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import CreateFlipbookModal from '../components/CreateFlipbookModal';
 import AlertModal from '../components/AlertModal';
-import PdfProcessingLoader from '../components/PdfProcessingLoader';
 import Footer from './Footer';
 import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdfUtils';
+import { useDocumentUpload } from '../context/DocumentUploadContext';
 
 // Modular Sections
 import HeroSection from './Home/HeroSection';
@@ -45,7 +45,13 @@ export default function Home() {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
 
   const [isLoading, setIsLoading] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState(null);
+  const {
+    processingProgress,
+    setProcessingProgress,
+    registerUploadSession,
+    cancelUpload: cancelGlobalUpload,
+    notifyUploadComplete
+  } = useDocumentUpload();
   const isUploadCancelledRef = useRef(false);
   const createdFlipbookVIdRef = useRef(null);
   const [alertState, setAlertState] = useState({
@@ -85,6 +91,10 @@ export default function Home() {
     setIsLoading(true);
     isUploadCancelledRef.current = false;
     createdFlipbookVIdRef.current = null;
+
+    registerUploadSession({
+      onCancel: handleCancelUploadPDF
+    });
 
     const firstFile = files[0];
     const initialDocType = firstFile._docType || getOfficeDocType(firstFile.name);
@@ -134,6 +144,7 @@ export default function Home() {
           fileName: file.name,
           stage: 'uploading'
         });
+        const startPageForFile = allImages.length + 1;
         const images = await convertPdfWithInkscape(file, remainingPages, backendUrl, (currOrObj, total, pct, stage, msg) => {
           let current, pageCount, percent, message, currentStage;
           if (typeof currOrObj === 'object' && currOrObj !== null) {
@@ -169,7 +180,7 @@ export default function Home() {
               stage: currentStage || prev?.stage || 'converting'
             };
           });
-        });
+        }, null, null, 'FLIPI0001', startPageForFile);
         if (isUploadCancelledRef.current) return;
         allImages = [...allImages, ...images];
       }
@@ -367,7 +378,7 @@ export default function Home() {
   const handleCancelUploadPDF = () => {
     isUploadCancelledRef.current = true;
     setIsLoading(false);
-    setProcessingProgress(null);
+    cancelGlobalUpload();
     if (createdFlipbookVIdRef.current) {
       axios.delete(`${backendUrl}/api/flipbook/delete/${createdFlipbookVIdRef.current}`, { withCredentials: true }).catch(() => { });
       createdFlipbookVIdRef.current = null;
@@ -507,8 +518,6 @@ export default function Home() {
         onUpload={handleUploadPDF}
         onTemplate={handleUseTemplate}
       />
-
-      <PdfProcessingLoader progress={processingProgress} onCancel={handleCancelUploadPDF} />
 
       <AnimatePresence>
         {isLoading && !processingProgress && (

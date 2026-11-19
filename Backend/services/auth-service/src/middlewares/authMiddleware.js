@@ -1,4 +1,6 @@
+const crypto = require('crypto');
 const User = require('../../../../shared/models/User');
+const RefreshToken = require('../../../../shared/models/RefreshToken');
 const { verifyToken } = require('../utils/jwtHelper');
 const { getRedis, isAvailable } = require('../../../../shared/redisClient');
 
@@ -32,9 +34,16 @@ const authenticateUser = async (req, res, next) => {
 
     let decoded = verifyToken(token);
 
-    // If access token is expired or missing, check refresh token
+    // If access token is expired or missing, check refresh token with strict DB verification
     if ((!decoded || (!decoded.userId && !decoded.id && !decoded.emailId)) && refreshToken) {
-      decoded = verifyToken(refreshToken);
+      const decodedRefresh = verifyToken(refreshToken);
+      if (decodedRefresh) {
+        const tokenHash = crypto.createHash('sha256').update(String(refreshToken)).digest('hex');
+        const dbToken = await RefreshToken.findOne({ tokenHash, isRevoked: false }).lean();
+        if (dbToken) {
+          decoded = decodedRefresh;
+        }
+      }
     }
 
     // Allow authentication if any canonical identifier is present

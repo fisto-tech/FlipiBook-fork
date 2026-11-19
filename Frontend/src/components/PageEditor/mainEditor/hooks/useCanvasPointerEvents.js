@@ -2140,6 +2140,67 @@ export const useCanvasPointerEvents = ({
     return () => window.removeEventListener('trigger-image-adjust', handleTriggerImageAdjust);
   }, [activePageIndex, enterNodeEditMode, drawNodeEditOverlay, startShapeImageAdjust]);
 
+  // ── HOVER SYNC FROM LAYERS PANEL ─────────────────────────────────────────────
+  useEffect(() => {
+    const handleLayerHover = (e) => {
+      const { layerId, isHovered, pageIndex } = e.detail || {};
+
+      // Clear any active hover overlay
+      if (lastHoveredIdRef.current) {
+        const prev = document.getElementById(lastHoveredIdRef.current) 
+                  || document.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
+        prev?.removeAttribute('data-hovered');
+        prev?.removeAttribute('data-child-hovered');
+        clearOverlayType('hover');
+        clearOverlayType('child-hover');
+        lastHoveredIdRef.current = null;
+      }
+
+      if (!isHovered || !layerId) return;
+
+      // If already selected, do not draw hover box (selection box is already visible)
+      if (selectedLayerIdRef.current === layerId || multiSelectedIdsRef.current?.has(layerId)) {
+        return;
+      }
+
+      const targetPageIndex = typeof pageIndex === 'number' ? pageIndex : activePageIndex;
+      const targetContainer = document.querySelector(`.page-svg-container[data-page-index="${targetPageIndex}"]`)
+                           || document.getElementById('main-flipbook-editor')?.contentDocument?.querySelector(`.page-svg-container[data-page-index="${targetPageIndex}"]`)
+                           || document.querySelector('.page-svg-container');
+
+      if (!targetContainer) return;
+
+      const targetEl = targetContainer.querySelector(`[id="${CSS.escape(layerId)}"]`)
+                    || targetContainer.querySelector(`[data-name="${CSS.escape(layerId)}"]`)
+                    || document.getElementById(layerId);
+
+      if (!targetEl) return;
+
+      // Skip base background / locked / overlay elements
+      const isBackgroundOrOverlay = targetEl.getAttribute('data-name') === 'Overlay' ||
+        targetEl.getAttribute('data-type') === 'background' ||
+        targetEl.getAttribute('data-type') === 'shield' ||
+        targetEl.getAttribute('data-locked') === 'true';
+
+      if (isBackgroundOrOverlay) return;
+
+      lastHoveredIdRef.current = targetEl.id || layerId;
+      targetEl.setAttribute('data-hovered', 'true');
+      if (typeof drawOverlayHighlight === 'function') {
+        try {
+          drawOverlayHighlight(targetEl, 'hover');
+        } catch (err) {
+          console.warn('[useCanvasPointerEvents] Error drawing layer hover highlight:', err);
+        }
+      }
+    };
+
+    window.addEventListener('layer-hover', handleLayerHover);
+    return () => {
+      window.removeEventListener('layer-hover', handleLayerHover);
+    };
+  }, [activePageIndex, drawOverlayHighlight]);
+
   // ── FIGMA-STYLE MOUSE LEAVE: clear all hovers ─────────────────────────────────
   const handleSvgMouseLeave = (e) => {
     if ((e.buttons & 1) === 0 && (marqueeDataRef.current || marqueeRef.current)) {
@@ -2192,6 +2253,25 @@ export const useCanvasPointerEvents = ({
       if (mediaParent && mediaParent.id) {
         resolvedId = mediaParent.id;
       }
+      const mapContainer = el?.closest?.('[data-type="map"], g[id^="map-"]');
+      if (mapContainer) {
+        const rootMap = (mapContainer.tagName?.toLowerCase() === 'g' ? mapContainer : mapContainer.closest('g[id^="map-"], g[data-type="map"]')) || mapContainer;
+        if (rootMap && rootMap.id) {
+          resolvedId = rootMap.id;
+        }
+      }
+      const qrParent = el?.closest?.('[data-type="qrcode"], g[id^="qrcode-"]');
+      if (qrParent && qrParent.id) {
+        resolvedId = qrParent.id;
+      }
+      const embedParent = el?.closest?.('[data-type="embed-frame"], g[id^="embed-"]');
+      if (embedParent && embedParent.id) {
+        resolvedId = embedParent.id;
+      }
+      const slideshowParent = el?.closest?.('[data-is-slideshow="true"], [data-type="slideshow"], g[id^="slideshow-"]');
+      if (slideshowParent && slideshowParent.id) {
+        resolvedId = slideshowParent.id;
+      }
       const finalEl = document.getElementById(resolvedId) || el;
       const isFreeFrame = finalEl ? (
         finalEl.getAttribute('data-name') === 'Free Frame' ||
@@ -2199,6 +2279,14 @@ export const useCanvasPointerEvents = ({
         (finalEl.id && finalEl.id.startsWith('free-frame'))
       ) : resolvedId.startsWith('free-frame');
       if (isFreeFrame && activeTopToolRef.current !== 'interaction' && activeTopToolRef.current !== 'animation') {
+        return;
+      }
+      const isAudio = finalEl ? (
+        finalEl.getAttribute('data-type') === 'audio-frame' ||
+        (finalEl.id && finalEl.id.startsWith('audio-')) ||
+        (typeof finalEl.closest === 'function' && !!finalEl.closest('[data-type="audio-frame"], g[id^="audio-"]'))
+      ) : resolvedId.startsWith('audio-');
+      if (isAudio && activeTopToolRef.current === 'interaction') {
         return;
       }
     }
@@ -2281,7 +2369,7 @@ export const useCanvasPointerEvents = ({
         }
       });
       document.querySelectorAll('[id^="highlight-overlay-html-"]').forEach(htmlOverlay => {
-        htmlOverlay.querySelectorAll('.resize-handle, .corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"]').forEach(node => {
+        htmlOverlay.querySelectorAll('.resize-handle, .corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"], [id^="interaction-badge-"]').forEach(node => {
           if (!node.id.includes(id)) {
             node.remove();
           }

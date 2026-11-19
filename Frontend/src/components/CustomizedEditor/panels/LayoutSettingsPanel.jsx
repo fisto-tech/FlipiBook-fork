@@ -11,8 +11,8 @@ import { fontFamilies } from '../utils/fontConstants';
 // Reusable Section Header
 const SectionHeader = ({ title }) => (
   <div className="flex items-center gap-[0.5vw] mt-[1.2vw] mb-[0.8vw]">
-    <h4 className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">{title}</h4>
-    <div className="h-[0.0925vw] bg-gray-200 flex-1" style={{ marginRight: '-1vw' }}> </div>
+    <h4 className="text-[0.9vw] font-semibold text-gray-200 whitespace-nowrap pb-[0.5vw]">{title}</h4>
+    <div className="h-[0.0925vw] bg-[#28374d] flex-1" style={{ marginRight: '-1vw' }}> </div>
   </div>
 );
 
@@ -20,12 +20,12 @@ const Stepper = ({ value, onChange, unit = 's', min = 1, max = 20 }) => (
   <div className="flex items-center gap-[0.4vw]">
     <button
       onClick={(e) => { e.stopPropagation(); onChange(Math.max(min, value - 1)); }}
-      className="text-gray-300 hover:text-gray-500 transition-colors"
+      className="text-gray-400 hover:text-white transition-colors"
     >
       <Icon icon="lucide:chevron-left" className="w-[1vw] h-[1vw]" />
     </button>
     <div
-      className="w-[3.2vw] h-[2vw] border border-gray-100 rounded-[0.4vw] flex items-center justify-center bg-white cursor-ew-resize select-none text-[0.85vw] text-gray-800 font-semibold shadow-sm"
+      className="w-[3.2vw] h-[2vw] border border-[#2c3d56] rounded-[0.4vw] flex items-center justify-center bg-[#1c2636] cursor-ew-resize select-none text-[0.85vw] text-gray-100 font-semibold shadow-sm"
       onMouseDown={(e) => {
         e.preventDefault();
         const startX = e.clientX;
@@ -44,7 +44,7 @@ const Stepper = ({ value, onChange, unit = 's', min = 1, max = 20 }) => (
     </div>
     <button
       onClick={(e) => { e.stopPropagation(); onChange(Math.min(max, value + 1)); }}
-      className="text-gray-300 hover:text-gray-500 transition-colors"
+      className="text-gray-400 hover:text-white transition-colors"
     >
       <Icon icon="lucide:chevron-right" className="w-[1vw] h-[1vw]" />
     </button>
@@ -53,7 +53,7 @@ const Stepper = ({ value, onChange, unit = 's', min = 1, max = 20 }) => (
 
 const SettingRow = ({ label, children, className = "" }) => (
   <div className={`flex items-center justify-between gap-[1vw] ${className}`}>
-    <span className="text-[0.75vw] font-semibold text-gray-700 whitespace-nowrap">{label}</span>
+    <span className="text-[0.75vw] font-semibold text-gray-300 whitespace-nowrap">{label}</span>
     {children}
   </div>
 );
@@ -61,20 +61,20 @@ const SettingRow = ({ label, children, className = "" }) => (
 // Menu Item Component (Card Style)
 const MenuItem = ({ label, enabled, onChange, hasSettings, isExpanded, onToggleSettings, onRedirect, children }) => (
   <div
-    className={`bg-white rounded-[0.8vw] shadow-[0_0.9vw_1.2vw_rgba(0,0,0,0.05)] transition-all duration-300 relative ${isExpanded ? 'ring-1 ring-gray-200 z-[100] !overflow-visible' : 'z-0 !overflow-visible'}`}
+    className={`bg-[#223044] rounded-[0.8vw] shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-300 relative border border-[#2c3d56] ${isExpanded ? 'ring-1 ring-[#EC5137]/40 z-[100] !overflow-visible' : 'z-0 !overflow-visible'}`}
   >
-    <div className={`flex items-center justify-between px-[0.5vw] py-[0.8vw] pl-[1vw] pr-[1vw] border border-gray-100 transition-all duration-300 ${isExpanded ? 'rounded-t-[0.8vw] border-b-transparent' : 'rounded-[0.8vw]'}`}>
-      <span className="text-[0.75vw] font-medium text-gray-800 whitespace-nowrap">{label}</span>
+    <div className={`flex items-center justify-between px-[0.5vw] py-[0.8vw] pl-[1vw] pr-[1vw] transition-all duration-300 ${isExpanded ? 'rounded-t-[0.8vw] border-b border-[#2c3d56]' : 'rounded-[0.8vw]'}`}>
+      <span className="text-[0.75vw] font-medium text-gray-100 whitespace-nowrap">{label}</span>
       <div className="flex items-center gap-[0.75vw]">
         {hasSettings && (
           <button
             onClick={onToggleSettings}
-            className={`p-[0.25vw] rounded-[0.7vw] transition-colors ${isExpanded ? 'bg-gray-100 text-[#5551FF]' : 'hover:bg-gray-100 text-gray-400'
+            className={`p-[0.25vw] rounded-[0.7vw] transition-colors ${isExpanded ? 'bg-[#28374d] text-[#EC5137]' : 'hover:bg-[#28374d] text-gray-300'
               }`}
           >
             <Icon
               icon="tdesign:adjustment-filled"
-              className={`w-[1vw] h-[1vw] rotate-90 transition-colors ${isExpanded ? 'text-[#5551FF]' : 'text-gray-800'}`}
+              className={`w-[1vw] h-[1vw] rotate-90 transition-colors ${isExpanded ? 'text-[#EC5137]' : 'text-gray-300'}`}
             />
           </button>
         )}
@@ -82,12 +82,12 @@ const MenuItem = ({ label, enabled, onChange, hasSettings, isExpanded, onToggleS
         {onRedirect && (
           <button
             onClick={onRedirect}
-            className=" rounded-[0.7vw] transition-colors hover:bg-gray-100 text-gray-800"
+            className="rounded-[0.7vw] transition-colors hover:bg-[#28374d] text-gray-300"
             title="Go to Other Setup"
           >
             <Icon
               icon="lucide:external-link"
-              className="w-[1vw] h-[1vw] text-gray-800"
+              className="w-[1vw] h-[1vw] text-gray-300"
             />
           </button>
         )}
@@ -146,8 +146,11 @@ const TocItem = ({ item, index, isEditing, onUpdate, onDelete, activeTOCItem, se
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              value={item.page || ''}
-              placeholder={`Page-${index + 1}`}
+              value={(() => {
+                const val = (item.page !== undefined && item.page !== null && item.page !== '') ? String(item.page).replace(/\D/g, '') : '';
+                return val ? (parseInt(val, 10) < 10 ? `0${parseInt(val, 10)}` : val) : '';
+              })()}
+              placeholder={index + 1 < 10 ? `0${index + 1}` : `${index + 1}`}
               onChange={(e) => {
                 const numericVal = e.target.value.replace(/\D/g, '');
                 onUpdate({ ...item, page: numericVal });
@@ -223,8 +226,15 @@ const TocItem = ({ item, index, isEditing, onUpdate, onDelete, activeTOCItem, se
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    value={sub.page || ''}
-                    placeholder={`Page-${sIdx + 1}`}
+                    value={(() => {
+                      const val = (sub.page !== undefined && sub.page !== null && sub.page !== '') ? String(sub.page).replace(/\D/g, '') : '';
+                      return val ? (parseInt(val, 10) < 10 ? `0${parseInt(val, 10)}` : val) : '';
+                    })()}
+                    placeholder={(() => {
+                      const parentVal = (item.page !== undefined && item.page !== null && item.page !== '') ? String(item.page).replace(/\D/g, '') : '';
+                      const num = parentVal ? parseInt(parentVal, 10) : (index + 1);
+                      return num < 10 ? `0${num}` : `${num}`;
+                    })()}
                     onChange={(e) => {
                       const numericVal = e.target.value.replace(/\D/g, '');
                       const newSubs = [...item.subheadings];
@@ -366,7 +376,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
   };
 
   return (
-    <div className="flex flex-col h-full bg-white relative overflow-visible">
+    <div className="flex flex-col h-full bg-[#1a2332] text-white relative overflow-visible">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -378,12 +388,12 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
       `}</style>
 
       {/* Sub-header */}
-      <div className="h-[8vh] flex items-center justify-between px-[1vw] border-b border-gray-100">
+      <div className="h-[8vh] flex items-center justify-between px-[1vw] border-b border-[#26354a]">
         <div className="flex items-center gap-[0.5vw]">
-          <Icon icon="fluent:layout-row-two-settings-24-regular" className="w-[1.2vw] h-[1.2vw] text-gray-800 font-semibold" />
-          <span className="text-[1vw] font-semibold text-gray-900">Layout Settings</span>
+          <Icon icon="fluent:layout-row-two-settings-24-regular" className="w-[1.2vw] h-[1.2vw] text-[#EC5137] font-semibold" />
+          <span className="text-[1vw] font-semibold text-white">Layout Settings</span>
         </div>
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
+        <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors cursor-pointer">
           <Icon icon="ic:round-arrow-back" className="w-[1.25vw] h-[1.25vw]" />
         </button>
       </div>
@@ -580,7 +590,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
                             newContent.splice(nextIdx, 0, {
                               id: Date.now(),
                               title: `Heading ${content.length + 1}`,
-                              page: `Page-${nextIdx + 1}`,
+                              page: `${nextIdx + 1}`,
                               subheadings: []
                             });
                             updateRootSetting('tocSettings', 'content', newContent);
@@ -592,12 +602,13 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
                             if (content.length > 0) {
                               const newContent = [...content];
                               const targetItem = newContent[idx];
+                              const parentPage = targetItem.page ? String(targetItem.page).replace(/\D/g, '') : `${idx + 1}`;
                               const updatedItem = {
                                 ...targetItem,
                                 subheadings: [...(targetItem.subheadings || []), {
                                   id: Date.now() + 1,
                                   title: `Subheading ${(targetItem.subheadings || []).length + 1}`,
-                                  page: `Page-${(targetItem.subheadings || []).length + 1}`
+                                  page: parentPage
                                 }]
                               };
                               newContent[idx] = updatedItem;
@@ -615,7 +626,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
                         <div className="flex justify-center py-[1vw]">
                           <button
                             onClick={() => {
-                              const newContent = [{ id: Date.now(), title: 'Heading 1', page: 'Page-1', subheadings: [] }];
+                              const newContent = [{ id: Date.now(), title: 'Heading 1', page: '1', subheadings: [] }];
                               updateRootSetting('tocSettings', 'content', newContent);
                               setEditingTOCIndex(0);
                               setActiveTOCItem({ type: 'head', index: 0 });
@@ -836,14 +847,18 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
             onChange={(val) => {
               updateSection('media', 'backgroundAudio', val);
               updateSection('media', 'audio', val);
+              // Master off also stops background music; master on does NOT force background music on
+              // (it is opt-in). If master is switched on while both sounds are off, bring back the
+              // flip sound so "Audio Features on" always means at least one sound is on.
               if (onUpdateOther) {
-                onUpdateOther(prev => ({
-                  ...prev,
-                  sound: {
-                    ...(prev?.sound || {}),
-                    bgSoundEnabled: val
+                onUpdateOther(prev => {
+                  const snd = prev?.sound || {};
+                  if (!val) return { ...prev, sound: { ...snd, bgSoundEnabled: false } };
+                  if (snd.flipSoundEnabled === false && snd.bgSoundEnabled !== true) {
+                    return { ...prev, sound: { ...snd, flipSoundEnabled: true } };
                   }
-                }));
+                  return prev;
+                });
               }
             }}
           >

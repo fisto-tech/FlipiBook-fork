@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence } from 'framer-motion';
-import FlipBookEngine from '../../FlipBookEngine';
+import FlipBookEngine from '../../FlipBookEngine/index';
 import BookmarkTab from './BookmarkTab';
 import TooltipOverlay from './TooltipOverlay';
 
