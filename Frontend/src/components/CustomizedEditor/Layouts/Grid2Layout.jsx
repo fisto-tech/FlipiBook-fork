@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 
 import TableOfContentsPopup from '../popups/TableOfContentsPopup';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 const getLayoutColor = (id, defaultColor) => `var(--${id}, ${defaultColor})`;
 const getLayoutColorRgba = (id, defaultRgb, defaultOpacity) => {
@@ -862,14 +863,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
 
                     {/* Right Section: Brand Logo Container */}
                     <div className="flex items-center">
-                        {settings.brandingProfile.logo && logoSettings?.src && (
-                            <img
-                                src={logoSettings.src}
-                                alt="Brand Logo"
-                                className={`${isTablet ? 'h-[1.5vw]' : 'h-[2vw]'} w-auto transition-all duration-300`}
-                                style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                            />
-                        )}
+                        <BrandLogo
+                            logoSettings={logoSettings}
+                            settings={settings}
+                            isTablet={isTablet}
+                        />
                     </div>
                 </div>
             </div>

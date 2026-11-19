@@ -95,6 +95,12 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
     const getLayoutColorRgba = (id, defaultRgb, defaultOpacity) =>
         `rgba(var(--${id}-rgb, ${defaultRgb}), var(--${id}-opacity, ${defaultOpacity}))`;
 
+    const formatPageNum = (pageVal) => {
+        const num = parseInt(String(pageVal ?? '').replace(/\D/g, ''), 10);
+        if (isNaN(num)) return '';
+        return num < 10 ? `0${num}` : `${num}`;
+    };
+
     const tocBgHex = layoutColorsArray.length > 0 ? layoutColorsArray.find(c => c && c.id === 'toc-bg')?.hex || '#555555' : '#555555';
     const tocTextHex = layoutColorsArray.length > 0 ? layoutColorsArray.find(c => c && c.id === 'toc-text')?.hex || '#FFFFFF' : '#FFFFFF';
     let bodyTextColor = isLightColor(tocBgHex) ? tocTextHex : tocBgHex;
@@ -236,7 +242,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                         {heading.title}
                                                     </span>
                                                     <span className="text-[9px] font-bold tabular-nums transition-colors ml-1 shrink-0" style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: `calc(${getLayoutOpacity('toc-text', '1')} * 0.9)` }}>
-                                                        {heading.page < 10 ? `0${heading.page}` : heading.page}
+                                                        {formatPageNum(heading.page)}
                                                     </span>
                                                 </div>
 
@@ -253,7 +259,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                                     {sub.title}
                                                                 </span>
                                                                 <span className="text-[8px] font-bold tabular-nums transition-colors ml-1 shrink-0" style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: `calc(${getLayoutOpacity('toc-text', '1')} * 0.8)` }}>
-                                                                    {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                                    {formatPageNum(sub.page)}
                                                                 </span>
                                                             </div>
                                                         ))}
@@ -359,7 +365,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                     </span>
                                                 </div>
                                                 <span className="text-[0.85vw] font-medium tabular-nums transition-colors whitespace-nowrap shrink-0" style={{ color: getLayoutColor('toc-bg', '#555555') }}>
-                                                    {heading.page < 10 ? `0${heading.page}` : heading.page}
+                                                    {formatPageNum(heading.page)}
                                                 </span>
                                             </div>
 
@@ -379,7 +385,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                                 {sub.title}
                                                             </span>
                                                             <span className="text-[0.75vw] font-medium tabular-nums transition-colors whitespace-nowrap shrink-0" style={{ color: getLayoutColor('toc-bg', '#555555') }}>
-                                                                {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                                {formatPageNum(sub.page)}
                                                             </span>
                                                         </div>
                                                     ))}
@@ -472,7 +478,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                 </div>
                                                 {addPageNumber && (
                                                     <span className={`${isMobile && !isLandscape ? 'text-[10px]' : (isTablet ? 'text-[0.75vw]' : 'text-[0.9vw]')} font-bold opacity-40 group-hover:opacity-80 tabular-nums`}>
-                                                        {item.page < 10 ? `0${item.page}` : item.page}
+                                                        {formatPageNum(item.page)}
                                                     </span>
                                                 )}
                                             </div>
@@ -495,7 +501,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                             </div>
                                                             {addPageNumber && (
                                                                 <span className={`${isMobile && !isLandscape ? 'text-[9px]' : (isTablet ? 'text-[0.7vw]' : 'text-[0.85vw]')} font-semibold opacity-30 group-hover:opacity-60 tabular-nums`}>
-                                                                    {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                                    {formatPageNum(sub.page)}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -664,7 +670,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                 <span className="text-[0.68vw] font-bold flex-shrink-0 ml-[0.4vw] tabular-nums"
                                                     style={{ color: bodyTextColor, opacity: 0.8 }}
                                                 >
-                                                    {heading.page < 10 ? `0${heading.page}` : heading.page}
+                                                    {formatPageNum(heading.page)}
                                                 </span>
                                             )}
                                         </div>
@@ -686,7 +692,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                     <span className="text-[0.62vw] font-bold flex-shrink-0 ml-[0.4vw] tabular-nums"
                                                         style={{ color: bodyTextColor, opacity: 0.6 }}
                                                     >
-                                                        {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                        {formatPageNum(sub.page)}
                                                     </span>
                                                 )}
                                             </div>
@@ -822,7 +828,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                 </div>
                                                 {addPageNumber && (
                                                     <span className="text-[0.78vw] font-bold flex-shrink-0 ml-2 tabular-nums" style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: 'calc(var(--toc-text-opacity, 1) * 0.8)' }}>
-                                                        {heading.page < 10 ? `0${heading.page}` : heading.page}
+                                                        {formatPageNum(heading.page)}
                                                     </span>
                                                 )}
                                             </div>
@@ -840,7 +846,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                     </div>
                                                     {addPageNumber && (
                                                         <span className="text-[0.72vw] font-bold flex-shrink-0 ml-2 tabular-nums" style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: 'calc(var(--toc-text-opacity, 1) * 0.6)' }}>
-                                                            {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                            {formatPageNum(sub.page)}
                                                         </span>
                                                     )}
                                                 </div>
@@ -928,7 +934,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                             </div>
                                             {addPageNumber && (
                                                 <span className={`${isMobile ? 'text-[9px] ml-[8px]' : isTablet ? 'text-[0.7vw] ml-[0.6vw]' : 'text-[0.8vw] ml-[0.6vw]'} font-normal flex-shrink-0 tabular-nums`} style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: 'calc(var(--toc-text-opacity, 1) * 0.8)' }}>
-                                                    {heading.page < 10 ? `0${heading.page}` : heading.page}
+                                                    {formatPageNum(heading.page)}
                                                 </span>
                                             )}
                                         </div>
@@ -946,7 +952,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                 </div>
                                                 {addPageNumber && (
                                                     <span className={`${isMobile ? 'text-[8.5px] ml-[8px]' : isTablet ? 'text-[0.6vw] ml-[0.6vw]' : 'text-[0.7vw] ml-[0.6vw]'} font-normal flex-shrink-0 tabular-nums`} style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: 'calc(var(--toc-text-opacity, 1) * 0.6)' }}>
-                                                        {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                        {formatPageNum(sub.page)}
                                                     </span>
                                                 )}
                                             </div>
@@ -1055,7 +1061,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                 <span className={`${isMobile ? 'text-[12px]' : isTablet ? 'text-[10px]' : 'text-[10px]'} font-bold flex-shrink-0 ml-2 tabular-nums`}
                                                     style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: 'calc(var(--toc-text-opacity, 1) * 0.8)' }}
                                                 >
-                                                    {heading.page < 10 ? `0${heading.page}` : heading.page}
+                                                    {formatPageNum(heading.page)}
                                                 </span>
                                             )}
                                         </div>
@@ -1077,7 +1083,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                     <span className={`${isMobile ? 'text-[11px]' : 'text-[9px]'} font-bold flex-shrink-0 ml-2 tabular-nums`}
                                                         style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: 'calc(var(--toc-text-opacity, 1) * 0.6)' }}
                                                     >
-                                                        {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                        {formatPageNum(sub.page)}
                                                     </span>
                                                 )}
                                             </div>
@@ -1210,7 +1216,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                                 <span className={`${isMobile && isLandscape ? 'text-[0.65vw]' : isMobile ? 'text-[10px]' : 'text-[10px]'} font-bold flex-shrink-0 ml-2 tabular-nums opacity-80`}
                                                                     style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: 'calc(var(--toc-text-opacity, 1) * 0.8)' }}
                                                                 >
-                                                                    {heading.page < 10 ? `0${heading.page}` : heading.page}
+                                                                    {formatPageNum(heading.page)}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1235,7 +1241,7 @@ const TableOfContentsPopup = ({ onClose, onNavigate, settings = {}, activeLayout
                                                                     <span className={`${isMobile && isLandscape ? 'text-[0.6vw]' : isMobile ? 'text-[9px]' : 'text-[9px]'} font-bold flex-shrink-0 ml-2 tabular-nums opacity-60`}
                                                                         style={{ color: getLayoutColor('toc-text', '#FFFFFF'), opacity: 'calc(var(--toc-text-opacity, 1) * 0.6)' }}
                                                                     >
-                                                                        {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                                        {formatPageNum(sub.page)}
                                                                     </span>
                                                                 )}
                                                             </div>

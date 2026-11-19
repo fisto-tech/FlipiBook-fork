@@ -48,13 +48,13 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
         setIsHeroVisible(visible);
         isHeroVisibleRef.current = visible;
         if (!visible) {
-          
+
           if (flipAudioRef.current) {
             flipAudioRef.current.pause();
             flipAudioRef.current.currentTime = 0;
           }
         } else {
-          
+
         }
       },
       { threshold: [0, 0.15, 0.5] }
@@ -80,7 +80,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
     if (isFlipAudioMuted || !isHeroVisibleRef.current) return;
     if (flipAudioRef.current) {
       flipAudioRef.current.currentTime = 0;
-      flipAudioRef.current.play().catch(() => {});
+      flipAudioRef.current.play().catch(() => { });
     }
   }, [isFlipAudioMuted]);
 
@@ -207,7 +207,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
 
   return (
     <section ref={containerRef} className="relative w-full min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] bg-[#fdfdfd] flex flex-col justify-center pt-4 sm:pt-6 lg:pt-5 pb-6 sm:pb-8 lg:pb-6 px-4 sm:px-8 lg:px-[6vw] font-poppins overflow-hidden">
-      
+
       {/* Top Tag: INTERACTIVE DIGITAL CATALOGUE and line */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -223,7 +223,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
 
       {/* Main Container: Left 8-col Rounded Panel (holding Book + controls) & Right 4-col Pitch */}
       <div className="w-full flex-1 mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
-        
+
         {/* Left Column: Rounded Grey Stage Box (Reduced corner radius & compact stage height) */}
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -231,32 +231,28 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
           transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
           className="lg:col-span-8 w-full bg-[#efefef] rounded-[16px] lg:rounded-[1.2vw] p-3 sm:p-5 lg:p-[1.2vw] flex flex-col items-center justify-center relative shadow-xs overflow-hidden min-h-[420px] sm:min-h-[460px] lg:min-h-[500px]"
         >
-          {/* Flipbook inside rounded stage box (Increased book size, removed floating side circle buttons) */}
-          <div className="relative mx-auto w-full max-w-[280px] xs:max-w-[320px] sm:max-w-[700px] lg:max-w-[47vw] xl:max-w-[49vw] aspect-[210/297] sm:aspect-[420/297] flex items-center justify-center my-auto px-2 sm:px-4">
+          {/* Flipbook inside rounded stage box (Clean and perfectly centered like Modal Book) */}
+          <div className="relative mx-auto aspect-[420/297] flex items-center justify-center w-full max-w-[640px] sm:max-w-[700px] xl:max-w-[760px]">
             {/* Flipbook Canvas */}
             <div
-              className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${
-                isMobile
-                  ? 'translate-x-0'
-                  : coverState === 'front'
-                  ? '-translate-x-[25%]'
-                  : coverState === 'back'
+              key="hero-digital-catalogue-book"
+              className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${coverState === 'front'
+                ? '-translate-x-[25%]'
+                : coverState === 'back'
                   ? 'translate-x-[25%]'
                   : 'translate-x-0'
-              }`}
+                }`}
             >
               <HTMLFlipBook
-                key={isMobile ? 'single-page-mobile' : 'double-page-desktop'}
                 width={595}
                 height={842}
                 size="stretch"
-                minWidth={240}
-                maxWidth={1400}
-                minHeight={340}
-                maxHeight={1980}
-                maxShadowOpacity={isMobile ? 0 : 0.5}
-                showCover={!isMobile}
-                usePortrait={isMobile}
+                minWidth={210}
+                maxWidth={1200}
+                minHeight={297}
+                maxHeight={1700}
+                maxShadowOpacity={0.5}
+                showCover={true}
                 mobileScrollSupport={true}
                 clickEventForward={false}
                 useMouseEvents={true}
@@ -271,12 +267,13 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
                   return (
                     <div
                       key={index}
-                      className="bg-white overflow-hidden flex items-center justify-center relative shadow-none"
+                      className="bg-white overflow-hidden shadow-inner flex items-center justify-center w-full h-full"
                     >
                       <img
                         src={pageSrc}
                         alt={`Page ${index + 1}`}
-                        className="w-full h-full object-cover select-none pointer-events-none"
+                        className="w-full h-full block object-cover select-none pointer-events-none"
+                        style={{ margin: 0, padding: 0 }}
                       />
                     </div>
                   );
@@ -293,9 +290,8 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
                 type="button"
                 onClick={flipPrev}
                 disabled={activeStep <= 1}
-                className={`transition-colors flex items-center justify-center p-1.5 ${
-                  activeStep <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-[#555555] hover:text-[#EC5137] cursor-pointer'
-                }`}
+                className={`transition-colors flex items-center justify-center p-1.5 ${activeStep <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-[#555555] hover:text-[#EC5137] cursor-pointer'
+                  }`}
                 title="Previous page"
                 aria-label="Previous Page"
               >
@@ -339,9 +335,8 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
                 type="button"
                 onClick={flipNext}
                 disabled={activeStep >= 5}
-                className={`transition-colors flex items-center justify-center p-1.5 ${
-                  activeStep >= 5 ? 'text-gray-300 cursor-not-allowed' : 'text-[#555555] hover:text-[#EC5137] cursor-pointer'
-                }`}
+                className={`transition-colors flex items-center justify-center p-1.5 ${activeStep >= 5 ? 'text-gray-300 cursor-not-allowed' : 'text-[#555555] hover:text-[#EC5137] cursor-pointer'
+                  }`}
                 title="Next page"
                 aria-label="Next Page"
               >
@@ -355,7 +350,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
         <div
           className="lg:col-span-4 flex flex-col justify-between text-center lg:text-right items-center lg:items-end py-1 h-full lg:h-[480px] xl:h-[500px] gap-6 lg:gap-0 lg:pl-[1.5vw]"
         >
-          
+
           {/* Top Block: Pitch Heading, Subtext, Bullets & Line (Shifted upward) */}
           <div className="flex flex-col items-center lg:items-end w-full -mt-2 lg:-mt-6 xl:-mt-8">
             {/* YOUR - Normal Orange & Semibold */}
