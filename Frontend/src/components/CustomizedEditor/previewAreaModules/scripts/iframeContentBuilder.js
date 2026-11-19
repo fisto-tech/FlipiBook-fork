@@ -1,6 +1,6 @@
 import sanitizeHtmlForPreview from './sanitizeHtml';
-import { rewriteHtmlUploads } from '../../../../utils/assetUtils';
-import { getCachedRaster } from '../../../../utils/pageRasterCache';
+import { rewriteHtmlUploads } from '../../../../utils/assets/assetUtils';
+import { getCachedRaster } from '../../../../utils/customizedEditor/pageRasterCache';
 import getSlideshowScript from './slideshowScript';
 import getAnimationScript from './animationScript';
 import getInteractionScript from './interactionScript';

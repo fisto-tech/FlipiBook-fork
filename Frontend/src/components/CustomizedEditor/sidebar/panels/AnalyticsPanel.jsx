@@ -8,7 +8,7 @@ import { Icon } from '@iconify/react';
  */
 const AnalyticsPanel = ({ onBack }) => {
   return (
-    <div className="flex flex-col h-full bg-white font-sans">
+    <div className="flex flex-col h-full bg-transparent font-sans">
       {/* Header */}
       <div className="h-[8vh] flex items-center justify-between px-[1vw] border-b border-gray-100">
         <div className="flex items-center gap-[0.5vw]">

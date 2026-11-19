@@ -48,6 +48,7 @@ const Converter = lazy(() => import("./pages/Converter"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Forum = lazy(() => import("./pages/Forum"));
 const Overview = lazy(() => import("./pages/Overview"));
+const LeadFormAnalytics = lazy(() => import("./pages/LeadFormAnalytics"));
 const Guide = lazy(() => import("./pages/Guide/Guide"));
 const TermsAndConditions = lazy(() => import("./pages/LegalTerms"));
 const PrivacyPolicy = lazy(() => import("./pages/LegalPrivacy"));
@@ -70,7 +71,7 @@ const ThreedEditor = lazy(
   () => import("./components/ThreedEditor/ThreedEditor"),
 );
 
-import "./utils/preloadUtils";
+import "./utils/common/preloadUtils";
 
 // Settings Components
 const SettingsLayout = lazy(() => import("./components/Settings/SettingsLayout"));
@@ -241,33 +242,61 @@ export default function App() {
                 <Route
                   path="/analytics"
                   element={
-                    <Suspense fallback={null}>
-                      <Overview />
-                    </Suspense>
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <Overview />
+                      </Suspense>
+                    </ProtectedRoute>
                   }
                 />
                 <Route
                   path="/analytics/:bookId"
                   element={
-                    <Suspense fallback={null}>
-                      <Overview />
-                    </Suspense>
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <Overview />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/lead-form"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <LeadFormAnalytics />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/lead-form/:bookId"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <LeadFormAnalytics />
+                      </Suspense>
+                    </ProtectedRoute>
                   }
                 />
                 <Route
                   path="/overview"
                   element={
-                    <Suspense fallback={null}>
-                      <Overview />
-                    </Suspense>
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <Overview />
+                      </Suspense>
+                    </ProtectedRoute>
                   }
                 />
                 <Route
                   path="/overview/:bookId"
                   element={
-                    <Suspense fallback={null}>
-                      <Overview />
-                    </Suspense>
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <Overview />
+                      </Suspense>
+                    </ProtectedRoute>
                   }
                 />
                 <Route

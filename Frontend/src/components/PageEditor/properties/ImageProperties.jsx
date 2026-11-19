@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { resolveUploadsPath, getSupabaseBaseUrl } from '../../../utils/assetUtils';
+import { resolveUploadsPath, getSupabaseBaseUrl } from '../../../utils/assets/assetUtils';
 import { getSvgImageEl, syncGradient } from '../utils/editorUtils';
 import {
   ChevronDown,
@@ -13,6 +13,7 @@ import ReplaceMediaModal from '../modals/ReplaceMediaModal';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
 import { useAuth } from '../../../context/AuthContext';
 import { formatBytes } from './propertiesShared';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
 const ImageProperties = ({
   selectedElement,
@@ -241,7 +242,7 @@ const ImageProperties = ({
     const files = e.target.files;
     if (!files || files.length === 0 || !selectedLayerId) return;
 
-    const file = files[0];
+    let file = files[0];
     if (!file.type.startsWith('image/')) {
       e.target.value = '';
       return;
@@ -256,7 +257,19 @@ const ImageProperties = ({
       return;
     }
 
-    const imageUrl = URL.createObjectURL(file);
+    let imageUrl = URL.createObjectURL(file);
+    if (shouldOptimizeImage(file)) {
+      try {
+        const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+        if (opt?.file) {
+          file = opt.file;
+          imageUrl = opt.dataUrl || URL.createObjectURL(file);
+        }
+      } catch (optErr) {
+        console.warn('[ImageProperties] Optimization fallback:', optErr);
+      }
+    }
+
     const targetImg = getSvgImageEl(liveElement) || liveElement;
 
     if (targetImg) {

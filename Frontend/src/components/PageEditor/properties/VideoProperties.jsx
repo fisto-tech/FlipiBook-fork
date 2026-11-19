@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 import { Icon } from "@iconify/react";
 import { useAuth } from "../../../context/AuthContext";
 

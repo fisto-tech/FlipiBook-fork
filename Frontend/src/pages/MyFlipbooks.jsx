@@ -7,16 +7,16 @@ import { Icon } from '@iconify/react';
 
 import AlertModal from '../components/AlertModal';
 import CreateBookLayout from '../Layouts/CreateBookLayout';
-import { convertPdfToImages, convertPdfWithInkscape, getPdfPageCount, getDocumentDetails, generatePdfPageSvg, generateSkeletonPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdfUtils';
+import { convertPdfToImages, convertPdfWithInkscape, getPdfPageCount, getDocumentDetails, generatePdfPageSvg, generateSkeletonPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdf/pdfUtils';
 import StorageLimitModal from '../components/StorageLimitModal';
 import LegacyFormatModal from '../components/LegacyFormatModal';
-import { validateStorageBeforeUpload } from '../utils/storageValidation';
-import { saveCustomizedEditorState, savePageEditorState, deleteBookEditorState } from '../utils/dbUtils';
+import { validateStorageBeforeUpload } from '../utils/storage/storageValidation';
+import { saveCustomizedEditorState, savePageEditorState, deleteBookEditorState } from '../utils/storage/dbUtils';
 import { useDocumentUpload } from '../context/DocumentUploadContext';
-import { saveAllPagesToIDB } from '../utils/pageWindowStore';
-import { backgroundSyncManager } from '../utils/backgroundSyncManager';
-import { backgroundExtractionManager } from '../utils/backgroundExtractionManager';
-import { preloadEditorComponents } from '../utils/preloadUtils';
+import { saveAllPagesToIDB } from '../utils/customizedEditor/pageWindowStore';
+import { backgroundSyncManager } from '../utils/customizedEditor/backgroundSyncManager';
+import { backgroundExtractionManager } from '../utils/customizedEditor/backgroundExtractionManager';
+import { preloadEditorComponents } from '../utils/common/preloadUtils';
 const ShareModal = React.lazy(() => import('../components/ShareModal'));
 const ExportModal = React.lazy(() => import('../components/ExportModal'));
 import {
@@ -41,7 +41,7 @@ import { fetchFlipbookFolders, fetchFlipbookBooks, queryClient } from '../queryC
 import { useAuth } from '../context/AuthContext';
 import flipbookApi from '../api/flipbookApi';
 import useUserStorage from '../hooks/useUserStorage';
-import { getAssetBaseUrl } from '../utils/assetUtils';
+import { getAssetBaseUrl } from '../utils/assets/assetUtils';
 
 
 const sortCategories = [
@@ -562,6 +562,39 @@ export default function MyFlipbooks() {
                 : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
             const resolvedUserId = user?.userID || user?.userId || 'FLIPI0001';
 
+            // Resolve folder and unique book name early so extracted WebP pages are stored directly in the actual book directory
+            const targetFolder = (!activeFolder || activeFolder === 'All Flipbook' || activeFolder === 'All Flipbooks' || activeFolder === 'Recent Book' || activeFolder === 'Recent' || activeFolder === 'Trash' || activeFolder === 'Favorites') ? 'My Flipbooks' : activeFolder;
+            const matchedFolder = folders.find(f => (f.name || '').trim().toLowerCase() === targetFolder.trim().toLowerCase() || (targetFolder === 'My Flipbooks' && f.isDefault));
+            const rawTargetFolderVId = matchedFolder?.fol_v_id || matchedFolder?.id || 'default';
+            const parsedFolderVId = String(rawTargetFolderVId).replace(/^fol_/, '');
+            const targetFolderVId = (parsedFolderVId && parsedFolderVId.trim()) ? parsedFolderVId.trim() : 'default';
+            const physicalFolder = (targetFolder === 'My Flipbooks' || targetFolder.toLowerCase() === 'default' || targetFolder.toLowerCase() === 'fol_default') ? 'default' : (matchedFolder?.name || targetFolder);
+
+            const now = new Date();
+            const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+            const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
+            let uniqueName = (customName || '').trim();
+            if (!uniqueName) {
+                uniqueName = `${defaultPrefix}${timeString}`;
+            }
+
+            // Ensure uniqueName does not collide with existing flipbooks in the target folder
+            const existingBookNames = new Set(
+                (books || [])
+                    .filter(b => !b.trash && (b.folder || b.folderName || 'My Flipbooks').trim().toLowerCase() === targetFolder.trim().toLowerCase())
+                    .map(b => (b.realName || b.title || b.flipbookName || '').trim().toLowerCase())
+                    .filter(Boolean)
+            );
+            let candidateBookName = uniqueName;
+            if (existingBookNames.has(candidateBookName.toLowerCase())) {
+                let counter = 1;
+                while (existingBookNames.has(`${candidateBookName} (${counter})`.toLowerCase())) {
+                    counter++;
+                }
+                candidateBookName = `${candidateBookName} (${counter})`;
+            }
+            uniqueName = candidateBookName;
+
             // Step 1 — Coordinated sequential extraction across all files (guarantees strict page order)
             for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
                 if (isUploadCancelledRef.current || signal.aborted) return;
@@ -624,7 +657,7 @@ export default function MyFlipbooks() {
                             engine: engine || prev?.engine || 'edge'
                         };
                     });
-                }, signal, assignedBookId, resolvedUserId, startPageForFile);
+                }, signal, assignedBookId, resolvedUserId, startPageForFile, physicalFolder, uniqueName);
 
                 if (isUploadCancelledRef.current || signal.aborted) return;
 
@@ -670,37 +703,6 @@ export default function MyFlipbooks() {
             }
             const maxWidth = firstW;
             const maxHeight = firstH;
-
-            const targetFolder = (!activeFolder || activeFolder === 'All Flipbook' || activeFolder === 'All Flipbooks' || activeFolder === 'Recent Book' || activeFolder === 'Recent' || activeFolder === 'Trash' || activeFolder === 'Favorites') ? 'My Flipbooks' : activeFolder;
-            const matchedFolder = folders.find(f => (f.name || '').trim().toLowerCase() === targetFolder.trim().toLowerCase() || (targetFolder === 'My Flipbooks' && f.isDefault));
-            const rawTargetFolderVId = matchedFolder?.fol_v_id || matchedFolder?.id || 'default';
-            const parsedFolderVId = String(rawTargetFolderVId).replace(/^fol_/, '');
-            const targetFolderVId = (parsedFolderVId && parsedFolderVId.trim()) ? parsedFolderVId.trim() : 'default';
-
-            const now = new Date();
-            const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-            const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
-            let uniqueName = (customName || '').trim();
-            if (!uniqueName) {
-                uniqueName = `${defaultPrefix}${timeString}`;
-            }
-
-            // Ensure uniqueName does not collide with existing flipbooks in the target folder
-            const existingBookNames = new Set(
-                (books || [])
-                    .filter(b => !b.trash && (b.folder || b.folderName || 'My Flipbooks').trim().toLowerCase() === targetFolder.trim().toLowerCase())
-                    .map(b => (b.realName || b.title || b.flipbookName || '').trim().toLowerCase())
-                    .filter(Boolean)
-            );
-            let candidateBookName = uniqueName;
-            if (existingBookNames.has(candidateBookName.toLowerCase())) {
-                let counter = 1;
-                while (existingBookNames.has(`${candidateBookName} (${counter})`.toLowerCase())) {
-                    counter++;
-                }
-                candidateBookName = `${candidateBookName} (${counter})`;
-            }
-            uniqueName = candidateBookName;
 
             const isProgressive = !!allImages.isPartial && (allImages.totalPages > allImages.length);
             const totalDocPages = isProgressive ? allImages.totalPages : allImages.length;

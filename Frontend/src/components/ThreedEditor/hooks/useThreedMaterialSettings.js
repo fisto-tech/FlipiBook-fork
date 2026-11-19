@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { getFromDB, saveToDB } from "../../../utils/dbUtils";
+import { getFromDB, saveToDB } from "../../../utils/storage/dbUtils";
 
 export function useThreedMaterialSettings({
   materialSettings,

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 
 import classicBookFlipSound from '../../../assets/Audios/Classic book flip.mp3';
 import hardCoverPageSound from '../../../assets/Audios/Hard cover page.mp3';

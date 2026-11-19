@@ -13,7 +13,7 @@ import {
 import { Icon } from '@iconify/react';
 import { useTicketDetails } from './hooks';
 import { formatDateTime, formatFileSize } from './utils';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 
 export default function TicketDetailsPage() {
   const {

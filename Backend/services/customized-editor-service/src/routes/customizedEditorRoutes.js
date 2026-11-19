@@ -156,6 +156,8 @@ router.post('/copy-theme-asset', optionalAuth, controller.copyThemeAsset);
 // ==========================================
 router.post(['/submit-lead', '/public/submit-lead'], optionalAuth, controller.submitLead);
 router.get(['/leads', '/get-leads'], authenticateUser, controller.getLeads);
+router.patch('/leads/:leadId/status', authenticateUser, controller.updateLeadStatus);
+router.post('/leads/:leadId/notes', authenticateUser, controller.addLeadNote);
 router.delete('/leads/:leadId', authenticateUser, controller.deleteLead);
 
 // ==========================================

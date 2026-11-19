@@ -13,8 +13,8 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
 import { extractDocumentViaServer } from './resumableUploader.js';
-import { generatePdfPageSvg } from '../utils/pdfUtils.js';
-import { getHardwareProfile } from '../utils/hardwareCapability.js';
+import { generatePdfPageSvg } from '../utils/pdf/pdfUtils.js';
+import { getHardwareProfile } from '../utils/pdf/hardwareCapability.js';
 
 // Default worker path using .js extension (which Nginx and web servers serve with application/javascript)
 const DEFAULT_WORKER_PATH = '/pdfjs/pdf.worker.min.js';
@@ -80,13 +80,18 @@ export async function extractPdfDocument({
   userId = 'FLIPI0001',
   bookId = null,
   signal = null,
-  startPageNumber = 1
+  startPageNumber = 1,
+  folderName = 'default',
+  bookName = null
 }) {
   if (signal?.aborted) {
     const abortErr = new Error('Upload cancelled');
     abortErr.name = 'AbortError';
     throw abortErr;
   }
+
+  const resolvedFolder = (folderName && String(folderName).toLowerCase() !== 'my flipbooks' && folderName !== 'fol_default') ? folderName : 'default';
+  const resolvedBookName = bookName || bookId || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g, '').slice(0, 16) : Math.random().toString(36).substring(2, 10));
   // ── STRICT HARDWARE GATE ─────────────────────────────────────────────────
   // Profile the client device with the 1.5x Safety Multiplier for this file.
   // Any capability gap or memory load > 60% → strictly route to VPS immediately.
@@ -124,25 +129,25 @@ export async function extractPdfDocument({
         message: `Cloud VPS Engine active (${profile.reason})`
       });
     }
-    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber });
+    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber, folderName: resolvedFolder, bookName: resolvedBookName });
   }
 
   // ── 100% VERIFIED CLIENT CAPABILITY → Client Edge Engine ─────────────────
   try {
-    return await extractOnEdgeNative(file, { onProgress, signal, userId, bookId, backendUrl, startPageNumber });
+    return await extractOnEdgeNative(file, { onProgress, signal, userId, bookId, backendUrl, startPageNumber, folderName: resolvedFolder, bookName: resolvedBookName });
   } catch (edgeError) {
     if (edgeError?.name === 'AbortError' || signal?.aborted) {
       throw edgeError;
     }
     console.warn('[EdgePipeline] Edge error, falling back to VPS:', edgeError);
-    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber });
+    return await extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber, folderName: resolvedFolder, bookName: resolvedBookName });
   }
 }
 
 /**
  * Native Edge Extraction with Full Font Engine, Real-Time Server Sync & 60 FPS Cooperative Scheduling
  */
-async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI0001', bookId = null, backendUrl = '', startPageNumber = 1 }) {
+async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI0001', bookId = null, backendUrl = '', startPageNumber = 1, folderName = 'default', bookName = null }) {
   if (signal?.aborted) {
     const abortErr = new Error('Upload cancelled');
     abortErr.name = 'AbortError';
@@ -151,6 +156,8 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
   const resolvedBookId = bookId || ((typeof crypto !== 'undefined' && crypto.randomUUID)
     ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
     : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
+  const resolvedFolder = (folderName && String(folderName).toLowerCase() !== 'my flipbooks' && folderName !== 'fol_default') ? folderName : 'default';
+  const resolvedBookName = bookName || resolvedBookId;
 
   const arrayBuffer = await file.arrayBuffer();
   const origin = typeof window !== 'undefined' ? (window.location.origin || '') : '';
@@ -276,13 +283,15 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
     // Native blob URL for instantaneous in-memory rendering fallback
     const blobUrl = URL.createObjectURL(blob);
 
-    // Stream-upload WebP blob to backend disk storage immediately during extraction
-    let serverWebpUrl = `/storage/${userId}/books/${resolvedBookId}/pages/${currentGlobalPageNum}.webp`;
+    // Stream-upload WebP blob to backend disk storage inside pages/webp_page/
+    let serverWebpUrl = `/storage/${userId}/books/${resolvedFolder}/${resolvedBookName}/pages/webp_page/${currentGlobalPageNum}.webp`;
     try {
       const formData = new FormData();
       formData.append('file', blob, `${currentGlobalPageNum}.webp`);
       formData.append('userId', userId);
       formData.append('bookId', resolvedBookId);
+      formData.append('folderName', resolvedFolder);
+      formData.append('bookName', resolvedBookName);
       formData.append('pageNumber', currentGlobalPageNum);
       formData.append('width', widthMm);
       formData.append('height', heightMm);
@@ -351,6 +360,8 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
       body: JSON.stringify({
         userId,
         bookId: resolvedBookId,
+        folderName: resolvedFolder,
+        bookName: resolvedBookName,
         totalPages,
         width: firstWidthMm,
         height: firstHeightMm,
@@ -382,18 +393,23 @@ async function extractOnEdgeNative(file, { onProgress, signal, userId = 'FLIPI00
 /**
  * Resilient VPS fallback if client encounters any unexpected file issues
  */
-async function extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber = 1 }) {
+async function extractViaVpsFallback(file, { onProgress, backendUrl, userId, bookId, signal, startPageNumber = 1, folderName = 'default', bookName = null }) {
+  const resolvedFolder = (folderName && String(folderName).toLowerCase() !== 'my flipbooks' && folderName !== 'fol_default') ? folderName : 'default';
+  const resolvedBookName = bookName || bookId;
   const data = await extractDocumentViaServer(file, {
     backendUrl,
     userId,
     bookId,
+    folderName: resolvedFolder,
+    bookName: resolvedBookName,
+    title: resolvedBookName || file.name,
     onProgress,
     signal
   });
 
   const resolvedUserId = data.userId || userId || 'FLIPI0001';
   const resolvedBookId = data.bookId || bookId;
-  const baseUrl = `/storage/${resolvedUserId}/books/${resolvedBookId}/pages/`;
+  const baseUrl = data.baseUrl || `/storage/${resolvedUserId}/books/${resolvedFolder}/${resolvedBookName || resolvedBookId}/pages/webp_page/`;
   const initialPages = (data.manifest && data.manifest.pages) || data.initialPages || [];
   const startPage = typeof startPageNumber === 'number' && startPageNumber >= 1 ? startPageNumber : 1;
 

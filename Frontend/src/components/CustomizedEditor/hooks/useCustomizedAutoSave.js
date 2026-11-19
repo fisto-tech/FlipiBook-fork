@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
-import { saveCustomizedEditorState } from '../../../utils/dbUtils';
+import { saveCustomizedEditorState } from '../../../utils/storage/dbUtils';
 
 export const useCustomizedAutoSave = ({
   v_id,

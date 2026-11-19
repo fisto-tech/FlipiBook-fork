@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
 import { ArrowLeftRight, Minus, ChevronDown, X, Check } from 'lucide-react';
-import backgroundComponents from '../Backgrounds';
-import animationComponents from '../Animations';
-import PremiumDropdown from '../components/PremiumDropdown';
-import { Switch } from '../components';
+import backgroundComponents from '../../Backgrounds';
+import animationComponents from '../../Animations';
+import PremiumDropdown from '../../components/PremiumDropdown';
+import { Switch } from '../../components';
 import {
   solidPalette,
   hexToRgb,
@@ -15,9 +15,9 @@ import {
   AdjustmentSlider,
   DraggableSpan,
   ImageCropOverlay
-} from '../AppearanceShared';
-import ReplaceMediaModal from '../../PageEditor/modals/ReplaceMediaModal';
-import { useAuth } from '../../../context/AuthContext';
+} from '../../AppearanceShared';
+import ReplaceMediaModal from '../../../PageEditor/modals/ReplaceMediaModal';
+import { useAuth } from '../../../../context/AuthContext';
 
 const themeStaticCache = {};
 
@@ -1042,7 +1042,7 @@ const BackgroundSection = ({
 
 
   return (
-    <div className="flex flex-col h-full bg-white font-sans relative">
+    <div className="flex flex-col h-full bg-transparent font-sans relative">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -1065,9 +1065,9 @@ const BackgroundSection = ({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-white pb-[2.5vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="flex-1 overflow-y-auto bg-transparent pb-[2.5vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="px-[1vw] flex flex-col relative">
-      <div className="sticky top-0 z-[50] bg-white mb-[0.5vw] -mx-[1vw] px-[1.5vw] border-b-[0.15vw] border-gray-200">
+      <div className="sticky top-0 z-[50] bg-[#1a2332] mb-[0.5vw] -mx-[1vw] px-[1.5vw] border-b border-[#26354a]">
         <div className="flex items-center justify-center">
           {['Background', 'Themes', 'Animations'].map((tab) => (
             <button

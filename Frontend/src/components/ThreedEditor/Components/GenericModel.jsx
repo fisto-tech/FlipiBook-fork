@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { TransformControls } from "@react-three/drei";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 import {
     globalTextureCache,
     sharedTextureLoader,

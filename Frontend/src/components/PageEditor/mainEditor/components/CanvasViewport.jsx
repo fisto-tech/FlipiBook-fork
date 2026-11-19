@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 const SelectionTooltip = () => null;
 import { checkIsAnimatedWebp } from '../../utils/editorUtils';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../utils/imageOptimizer';
 import { syncDOM, syncChildrenKeyed } from '../utils/geometryUtils';
 import {
   PENCIL_CURSOR,
@@ -120,7 +121,10 @@ export const CanvasViewport = ({
             ref={zoomContainerRef}
             className="flex items-center justify-center origin-center relative"
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / 100})`,
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0px) scale(${zoom / 100})`,
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
             }}
           >
             {/* Pages Container Centered */}
@@ -364,13 +368,26 @@ export const CanvasViewport = ({
                                           if (!isGif && file.type.includes('webp')) {
                                             isGif = await checkIsAnimatedWebp(file);
                                           }
+                                          let finalFile = file;
+                                          let finalUrl = fileUrl;
+                                          if (!isGif && !file.type.includes('svg') && shouldOptimizeImage(file)) {
+                                            try {
+                                              const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+                                              if (opt?.file) {
+                                                finalFile = opt.file;
+                                                finalUrl = opt.dataUrl || URL.createObjectURL(opt.file);
+                                              }
+                                            } catch (optErr) {
+                                              console.warn('[CanvasViewport] Drop image optimize fallback:', optErr);
+                                            }
+                                          }
                                           window.dispatchEvent(new CustomEvent('add-image-to-editor', {
                                             detail: {
                                               pageIndex: displayIndex,
-                                              url: fileUrl,
-                                              file,
-                                              gifUrl: isGif ? fileUrl : undefined,
-                                              name: file.name,
+                                              url: finalUrl,
+                                              file: finalFile,
+                                              gifUrl: isGif ? finalUrl : undefined,
+                                              name: finalFile.name,
                                               type: isGif ? 'gif' : 'image',
                                               dropPoint: offsetPoint,
                                               targetShapeId

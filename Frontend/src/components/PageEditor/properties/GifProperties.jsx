@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
-import { resolveUploadsPath, getSupabaseBaseUrl } from "../../../utils/assetUtils";
+import { resolveUploadsPath, getSupabaseBaseUrl } from "../../../utils/assets/assetUtils";
 import { useAuth } from "../../../context/AuthContext";
 import {
   Image as ImageIcon,

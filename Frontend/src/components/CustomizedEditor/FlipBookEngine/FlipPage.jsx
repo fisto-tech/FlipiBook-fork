@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, forwardRef } from 'react';
-import { getCachedRaster, subscribeRasterCache } from '../../../utils/pageRasterCache';
+import { getCachedRaster, subscribeRasterCache } from '../../../utils/customizedEditor/pageRasterCache';
 import { cleanStaticHtml } from './utils/flipBookHelpers';
 
 const FlipPage = forwardRef(function FlipPage(props, ref) {

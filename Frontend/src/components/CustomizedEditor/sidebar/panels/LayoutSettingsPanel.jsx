@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import PremiumDropdown from '../components/PremiumDropdown';
+import PremiumDropdown from '../../components/PremiumDropdown';
 import { Trash2, Edit2 } from 'lucide-react';
-import OtherSetup from '../components/OtherSetup';
-import BookmarkStylesPopup from '../components/BookmarkStylesPopup';
-import Switch from '../components/Switch';
-import { fontFamilies } from '../utils/fontConstants';
+import OtherSetup from '../../components/OtherSetup';
+import BookmarkStylesPopup from '../../components/BookmarkStylesPopup';
+import Switch from '../../components/Switch';
+import { fontFamilies } from '../../utils/fontConstants';
 
 // Reusable Section Header
 const SectionHeader = ({ title }) => (
@@ -319,6 +319,16 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
     if (section === 'toc' && willOpen && onTocSettingsClick) {
       onTocSettingsClick();
     }
+    // Trigger right side gallery popup when Gallery settings panel opens
+    if (section === 'gallery' && willOpen && onUpdateOther) {
+      onUpdateOther(prev => ({
+        ...prev,
+        gallery: {
+          ...(prev?.gallery || {}),
+          previewOpen: Date.now()
+        }
+      }));
+    }
   };
 
   const updateSection = (section, field, value) => {
@@ -376,7 +386,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#1a2332] text-white relative overflow-visible">
+    <div className="flex flex-col h-full bg-transparent text-white relative overflow-visible">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
