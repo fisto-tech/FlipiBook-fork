@@ -46,15 +46,23 @@ const scrollbarStyles = `
 `;
 
 export const COVER_TEMPLATES = [
-  { id: 1, label: 'Dual Brochure', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 50%, #FED7AA 100%)', defaultText1: 'Design Book', defaultText2: 'Free .psd Mockup' },
-  { id: 2, label: 'Single Booklet', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 50%, #BAE6FD 100%)', defaultText1: 'Premium Edition', defaultText2: 'Classic Minimal Design' },
-  { id: 3, label: 'Landscape Catalog', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 50%, #99F6E4 100%)', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
-  { id: 4, label: 'Modern Magazine', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 50%, #A7F3D0 100%)', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
-  { id: 5, label: 'Dual Layer Spread', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 50%, #E9D5FF 100%)', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
-  { id: 6, label: 'Isometric Portfolio', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 50%, #DDD6FE 100%)', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
-  { id: 7, label: 'Landscape Dual Spread', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #BBF7D0 100%)', defaultText1: 'Landscape Spread', defaultText2: '2-Page Open Lookbook' },
-  { id: 8, label: 'Landscape Trio Fan', maxPages: 3, defaultBgColor: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%)', defaultText1: 'Tri-Page Showcase', defaultText2: '3-Layer Cascading Pages' },
-  { id: 9, label: 'Landscape Triple Cascade', maxPages: 3, defaultBgColor: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 50%, #FDE68A 100%)', defaultText1: 'Portfolio Triple Spread', defaultText2: '3-Tier Landscape Preview' },
+  // Portrait
+  { id: 1, label: 'Dual Brochure', orientation: 'portrait', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 50%, #FED7AA 100%)', defaultText1: 'Design Book', defaultText2: 'Free .psd Mockup' },
+  { id: 2, label: 'Single Booklet', orientation: 'portrait', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 50%, #BAE6FD 100%)', defaultText1: 'Premium Edition', defaultText2: 'Classic Minimal Design' },
+  { id: 4, label: 'Modern Magazine', orientation: 'portrait', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 50%, #A7F3D0 100%)', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
+  { id: 5, label: 'Dual Layer Spread', orientation: 'portrait', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 50%, #E9D5FF 100%)', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
+  { id: 6, label: 'Isometric Portfolio', orientation: 'portrait', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 50%, #DDD6FE 100%)', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
+  
+  // Landscape
+  { id: 3, label: 'Landscape Catalog', orientation: 'landscape', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 50%, #99F6E4 100%)', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
+  { id: 7, label: 'Landscape Dual Spread', orientation: 'landscape', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #BBF7D0 100%)', defaultText1: 'Landscape Spread', defaultText2: '2-Page Open Lookbook' },
+  { id: 8, label: 'Landscape Trio Fan', orientation: 'landscape', maxPages: 3, defaultBgColor: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%)', defaultText1: 'Tri-Page Showcase', defaultText2: '3-Layer Cascading Pages' },
+  { id: 9, label: 'Landscape Triple Cascade', orientation: 'landscape', maxPages: 3, defaultBgColor: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 50%, #FDE68A 100%)', defaultText1: 'Portfolio Triple Spread', defaultText2: '3-Tier Landscape Preview' },
+
+  // Square
+  { id: 10, label: 'Square Booklet', orientation: 'square', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 50%, #FECACA 100%)', defaultText1: 'Square Lookbook', defaultText2: 'Clean Minimal Square' },
+  { id: 11, label: 'Dual Square Showcase', orientation: 'square', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #BBF7D0 100%)', defaultText1: 'Artisan Square', defaultText2: 'Creative Square Spread' },
+  { id: 12, label: 'Triple Square Cascade', orientation: 'square', maxPages: 3, defaultBgColor: 'linear-gradient(135deg, #FDF4FF 0%, #FAE8FF 50%, #F5D0FE 100%)', defaultText1: 'Square Gallery', defaultText2: 'Multi-Square Collection' },
 ];
 
 export const extractPageBgColor = (page) => {
@@ -696,6 +704,164 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
       );
     }
 
+    case 10: {
+      // Square Booklet - Single Square Card Mockup
+      return (
+        <div className={`absolute inset-0 flex items-center justify-start pl-[2.2vw] pointer-events-none transform ${scaleClass}`}>
+          <div className="relative w-[12vw] h-[12vw] rounded-[0.4vw] overflow-hidden bg-[#FAF8F5] border border-[#E7E3D8] shadow-2xl flex">
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <div className="w-full h-full relative overflow-hidden bg-[#FAF8F5] text-[#2C2825] flex flex-col justify-between p-[1vw]">
+                <div className="relative z-10 flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw]">
+                  <span className="text-[0.52vw] tracking-wider uppercase font-bold text-[#3E3A36]">SQUARE EDITION</span>
+                  <span className="text-[0.45vw] font-mono text-[#8C8275]">VOL. 01</span>
+                </div>
+                <div className="relative z-10 my-auto py-[0.4vw]">
+                  <div className="w-[1.4vw] h-[0.16vw] bg-[#DC2626] mb-[0.3vw] rounded-full" />
+                  <h3 className="text-[1vw] font-black uppercase font-serif tracking-tight leading-snug text-[#1C1917] break-words">{customTitle || 'Square Lookbook'}</h3>
+                  <p className="text-[0.55vw] text-[#6B6359] font-medium mt-[0.2vw] break-words">{customSubtitle || 'Clean Minimal Square'}</p>
+                </div>
+                <div className="relative z-10 flex justify-between items-center text-[0.42vw] text-[#8C8275] font-mono">
+                  <span>SQUARE 210 × 210</span>
+                  <span>PAGE 01</span>
+                </div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    case 11: {
+      // Dual Square Showcase - 2 Layered Square Pages
+      return (
+        <div className={`absolute inset-0 flex items-center justify-end pr-[2vw] pointer-events-none transform ${scaleClass}`}>
+          {/* Back Square Page */}
+          <div className={`absolute w-[11.5vw] h-[11.5vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.8vw]'} rounded-[0.4vw] shadow-lg transform -rotate-6 -translate-x-[1.6vw] -translate-y-[0.6vw] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
+            {page2 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw] z-10">
+                  <span className="text-[0.5vw] font-mono font-bold text-[#7C7267] uppercase">SQUARE 02</span>
+                  <div className="w-[1vw] h-[1vw] bg-[#059669] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-black">2</div>
+                </div>
+                <div className="my-auto py-[0.3vw] z-10">
+                  <h3 className="text-[0.85vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Artisan Square"}</h3>
+                  <p className="text-[0.5vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "Creative Square Spread"}</p>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 02</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+
+          {/* Front Square Page */}
+          <div className={`relative w-[11.5vw] h-[11.5vw] ${page1 ? 'bg-white' : 'bg-[#FCFBF8] border border-[#EAE6DD] p-[0.8vw]'} rounded-[0.4vw] shadow-2xl transform rotate-4 translate-x-[0.8vw] flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.3vw] z-10">
+                  <span className="text-[0.5vw] font-mono font-bold text-[#7C7267] uppercase">SQUARE 01</span>
+                  <div className="w-[1vw] h-[1vw] bg-[#059669] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-black">1</div>
+                </div>
+                <div className="my-auto py-[0.3vw] z-10">
+                  <div className="w-[1.2vw] h-[0.16vw] bg-[#059669] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.85vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Artisan Square"}</h3>
+                  <p className="text-[0.5vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "Creative Square Spread"}</p>
+                </div>
+                <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 01</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    case 12: {
+      // Triple Square Cascade - 3 Staggered Square Pages
+      return (
+        <div className={`absolute inset-0 flex items-center justify-end pr-[2vw] pointer-events-none transform ${scaleClass}`}>
+          {/* Back Page (Page 3) */}
+          <div className={`absolute w-[11vw] h-[11vw] ${page3 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.4vw] shadow-md transform -translate-x-[2.8vw] -translate-y-[1.4vw] rotate-[-8deg] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
+            {page3 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page3Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.45vw] font-mono font-bold text-[#7C7267] uppercase">SQUARE 03</span>
+                  <div className="w-[0.85vw] h-[0.85vw] bg-[#7C3AED] rounded-[0.18vw] flex items-center justify-center text-white text-[0.48vw] font-black">3</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <h3 className="text-[0.75vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Square Gallery"}</h3>
+                  <p className="text-[0.45vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "Multi-Square Collection"}</p>
+                </div>
+                <div className="text-[0.38vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 03</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+
+          {/* Middle Page (Page 2) */}
+          <div className={`absolute w-[11vw] h-[11vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.4vw] shadow-lg transform -translate-x-[1.4vw] -translate-y-[0.5vw] rotate-[-2deg] flex flex-col justify-between text-[#3E3A36] overflow-hidden`}>
+            {page2 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.45vw] font-mono font-bold text-[#7C7267] uppercase">SQUARE 02</span>
+                  <div className="w-[0.85vw] h-[0.85vw] bg-[#9333EA] rounded-[0.18vw] flex items-center justify-center text-white text-[0.48vw] font-black">2</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <h3 className="text-[0.75vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Square Gallery"}</h3>
+                  <p className="text-[0.45vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "Multi-Square Collection"}</p>
+                </div>
+                <div className="text-[0.38vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 02</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+
+          {/* Front Page (Page 1) */}
+          <div className={`relative w-[11vw] h-[11vw] ${page1 ? 'bg-white' : 'bg-[#FCFBF8] border border-[#EAE6DD] p-[0.7vw]'} rounded-[0.4vw] shadow-2xl transform translate-x-[0.2vw] translate-y-[0.5vw] rotate-[3deg] flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
+            {page1 ? (
+              <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-[#E7E3D8] pb-[0.25vw] z-10">
+                  <span className="text-[0.45vw] font-mono font-bold text-[#7C7267] uppercase">SQUARE 01</span>
+                  <div className="w-[0.85vw] h-[0.85vw] bg-[#A855F7] rounded-[0.18vw] flex items-center justify-center text-white text-[0.48vw] font-black">1</div>
+                </div>
+                <div className="my-auto py-[0.2vw] z-10">
+                  <div className="w-[1.2vw] h-[0.15vw] bg-[#A855F7] mb-[0.2vw] rounded-full" />
+                  <h3 className="text-[0.75vw] font-black leading-tight uppercase font-serif text-[#1C1917] break-words">{customTitle || "Square Gallery"}</h3>
+                  <p className="text-[0.45vw] text-[#6B6359] mt-[0.1vw] break-words">{customSubtitle || "Multi-Square Collection"}</p>
+                </div>
+                <div className="text-[0.38vw] text-[#8C8275] font-mono tracking-wider z-10">PAGE 01</div>
+                <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/50 to-transparent pointer-events-none transform rotate-45 z-20" />
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     default:
       return null;
   }
@@ -896,6 +1062,39 @@ export const TemplatePreview = ({
       textAlign: text1Align || 'left',
       alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
     };
+  } else if (tplId === 10) {
+    // Square Booklet: Square card on left. Right area clear for text.
+    logoContainerStyle = {
+      top: '1.2vw',
+      right: '1.2vw',
+      left: 'auto',
+      maxWidth: '4.5vw',
+      maxHeight: '4vw'
+    };
+    textContainerStyle = {
+      right: '3%',
+      bottom: '6%',
+      width: '42%',
+      maxWidth: '42%',
+      textAlign: text1Align || 'right',
+      alignItems: (text1Align === 'left') ? 'flex-start' : (text1Align === 'center') ? 'center' : 'flex-end'
+    };
+  } else if (tplId === 11 || tplId === 12) {
+    // Square Dual Spread / Triple Cascade: Square cards arranged towards right. Left side open for branding & text.
+    logoContainerStyle = {
+      top: '1.2vw',
+      left: '1.5vw',
+      maxWidth: '4.5vw',
+      maxHeight: '4vw'
+    };
+    textContainerStyle = {
+      left: '4%',
+      bottom: '5%',
+      width: '38%',
+      maxWidth: '40%',
+      textAlign: text1Align || 'left',
+      alignItems: (text1Align === 'center') ? 'center' : (text1Align === 'right') ? 'flex-end' : 'flex-start'
+    };
   }
 
   const bgStyle = bgColor && (bgColor.includes('gradient') || bgColor.startsWith('linear-') || bgColor.startsWith('radial-'))
@@ -975,6 +1174,9 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
 
   const [option, setOption] = useState(settings.coverPicture?.type || 'template');
   const [activeTab, setActiveTab] = useState(settings.coverPicture?.activeTab || 'cover');
+  const [coverCategory, setCoverCategory] = useState(
+    resolvedInitialTpl?.orientation === 'landscape' ? 'Landscape' : resolvedInitialTpl?.orientation === 'square' ? 'Square' : 'Portrait'
+  );
   const [selectedTemplate, setSelectedTemplate] = useState(resolvedInitialTpl);
 
   const [uploadedImage, setUploadedImage] = useState(settings.coverPicture?.type === 'upload' ? settings.coverPicture.url : null);
@@ -1372,59 +1574,87 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
               <div className="flex-1 bg-white overflow-hidden m-[0.1vw] rounded-b-[1.1vw] relative shadow-inner flex flex-col">
                 <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-[1vw] py-[1.2vw] pr-[1.2vw] custom-popup-scrollbar">
                   {activeTab === 'cover' ? (
-                    <div className="grid grid-cols-3 gap-[0.5vw]">
-                      {COVER_TEMPLATES.map((tpl) => (
-                        <div
-                          key={tpl.id}
-                          onClick={() => {
-                            setSelectedTemplate(tpl);
-                            if (tpl.defaultText1) setText1(tpl.defaultText1);
-                            if (tpl.defaultText2) setText2(tpl.defaultText2);
-                            if (tpl.defaultBgColor) setBgColor(tpl.defaultBgColor);
-                          }}
-                          className={`aspect-[4/3] rounded-[0.4vw] cursor-pointer overflow-hidden border-[0.15vw] transition-all hover:scale-[1.03] hover:shadow-md relative group ${selectedTemplate?.id === tpl.id
-                            ? 'border-[#4A3AFF] shadow-[0_0_0_0.15vw_rgba(74,58,255,0.3)]'
-                            : 'border-transparent hover:border-gray-400'
+                    <div className="flex flex-col gap-[0.8vw]">
+                      {/* Sub-tabs / Filter pills for Portrait, Landscape, Square */}
+                      <div className="flex items-center gap-[0.35vw] bg-gray-100 p-[0.2vw] rounded-[0.45vw] w-fit">
+                        {[
+                          { id: 'Portrait', label: 'Portrait' },
+                          { id: 'Landscape', label: 'Landscape' },
+                          { id: 'Square', label: 'Square' }
+                        ].map(cat => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setCoverCategory(cat.id)}
+                            className={`px-[0.7vw] py-[0.25vw] text-[0.65vw] font-bold rounded-[0.35vw] transition-all cursor-pointer ${
+                              coverCategory === cat.id
+                                ? 'bg-white text-gray-900 shadow-xs'
+                                : 'text-gray-500 hover:text-gray-800'
                             }`}
-                          title={tpl.label}
-                        >
-                          {tpl.id ? (
-                            <div
-                              className="w-full h-full relative overflow-hidden pointer-events-none"
-                              style={tpl.defaultBgColor?.includes('gradient')
-                                ? { backgroundImage: tpl.defaultBgColor }
-                                : { backgroundColor: tpl.defaultBgColor || '#F8FAFC' }
-                              }
-                            >
-                              <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left transform scale-[0.25]">
-                                <TemplatePreview
-                                  selectedTemplate={tpl}
-                                  bgColor={tpl.defaultBgColor || '#F8FAFC'}
-                                  bgOpacity={100}
-                                  text1={tpl.defaultText1}
-                                  text2={tpl.defaultText2}
-                                  selectedPages={[]}
-                                  pages={pages}
-                                />
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Templates Grid filtered by category */}
+                      <div className="grid grid-cols-3 gap-[0.5vw]">
+                        {COVER_TEMPLATES.filter(tpl => {
+                          const orient = (tpl.orientation || 'portrait').toLowerCase();
+                          return orient === coverCategory.toLowerCase();
+                        }).map((tpl) => (
+                          <div
+                            key={tpl.id}
+                            onClick={() => {
+                              setSelectedTemplate(tpl);
+                              if (tpl.defaultText1) setText1(tpl.defaultText1);
+                              if (tpl.defaultText2) setText2(tpl.defaultText2);
+                              if (tpl.defaultBgColor) setBgColor(tpl.defaultBgColor);
+                            }}
+                            className={`aspect-[4/3] rounded-[0.4vw] cursor-pointer overflow-hidden border-[0.15vw] transition-all hover:scale-[1.03] hover:shadow-md relative group ${selectedTemplate?.id === tpl.id
+                              ? 'border-[#4A3AFF] shadow-[0_0_0_0.15vw_rgba(74,58,255,0.3)]'
+                              : 'border-transparent hover:border-gray-400'
+                              }`}
+                            title={tpl.label}
+                          >
+                            {tpl.id ? (
+                              <div
+                                className="w-full h-full relative overflow-hidden pointer-events-none"
+                                style={tpl.defaultBgColor?.includes('gradient')
+                                  ? { backgroundImage: tpl.defaultBgColor }
+                                  : { backgroundColor: tpl.defaultBgColor || '#F8FAFC' }
+                                }
+                              >
+                                <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left transform scale-[0.25]">
+                                  <TemplatePreview
+                                    selectedTemplate={tpl}
+                                    bgColor={tpl.defaultBgColor || '#F8FAFC'}
+                                    bgOpacity={100}
+                                    text1={tpl.defaultText1}
+                                    text2={tpl.defaultText2}
+                                    selectedPages={[]}
+                                    pages={pages}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <img src={tpl.src} alt={tpl.label} className="w-full h-full object-cover" />
-                          )}
-                          {selectedTemplate?.id === tpl.id && (
-                            <div className="absolute inset-0 bg-[#4A3AFF]/15 flex items-start justify-end p-[0.3vw]">
-                              <div className="w-[1vw] h-[1vw] bg-[#4A3AFF] rounded-full flex items-center justify-center shadow-md">
-                                <svg viewBox="0 0 10 10" className="w-[0.6vw] h-[0.6vw]" fill="none">
-                                  <polyline points="2,5 4.5,7.5 8,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
+                            ) : (
+                              <img src={tpl.src} alt={tpl.label} className="w-full h-full object-cover" />
+                            )}
+                            {selectedTemplate?.id === tpl.id && (
+                              <div className="absolute inset-0 bg-[#4A3AFF]/15 flex items-start justify-end p-[0.3vw]">
+                                <div className="w-[1vw] h-[1vw] bg-[#4A3AFF] rounded-full flex items-center justify-center shadow-md">
+                                  <svg viewBox="0 0 10 10" className="w-[0.6vw] h-[0.6vw]" fill="none">
+                                    <polyline points="2,5 4.5,7.5 8,3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                </div>
                               </div>
+                            )}
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[0.5vw] font-semibold text-center py-[0.2vw] opacity-0 group-hover:opacity-100 transition-opacity">
+                              {tpl.label}
                             </div>
-                          )}
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[0.5vw] font-semibold text-center py-[0.2vw] opacity-0 group-hover:opacity-100 transition-opacity">
-                            {tpl.label}
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-[1.2vw]">

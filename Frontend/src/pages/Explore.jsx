@@ -151,6 +151,13 @@ const FlipbookCard = ({ v_id, shareId, access, rawBook, authorPicture, authorBgC
     const resolvedIframeBaseUrl = getAssetBaseUrl(userFolder, folderName, bookTitle);
     const firstPageContent = rawBook?.pages?.[0]?.html || rawBook?.pages?.[0]?.content || null;
     const firstPageFileName = rawBook?.pages?.[0]?.pageName || 'Page 1.svg';
+    const coverPicture =
+        rawBook?.coverPicture ||
+        rawBook?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+        rawBook?.Customized_Settings?.otherSetup?.coverPicture ||
+        rawBook?.Customized_Settings?.coverPicture ||
+        rawBook?.meta?.coverPicture ||
+        null;
 
     const menuItems = [
         {
@@ -190,10 +197,13 @@ const FlipbookCard = ({ v_id, shareId, access, rawBook, authorPicture, authorBgC
                 <LazyPreview
                     v_id={v_id}
                     emailId={rawBook?.userEmail}
+
                     backendUrl={BACKEND_URL}
                     iframeBaseUrl={resolvedIframeBaseUrl}
                     title={bookName || "Flipbook"}
                     imageUrl={rawBook?.image || null}
+                    coverPicture={coverPicture}
+                    pages={rawBook?.pages || []}
                     firstPageFileName={firstPageFileName}
                     firstPageContent={firstPageContent}
                 />
