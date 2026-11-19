@@ -244,8 +244,8 @@ const PreviewArea = React.memo(({
         const galleryFromOther = otherSetupSettings?.gallery || {};
         const galleryFromMenuBar = menuBarSettings?.interaction?.gallerySettings || {};
         return {
-            ...galleryFromOther,
             ...galleryFromMenuBar,
+            ...galleryFromOther,
             images: (galleryFromOther.images && galleryFromOther.images.length > 0)
                 ? galleryFromOther.images
                 : (galleryFromMenuBar.images || [])

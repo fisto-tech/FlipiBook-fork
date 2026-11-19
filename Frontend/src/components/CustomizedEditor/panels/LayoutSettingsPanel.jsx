@@ -319,6 +319,16 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
     if (section === 'toc' && willOpen && onTocSettingsClick) {
       onTocSettingsClick();
     }
+    // Trigger right side gallery popup when Gallery settings panel opens
+    if (section === 'gallery' && willOpen && onUpdateOther) {
+      onUpdateOther(prev => ({
+        ...prev,
+        gallery: {
+          ...(prev?.gallery || {}),
+          previewOpen: Date.now()
+        }
+      }));
+    }
   };
 
   const updateSection = (section, field, value) => {
