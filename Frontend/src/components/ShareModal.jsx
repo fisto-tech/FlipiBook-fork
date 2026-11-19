@@ -22,48 +22,71 @@ const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl, title, imageUrl
         const el = containerRef.current;
         if (!el) return;
 
+        const effectiveBackendUrl = backendUrl || (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
+
+        const fetchPreview = () => {
+            if (fetching) return;
+            setFetching(true);
+            // Always fetch first-page HTML for both PDF and template books
+            axios
+                .get(`${effectiveBackendUrl}/api/flipbook/preview/${v_id}`, { withCredentials: true })
+                .then((res) => {
+                    if (res.data?.html) {
+                        // Extract and dynamically load Google Fonts found in the SVG
+                        const fontsToLoad = new Set();
+                        const cssRegex = /font-family\s*:\s*(?:['"]([^'"]+)['"]|([^;}'"\s]+))/g;
+                        const attrRegex = /font-family\s*=\s*['"]([^'"]+)['"]/g;
+                        let match;
+                        while ((match = cssRegex.exec(res.data.html)) !== null) {
+                            let f = match[1] || match[2];
+                            if (f) f = f.split(',')[0].replace(/['"]/g, '').trim();
+                            if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) fontsToLoad.add(f);
+                        }
+                        while ((match = attrRegex.exec(res.data.html)) !== null) {
+                            let f = match[1].split(',')[0].replace(/['"]/g, '').trim();
+                            if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) fontsToLoad.add(f);
+                        }
+
+                        let fontImports = '';
+                        if (fontsToLoad.size > 0) {
+                            const fontList = Array.from(fontsToLoad).map(f => f.replace(/\s+/g, '+')).join('|');
+                            fontImports = `<link href="https://fonts.googleapis.com/css?family=${fontList}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
+                        }
+
+                        setHtml({ content: res.data.html, fontImports });
+                    }
+                })
+                .catch(() => { })
+                .finally(() => { setFetching(false); setLoaded(true); });
+        };
+
+        if (typeof IntersectionObserver === 'undefined') {
+            fetchPreview();
+            return;
+        }
+
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting && !loaded && !fetching) {
                     observer.disconnect();
-                    setFetching(true);
-                    // Always fetch first-page HTML for both PDF and template books
-                    axios
-                        .get(`${backendUrl}/api/flipbook/preview/${v_id}`, { withCredentials: true })
-                        .then((res) => {
-                            if (res.data?.html) {
-                                // Extract and dynamically load Google Fonts found in the SVG
-                                const fontsToLoad = new Set();
-                                const cssRegex = /font-family\s*:\s*(?:['"]([^'"]+)['"]|([^;}'"\s]+))/g;
-                                const attrRegex = /font-family\s*=\s*['"]([^'"]+)['"]/g;
-                                let match;
-                                while ((match = cssRegex.exec(res.data.html)) !== null) {
-                                    let f = match[1] || match[2];
-                                    if (f) f = f.split(',')[0].replace(/['"]/g, '').trim();
-                                    if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) fontsToLoad.add(f);
-                                }
-                                while ((match = attrRegex.exec(res.data.html)) !== null) {
-                                    let f = match[1].split(',')[0].replace(/['"]/g, '').trim();
-                                    if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) fontsToLoad.add(f);
-                                }
-
-                                let fontImports = '';
-                                if (fontsToLoad.size > 0) {
-                                    const fontList = Array.from(fontsToLoad).map(f => f.replace(/\s+/g, '+')).join('|');
-                                    fontImports = `<link href="https://fonts.googleapis.com/css?family=${fontList}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
-                                }
-
-                                setHtml({ content: res.data.html, fontImports });
-                            }
-                        })
-                        .catch(() => { })
-                        .finally(() => { setFetching(false); setLoaded(true); });
+                    fetchPreview();
                 }
             },
-            { threshold: 0.1 }
+            { threshold: 0.01 }
         );
         observer.observe(el);
-        return () => observer.disconnect();
+
+        // Fallback timeout in case intersection observer in modal doesn't fire immediately
+        const timer = setTimeout(() => {
+            if (!loaded && !fetching) {
+                fetchPreview();
+            }
+        }, 300);
+
+        return () => {
+            observer.disconnect();
+            clearTimeout(timer);
+        };
     }, [v_id, loaded, fetching, backendUrl, emailId]);
 
     const isLoading = !loaded || fetching;
@@ -277,7 +300,8 @@ const CustomQRCode = React.forwardRef(({
 });
 
 
-const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBook, activeLayout, isTabletLayout = false, isMobileLayout = false, isAbsolutePosition = false }) => {
+const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBook: propCurrentBook, flipbook, activeLayout, isTabletLayout = false, isMobileLayout = false, isAbsolutePosition = false }) => {
+    const currentBook = propCurrentBook || flipbook;
     const { user } = useAuth();
     const [addCover, setAddCover] = useState(false);
 

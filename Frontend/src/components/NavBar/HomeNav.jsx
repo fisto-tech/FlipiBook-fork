@@ -50,10 +50,10 @@ const getAvatarColor = (identifier, customColor) => {
 const checkIsLinkActive = (link, currentPath) => {
   return currentPath === link.path || 
          (link.name === 'Home' && currentPath === '/') ||
-         (link.name === 'Analytics' && (currentPath === '/analytics' || currentPath === '/overview')) ||
+         (link.name === 'Analytics' && (currentPath.startsWith('/analytics') || currentPath.startsWith('/overview'))) ||
          (link.name === 'Lead Form' && currentPath.startsWith('/lead-form')) ||
-         (link.name === 'Overview' && currentPath === '/overview') ||
-         (link.name === 'Over View' && currentPath === '/overview') ||
+         (link.name === 'Overview' && currentPath.startsWith('/overview')) ||
+         (link.name === 'Over View' && currentPath.startsWith('/overview')) ||
          (link.name === 'My Flipibooks' && currentPath.startsWith('/my-flipbooks')) ||
          (link.path === '/contact' && currentPath === '/contact-us') ||
          (link.path === '/help' && (currentPath === '/help' || currentPath === '/contact'));

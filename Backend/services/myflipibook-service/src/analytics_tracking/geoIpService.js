@@ -234,7 +234,7 @@ const resolveIpLocation = (ip, clientTimezone = "") => {
       return {
         ip,
         country: tzMatch.country || "Unknown",
-        countryCode: tzMatch.countryCode || "UN",
+        countryCode: tzMatch.countryCode === "UN" ? "IN" : (tzMatch.countryCode || "IN"),
         state: tzMatch.state || "Unknown",
         region: "",
         city: tzMatch.city || "Unknown",
@@ -244,7 +244,7 @@ const resolveIpLocation = (ip, clientTimezone = "") => {
       };
     }
 
-    const countryCode = geo.country || "UN";
+    const countryCode = geo.country && geo.country !== "UN" ? geo.country : (tzMatch.countryCode || "IN");
     let countryName = countryNameMap[countryCode];
     if (!countryName) {
       try {
@@ -253,6 +253,9 @@ const resolveIpLocation = (ip, clientTimezone = "") => {
       } catch (e) {
         countryName = countryCode;
       }
+    }
+    if (countryName === "United Nations" || countryName === "UN") {
+      countryName = tzMatch.country || "Unknown";
     }
     const regionCode = geo.region || "";
     const stateName = resolveStateName(countryCode, regionCode) || regionCode || "Unknown";

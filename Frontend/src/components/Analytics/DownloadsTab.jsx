@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
+import { formatFullDate, getPaginationPages, buildDynamicTimeline, getSampledXLabels } from './analyticsUtils';
 
-export default function DownloadsTab({ timeline = [], summary = {}, analyticsData = {} }) {
+export default function DownloadsTab({ timeline = [], summary = {}, analyticsData = {}, loading = false }) {
   const [detailHoverIdx, setDetailHoverIdx] = useState(null);
   const [tableSort, setTableSort] = useState('Date (Newest)');
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -19,6 +20,11 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
 
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 7;
+
+  // Dynamic timeline driven by DownloadsTab's date filters
+  const activeTimeline = useMemo(() => {
+    return buildDynamicTimeline(datePreset, customRange, analyticsData?.dailyViews || [], summary.avgDuration || 0);
+  }, [datePreset, customRange, analyticsData?.dailyViews, summary.avgDuration]);
 
   // Close sort on outside click
   useEffect(() => {
@@ -87,7 +93,7 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
 
   // Chart trend points mapped to timeline
   const downloadData = useMemo(() => {
-    return timeline.map((d, i) => {
+    return activeTimeline.map((d, i) => {
       const key = d.dateKey || d.date;
       const realDl = dailyDownloadsMap[key]?.downloads;
       const views = Number(d.views) || 0;
@@ -103,7 +109,7 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
         idx: i
       };
     });
-  }, [timeline, dailyDownloadsMap, totalDownloads]);
+  }, [activeTimeline, dailyDownloadsMap, totalDownloads]);
 
   // Chart computations matching Readers Trend exact proportions
   const dChartW = 860;
@@ -162,6 +168,10 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
     const area = `${d} L ${last.x} ${dChartH - dPadB} L ${first.x} ${dChartH - dPadB} Z`;
     return { pathD: d, areaD: area };
   }, [chartPoints, dChartH, dPadL, dPadR, dPadB]);
+
+  const xLabels = useMemo(() => {
+    return getSampledXLabels(chartPoints, 7);
+  }, [chartPoints]);
 
   const sortedDownloadData = useMemo(() => {
     const arr = [...downloadData];
@@ -291,28 +301,7 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
           </div>
         </div>
 
-        {/* Right Side: Group By label stacked on top */}
-        <div className="flex flex-col gap-[0.35vw] shrink-0">
-          <span className="text-[0.85vw] text-black font-normal whitespace-nowrap">
-            Group By
-          </span>
 
-          <div className="inline-flex items-center bg-white border border-slate-200 rounded-[0.45vw] p-[0.2vw] gap-[0.25vw]">
-            {['Date', 'Week', 'Month'].map(grp => (
-              <button
-                key={grp}
-                onClick={() => setGroupBy(grp)}
-                className={`px-[1.25vw] py-[0.38vw] rounded-[0.35vw] text-[0.72vw] font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                  groupBy === grp
-                    ? 'bg-[#EC5137] text-white shadow-xs'
-                    : 'text-[#555555] hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                {grp}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Downloads Over Time Chart */}
@@ -340,8 +329,8 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
               </linearGradient>
             </defs>
 
-            {/* Vertical dashed grid lines matching each X date tick */}
-            {chartPoints.map((pt) => (
+            {/* Vertical dashed grid lines matching X date ticks */}
+            {xLabels.map((pt) => (
               <line
                 key={`v-grid-${pt.dateKey}`}
                 x1={pt.x}
@@ -409,7 +398,7 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
             })()}
 
             {/* X-axis date tick text rendered directly on SVG */}
-            {chartPoints.map((pt) => (
+            {xLabels.map((pt) => (
               <text
                 key={`x-lbl-${pt.dateKey}`}
                 x={pt.x}
@@ -576,7 +565,21 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paginatedDownloads.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`dl-skel-${i}`} className="animate-pulse">
+                      <td className="py-[0.7vw] px-[1vw]">
+                        <div className="h-[0.6vw] w-[8vw] bg-slate-100 rounded" />
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center">
+                        <div className="h-[0.6vw] w-[2.5vw] bg-slate-100 rounded mx-auto" />
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center">
+                        <div className="h-[0.6vw] w-[2.5vw] bg-slate-100 rounded mx-auto" />
+                      </td>
+                    </tr>
+                  ))
+                ) : paginatedDownloads.length === 0 ? (
                   <tr>
                     <td colSpan="3" className="py-[2.5vw] text-center text-slate-400 font-normal">
                       No activity found for this period.

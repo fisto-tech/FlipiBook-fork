@@ -503,9 +503,9 @@ export default function Overview() {
         ? directLeadsMap.get(b.v_id)
         : (stats?.leads ?? 0);
       const topDevice = stats?.topDevice || 'Desktop';
-      let topLocation = stats?.topLocation || 'India';
-      if (topLocation.toLowerCase().includes('local') || topLocation === '—' || topLocation === 'Unknown') {
-        topLocation = 'India';
+      let topLocation = stats?.topLocation || '—';
+      if (topLocation.toLowerCase().includes('local') || topLocation === 'Unknown') {
+        topLocation = '—';
       }
       const downloads = stats?.downloads ?? 0;
       const avgDurationSeconds = stats?.avgDurationSeconds || stats?.avgDuration || 268;

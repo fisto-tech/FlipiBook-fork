@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { formatFullDate, getPaginationPages } from './analyticsUtils';
+import { formatFullDate, getPaginationPages, buildDynamicTimeline, getSampledXLabels } from './analyticsUtils';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
 
-export default function LeadFormTab({ timeline = [], summary = {}, analyticsData = {} }) {
+export default function LeadFormTab({ timeline = [], summary = {}, analyticsData = {}, loading = false }) {
   const navigate = useNavigate();
   const [detailHoverIdx, setDetailHoverIdx] = useState(null);
   const [tableSort, setTableSort] = useState('Date (Newest)');
@@ -23,6 +23,11 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 7;
   const [selectedPreviewLeadRow, setSelectedPreviewLeadRow] = useState(null);
+
+  // Dynamic timeline driven by LeadFormTab's date filters
+  const activeTimeline = useMemo(() => {
+    return buildDynamicTimeline(datePreset, customRange, analyticsData?.dailyViews || [], summary.avgDuration || 0);
+  }, [datePreset, customRange, analyticsData?.dailyViews, summary.avgDuration]);
 
   // Close sort on outside click
   useEffect(() => {
@@ -91,7 +96,7 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
 
   // Real backend leads or proportional to real views
   const leadData = useMemo(() => {
-    return timeline.map((d, i) => {
+    return activeTimeline.map((d, i) => {
       const key = d.dateKey || d.date;
       const views = Number(d.views) || 0;
       const realLeads = dailyLeadsMap[key];
@@ -107,7 +112,7 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
         idx: i
       };
     });
-  }, [timeline, dailyLeadsMap, totalLeadsCount]);
+  }, [activeTimeline, dailyLeadsMap, totalLeadsCount]);
 
   // Chart computations matching Readers Trend exact proportions
   const dChartW = 860;
@@ -166,6 +171,10 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
     const area = `${d} L ${last.x} ${dChartH - dPadB} L ${first.x} ${dChartH - dPadB} Z`;
     return { pathD: d, areaD: area };
   }, [chartPoints, dChartH, dPadL, dPadR, dPadB]);
+
+  const xLabels = useMemo(() => {
+    return getSampledXLabels(chartPoints, 7);
+  }, [chartPoints]);
 
   const sortedLeadData = useMemo(() => {
     const arr = [...leadData];
@@ -301,28 +310,7 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
           </div>
         </div>
 
-        {/* Right Side: Group By label stacked on top */}
-        <div className="flex flex-col gap-[0.35vw] shrink-0">
-          <span className="text-[0.85vw] text-black font-normal whitespace-nowrap">
-            Group By
-          </span>
 
-          <div className="inline-flex items-center bg-white border border-slate-200 rounded-[0.45vw] p-[0.2vw] gap-[0.25vw]">
-            {['Date', 'Week', 'Month'].map(grp => (
-              <button
-                key={grp}
-                onClick={() => setGroupBy(grp)}
-                className={`px-[1.25vw] py-[0.38vw] rounded-[0.35vw] text-[0.72vw] font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                  groupBy === grp
-                    ? 'bg-[#EC5137] text-white shadow-xs'
-                    : 'text-[#555555] hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                {grp}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Submissions Over Time Chart */}
@@ -351,7 +339,7 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
             </defs>
 
             {/* Vertical dashed grid lines matching each X date tick */}
-            {chartPoints.map((pt) => (
+            {xLabels.map((pt) => (
               <line
                 key={`v-grid-${pt.dateKey}`}
                 x1={pt.x}
@@ -419,7 +407,7 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
             })()}
 
             {/* X-axis date tick text rendered directly on SVG */}
-            {chartPoints.map((pt) => (
+            {xLabels.map((pt) => (
               <text
                 key={`x-lbl-${pt.dateKey}`}
                 x={pt.x}
@@ -597,7 +585,30 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paginatedLeadData.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`lead-skel-${i}`} className="animate-pulse">
+                      <td className="py-[0.7vw] px-[1vw]">
+                        <div className="h-[0.6vw] w-[8vw] bg-slate-100 rounded" />
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center">
+                        <div className="h-[0.6vw] w-[2.5vw] bg-slate-100 rounded mx-auto" />
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center">
+                        <div className="h-[0.6vw] w-[2.5vw] bg-slate-100 rounded mx-auto" />
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center">
+                        <div className="h-[0.6vw] w-[2.5vw] bg-slate-100 rounded mx-auto" />
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center">
+                        <div className="h-[0.6vw] w-[2.5vw] bg-slate-100 rounded mx-auto" />
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center">
+                        <div className="h-[1.2vw] w-[4.5vw] bg-slate-100 rounded-[0.35vw] mx-auto" />
+                      </td>
+                    </tr>
+                  ))
+                ) : paginatedLeadData.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="py-[2.5vw] text-center text-slate-400 font-normal">
                       No activity found for this period.
@@ -691,187 +702,124 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
       {/* Lead Preview Modal */}
       {selectedPreviewLeadRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-[1vw]">
-          <div className="bg-white rounded-[0.8vw] shadow-2xl border border-slate-100 w-[36vw] max-w-[560px] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-[0.9vw] shadow-2xl border border-slate-200/80 w-[42vw] max-w-[620px] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-[1.2vw] pt-[1.2vw] pb-[0.8vw] border-b border-slate-100">
-              <div className="flex items-center gap-[0.6vw]">
-                <div className="w-[2vw] h-[2vw] rounded-full bg-[#FFF5F2] flex items-center justify-center text-[#F05338]">
-                  <Icon icon="solar:chart-2-linear" className="w-[1.1vw] h-[1.1vw]" />
+            <div className="flex items-center justify-between px-[1.4vw] pt-[1.3vw] pb-[0.9vw]">
+              <div className="flex items-center gap-[0.7vw]">
+                <div className="w-[2.2vw] h-[2.2vw] rounded-[0.55vw] bg-[#FFF0EB] flex items-center justify-center text-[#EC5137] shrink-0">
+                  <Icon icon="carbon:activity" className="w-[1.2vw] h-[1.2vw]" />
                 </div>
                 <div>
-                  <h3 className="text-[1vw] font-bold text-slate-800 leading-tight">
+                  <h3 className="text-[1.05vw] font-semibold text-slate-900 leading-tight">
                     Lead Preview
                   </h3>
-                  <p className="text-[0.68vw] text-slate-400">
-                    {analyticsData?.title || analyticsData?.bookName || 'Flipbook'} • {selectedPreviewLeadRow.formattedFull || '18 Oct 2026'}
+                  <p className="text-[0.7vw] text-slate-500 font-normal mt-[0.1vw]">
+                    {analyticsData?.title || analyticsData?.bookName || 'Industrial Pumps Catalogue'} • {selectedPreviewLeadRow.formattedFull || '18 Oct 2026'}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedPreviewLeadRow(null)}
-                className="w-[1.6vw] h-[1.6vw] rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer p-[0.3vw]"
+                title="Close"
               >
-                <Icon icon="solar:close-circle-linear" className="w-[1.2vw] h-[1.2vw]" />
+                <Icon icon="solar:close-linear" className="w-[1.25vw] h-[1.25vw]" />
               </button>
             </div>
 
+            {/* Subtle Divider below header */}
+            <div className="mx-[1.4vw] border-b border-slate-100" />
+
             {/* Modal Body */}
-            <div className="p-[1.2vw] space-y-[1vw]">
+            <div className="p-[1.4vw] space-y-[1.2vw]">
               {/* Total Submissions Box */}
-              <div className="p-[1vw] bg-white rounded-[0.6vw] border border-slate-200">
-                <span className="block text-[0.7vw] font-medium text-slate-500">
+              <div className="p-[1.1vw] bg-white rounded-[0.65vw] border border-slate-200/90 shadow-2xs">
+                <span className="block text-[0.72vw] font-medium text-slate-500">
                   Total Submissions
                 </span>
-                <div className="flex items-baseline gap-[0.4vw] mt-[0.2vw]">
-                  <span className="text-[1.8vw] font-bold text-slate-900 leading-none">
+                <div className="flex items-baseline gap-[0.5vw] mt-[0.25vw]">
+                  <span className="text-[1.9vw] font-bold text-slate-900 leading-none">
                     {selectedPreviewLeadRow.submitted > 0 ? selectedPreviewLeadRow.submitted : 0}
                   </span>
-                  <span className="text-[0.65vw] text-slate-400">
+                  <span className="text-[0.7vw] text-slate-400 font-normal">
                     (for {selectedPreviewLeadRow.formattedFull})
                   </span>
                 </div>
               </div>
 
-              {/* Recent Leads List */}
+              {/* Recent Leads Section */}
               <div>
-                <div className="flex items-center justify-between mb-[0.6vw]">
-                  <h4 className="text-[0.78vw] font-bold text-slate-800">
+                <div className="flex items-center justify-between mb-[0.65vw]">
+                  <h4 className="text-[0.82vw] font-bold text-slate-900">
                     Recent Leads
                   </h4>
-                  <span className="text-[0.65vw] text-slate-400">
-                    Showing {Math.min(3, (analyticsData?.recentLeads || []).length || 3)} of {selectedPreviewLeadRow.submitted > 0 ? selectedPreviewLeadRow.submitted : ((analyticsData?.recentLeads || []).length || 3)}
+                  <span className="text-[0.68vw] text-slate-400 font-normal">
+                    Showing {Math.min(3, (analyticsData?.recentLeads || []).length)} of {selectedPreviewLeadRow.submitted > 0 ? selectedPreviewLeadRow.submitted : (analyticsData?.recentLeads || []).length}
                   </span>
                 </div>
 
-                <div className="space-y-[0.5vw]">
+                <div className="space-y-[0.6vw]">
                   {Array.isArray(analyticsData?.recentLeads) && analyticsData.recentLeads.length > 0 ? (
                     analyticsData.recentLeads.slice(0, 3).map((lead, lIdx) => {
-                      const name = lead?.leadData?.name || lead?.name || lead?.leadData?.fullName || 'Anonymous';
-                      const email = lead?.leadData?.email || lead?.email || lead?.userEmail || '—';
+                      const name = lead?.leadData?.['Full Name'] || lead?.leadData?.name || lead?.name || lead?.leadData?.fullName || 'Anonymous';
+                      const email = lead?.leadData?.['Email Address'] || lead?.leadData?.email || lead?.email || lead?.userEmail || '—';
                       const status = lead?.status || 'New';
                       const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'L';
-                      const timeStr = lead?.createdAt ? new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:45 AM';
+                      const timeStr = lead?.createdAt ? new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
 
                       const statusColors = {
-                        New: 'bg-[#FEE2E2] text-[#EF4444]',
-                        Contacted: 'bg-[#FEF3C7] text-[#D97706]',
+                        New: 'bg-[#FFF0EB] text-[#EC5137]',
+                        Contacted: 'bg-[#FEF9C3] text-[#B45309]',
                         Qualified: 'bg-[#E0F2FE] text-[#0284C7]',
                         Converted: 'bg-[#DCFCE7] text-[#16A34A]',
                         Lost: 'bg-slate-100 text-slate-500'
                       };
 
                       return (
-                        <div key={lead._id || lead.leadId || lIdx} className="flex items-center justify-between p-[0.7vw] rounded-[0.5vw] border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors">
-                          <div className="flex items-center gap-[0.6vw]">
-                            <div className="w-[2vw] h-[2vw] rounded-full bg-[#E0F2FE] text-[#0284C7] font-bold text-[0.68vw] flex items-center justify-center shrink-0">
+                        <div key={lead._id || lead.leadId || lIdx} className="flex items-center justify-between p-[0.8vw] px-[1vw] rounded-[0.65vw] border border-slate-200/80 bg-white hover:border-slate-300 transition-colors">
+                          <div className="flex items-center gap-[0.75vw]">
+                            <div className="w-[2.2vw] h-[2.2vw] rounded-full bg-[#FCE7F3] text-[#BE185D] font-bold text-[0.72vw] flex items-center justify-center shrink-0">
                               {initials}
                             </div>
                             <div>
-                              <div className="text-[0.75vw] font-semibold text-slate-800 leading-tight">
+                              <div className="text-[0.78vw] font-semibold text-slate-900 leading-tight">
                                 {name}
                               </div>
-                              <div className="text-[0.65vw] text-slate-400">
+                              <div className="text-[0.68vw] text-slate-400 mt-[0.1vw]">
                                 {email}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-[0.6vw]">
-                            <span className={`inline-block px-[0.6vw] py-[0.18vw] rounded-full text-[0.65vw] font-semibold ${statusColors[status] || statusColors.New}`}>
+                          <div className="flex items-center gap-[0.8vw]">
+                            <span className={`inline-block px-[0.65vw] py-[0.18vw] rounded-full text-[0.68vw] font-medium ${statusColors[status] || statusColors.New}`}>
                               {status}
                             </span>
-                            <span className="text-[0.65vw] text-slate-400">{timeStr}</span>
+                            <span className="text-[0.68vw] text-slate-400 font-normal">{timeStr}</span>
                           </div>
                         </div>
                       );
                     })
                   ) : (
-                    <>
-                      {/* Fallback Lead 1 */}
-                      <div className="flex items-center justify-between p-[0.7vw] rounded-[0.5vw] border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors">
-                        <div className="flex items-center gap-[0.6vw]">
-                          <div className="w-[2vw] h-[2vw] rounded-full bg-[#FEE2E2] text-[#EF4444] font-bold text-[0.68vw] flex items-center justify-center shrink-0">
-                            MS
-                          </div>
-                          <div>
-                            <div className="text-[0.75vw] font-semibold text-slate-800 leading-tight">
-                              Murugan S
-                            </div>
-                            <div className="text-[0.65vw] text-slate-400">
-                              murugan@gmail.com
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-[0.6vw]">
-                          <span className="inline-block px-[0.6vw] py-[0.18vw] rounded-full text-[0.65vw] font-semibold bg-[#E0F2FE] text-[#0284C7]">
-                            Qualified
-                          </span>
-                          <span className="text-[0.65vw] text-slate-400">10:25 AM</span>
-                        </div>
-                      </div>
-
-                      {/* Fallback Lead 2 */}
-                      <div className="flex items-center justify-between p-[0.7vw] rounded-[0.5vw] border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors">
-                        <div className="flex items-center gap-[0.6vw]">
-                          <div className="w-[2vw] h-[2vw] rounded-full bg-[#DCFCE7] text-[#16A34A] font-bold text-[0.68vw] flex items-center justify-center shrink-0">
-                            SH
-                          </div>
-                          <div>
-                            <div className="text-[0.75vw] font-semibold text-slate-800 leading-tight">
-                              Sham
-                            </div>
-                            <div className="text-[0.65vw] text-slate-400">
-                              sham@gmail.com
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-[0.6vw]">
-                          <span className="inline-block px-[0.6vw] py-[0.18vw] rounded-full text-[0.65vw] font-semibold bg-[#DCFCE7] text-[#16A34A]">
-                            Converted
-                          </span>
-                          <span className="text-[0.65vw] text-slate-400">10:25 AM</span>
-                        </div>
-                      </div>
-
-                      {/* Fallback Lead 3 */}
-                      <div className="flex items-center justify-between p-[0.7vw] rounded-[0.5vw] border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors">
-                        <div className="flex items-center gap-[0.6vw]">
-                          <div className="w-[2vw] h-[2vw] rounded-full bg-[#EDE9FE] text-[#7C3AED] font-bold text-[0.68vw] flex items-center justify-center shrink-0">
-                            JA
-                          </div>
-                          <div>
-                            <div className="text-[0.75vw] font-semibold text-slate-800 leading-tight">
-                              Jana
-                            </div>
-                            <div className="text-[0.65vw] text-slate-400">
-                              jana@gmail.com
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-[0.6vw]">
-                          <span className="inline-block px-[0.6vw] py-[0.18vw] rounded-full text-[0.65vw] font-semibold bg-[#E0F2FE] text-[#0284C7]">
-                            Qualified
-                          </span>
-                          <span className="text-[0.65vw] text-slate-400">10:25 AM</span>
-                        </div>
-                      </div>
-                    </>
+                    <div className="py-[1.8vw] text-center text-slate-400 text-[0.74vw] border border-dashed border-slate-200 rounded-[0.65vw] bg-slate-50/50">
+                      No leads recorded for this date.
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* Informational Subtext */}
-              <p className="text-[0.65vw] text-slate-400 italic">
+              <p className="text-[0.68vw] text-slate-400 font-normal">
                 Opens Leads with the selected date and flipbook filters applied.
               </p>
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="flex items-center justify-end gap-[0.6vw] px-[1.2vw] py-[0.8vw] bg-slate-50/80 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-[0.6vw] px-[1.4vw] py-[0.9vw] bg-white">
               <button
                 type="button"
                 onClick={() => setSelectedPreviewLeadRow(null)}
-                className="px-[0.9vw] py-[0.45vw] text-[0.72vw] font-medium text-slate-600 bg-white border border-slate-200 rounded-[0.4vw] hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-[1.1vw] py-[0.45vw] text-[0.74vw] font-medium text-slate-700 bg-white border border-slate-300 rounded-[0.45vw] hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -886,10 +834,10 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
                     navigate('/lead-form');
                   }
                 }}
-                className="inline-flex items-center gap-[0.35vw] px-[1vw] py-[0.45vw] text-[0.72vw] font-medium text-white bg-[#F05338] hover:bg-[#e0452b] rounded-[0.4vw] transition-colors shadow-xs cursor-pointer"
+                className="inline-flex items-center gap-[0.4vw] px-[1.2vw] py-[0.45vw] text-[0.74vw] font-medium text-white bg-[#EC5137] hover:bg-[#d63e27] rounded-[0.45vw] transition-colors shadow-xs cursor-pointer"
               >
                 <span>View All Leads</span>
-                <Icon icon="solar:arrow-right-linear" className="w-[0.85vw] h-[0.85vw]" />
+                <Icon icon="solar:arrow-right-linear" className="w-[0.9vw] h-[0.9vw]" />
               </button>
             </div>
           </div>

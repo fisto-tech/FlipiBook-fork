@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import LazyPreview from '../MyFlipbooks/LazyPreview';
 import ShareModal from '../ShareModal';
-import { formatDuration, formatShortDate, formatFullDate, scrollToTop } from './analyticsUtils';
+import { formatDuration, formatShortDate, formatFullDate, scrollToTop, buildDynamicTimeline, getSampledXLabels } from './analyticsUtils';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
 import LeadFormTab from './LeadFormTab';
 import DevicesSourcesTab from './DevicesSourcesTab';
@@ -203,12 +203,23 @@ export default function FlipbookDetailAnalytics({
     const topDevObj = (analyticsData?.devices || [])[0];
     const topDev = (topDevObj?.type || topDevObj?._id || 'Desktop').toString();
 
-    // Location: prioritize most-viewed state, then country
-    const topStateObj = (analyticsData?.states || [])[0];
+    // Location: compare top country views vs top state views
     const topCountryObj = (analyticsData?.countries || [])[0];
-    let topLoc = topStateObj?.state || topStateObj?._id || topCountryObj?.country || topCountryObj?._id || 'Unknown';
-    if (topLoc.toLowerCase().includes('local') || topLoc === '—' || topLoc === 'Unknown') {
-      topLoc = topCountryObj?.country || 'India';
+    const topStateObj = (analyticsData?.states || [])[0];
+    const countryViews = Number(topCountryObj?.views) || 0;
+    const stateViews = Number(topStateObj?.views) || 0;
+
+    let topLoc = '—';
+    if (topCountryObj && countryViews >= stateViews) {
+      topLoc = topCountryObj.country || topCountryObj._id || '—';
+    } else if (topStateObj && stateViews > 0) {
+      topLoc = topStateObj.state || topStateObj._id || '—';
+    } else if (topCountryObj) {
+      topLoc = topCountryObj.country || topCountryObj._id || '—';
+    }
+
+    if (topLoc === '—' || topLoc.toLowerCase().includes('local') || topLoc === 'Unknown') {
+      topLoc = topCountryObj?.country || (analyticsData?.countries?.[0]?.country) || '—';
     }
 
     const formatCount = (count) => {
@@ -293,40 +304,15 @@ export default function FlipbookDetailAnalytics({
     }
   ];
 
-  // 7-day timeline for chart and table
+  // Dynamic timeline for chart and table based on selected date filter
   const rawDailyViews = analyticsData?.dailyViews || [];
   const detailTimeline = useMemo(() => {
-    const result = [];
-    const now = new Date();
-    const count = 7;
-    for (let i = count - 1; i >= 0; i--) {
-      const dt = new Date();
-      dt.setDate(now.getDate() - i);
-      const yyyy = dt.getFullYear();
-      const mm = String(dt.getMonth() + 1).padStart(2, '0');
-      const dd = String(dt.getDate()).padStart(2, '0');
-      const key = `${yyyy}-${mm}-${dd}`;
-      const found = rawDailyViews.find(d => d._id === key);
-      const views = found ? Number(found.views) || 0 : 0;
-      const readers = found ? (found.readers || Math.max(0, Math.round(views * 0.8))) : 0;
-      const durationSeconds = found ? (found.avgDuration || summary.avgDuration || 0) : 0;
-      result.push({
-        dateKey: key,
-        dt,
-        formattedShort: `${String(dt.getDate()).padStart(2, '0')} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dt.getMonth()]}`,
-        formattedFull: formatFullDate(dt),
-        views,
-        readers,
-        totalDuration: formatDuration(views * durationSeconds),
-        avgDuration: formatDuration(durationSeconds)
-      });
-    }
-    return result;
-  }, [rawDailyViews, summary]);
+    return buildDynamicTimeline(detailDatePreset, customRange, rawDailyViews, summary.avgDuration || 0);
+  }, [detailDatePreset, customRange, rawDailyViews, summary.avgDuration]);
 
   const dateRangeLabel = detailTimeline.length >= 2
-    ? `${formatShortDate(detailTimeline[0].dt)}, 2026 - ${formatShortDate(detailTimeline[detailTimeline.length - 1].dt)}, 2026`
-    : 'Oct 16, 2026 - Oct 22, 2026';
+    ? `${formatShortDate(detailTimeline[0].dt)}, ${detailTimeline[0].dt.getFullYear()} - ${formatShortDate(detailTimeline[detailTimeline.length - 1].dt)}, ${detailTimeline[detailTimeline.length - 1].dt.getFullYear()}`
+    : (detailTimeline.length === 1 ? `${formatFullDate(detailTimeline[0].dt)}` : '—');
 
   // Export CSV and Sorting
   const sortedDetailTimeline = useMemo(() => {
@@ -432,6 +418,11 @@ export default function FlipbookDetailAnalytics({
     const area = `${d} L ${last.x} ${dChartH - dPadB} L ${first.x} ${dChartH - dPadB} Z`;
     return { dPathD: d, dAreaD: area };
   }, [detailChartPoints, dChartH, dPadL, dPadR, dPadB]);
+
+  // Sampled X-axis labels (at most 7) like Overview
+  const detailXLabels = useMemo(() => {
+    return getSampledXLabels(detailChartPoints, 7);
+  }, [detailChartPoints]);
 
   return (
     <div className="w-full h-full bg-[#F6F7F9] text-slate-800 antialiased flex overflow-hidden">
@@ -569,62 +560,65 @@ export default function FlipbookDetailAnalytics({
 
           {/* Hero Section */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-[1vw]">
-          <div className="flex items-start gap-[1.2vw]">
-            <div className="w-[6.8vw] h-[6.8vw] min-w-[90px] min-h-[90px] rounded-[0.55vw] bg-slate-100 border border-slate-200 shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
-              {flipbook?.thumbnailUrl || flipbook?.coverImage ? (
-                <img
-                  src={flipbook?.thumbnailUrl || flipbook?.coverImage}
-                  alt={bookTitle}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <LazyPreview v_id={flipbook?.v_id} emailId={userEmail} title={bookTitle} />
-              )}
-            </div>
-
-            <div className="space-y-[0.25vw]">
-              <h2 className="text-[1.35vw] font-semibold text-slate-900 tracking-tight leading-tight">
-                {bookTitle}
-              </h2>
-              <div className="flex items-center gap-[0.5vw] text-[0.74vw] text-slate-600 font-medium">
-                {isPublic ? (
-                  <span className="inline-flex items-center gap-[0.2vw] px-[0.5vw] py-[0.1vw] rounded-full bg-emerald-50 text-emerald-700 text-[0.68vw] font-medium border border-emerald-200/70">
-                    <Icon icon="subway:world-1" className="w-[0.75vw] h-[0.75vw] text-[#34A853]" />
-                    <span>Public</span>
-                  </span>
+            <div className="flex items-stretch gap-[1.2vw]">
+              <div className="w-[11vw] min-w-[130px] max-w-[180px] self-stretch rounded-[0.55vw] bg-slate-100 border border-slate-200 shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
+                {flipbook?.thumbnailUrl || flipbook?.coverImage ? (
+                  <img
+                    src={flipbook?.thumbnailUrl || flipbook?.coverImage}
+                    alt={bookTitle}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  <span className="inline-flex items-center gap-[0.2vw] px-[0.5vw] py-[0.1vw] rounded-full bg-amber-50 text-amber-700 text-[0.68vw] font-medium border border-amber-200/70">
-                    <Icon icon="solar:lock-linear" className="w-[0.75vw] h-[0.75vw]" />
-                    <span>Private</span>
-                  </span>
+                  <LazyPreview v_id={flipbook?.v_id} emailId={userEmail} title={bookTitle} />
                 )}
-                <span>Created on {createdDateFormatted}</span>
-                <span>•</span>
-                <span>{totalPages} Pages</span>
               </div>
-              <p className="text-[0.72vw] text-slate-600 font-normal max-w-[40vw] leading-relaxed">
-                {flipbook?.description || 'Explore interactive publications, user dwell metrics, reader locations, and engagement journeys across all devices.'}
-              </p>
 
-              <div className="flex items-center gap-[0.6vw] pt-[0.3vw]">
-                <button className="cursor-pointer"
-                  onClick={() => setShareModalBook(flipbook)}
-                  className="inline-flex items-center gap-[0.35vw] px-[0.9vw] py-[0.4vw] bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-[0.45vw] text-[0.74vw] font-medium shadow-xs transition-colors cursor-pointer"
-                >
-                  <Icon icon="energy-icons:share-20-bold" className="w-[0.85vw] h-[0.85vw] text-[#000000]" />
-                  <span>Share</span>
-                </button>
+              <div className="flex flex-col justify-between py-[0.1vw] space-y-[0.55vw]">
+                <div>
+                  <h2 className="text-[1.35vw] font-semibold text-slate-900 tracking-tight leading-tight">
+                    {bookTitle}
+                  </h2>
+                  <div className="flex items-center gap-[0.5vw] text-[0.74vw] text-slate-600 font-medium mt-[0.35vw]">
+                    {isPublic ? (
+                      <span className="inline-flex items-center gap-[0.2vw] px-[0.5vw] py-[0.1vw] rounded-full bg-emerald-50 text-emerald-700 text-[0.68vw] font-medium border border-emerald-200/70">
+                        <Icon icon="subway:world-1" className="w-[0.75vw] h-[0.75vw] text-[#34A853]" />
+                        <span>Public</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-[0.2vw] px-[0.5vw] py-[0.1vw] rounded-full bg-amber-50 text-amber-700 text-[0.68vw] font-medium border border-amber-200/70">
+                        <Icon icon="solar:lock-linear" className="w-[0.75vw] h-[0.75vw]" />
+                        <span>Private</span>
+                      </span>
+                    )}
+                    <span>Created on {createdDateFormatted}</span>
+                    <span>•</span>
+                    <span>{totalPages} Pages</span>
+                  </div>
+                </div>
 
-                <button className="cursor-pointer"
-                  onClick={() => window.open(`/share/${shareId}`, '_blank')}
-                  className="inline-flex items-center gap-[0.35vw] px-[1vw] py-[0.4vw] bg-[#0F172A] hover:bg-slate-800 text-white rounded-[0.45vw] text-[0.74vw] font-medium shadow-xs transition-colors cursor-pointer"
-                >
-                  <span>View Flipbook</span>
-                  <Icon icon="akar-icons:arrow-right" className="w-[0.8vw] h-[0.8vw] text-[#FFFFFF]" />
-                </button>
+                <p className="text-[0.72vw] text-slate-600 font-normal max-w-[40vw] leading-relaxed">
+                  {flipbook?.description || 'Explore interactive publications, user dwell metrics, reader locations, and engagement journeys across all devices.'}
+                </p>
+
+                <div className="flex items-center gap-[0.75vw] pt-[0.2vw]">
+                  <button
+                    onClick={() => setShareModalBook(flipbook)}
+                    className="inline-flex items-center gap-[0.45vw] px-[0.9vw] py-[0.4vw] bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-[0.45vw] text-[0.74vw] font-medium shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Icon icon="energy-icons:share-20-bold" className="w-[0.85vw] h-[0.85vw] text-[#000000]" />
+                    <span>Share</span>
+                  </button>
+
+                  <button
+                    onClick={() => window.open(`/share/${shareId}`, '_blank')}
+                    className="inline-flex items-center gap-[0.55vw] px-[1vw] py-[0.4vw] bg-[#0F172A] hover:bg-slate-800 text-white rounded-[0.45vw] text-[0.74vw] font-medium shadow-xs transition-colors cursor-pointer"
+                  >
+                    <span>View Flipbook</span>
+                    <Icon icon="akar-icons:arrow-right" className="w-[0.8vw] h-[0.8vw] text-[#FFFFFF]" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
           <div className="flex items-center gap-[0.5vw] self-start">
             <button
@@ -651,25 +645,34 @@ export default function FlipbookDetailAnalytics({
           {detailStatCards.map((st) => (
             <div
               key={st.label}
-              className="bg-white rounded-[0.75vw] p-[0.9vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex items-center gap-[0.75vw]"
+              className="bg-white rounded-[0.75vw] p-[0.9vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex items-center gap-[0.75vw] transition-all hover:shadow-sm"
             >
               <div className={`w-[2.3vw] h-[2.3vw] rounded-[0.65vw] flex items-center justify-center shrink-0 ${st.iconBg} ${st.iconColor}`}>
                 <Icon icon={st.icon} className="w-[1.15vw] h-[1.15vw]" />
               </div>
-              <div>
-                <div className="text-[1.1vw] font-semibold text-slate-900 tracking-tight leading-tight">
-                  {st.value}
-                </div>
-                <div className="text-[0.68vw] text-slate-500 font-medium mt-[0.05vw]">
-                  {st.sub}
-                </div>
+              <div className="min-w-0 flex-1">
+                {loading ? (
+                  <div className="space-y-[0.2vw]">
+                    <div className="h-[1.2vw] w-[4.5vw] bg-slate-200/80 rounded-[0.25vw] animate-pulse" />
+                    <div className="h-[0.7vw] w-[3vw] bg-slate-100 rounded-[0.2vw] animate-pulse" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-[1.1vw] font-semibold text-slate-900 tracking-tight leading-tight truncate">
+                      {st.value}
+                    </div>
+                    <div className="text-[0.68vw] text-slate-500 font-medium mt-[0.05vw] truncate">
+                      {st.sub}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ))}
         </div>
 
         {/* Tabs - Sticky on scroll at top-0 */}
-        <div className="sticky top-0 z-30 bg-[#F6F7F9] -mx-[1.5vw] px-[1.5vw] py-[0.5vw] border-b border-slate-200 flex items-center gap-[1.8vw] text-[0.78vw] shadow-2xs">
+        <div className="sticky top-0 z-30 bg-[#F6F7F9] -mx-[1.5vw] px-[1.5vw] pt-[0.5vw] border-b border-slate-200 flex items-center gap-[1.8vw] text-[0.78vw] shadow-2xs">
           {[
             { id: 'readers', label: 'Readers' },
             { id: 'leads', label: 'Lead Form & Enquires' },
@@ -683,10 +686,10 @@ export default function FlipbookDetailAnalytics({
                 setDetailTab(tab.id);
                 scrollToTop();
               }}
-              className={`pb-[0.55vw] transition-colors relative cursor-pointer ${
+              className={`pb-[0.6vw] -mb-[1.5px] transition-colors relative cursor-pointer ${
                 detailTab === tab.id
-                  ? 'text-[#F05338] font-medium border-b-2 border-[#F05338]'
-                  : 'text-slate-500 font-normal hover:text-slate-900 border-b-2 border-transparent'
+                  ? 'text-[#F05338] font-medium border-b-[3px] border-[#F05338]'
+                  : 'text-slate-500 font-normal hover:text-slate-900 border-b-[3px] border-transparent'
               }`}
             >
               {tab.label}
@@ -696,19 +699,19 @@ export default function FlipbookDetailAnalytics({
 
         {/* Dynamic Tab Content */}
         {detailTab === 'leads' && (
-          <LeadFormTab timeline={detailTimeline} summary={summary} analyticsData={analyticsData} />
+          <LeadFormTab timeline={detailTimeline} summary={summary} analyticsData={analyticsData} loading={loading} />
         )}
 
         {detailTab === 'devices' && (
-          <DevicesSourcesTab analyticsData={analyticsData} summary={summary} />
+          <DevicesSourcesTab analyticsData={analyticsData} summary={summary} loading={loading} />
         )}
 
         {detailTab === 'locations' && (
-          <LocationsTab timeline={detailTimeline} analyticsData={analyticsData} summary={summary} />
+          <LocationsTab timeline={detailTimeline} analyticsData={analyticsData} summary={summary} loading={loading} />
         )}
 
         {detailTab === 'downloads' && (
-          <DownloadsTab timeline={detailTimeline} analyticsData={analyticsData} summary={summary} />
+          <DownloadsTab timeline={detailTimeline} analyticsData={analyticsData} summary={summary} loading={loading} />
         )}
 
         {detailTab === 'readers' && (
@@ -786,28 +789,7 @@ export default function FlipbookDetailAnalytics({
                 </div>
               </div>
 
-              {/* Right Side: Group By label stacked on top */}
-              <div className="flex flex-col gap-[0.35vw] shrink-0">
-                <span className="text-[0.85vw] text-black font-normal whitespace-nowrap">
-                  Group By
-                </span>
 
-                <div className="inline-flex items-center bg-white border border-slate-200 rounded-[0.45vw] p-[0.2vw] gap-[0.25vw]">
-                  {['Date', 'Week', 'Month'].map(grp => (
-                    <button
-                      key={grp}
-                      onClick={() => setDetailGroupBy(grp)}
-                      className={`px-[1.25vw] py-[0.38vw] rounded-[0.35vw] text-[0.72vw] font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                        detailGroupBy === grp
-                          ? 'bg-[#EC5137] text-white shadow-xs'
-                          : 'text-[#555555] hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
-                      {grp}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
         {/* Readers Trend Chart */}
@@ -836,7 +818,7 @@ export default function FlipbookDetailAnalytics({
               </defs>
 
               {/* Vertical dashed grid lines matching each X date tick */}
-              {detailChartPoints.map((pt) => (
+              {detailXLabels.map((pt) => (
                 <line
                   key={`v-grid-${pt.dateKey}`}
                   x1={pt.x}
@@ -903,7 +885,7 @@ export default function FlipbookDetailAnalytics({
               })()}
 
               {/* X-axis date tick text rendered directly on SVG to match exact vertical ticks */}
-              {detailChartPoints.map((pt) => (
+              {detailXLabels.map((pt) => (
                 <text
                   key={`x-lbl-${pt.dateKey}`}
                   x={pt.x}
@@ -1086,7 +1068,27 @@ export default function FlipbookDetailAnalytics({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {paginatedDetailTimeline.length === 0 ? (
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={`detail-skel-${i}`} className="animate-pulse">
+                        <td className="py-[0.7vw] px-[1vw]">
+                          <div className="h-[0.6vw] w-[8vw] bg-slate-100 rounded" />
+                        </td>
+                        <td className="py-[0.7vw] px-[1vw] text-center">
+                          <div className="h-[0.6vw] w-[2.5vw] bg-slate-100 rounded mx-auto" />
+                        </td>
+                        <td className="py-[0.7vw] px-[1vw] text-center">
+                          <div className="h-[0.6vw] w-[2.5vw] bg-slate-100 rounded mx-auto" />
+                        </td>
+                        <td className="py-[0.7vw] px-[1vw] text-center">
+                          <div className="h-[0.6vw] w-[3.5vw] bg-slate-100 rounded mx-auto" />
+                        </td>
+                        <td className="py-[0.7vw] px-[1vw] text-center">
+                          <div className="h-[0.6vw] w-[3.5vw] bg-slate-100 rounded mx-auto" />
+                        </td>
+                      </tr>
+                    ))
+                  ) : paginatedDetailTimeline.length === 0 ? (
                     <tr>
                       <td colSpan="5" className="py-[2.5vw] text-center text-slate-400 font-normal">
                         No activity found for this period.
@@ -1173,6 +1175,7 @@ export default function FlipbookDetailAnalytics({
         <ShareModal
           isOpen={Boolean(shareModalBook)}
           onClose={() => setShareModalBook(null)}
+          currentBook={shareModalBook}
           flipbook={shareModalBook}
         />
       )}

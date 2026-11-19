@@ -519,6 +519,29 @@ const getFlipbookAnalytics = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
+    // 8a. Country Daily Views (Views per country per day for comparison chart)
+    const countryDailyViews = await FlipbookSessionAnalytics.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$startedAt" } },
+            country: "$location.country"
+          },
+          views: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          date: "$_id.date",
+          country: { $ifNull: ["$_id.country", "Unknown"] },
+          views: 1
+        }
+      },
+      { $sort: { date: 1 } }
+    ]);
+
     // 8b. Downloads Tracking for this flipbook
     const totalDownloads = await FlipbookDownloadEvent.countDocuments({ v_id });
     const uniqueDownloaders = (await FlipbookDownloadEvent.distinct("location.ip", { v_id })).length;
@@ -603,6 +626,7 @@ const getFlipbookAnalytics = async (req, res) => {
       browsers,
       sources,
       dailyViews,
+      countryDailyViews,
       dailyDownloads,
       dailyLeads,
       recentLeads,
