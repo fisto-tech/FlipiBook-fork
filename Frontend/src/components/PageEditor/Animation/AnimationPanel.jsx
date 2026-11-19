@@ -1832,7 +1832,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
         {/* Top Banner Button (STICKY AT TOP, NEVER SQUISHED) */}
         <div
           onClick={handleGlobalPreview}
-          className="flex-shrink-0 min-h-[3.2vw] relative bg-gray-100 hover:bg-gray-200/80 p-[0.75vw] rounded-[0.8vw] flex items-center gap-[0.75vw] border border-gray-200 cursor-pointer mb-[1.2vw] transition-all overflow-hidden group shadow-2xs select-none"
+          className="flex-shrink-0 min-h-[3.2vw] relative bg-gray-100 hover:bg-gray-200/80 p-[0.75vw] rounded-[0.6vw] flex items-center gap-[0.75vw] border border-gray-200 cursor-pointer mb-[1.2vw] transition-all overflow-hidden group shadow-2xs select-none"
         >
           {/* Progress Bar Overlay */}
           {isPreviewing && (
@@ -1855,16 +1855,17 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
 
         {/* Selected Element Animation Status Card (ONLY if selected AND not added yet) */}
         {activeSelectedEl && !isSelectedElAnimated && (
-          <div className="flex-shrink-0 p-[0.7vw] rounded-[0.8vw] border-[0.15vw] border-[#EC5137]/30 bg-[#EC5137]/10 shadow-2xs mb-[1.2vw] flex items-center justify-between gap-[0.6vw]">
-            <div className="flex items-center gap-[0.6vw] min-w-0 flex-1">
-              <div className="w-[2vw] h-[2vw] rounded-[0.4vw] flex items-center justify-center flex-shrink-0 bg-[#EC5137]/15 text-[#EC5137]">
+          <div className="flex-shrink-0 p-[0.65vw] rounded-[0.6vw] border border-[#EC5137]/25 bg-gradient-to-r from-[#EC5137]/[0.06] via-white to-white hover:border-[#EC5137]/45 shadow-2xs mb-[1.2vw] flex items-center justify-between gap-[0.8vw] transition-all">
+            <div className="flex items-center gap-[0.65vw] min-w-0 flex-1">
+              <div className="w-[2.2vw] h-[2.2vw] rounded-[0.45vw] flex items-center justify-center flex-shrink-0 bg-[#EC5137]/10 text-[#EC5137] border border-[#EC5137]/15">
                 <Icon icon="tdesign:animation-1" width="1.15vw" height="1.15vw" />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-[0.8vw] font-semibold text-gray-900 truncate" title={selectedElName}>
+                <span className="text-[0.82vw] font-semibold text-gray-900 truncate leading-tight" title={selectedElName}>
                   {selectedElName}
                 </span>
-                <span className="text-[0.68vw] font-medium text-[#EC5137]">
+                <span className="text-[0.68vw] text-gray-500 font-medium whitespace-nowrap flex items-center gap-[0.3vw] mt-[0.15vh]">
+                  <span className="w-[0.35vw] h-[0.35vw] rounded-full bg-amber-400 flex-shrink-0" />
                   No animation added
                 </span>
               </div>
@@ -1872,10 +1873,10 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
 
             <button
               onClick={() => handleAddAnimationToSelected(activeSelectedEl)}
-              className="flex-shrink-0 h-[1.9vw] px-[0.7vw] bg-[#EC5137] hover:bg-[#d6442c] text-white rounded-[0.4vw] text-[0.75vw] font-semibold flex items-center gap-[0.3vw] shadow-sm transition-all cursor-pointer hover:shadow"
+              className="flex-shrink-0 h-[1.85vw] px-[0.85vw] bg-[#EC5137] hover:bg-[#d6442c] text-white rounded-[0.4vw] text-[0.74vw] font-medium flex items-center gap-[0.3vw] shadow-xs hover:shadow transition-all cursor-pointer active:scale-95 whitespace-nowrap"
             >
               <Icon icon="lucide:plus" width="0.85vw" height="0.85vw" />
-              Click to Add Animation
+              <span>Add Animation</span>
             </button>
           </div>
         )}
@@ -1892,7 +1893,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
       >
         <div
           ref={scrollContainerRef}
-          className="flex flex-col gap-[1.5vh] pb-[4vw] pt-[0.2vw] px-[1.5vw]"
+          className="flex flex-col gap-[0.7vh] pb-[4vw] pt-[0.2vw] px-[1.5vw]"
         >
         {(() => {
           const groups = {};
@@ -1930,14 +1931,14 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
               <div
                 key={id || idx}
                 ref={el => itemRefs.current[id] = el}
-                className={`w-full mx-auto bg-white border-[0.15vw] rounded-[0.8vw] shadow-2xs flex flex-col relative transition-all duration-200 overflow-hidden ${
+                className={`w-full mx-auto bg-white border-[0.15vw] rounded-[0.6vw] shadow-2xs flex flex-col relative transition-all duration-200 overflow-hidden ${
                   isExpanded || isSelected
                     ? 'border-[#EC5137] shadow-sm z-[50]'
                     : 'border-gray-200 hover:border-gray-300 z-[10]'
                 }`}
               >
                 <div
-                  className="flex items-center justify-between gap-[0.8vw] py-[0.7vw] px-[0.8vw] cursor-pointer select-none rounded-t-[0.8vw]"
+                  className="flex items-center justify-between gap-[0.8vw] py-[0.7vw] px-[0.8vw] cursor-pointer select-none rounded-t-[0.6vw]"
                   onClick={() => {
                     const nextId = isExpanded ? null : id;
                     setExpandedElementId(nextId);
@@ -2050,7 +2051,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3, ease: 'easeInOut' }}
-                      className="bg-white rounded-b-[0.8vw] overflow-hidden"
+                      className="bg-white rounded-b-[0.6vw] overflow-hidden"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="w-full border-t border-gray-100"></div>

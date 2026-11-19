@@ -43,8 +43,10 @@ const customizedSettingsSchema = new mongoose.Schema(
       width: { type: Number, default: null },
       height: { type: Number, default: null },
       templateId: { type: String, default: '' },
-      orientation: { type: String, default: 'horizontal' }
+      orientation: { type: String, default: 'horizontal' },
+      coverPicture: { type: mongoose.Schema.Types.Mixed, default: null }
     },
+    coverPicture: { type: mongoose.Schema.Types.Mixed, default: null },
 
     // 2. Branding (Logo, Watermark, Preloader)
     Branding: {

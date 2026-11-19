@@ -733,10 +733,15 @@ export const clearOverlayType = (typePattern) => {
     if (typePattern.includes('selected')) {
       htmlOverlay.querySelectorAll('.resize-handle').forEach(h => h.remove());
       if (!window.__isRotatingActive) {
-        htmlOverlay.querySelectorAll('.corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"]').forEach(h => h.remove());
+        htmlOverlay.querySelectorAll('.corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"], [id^="interaction-badge-"]').forEach(h => h.remove());
+      } else {
+        htmlOverlay.querySelectorAll('[id^="interaction-badge-"]').forEach(h => h.remove());
       }
     }
   });
+  if (typePattern.includes('selected')) {
+    document.querySelectorAll('[id^="interaction-badge-"]').forEach(b => b.remove());
+  }
 };
 
 export const getLocalPoint = (svg, element, clientX, clientY) => {

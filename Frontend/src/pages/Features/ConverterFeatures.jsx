@@ -15,10 +15,6 @@ import threeDBgGeom from '../../assets/Features/Converter/3dbg.webp';
 export default function ConverterFeatures() {
   const navigate = useNavigate();
 
-  const handleStartConverting = () => {
-    navigate('/converter');
-  };
-
   return (
     <div className="w-full min-h-screen bg-[#FBFBFC] text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden">
       <main className="w-full flex-1">
@@ -44,9 +40,9 @@ export default function ConverterFeatures() {
                 <button
                   type="button"
                   onClick={() => navigate('/features')}
-                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-gray-200 bg-white/90 text-gray-600 text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-xs transition-all cursor-pointer backdrop-blur-xs hover:bg-white"
+                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-[#EA580C] bg-white/10 text-[#EA580C] text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-sm hover:shadow transition-all cursor-pointer backdrop-blur-xl hover:shadow-[#EA580C]"
                 >
-                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-gray-600" />
+                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-[#EA580C]" />
                   <span>Back to Features</span>
                 </button>
               </div>
@@ -360,43 +356,6 @@ export default function ConverterFeatures() {
                     className="w-full h-auto rounded-lg md:rounded-[0.6vw] object-contain shadow-sm"
                   />
                 </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* =========================================
-            SECTION 5: BOTTOM CALL TO ACTION (CTA)
-        ========================================= */}
-        <section className="relative w-full py-8 sm:py-10 md:py-[3vw] bg-white border-t border-[#F1F5F9]">
-          <div className="max-w-[92vw] mx-auto px-4 md:px-[2vw]">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-[2vw]">
-              <div className="w-full md:max-w-[44vw]">
-                <span className="text-xs md:text-[0.72vw] font-semibold tracking-[0.22em] text-[#94A3B8] uppercase block mb-1.5 md:mb-[0.6vw]">
-                  READY TO CONVERT?
-                </span>
-                <h3 className="text-xl sm:text-2xl md:text-[2vw] font-semibold tracking-tight text-[#111827] leading-tight md:leading-[1.18]">
-                  Make Your Media Lighter. <br className="hidden sm:inline" />
-                  Make Your <span className="text-[#EA580C]">Experience Better.</span>
-                </h3>
-                <p className="mt-2 md:mt-[0.8vw] text-xs sm:text-sm md:text-[0.82vw] text-[#64748B] leading-relaxed max-w-full md:max-w-[34vw]">
-                  Optimize images, videos, and 3D models for faster loading, efficient storage, and high-quality digital experiences.
-                </p>
-              </div>
-
-              <div className="shrink-0">
-                <button
-                  onClick={handleStartConverting}
-                  className="inline-flex items-center gap-2 md:gap-[0.7vw] px-5 py-2.5 md:px-[1.5vw] md:py-[0.6vw] rounded-full bg-black hover:bg-[#111827] text-white text-xs sm:text-sm md:text-[0.82vw] font-medium tracking-wide transition-all shadow-sm hover:shadow group cursor-pointer"
-                >
-                  <span>Start Converting Now</span>
-                  <span className="w-5 h-5 md:w-[1.4vw] md:h-[1.4vw] rounded-full bg-white text-black flex items-center justify-center shrink-0">
-                    <Icon
-                      icon="lucide:arrow-up-right"
-                      className="w-3 h-3 md:w-[0.8vw] md:h-[0.8vw] stroke-[2.5] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                    />
-                  </span>
-                </button>
               </div>
             </div>
           </div>
