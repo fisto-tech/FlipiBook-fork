@@ -4,6 +4,7 @@ const { extractClientIp, resolveIpLocation } = require("./geoIpService");
 const { parseUserAgent } = require("./deviceService");
 const Flipbook = require("../../../../shared/models/Flipbook");
 const User = require("../../../../shared/models/User");
+const Lead = require("../../../../shared/models/Lead");
 
 /**
  * 1. Start a new viewer session
@@ -31,8 +32,12 @@ const recordSessionStart = async (req, res) => {
     const flipbookName = book?.flipbookName || req.body.flipbookName || "Untitled Flipbook";
 
     // Detect Client IP and Geographic Location
-    const ip = extractClientIp(req);
-    const location = resolveIpLocation(ip);
+    const clientProvidedIp = req.body.clientIp;
+    const ip = (clientProvidedIp && !clientProvidedIp.startsWith("127.") && clientProvidedIp !== "::1")
+      ? clientProvidedIp
+      : extractClientIp(req);
+    const clientTimezone = req.body.timezone || req.headers["x-timezone"] || "";
+    const location = resolveIpLocation(ip, clientTimezone);
 
     // Detect Device & Browser
     const device = parseUserAgent(req.headers["user-agent"]);
@@ -227,7 +232,8 @@ const recordDownload = async (req, res) => {
 
     // Detect Client IP, Location, Device
     const ip = extractClientIp(req);
-    const location = resolveIpLocation(ip);
+    const clientTimezone = req.body.timezone || req.headers["x-timezone"] || "";
+    const location = resolveIpLocation(ip, clientTimezone);
     const device = parseUserAgent(req.headers["user-agent"]);
 
     // Record Download Event
@@ -483,6 +489,20 @@ const getFlipbookAnalytics = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
+    // 8c. Leads Tracking for this flipbook
+    let totalLeads = 0;
+    let recentLeads = [];
+    try {
+      totalLeads = await Lead.countDocuments({ v_id });
+      recentLeads = await Lead.find({ v_id })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select("leadId v_id userEmail leadData status notes createdAt")
+        .lean();
+    } catch (leadErr) {
+      console.warn("[Analytics lead query warning]:", leadErr.message);
+    }
+
     // 9. Recent Visitor Sessions
     const recentSessions = await FlipbookSessionAnalytics.find(baseFilter)
       .sort({ startedAt: -1 })
@@ -499,6 +519,8 @@ const getFlipbookAnalytics = async (req, res) => {
         totalDownloads,
         uniqueDownloaders,
         downloads: totalDownloads,
+        totalLeads,
+        leads: totalLeads,
         avgDurationSeconds: avgDuration,
         totalDurationSeconds: totalDuration,
         avgPagesRead
@@ -511,6 +533,7 @@ const getFlipbookAnalytics = async (req, res) => {
       sources,
       dailyViews,
       dailyDownloads,
+      recentLeads,
       recentSessions
     });
   } catch (err) {
@@ -709,6 +732,153 @@ const getUserAnalytics = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
+    // Per-book breakdown aggregations (downloads, leads, device, location)
+    let bookDownloadsMap = {};
+    try {
+      const bookDownloads = await FlipbookDownloadEvent.aggregate([
+        { $match: downloadFilter },
+        { $group: { _id: "$v_id", total: { $sum: 1 } } }
+      ]);
+      bookDownloads.forEach(bd => {
+        if (bd._id) bookDownloadsMap[bd._id] = bd.total;
+      });
+    } catch (e) {
+      console.warn("[Analytics bookDownloads err]:", e.message);
+    }
+
+    let bookLeadsMap = {};
+    try {
+      const leadFilter = {
+        $or: [
+          { userEmail: normalizedEmail },
+          ...(userBookVIds.length > 0 ? [{ v_id: { $in: userBookVIds } }] : [])
+        ]
+      };
+      const bookLeads = await Lead.aggregate([
+        { $match: leadFilter },
+        { $group: { _id: "$v_id", total: { $sum: 1 } } }
+      ]);
+      bookLeads.forEach(bl => {
+        if (bl._id) bookLeadsMap[bl._id] = bl.total;
+      });
+    } catch (e) {
+      console.warn("[Analytics bookLeads err]:", e.message);
+    }
+
+    // Top device and location per book
+    let bookTopDeviceMap = {};
+    let bookTopLocationMap = {};
+    try {
+      const devicePerBook = await FlipbookSessionAnalytics.aggregate([
+        { $match: filter },
+        { $group: { _id: { v_id: "$v_id", device: "$device.type" }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ]);
+      devicePerBook.forEach(dp => {
+        const vid = dp._id?.v_id;
+        if (vid && !bookTopDeviceMap[vid] && dp._id?.device) {
+          bookTopDeviceMap[vid] = dp._id.device;
+        }
+      });
+
+      const locPerBook = await FlipbookSessionAnalytics.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: {
+              v_id: "$v_id",
+              loc: {
+                $cond: [
+                  { $and: [{ $ne: ["$location.state", ""] }, { $ne: ["$location.state", "Unknown"] }] },
+                  "$location.state",
+                  "$location.country"
+                ]
+              }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]);
+      locPerBook.forEach(lp => {
+        const vid = lp._id?.v_id;
+        if (vid && !bookTopLocationMap[vid] && lp._id?.loc && lp._id.loc !== "Unknown") {
+          bookTopLocationMap[vid] = lp._id.loc;
+        }
+      });
+    } catch (e) {
+      console.warn("[Analytics book top device/loc err]:", e.message);
+    }
+
+    // Leads across all user books
+    let totalLeads = 0;
+    try {
+      const leadFilter = {
+        $or: [
+          { userEmail: normalizedEmail },
+          ...(userBookVIds.length > 0 ? [{ v_id: { $in: userBookVIds } }] : [])
+        ]
+      };
+      totalLeads = await Lead.countDocuments(leadFilter);
+    } catch (leadErr) {
+      console.warn("[Analytics user lead query warning]:", leadErr.message);
+    }
+
+    // Growth calculation (current period vs previous period)
+    const prevSinceDate = new Date(sinceDate);
+    prevSinceDate.setDate(prevSinceDate.getDate() - daysNum);
+
+    let growthMetrics = {
+      viewsGrowthPct: 0,
+      readersGrowthPct: 0,
+      durationGrowthPct: 0,
+      downloadsGrowthPct: 0,
+      sharesGrowthPct: 0
+    };
+
+    try {
+      const currentViewsCount = await FlipbookSessionAnalytics.countDocuments({
+        $and: [filter, { startedAt: { $gte: sinceDate } }]
+      });
+      const prevViewsCount = await FlipbookSessionAnalytics.countDocuments({
+        $and: [filter, { startedAt: { $gte: prevSinceDate, $lt: sinceDate } }]
+      });
+      if (prevViewsCount > 0) {
+        growthMetrics.viewsGrowthPct = Math.round(((currentViewsCount - prevViewsCount) / prevViewsCount) * 100);
+      } else if (currentViewsCount > 0) {
+        growthMetrics.viewsGrowthPct = 100;
+      }
+
+      const currentReaders = (await FlipbookSessionAnalytics.distinct("location.ip", {
+        $and: [filter, { startedAt: { $gte: sinceDate } }]
+      })).length;
+      const prevReaders = (await FlipbookSessionAnalytics.distinct("location.ip", {
+        $and: [filter, { startedAt: { $gte: prevSinceDate, $lt: sinceDate } }]
+      })).length;
+      if (prevReaders > 0) {
+        growthMetrics.readersGrowthPct = Math.round(((currentReaders - prevReaders) / prevReaders) * 100);
+      } else if (currentReaders > 0) {
+        growthMetrics.readersGrowthPct = 100;
+      }
+
+      const currentDownloads = await FlipbookDownloadEvent.countDocuments({
+        $and: [downloadFilter, { downloadedAt: { $gte: sinceDate } }]
+      });
+      const prevDownloads = await FlipbookDownloadEvent.countDocuments({
+        $and: [downloadFilter, { downloadedAt: { $gte: prevSinceDate, $lt: sinceDate } }]
+      });
+      if (prevDownloads > 0) {
+        growthMetrics.downloadsGrowthPct = Math.round(((currentDownloads - prevDownloads) / prevDownloads) * 100);
+      } else if (currentDownloads > 0) {
+        growthMetrics.downloadsGrowthPct = 100;
+      }
+
+      growthMetrics.durationGrowthPct = growthMetrics.viewsGrowthPct;
+      growthMetrics.sharesGrowthPct = growthMetrics.viewsGrowthPct;
+    } catch (gErr) {
+      console.warn("[Analytics growth calculation warning]:", gErr.message);
+    }
+
     // Recent visitor sessions across all books
     const recentSessions = await FlipbookSessionAnalytics.find(filter)
       .sort({ startedAt: -1 })
@@ -724,13 +894,19 @@ const getUserAnalytics = async (req, res) => {
       totalDownloads,
       uniqueDownloaders,
       downloads: totalDownloads,
+      totalLeads,
+      leads: totalLeads,
       avgDurationSeconds: Math.round(stats[0]?.avgDuration || 0),
       totalDurationSeconds: Math.round(stats[0]?.totalDuration || 0),
       topBooks: topBooks.map(b => ({
         v_id: b._id,
         name: b.flipbookName || "Untitled",
         views: b.views,
-        avgDurationSeconds: Math.round(b.avgDuration || 0)
+        avgDurationSeconds: Math.round(b.avgDuration || 0),
+        downloads: bookDownloadsMap[b._id] || 0,
+        leads: bookLeadsMap[b._id] || 0,
+        topDevice: bookTopDeviceMap[b._id] || "Desktop",
+        topLocation: bookTopLocationMap[b._id] || (topStates[0]?.state || topCountries[0]?.country || "—")
       })),
       topCountries: topCountries.map(c => ({
         country: c._id || "Unknown",
@@ -748,6 +924,7 @@ const getUserAnalytics = async (req, res) => {
       })),
       dailyViews,
       dailyDownloads,
+      growth: growthMetrics,
       recentSessions
     });
   } catch (err) {

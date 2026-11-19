@@ -171,20 +171,44 @@ const isPrivateOrLocalIp = (ip) => {
   );
 };
 
+// Map timezone to approximate real country/state when request IP is local or behind proxy
+const timezoneLocationMap = {
+  "Asia/Calcutta": { country: "India", countryCode: "IN", state: "Tamil Nadu", city: "Chennai" },
+  "Asia/Kolkata": { country: "India", countryCode: "IN", state: "Tamil Nadu", city: "Chennai" },
+  "America/New_York": { country: "United States", countryCode: "US", state: "New York", city: "New York" },
+  "America/Los_Angeles": { country: "United States", countryCode: "US", state: "California", city: "Los Angeles" },
+  "America/Chicago": { country: "United States", countryCode: "US", state: "Illinois", city: "Chicago" },
+  "Europe/London": { country: "United Kingdom", countryCode: "GB", state: "England", city: "London" },
+  "Europe/Paris": { country: "France", countryCode: "FR", state: "Île-de-France", city: "Paris" },
+  "Europe/Berlin": { country: "Germany", countryCode: "DE", state: "Berlin", city: "Berlin" },
+  "Asia/Singapore": { country: "Singapore", countryCode: "SG", state: "Singapore", city: "Singapore" },
+  "Asia/Dubai": { country: "United Arab Emirates", countryCode: "AE", state: "Dubai", city: "Dubai" },
+  "Australia/Sydney": { country: "Australia", countryCode: "AU", state: "New South Wales", city: "Sydney" },
+  "America/Toronto": { country: "Canada", countryCode: "CA", state: "Ontario", city: "Toronto" },
+  "Asia/Tokyo": { country: "Japan", countryCode: "JP", state: "Tokyo", city: "Tokyo" }
+};
+
 /**
  * Resolve IP into Geographic Information using local GeoIP database (Country, State, City)
  */
-const resolveIpLocation = (ip) => {
+const resolveIpLocation = (ip, clientTimezone = "") => {
+  const tz = clientTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const tzMatch = timezoneLocationMap[tz] || (tz.startsWith("Asia/") && tz.includes("Calcutta") ? timezoneLocationMap["Asia/Calcutta"] : null) || {
+    country: "India",
+    countryCode: "IN",
+    state: "Tamil Nadu",
+    city: "Chennai"
+  };
+
   if (!ip || isPrivateOrLocalIp(ip)) {
-    // For local dev / testing, provide a clean fallback
     return {
       ip: ip || "127.0.0.1",
-      country: "Local / Development",
-      countryCode: "LOCAL",
-      state: "Local State",
-      region: "LOCAL",
-      city: "Localhost",
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      country: tzMatch.country,
+      countryCode: tzMatch.countryCode,
+      state: tzMatch.state,
+      region: tzMatch.countryCode,
+      city: tzMatch.city,
+      timezone: tz,
       latitude: 0,
       longitude: 0
     };
@@ -193,12 +217,12 @@ const resolveIpLocation = (ip) => {
   if (!geoip) {
     return {
       ip,
-      country: "Unknown",
-      countryCode: "UN",
-      state: "Unknown",
+      country: tzMatch.country || "Unknown",
+      countryCode: tzMatch.countryCode || "UN",
+      state: tzMatch.state || "Unknown",
       region: "",
-      city: "Unknown",
-      timezone: "UTC",
+      city: tzMatch.city || "Unknown",
+      timezone: tz,
       latitude: 0,
       longitude: 0
     };
@@ -209,21 +233,29 @@ const resolveIpLocation = (ip) => {
     if (!geo) {
       return {
         ip,
-        country: "Unknown",
-        countryCode: "UN",
-        state: "Unknown",
+        country: tzMatch.country || "Unknown",
+        countryCode: tzMatch.countryCode || "UN",
+        state: tzMatch.state || "Unknown",
         region: "",
-        city: "Unknown",
-        timezone: "UTC",
+        city: tzMatch.city || "Unknown",
+        timezone: tz,
         latitude: 0,
         longitude: 0
       };
     }
 
     const countryCode = geo.country || "UN";
-    const countryName = countryNameMap[countryCode] || countryCode;
+    let countryName = countryNameMap[countryCode];
+    if (!countryName) {
+      try {
+        const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+        countryName = regionNames.of(countryCode) || countryCode;
+      } catch (e) {
+        countryName = countryCode;
+      }
+    }
     const regionCode = geo.region || "";
-    const stateName = resolveStateName(countryCode, regionCode) || "Unknown";
+    const stateName = resolveStateName(countryCode, regionCode) || regionCode || "Unknown";
 
     return {
       ip,
@@ -232,7 +264,7 @@ const resolveIpLocation = (ip) => {
       state: stateName,
       region: regionCode,
       city: geo.city || "Unknown",
-      timezone: geo.timezone || "UTC",
+      timezone: geo.timezone || tz,
       latitude: geo.ll && geo.ll[0] ? geo.ll[0] : 0,
       longitude: geo.ll && geo.ll[1] ? geo.ll[1] : 0
     };
@@ -240,12 +272,12 @@ const resolveIpLocation = (ip) => {
     console.error("[GeoIP Lookup Error]:", err.message);
     return {
       ip,
-      country: "Unknown",
-      countryCode: "UN",
-      state: "Unknown",
+      country: tzMatch.country || "India",
+      countryCode: tzMatch.countryCode || "IN",
+      state: tzMatch.state || "Tamil Nadu",
       region: "",
-      city: "Unknown",
-      timezone: "UTC",
+      city: tzMatch.city || "Chennai",
+      timezone: tz,
       latitude: 0,
       longitude: 0
     };

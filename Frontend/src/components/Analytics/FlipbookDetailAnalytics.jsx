@@ -75,8 +75,8 @@ export default function FlipbookDetailAnalytics({
       avgDuration: ad,
       totalDuration: td,
       shares: analyticsData?.shares || (tv > 0 ? Math.round(tv * 0.15) : 0),
-      downloads: analyticsData?.downloads || (tv > 0 ? Math.round(tv * 0.08) : 0),
-      leads: tv > 0 ? Math.round(tv * 0.22) : 0,
+      downloads: analyticsData?.downloads ?? analyticsData?.summary?.downloads ?? 0,
+      leads: analyticsData?.summary?.totalLeads ?? analyticsData?.summary?.leads ?? analyticsData?.totalLeads ?? analyticsData?.leads ?? 0,
       topDevice: topDev.toUpperCase(),
       topLocation: topLoc.toUpperCase(),
       formatCount

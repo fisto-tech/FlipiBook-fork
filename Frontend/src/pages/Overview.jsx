@@ -4,7 +4,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { flipbookApi, analyticsApi } from '../api';
 import LazyPreview from '../components/MyFlipbooks/LazyPreview';
-import { FlipbookDetailAnalytics, formatDuration, formatShortDate, formatFullDate, getCountryFlag, scrollToTop } from '../components/Analytics';
+import { FlipbookDetailAnalytics, AnalyticsDatePicker, formatDuration, formatShortDate, formatFullDate, getCountryFlag, scrollToTop } from '../components/Analytics';
 
 export default function Overview() {
   const navigate = useNavigate();
@@ -19,6 +19,10 @@ export default function Overview() {
   const [flipbooks, setFlipbooks] = useState([]);
   const [selectedBookId, setSelectedBookId] = useState(routeBookId || null);
   const [selectedDays, setSelectedDays] = useState(30); // 7, 30, 90, 'custom'
+  const [customRange, setCustomRange] = useState({
+    startDate: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000),
+    endDate: new Date()
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -38,6 +42,8 @@ export default function Overview() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('views');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 7;
 
   // Fetch creator's flipbooks
   useEffect(() => {
@@ -67,7 +73,14 @@ export default function Overview() {
     setError(null);
 
     try {
-      const daysParam = typeof selectedDays === 'number' ? selectedDays : 30;
+      let daysParam = 30;
+      if (typeof selectedDays === 'number') {
+        daysParam = selectedDays;
+      } else if (selectedDays === 'custom' && customRange.startDate && customRange.endDate) {
+        const diffMs = Math.abs(customRange.endDate - customRange.startDate);
+        daysParam = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24))) + 1;
+      }
+
       if (!selectedBookId) {
         const res = await analyticsApi.getUserAnalytics(userEmail, daysParam);
         setAnalyticsData({
@@ -88,7 +101,7 @@ export default function Overview() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userEmail, selectedBookId, selectedDays]);
+  }, [userEmail, selectedBookId, selectedDays, customRange]);
 
   useEffect(() => {
     loadAnalytics();
@@ -139,63 +152,86 @@ export default function Overview() {
   }, [analyticsData]);
 
   // Top 5 Metric Cards configuration for Overall View
-  const metricCards = useMemo(() => [
-    {
-      key: 'views',
-      title: 'Total Views',
-      value: summary.totalViews.toLocaleString(),
-      growth: '+18.6%',
-      growthSub: 'vs previous 7 days',
-      icon: 'solar:eye-linear',
-      iconBg: 'bg-[#FFEDE8] text-[#F05338]',
-      sparkColor: '#F05338',
-      sparkGradientId: 'spark-views',
-    },
-    {
-      key: 'readers',
-      title: 'Readers',
-      value: (summary.uniqueVisitors || 0).toLocaleString(),
-      growth: '+18.6%',
-      growthSub: 'vs previous 7 days',
-      icon: 'solar:user-bold',
-      iconBg: 'bg-[#EDE9FE] text-[#7C3AED]',
-      sparkColor: '#7C3AED',
-      sparkGradientId: 'spark-readers',
-    },
-    {
-      key: 'readingTime',
-      title: 'Reading Time',
-      value: formatDuration(summary.avgDuration || 0) || '0s',
-      growth: '+18.6%',
-      growthSub: 'vs previous 7 days',
-      icon: 'solar:clock-circle-bold',
-      iconBg: 'bg-[#FEF3C7] text-[#D97706]',
-      sparkColor: '#F59E0B',
-      sparkGradientId: 'spark-reading',
-    },
-    {
-      key: 'share',
-      title: 'Share',
-      value: (summary.shares || 0).toLocaleString(),
-      growth: '+18.6%',
-      growthSub: 'vs previous 7 days',
-      icon: 'solar:share-bold',
-      iconBg: 'bg-[#E0F2FE] text-[#0284C7]',
-      sparkColor: '#0284C7',
-      sparkGradientId: 'spark-share',
-    },
-    {
-      key: 'downloads',
-      title: 'Downloads',
-      value: (summary.downloads || 0).toLocaleString(),
-      growth: '+18.6%',
-      growthSub: 'vs previous 7 days',
-      icon: 'solar:download-minimalistic-bold',
-      iconBg: 'bg-[#DCFCE7] text-[#16A34A]',
-      sparkColor: '#16A34A',
-      sparkGradientId: 'spark-downloads',
-    }
-  ], [summary]);
+  const metricCards = useMemo(() => {
+    const formatGrowth = (val) => {
+      const num = Number(val) || 0;
+      if (num > 0) return `+${num}%`;
+      if (num < 0) return `${num}%`;
+      return `0%`;
+    };
+
+    const g = analyticsData?.growth || {};
+    const viewsGrowth = g.viewsGrowthPct !== undefined ? formatGrowth(g.viewsGrowthPct) : '+0%';
+    const readersGrowth = g.readersGrowthPct !== undefined ? formatGrowth(g.readersGrowthPct) : '+0%';
+    const durationGrowth = g.durationGrowthPct !== undefined ? formatGrowth(g.durationGrowthPct) : '+0%';
+    const sharesGrowth = g.sharesGrowthPct !== undefined ? formatGrowth(g.sharesGrowthPct) : '+0%';
+    const downloadsGrowth = g.downloadsGrowthPct !== undefined ? formatGrowth(g.downloadsGrowthPct) : '+0%';
+
+    const subText = typeof selectedDays === 'number' ? `vs previous ${selectedDays} days` : 'vs previous period';
+
+    return [
+      {
+        key: 'views',
+        title: 'Total Views',
+        value: summary.totalViews.toLocaleString(),
+        growth: viewsGrowth,
+        growthSub: subText,
+        isPositive: (g.viewsGrowthPct || 0) >= 0,
+        icon: 'lets-icons:view-fill',
+        iconBg: 'bg-[#FFEDE8] text-[#F05338]',
+        sparkColor: '#F05338',
+        sparkGradientId: 'spark-views',
+      },
+      {
+        key: 'readers',
+        title: 'Readers',
+        value: (summary.uniqueVisitors || 0).toLocaleString(),
+        growth: readersGrowth,
+        growthSub: subText,
+        isPositive: (g.readersGrowthPct || 0) >= 0,
+        icon: 'bi:person-fill',
+        iconBg: 'bg-[#EDE9FE] text-[#7C3AED]',
+        sparkColor: '#7C3AED',
+        sparkGradientId: 'spark-readers',
+      },
+      {
+        key: 'readingTime',
+        title: 'Reading Time',
+        value: formatDuration(summary.avgDuration || 0) || '0s',
+        growth: durationGrowth,
+        growthSub: subText,
+        isPositive: (g.durationGrowthPct || 0) >= 0,
+        icon: 'lsicon:time-one-filled',
+        iconBg: 'bg-[#FEF3C7] text-[#D97706]',
+        sparkColor: '#F59E0B',
+        sparkGradientId: 'spark-reading',
+      },
+      {
+        key: 'share',
+        title: 'Share',
+        value: (summary.shares || 0).toLocaleString(),
+        growth: sharesGrowth,
+        growthSub: subText,
+        isPositive: (g.sharesGrowthPct || 0) >= 0,
+        icon: 'clarity:share-solid',
+        iconBg: 'bg-[#E0F2FE] text-[#0284C7]',
+        sparkColor: '#0284C7',
+        sparkGradientId: 'spark-share',
+      },
+      {
+        key: 'downloads',
+        title: 'Downloads',
+        value: (summary.downloads || 0).toLocaleString(),
+        growth: downloadsGrowth,
+        growthSub: subText,
+        isPositive: (g.downloadsGrowthPct || 0) >= 0,
+        icon: 'ic:baseline-download',
+        iconBg: 'bg-[#DCFCE7] text-[#16A34A]',
+        sparkColor: '#16A34A',
+        sparkGradientId: 'spark-downloads',
+      }
+    ];
+  }, [summary, analyticsData?.growth, selectedDays]);
 
   // Devices Breakdown
   const rawDevices = useMemo(() => analyticsData?.devices || [], [analyticsData]);
@@ -213,45 +249,60 @@ export default function Overview() {
       deskViews = desktopMatch ? Number(desktopMatch.views) || 0 : 0;
       mobViews = mobileMatch ? Number(mobileMatch.views) || 0 : 0;
       tabViews = tabletMatch ? Number(tabletMatch.views) || 0 : 0;
-    } else if (total > 0) {
-      deskViews = Math.round(total * 0.58);
-      mobViews = Math.round(total * 0.36);
-      tabViews = Math.max(0, total - deskViews - mobViews);
     }
 
-    const safeTotal = deskViews + mobViews + tabViews || 1;
+    const safeTotal = deskViews + mobViews + tabViews;
+    if (!safeTotal || safeTotal === 0) {
+      return [];
+    }
     const deskPct = Math.round((deskViews / safeTotal) * 100);
     const mobPct = Math.round((mobViews / safeTotal) * 100);
     const tabPct = Math.max(0, 100 - deskPct - mobPct);
 
     return [
-      { name: 'Desktop', pct: total === 0 ? 58 : deskPct, color: '#F05338', dotColor: 'bg-[#F05338]' },
-      { name: 'Mobile', pct: total === 0 ? 36 : mobPct, color: '#FB923C', dotColor: 'bg-[#FB923C]' },
-      { name: 'Tablet', pct: total === 0 ? 6 : tabPct, color: '#FBBF24', dotColor: 'bg-[#FBBF24]' },
-    ];
+      { name: 'Desktop', pct: deskPct, color: '#F05338', dotColor: 'bg-[#F05338]' },
+      { name: 'Mobile', pct: mobPct, color: '#FB923C', dotColor: 'bg-[#FB923C]' },
+      { name: 'Tablet', pct: tabPct, color: '#FBBF24', dotColor: 'bg-[#FBBF24]' },
+    ].filter(d => d.pct > 0);
   }, [rawDevices, summary.totalViews]);
 
   // Top Locations
   const rawCountries = useMemo(() => analyticsData?.topCountries || analyticsData?.countries || [], [analyticsData]);
   const topLocations = useMemo(() => {
-    if (!rawCountries || rawCountries.length === 0) {
-      return [
-        { name: 'India', flag: '🇮🇳', pct: 42 },
-        { name: 'United States', flag: '🇺🇸', pct: 24 },
-        { name: 'United Kingdom', flag: '🇬🇧', pct: 12 },
-        { name: 'Canada', flag: '🇨🇦', pct: 8 },
-        { name: 'Others', flag: '🌐', pct: 14 }
-      ];
+    // Deduplicate and aggregate countries by country name/code
+    const countryMap = new Map();
+
+    rawCountries.forEach(c => {
+      let name = c.country || c._id || 'India';
+      let code = c.code || 'IN';
+      if (name.toLowerCase().includes('local') || code.toUpperCase() === 'LOCAL' || code.toUpperCase() === 'UN') {
+        name = 'India';
+        code = 'IN';
+      }
+      const views = Number(c.views) || 0;
+      if (countryMap.has(name)) {
+        const existing = countryMap.get(name);
+        existing.views += views;
+      } else {
+        countryMap.set(name, { name, code, views });
+      }
+    });
+
+    const aggregated = Array.from(countryMap.values()).sort((a, b) => b.views - a.views);
+
+    if (aggregated.length === 0) {
+      return [];
     }
-    const total = rawCountries.reduce((sum, c) => sum + (Number(c.views) || 0), 0) || 1;
-    const top4 = rawCountries.slice(0, 4).map(c => ({
-      name: c.country || c._id || 'Unknown',
+
+    const total = aggregated.reduce((sum, c) => sum + c.views, 0) || 1;
+    const top4 = aggregated.slice(0, 4).map(c => ({
+      name: c.name,
       flag: getCountryFlag(c.code),
-      pct: Math.round(((Number(c.views) || 0) / total) * 100)
+      pct: Math.round((c.views / total) * 100)
     }));
     const top4PctSum = top4.reduce((s, c) => s + c.pct, 0);
     const othersPct = Math.max(0, 100 - top4PctSum);
-    if (rawCountries.length > 4 || othersPct > 0) {
+    if (aggregated.length > 4 || othersPct > 0) {
       top4.push({ name: 'Others', flag: '🌐', pct: othersPct });
     }
     return top4;
@@ -260,26 +311,43 @@ export default function Overview() {
   // Daily views timeline for Views Over Time Area Chart
   const rawDailyViews = useMemo(() => analyticsData?.dailyViews || [], [analyticsData]);
   const dailyTimeline = useMemo(() => {
-    const daysCount = typeof selectedDays === 'number' ? selectedDays : 30;
     const map = new Map();
     rawDailyViews.forEach(d => {
       if (d._id) map.set(d._id, Number(d.views) || 0);
     });
 
     const result = [];
-    const now = new Date();
-    for (let i = daysCount - 1; i >= 0; i--) {
-      const dt = new Date();
-      dt.setDate(now.getDate() - i);
-      const yyyy = dt.getFullYear();
-      const mm = String(dt.getMonth() + 1).padStart(2, '0');
-      const dd = String(dt.getDate()).padStart(2, '0');
-      const key = `${yyyy}-${mm}-${dd}`;
-      const views = map.get(key) || 0;
-      result.push({ date: key, views, dt });
+    if (selectedDays === 'custom' && customRange.startDate && customRange.endDate) {
+      const s = new Date(customRange.startDate);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(customRange.endDate);
+      e.setHours(0, 0, 0, 0);
+      const cur = new Date(s);
+      while (cur <= e) {
+        const yyyy = cur.getFullYear();
+        const mm = String(cur.getMonth() + 1).padStart(2, '0');
+        const dd = String(cur.getDate()).padStart(2, '0');
+        const key = `${yyyy}-${mm}-${dd}`;
+        const views = map.get(key) || 0;
+        result.push({ date: key, views, dt: new Date(cur) });
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else {
+      const daysCount = typeof selectedDays === 'number' ? selectedDays : 30;
+      const now = new Date();
+      for (let i = daysCount - 1; i >= 0; i--) {
+        const dt = new Date();
+        dt.setDate(now.getDate() - i);
+        const yyyy = dt.getFullYear();
+        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+        const dd = String(dt.getDate()).padStart(2, '0');
+        const key = `${yyyy}-${mm}-${dd}`;
+        const views = map.get(key) || 0;
+        result.push({ date: key, views, dt });
+      }
     }
     return result;
-  }, [rawDailyViews, selectedDays]);
+  }, [rawDailyViews, selectedDays, customRange]);
 
   // Table Books
   const tableBooks = useMemo(() => {
@@ -292,6 +360,13 @@ export default function Overview() {
       const stats = topBooksMap.get(b.v_id);
       const views = stats?.views ?? (Number(b.viewsCount) || Number(b.views) || 0);
       const uniqueVisitors = Math.max(0, Math.round(views * 0.8));
+      const leads = stats?.leads ?? 0;
+      const topDevice = stats?.topDevice || 'Desktop';
+      let topLocation = stats?.topLocation || 'India';
+      if (topLocation.toLowerCase().includes('local') || topLocation === '—' || topLocation === 'Unknown') {
+        topLocation = 'India';
+      }
+      const downloads = stats?.downloads ?? 0;
       const avgDurationSeconds = stats?.avgDurationSeconds || stats?.avgDuration || 268;
       const totalReadingHours = Math.max(1, Math.round((views * avgDurationSeconds) / 3600)) + 'h';
       const lastUpdate = formatFullDate(b.updatedAt || b.createdAt || new Date());
@@ -302,6 +377,10 @@ export default function Overview() {
         flipbookName: b.flipbookName || b.title || 'Untitled Flipbook',
         views,
         uniqueVisitors,
+        leads,
+        topDevice,
+        topLocation,
+        downloads,
         avgDurationFormatted: formatDuration(avgDurationSeconds),
         totalReadingHours,
         lastUpdate,
@@ -324,6 +403,13 @@ export default function Overview() {
     }
     return list.map((b, i) => ({ ...b, sNo: String(i + 1).padStart(2, '0') }));
   }, [tableBooks, searchQuery, sortBy]);
+
+  // Pagination slicing
+  const totalPages = Math.max(1, Math.ceil(filteredBooks.length / pageSize));
+  const paginatedBooks = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredBooks.slice(start, start + pageSize);
+  }, [filteredBooks, currentPage, pageSize]);
 
   // CSV Export for Overall View
   const handleExportCSV = () => {
@@ -351,17 +437,34 @@ export default function Overview() {
 
   // OVERALL SVG Chart Computations
   const chartW = 720;
-  const chartH = 210;
-  const padL = 36;
-  const padR = 20;
-  const padT = 20;
-  const padB = 28;
+  const chartH = 200;
+  const padL = 40;
+  const padR = 16;
+  const padT = 16;
+  const padB = 32;
   const innerW = chartW - padL - padR;
   const innerH = chartH - padT - padB;
 
-  const maxVal = Math.max(...dailyTimeline.map(d => d.views), 100);
-  const yAxisMax = Math.ceil(maxVal / 200) * 200 || 1000;
-  const yTicks = [0, yAxisMax * 0.2, yAxisMax * 0.4, yAxisMax * 0.6, yAxisMax * 0.8, yAxisMax];
+  const maxVal = Math.max(...dailyTimeline.map(d => d.views), 0);
+  // Calculate dynamic adaptive Y-axis maximum:
+  // If max views is small (e.g. 9), adapt to a clean rounded ceil (e.g. 10, 20, 50, 100, etc.)
+  const yAxisMax = useMemo(() => {
+    if (maxVal <= 0) return 10;
+    if (maxVal <= 5) return 5;
+    if (maxVal <= 10) return 10;
+    if (maxVal <= 25) return 25;
+    if (maxVal <= 50) return 50;
+    if (maxVal <= 100) return 100;
+    if (maxVal <= 250) return 250;
+    if (maxVal <= 500) return 500;
+    if (maxVal <= 1000) return 1000;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(maxVal)));
+    return Math.ceil(maxVal / magnitude) * magnitude;
+  }, [maxVal]);
+
+  const yTicks = useMemo(() => {
+    return [0, yAxisMax * 0.2, yAxisMax * 0.4, yAxisMax * 0.6, yAxisMax * 0.8, yAxisMax];
+  }, [yAxisMax]);
 
   const chartPoints = useMemo(() => {
     const len = dailyTimeline.length;
@@ -399,12 +502,17 @@ export default function Overview() {
 
   const xLabels = useMemo(() => {
     if (chartPoints.length === 0) return [];
+    if (chartPoints.length <= 7) return chartPoints;
     const count = 7;
     const step = (chartPoints.length - 1) / (count - 1);
+    const seenIndices = new Set();
     const labels = [];
     for (let i = 0; i < count; i++) {
       const idx = Math.min(chartPoints.length - 1, Math.round(i * step));
-      labels.push(chartPoints[idx]);
+      if (!seenIndices.has(idx)) {
+        seenIndices.add(idx);
+        labels.push(chartPoints[idx]);
+      }
     }
     return labels;
   }, [chartPoints]);
@@ -512,16 +620,19 @@ export default function Overview() {
                     {card.title}
                   </div>
                 </div>
-                <div className={`w-[2vw] h-[2vw] rounded-full flex items-center justify-center ${card.iconBg} shrink-0`}>
-                  <Icon icon={card.icon} className="w-[1vw] h-[1vw]" />
+                <div className={`w-[2.4vw] h-[2.4vw] rounded-full flex items-center justify-center ${card.iconBg} shrink-0`}>
+                  <Icon icon={card.icon} className="w-[1.4vw] h-[1.4vw]" />
                 </div>
               </div>
 
               {/* Bottom Row: Growth badge + Mini sparkline */}
               <div className="mt-[0.6vw] pt-[0.1vw] flex items-end justify-between">
                 <div className="space-y-[0.05vw]">
-                  <div className="flex items-center gap-[0.15vw] text-[0.7vw] font-semibold text-emerald-700">
-                    <Icon icon="solar:arrow-right-up-linear" className="w-[0.7vw] h-[0.7vw] stroke-[2.5]" />
+                  <div className={`flex items-center gap-[0.15vw] text-[0.7vw] font-semibold ${card.isPositive !== false ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    <Icon
+                      icon="carbon:growth"
+                      className={`w-[0.75vw] h-[0.75vw] ${card.isPositive !== false ? 'text-emerald-600' : 'text-rose-600 rotate-180'}`}
+                    />
                     <span>{card.growth}</span>
                   </div>
                   <div className="text-[0.64vw] text-slate-500 font-normal">
@@ -558,48 +669,60 @@ export default function Overview() {
         {/* 3. Middle Section: Views Over Time + Top Locations + Devices Used */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-[0.8vw]">
 
-          {/* Left: Views Over Time (7 cols) */}
-          <div className="lg:col-span-7 bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-[0.6vw] mb-[0.4vw]">
-              <div className="flex items-center gap-[0.5vw]">
-                <div className="w-[1.8vw] h-[1.8vw] rounded-[0.45vw] bg-orange-50 text-[#F05338] flex items-center justify-center shrink-0">
-                  <Icon icon="solar:chart-2-bold" className="w-[1vw] h-[1vw]" />
+          {/* Left: Views Over Time (6 cols) */}
+          <div className="lg:col-span-6 bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-[0.6vw] mb-[0.1vw]">
+              <div className="flex items-center gap-[0.65vw]">
+                <div className="w-[2.4vw] h-[2.4vw] rounded-[0.7vw] bg-[#FFF1EE] text-[#F05338] flex items-center justify-center shrink-0">
+                  <Icon icon="lucide:chart-no-axes-combined" className="w-[1.3vw] h-[1.3vw]" />
                 </div>
                 <div>
-                  <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
+                  <h3 className="text-[1vw] font-bold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
                     Views Over Time
                   </h3>
-                  <p className="text-[0.7vw] text-slate-600 font-normal">
+                  <p className="text-[0.72vw] text-slate-500 font-normal">
                     Daily views for all your flipbooks
                   </p>
                 </div>
               </div>
 
-              {/* Time Range Pills */}
-              <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-[0.45vw] p-[0.15vw] text-[0.7vw]">
-                {[
-                  { label: '7D', value: 7 },
-                  { label: '30D', value: 30 },
-                  { label: '90D', value: 90 },
-                  { label: 'Custom', value: 'custom' },
-                ].map(opt => (
-                  <button className="cursor-pointer"
-                    key={opt.label}
-                    onClick={() => setSelectedDays(opt.value)}
-                    className={`px-[0.7vw] py-[0.25vw] rounded-[0.35vw] font-medium transition-all cursor-pointer ${
-                      selectedDays === opt.value
-                        ? 'bg-[#F05338] text-white shadow-xs'
-                        : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/70'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              {/* Time Range Pills + DatePicker */}
+              <div className="flex items-center gap-[0.4vw]">
+                {selectedDays === 'custom' && (
+                  <AnalyticsDatePicker
+                    startDate={customRange.startDate}
+                    endDate={customRange.endDate}
+                    onChange={(range) => {
+                      setCustomRange(range);
+                    }}
+                  />
+                )}
+
+                <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-[0.5vw] p-[0.18vw] text-[0.7vw]">
+                  {[
+                    { label: '7D', value: 7 },
+                    { label: '30D', value: 30 },
+                    { label: '90D', value: 90 },
+                    { label: 'Custom', value: 'custom' },
+                  ].map(opt => (
+                    <button
+                      key={opt.label}
+                      onClick={() => setSelectedDays(opt.value)}
+                      className={`px-[0.75vw] py-[0.28vw] rounded-[0.38vw] font-medium transition-all cursor-pointer ${
+                        selectedDays === opt.value
+                          ? 'bg-[#F05338] text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Area Chart Canvas */}
-            <div className="relative w-full mt-[0.3vw]">
+            <div className="relative w-full mt-[0.1vw]">
               <svg
                 viewBox={`0 0 ${chartW} ${chartH}`}
                 className="w-full h-auto overflow-visible select-none"
@@ -607,12 +730,26 @@ export default function Overview() {
               >
                 <defs>
                   <linearGradient id="viewsChartGradientCompact" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#F05338" stopOpacity="0.3" />
-                    <stop offset="60%" stopColor="#F05338" stopOpacity="0.08" />
-                    <stop offset="100%" stopColor="#F05338" stopOpacity="0.00" />
+                    <stop offset="0%" stopColor="#F05338" stopOpacity="0.22" />
+                    <stop offset="70%" stopColor="#F05338" stopOpacity="0.06" />
+                    <stop offset="100%" stopColor="#F05338" stopOpacity="0.01" />
                   </linearGradient>
                 </defs>
 
+                {/* Vertical grid lines corresponding to X date ticks */}
+                {xLabels.map((pt) => (
+                  <line
+                    key={`v-grid-${pt.date}`}
+                    x1={pt.x}
+                    y1={padT}
+                    x2={pt.x}
+                    y2={padT + innerH}
+                    stroke="#F1F5F9"
+                    strokeWidth="1"
+                  />
+                ))}
+
+                {/* Horizontal grid lines with Y ticks */}
                 {yTicks.map((val) => {
                   const y = padT + innerH - (val / yAxisMax) * innerH;
                   return (
@@ -626,15 +763,15 @@ export default function Overview() {
                         strokeWidth="1"
                       />
                       <text
-                        x={padL - 8}
-                        y={y + 3.5}
+                        x={padL - 10}
+                        y={y + 4}
                         textAnchor="end"
-                        fill="#64748B"
-                        fontSize="10"
-                        fontWeight="500"
+                        fill="#374151"
+                        fontSize="12"
+                        fontWeight="normal"
                         fontFamily="Plus Jakarta Sans, sans-serif"
                       >
-                        {val === 0 ? '0' : val.toLocaleString()}
+                        {val === 0 ? '0' : Number(val.toFixed(val < 10 && val % 1 !== 0 ? 1 : 0)).toLocaleString()}
                       </text>
                     </g>
                   );
@@ -645,15 +782,53 @@ export default function Overview() {
                   d={pathD}
                   fill="none"
                   stroke="#F05338"
-                  strokeWidth="2.2"
+                  strokeWidth="2.4"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
 
+                {/* Vertical dashed guideline for active/hovered point */}
+                {(() => {
+                  const activeIdx = hoveredPointIdx !== null
+                    ? hoveredPointIdx
+                    : chartPoints.length > 0 ? chartPoints.length - 1 : null;
+                  if (activeIdx === null || !chartPoints[activeIdx]) return null;
+                  const activePt = chartPoints[activeIdx];
+                  return (
+                    <line
+                      x1={activePt.x}
+                      y1={activePt.y}
+                      x2={activePt.x}
+                      y2={chartH - padB}
+                      stroke="#F05338"
+                      strokeWidth="1"
+                      strokeDasharray="2 2"
+                      opacity="0.65"
+                    />
+                  );
+                })()}
+
+                {/* X-axis date tick text rendered directly on SVG to match exact vertical gridlines */}
+                {xLabels.map((pt) => (
+                  <text
+                    key={`x-lbl-${pt.date}`}
+                    x={pt.x}
+                    y={chartH - padB + 18}
+                    textAnchor="middle"
+                    fill="#374151"
+                    fontSize="12"
+                    fontWeight="normal"
+                    fontFamily="Plus Jakarta Sans, sans-serif"
+                  >
+                    {formatShortDate(pt.dt)}
+                  </text>
+                ))}
+
                 {chartPoints.map((pt) => {
                   const isHover = hoveredPointIdx === pt.idx;
                   const isLast = pt.idx === chartPoints.length - 1;
-                  const showPoint = isHover || isLast;
+                  // Show points along the curve at key intervals or on hover/last
+                  const showPoint = isHover || isLast || (pt.idx % Math.max(1, Math.floor(chartPoints.length / 10)) === 0);
 
                   return (
                     <g
@@ -673,15 +848,8 @@ export default function Overview() {
                           <circle
                             cx={pt.x}
                             cy={pt.y}
-                            r={isHover ? 5.5 : 4}
-                            fill="#F05338"
-                            opacity={isHover ? 0.22 : 0}
-                          />
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={isHover ? 4 : 3}
-                            fill="#FFFFFF"
+                            r={isHover || isLast ? 4.5 : 3}
+                            fill={isLast ? "#F05338" : "#FFFFFF"}
                             stroke="#F05338"
                             strokeWidth="2"
                           />
@@ -690,19 +858,6 @@ export default function Overview() {
                     </g>
                   );
                 })}
-
-                {hoveredPointIdx !== null && chartPoints[hoveredPointIdx] && (
-                  <line
-                    x1={chartPoints[hoveredPointIdx].x}
-                    y1={padT}
-                    x2={chartPoints[hoveredPointIdx].x}
-                    y2={chartH - padB}
-                    stroke="#F05338"
-                    strokeWidth="1.2"
-                    strokeDasharray="3 3"
-                    opacity="0.75"
-                  />
-                )}
               </svg>
 
               {(() => {
@@ -715,40 +870,35 @@ export default function Overview() {
 
                 return (
                   <div
-                    className="absolute bg-white px-[0.7vw] py-[0.38vw] rounded-[0.45vw] shadow-[0_4px_16px_rgba(0,0,0,0.1)] border border-slate-200 pointer-events-none transition-all duration-150 z-10"
+                    className="absolute bg-white px-[0.75vw] py-[0.45vw] rounded-[0.55vw] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-slate-100 pointer-events-none transition-all duration-150 z-10 whitespace-nowrap min-w-[5.8vw]"
                     style={{
                       left: `${(activePt.x / chartW) * 100}%`,
                       top: `${(activePt.y / chartH) * 100}%`,
-                      transform: 'translate(-50%, -125%)'
+                      transform: activePt.x > chartW * 0.75 ? 'translate(-85%, -118%)' : 'translate(-50%, -118%)'
                     }}
                   >
-                    <div className="text-[0.68vw] text-slate-500 font-normal">
+                    <div className="text-[0.65vw] text-slate-500 font-medium">
                       {formatFullDate(activePt.dt)}
                     </div>
-                    <div className="flex items-center gap-[0.3vw] mt-[0.05vw]">
-                      <span className="w-[0.45vw] h-[0.45vw] rounded-full bg-[#F05338]"></span>
-                      <span className="text-[0.76vw] font-semibold text-slate-900">
-                        {activePt.views || 0} views
+                    <div className="flex items-center gap-[0.35vw] mt-[0.1vw]">
+                      <span className="w-[0.45vw] h-[0.45vw] rounded-full bg-[#F05338] shrink-0"></span>
+                      <span className="text-[0.78vw] font-bold text-slate-900 font-['Outfit',sans-serif]">
+                        {activePt.views || 0}{' '}
+                        <span className="font-semibold text-slate-800">views</span>
                       </span>
                     </div>
                   </div>
                 );
               })()}
-
-              <div className="flex justify-between items-center text-[0.68vw] text-slate-600 font-medium px-[0.5vw] mt-[0.3vw]">
-                {xLabels.map(pt => (
-                  <span key={pt.date}>{formatShortDate(pt.dt)}</span>
-                ))}
-              </div>
             </div>
           </div>
 
           {/* Middle: Top Locations (3 cols) */}
           <div className="lg:col-span-3 bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
             <div>
-              <div className="flex items-center gap-[0.5vw] mb-[1.1vw]">
-                <div className="w-[1.8vw] h-[1.8vw] rounded-[0.45vw] bg-orange-50 text-[#F05338] flex items-center justify-center shrink-0">
-                  <Icon icon="solar:global-bold" className="w-[1vw] h-[1vw]" />
+              <div className="flex items-center gap-[0.65vw] mb-[1.1vw]">
+                <div className="w-[2.4vw] h-[2.4vw] rounded-[0.7vw] bg-[#FFF1EE] text-[#F05338] flex items-center justify-center shrink-0">
+                  <Icon icon="circum:globe" className="w-[1.4vw] h-[1.4vw]" />
                 </div>
                 <div>
                   <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
@@ -760,34 +910,54 @@ export default function Overview() {
                 </div>
               </div>
 
-              <div className="space-y-[0.85vw]">
-                {topLocations.map(loc => (
-                  <div key={loc.name} className="flex items-center gap-[0.6vw]">
-                    <span className="text-[0.95vw] shrink-0 leading-none">{loc.flag}</span>
-                    <span className="text-[0.76vw] text-slate-800 font-medium w-[6.5vw] truncate">
-                      {loc.name}
-                    </span>
-                    <div className="flex-1 bg-slate-100 rounded-full h-[0.45vw] overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-[#F05338] to-[#FB923C] h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(6, Math.min(100, loc.pct))}%` }}
-                      />
+              {loading ? (
+                /* Skeleton Loader for Top Locations */
+                <div className="space-y-[0.85vw] animate-pulse">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center gap-[0.6vw]">
+                      <div className="w-[1.2vw] h-[0.9vw] bg-slate-200 rounded-[0.2vw] shrink-0" />
+                      <div className="w-[6.5vw] h-[0.75vw] bg-slate-200 rounded-[0.25vw]" />
+                      <div className="flex-1 bg-slate-100 rounded-full h-[0.45vw] overflow-hidden">
+                        <div className="bg-slate-200 h-full rounded-full w-2/3" />
+                      </div>
+                      <div className="w-[2.2vw] h-[0.75vw] bg-slate-200 rounded-[0.25vw] shrink-0" />
                     </div>
-                    <span className="text-[0.76vw] text-slate-800 font-semibold w-[2.2vw] text-right shrink-0">
-                      {loc.pct}%
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : topLocations.length === 0 ? (
+                <div className="py-[2.5vw] text-center text-[0.74vw] text-slate-400">
+                  No location data recorded yet.
+                </div>
+              ) : (
+                <div className="space-y-[0.85vw]">
+                  {topLocations.map(loc => (
+                    <div key={loc.name} className="flex items-center gap-[0.6vw]">
+                      <span className="text-[0.95vw] shrink-0 leading-none">{loc.flag}</span>
+                      <span className="text-[0.76vw] text-slate-800 font-medium w-[6.5vw] truncate">
+                        {loc.name}
+                      </span>
+                      <div className="flex-1 bg-slate-100 rounded-full h-[0.45vw] overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-[#F05338] to-[#FB923C] h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max(6, Math.min(100, loc.pct))}%` }}
+                        />
+                      </div>
+                      <span className="text-[0.76vw] text-slate-800 font-semibold w-[2.2vw] text-right shrink-0">
+                        {loc.pct}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right: Devices Used Donut (2 cols) */}
-          <div className="lg:col-span-2 bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+          {/* Right: Devices Used Donut (3 cols) */}
+          <div className="lg:col-span-3 bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
             <div>
-              <div className="flex items-center gap-[0.45vw] mb-[0.8vw]">
-                <div className="w-[1.8vw] h-[1.8vw] rounded-[0.45vw] bg-orange-50 text-[#F05338] flex items-center justify-center shrink-0">
-                  <Icon icon="solar:devices-bold" className="w-[1vw] h-[1vw]" />
+              <div className="flex items-center gap-[0.65vw] mb-[0.8vw]">
+                <div className="w-[2.4vw] h-[2.4vw] rounded-[0.7vw] bg-[#FFF1EE] text-[#F05338] flex items-center justify-center shrink-0">
+                  <Icon icon="energy-icons:devices-20-bold" className="w-[1.4vw] h-[1.4vw]" />
                 </div>
                 <div>
                   <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
@@ -799,57 +969,74 @@ export default function Overview() {
                 </div>
               </div>
 
-              <div className="relative w-[7.8vw] h-[7.8vw] mx-auto my-[0.4vw] flex items-center justify-center">
-                {(() => {
-                  const circumference = 2 * Math.PI * 40;
-                  let cumulative = 0;
-                  return (
-                    <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#F1F5F9" strokeWidth="13" />
-                      {devicesBreakdown.map(seg => {
-                        const dash = (seg.pct / 100) * circumference;
-                        const dashArray = `${dash} ${circumference - dash}`;
-                        const offset = -cumulative;
-                        cumulative += dash;
-                        return (
-                          <circle
-                            key={seg.name}
-                            cx="50"
-                            cy="50"
-                            r="40"
-                            fill="none"
-                            stroke={seg.color}
-                            strokeWidth="13"
-                            strokeDasharray={dashArray}
-                            strokeDashoffset={offset}
-                          />
-                        );
-                      })}
-                    </svg>
-                  );
-                })()}
-
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                  <span className="text-[1.1vw] font-semibold text-slate-950 font-['Outfit',sans-serif] leading-tight">
-                    100%
-                  </span>
-                  <span className="text-[0.6vw] text-slate-500 font-medium">
-                    Total Views
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-[0.35vw] mt-[0.6vw] pt-[0.6vw] border-t border-slate-100">
-                {devicesBreakdown.map(seg => (
-                  <div key={seg.name} className="flex items-center justify-between text-[0.74vw]">
-                    <div className="flex items-center gap-[0.35vw]">
-                      <span className={`w-[0.45vw] h-[0.45vw] rounded-full ${seg.dotColor} shrink-0`}></span>
-                      <span className="text-slate-700 font-medium">{seg.name}</span>
-                    </div>
-                    <span className="text-slate-900 font-semibold">{seg.pct}%</span>
+              {loading ? (
+                /* Skeleton Loader for Devices Used */
+                <div className="py-[1.2vw] flex flex-col items-center justify-center animate-pulse space-y-[1vw]">
+                  <div className="w-[8vw] h-[8vw] rounded-full border-[10px] border-slate-200" />
+                  <div className="w-full space-y-[0.4vw]">
+                    <div className="h-[0.75vw] bg-slate-200 rounded-[0.25vw] w-full" />
+                    <div className="h-[0.75vw] bg-slate-200 rounded-[0.25vw] w-4/5" />
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : devicesBreakdown.length === 0 ? (
+                <div className="py-[3vw] text-center text-[0.74vw] text-slate-400">
+                  No device data recorded yet.
+                </div>
+              ) : (
+                <>
+                  <div className="relative w-[10.5vw] h-[10.5vw] mx-auto my-[0.4vw] flex items-center justify-center">
+                    {(() => {
+                      const circumference = 2 * Math.PI * 40;
+                      let cumulative = 0;
+                      return (
+                        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                          <circle cx="50" cy="50" r="40" fill="none" stroke="#F1F5F9" strokeWidth="11" />
+                          {devicesBreakdown.map(seg => {
+                            const dash = (seg.pct / 100) * circumference;
+                            const dashArray = `${dash} ${circumference - dash}`;
+                            const offset = -cumulative;
+                            cumulative += dash;
+                            return (
+                              <circle
+                                key={seg.name}
+                                cx="50"
+                                cy="50"
+                                r="40"
+                                fill="none"
+                                stroke={seg.color}
+                                strokeWidth="11"
+                                strokeDasharray={dashArray}
+                                strokeDashoffset={offset}
+                              />
+                            );
+                          })}
+                        </svg>
+                      );
+                    })()}
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+                      <span className="text-[1.35vw] font-semibold text-slate-950 font-['Outfit',sans-serif] leading-tight">
+                        100%
+                      </span>
+                      <span className="text-[0.68vw] text-slate-500 font-medium mt-[0.1vw]">
+                        Total Views
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-[0.4vw] mt-[0.6vw] pt-[0.6vw] border-t border-slate-100">
+                    {devicesBreakdown.map(seg => (
+                      <div key={seg.name} className="flex items-center justify-between text-[0.74vw]">
+                        <div className="flex items-center gap-[0.35vw]">
+                          <span className={`w-[0.45vw] h-[0.45vw] rounded-full ${seg.dotColor} shrink-0`}></span>
+                          <span className="text-slate-700 font-medium">{seg.name}</span>
+                        </div>
+                        <span className="text-slate-900 font-semibold">{seg.pct}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -861,7 +1048,7 @@ export default function Overview() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-[0.6vw]">
             <div className="flex items-center gap-[0.5vw]">
               <div className="w-[1.8vw] h-[1.8vw] rounded-[0.45vw] bg-orange-50 text-[#F05338] flex items-center justify-center shrink-0">
-                <Icon icon="solar:book-2-bold" className="w-[1vw] h-[1vw]" />
+                <Icon icon="basil:book-open-outline" className="w-[1.1vw] h-[1.1vw]" />
               </div>
               <div>
                 <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
@@ -876,7 +1063,7 @@ export default function Overview() {
             <div className="flex items-center gap-[0.7vw] flex-wrap">
               <div className="relative">
                 <Icon
-                  icon="solar:magnifer-linear"
+                  icon="lineicons:search-2"
                   className="w-[0.85vw] h-[0.85vw] text-slate-500 absolute left-[0.6vw] top-1/2 -translate-y-1/2"
                 />
                 <input
@@ -902,7 +1089,7 @@ export default function Overview() {
                   onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                   className="inline-flex items-center gap-[0.4vw] px-[0.75vw] py-[0.35vw] bg-slate-50 border border-slate-300 rounded-[0.45vw] text-[0.74vw] text-slate-800 font-medium hover:bg-slate-100 transition-colors cursor-pointer"
                 >
-                  <Icon icon="solar:sort-vertical-linear" className="w-[0.85vw] h-[0.85vw] text-[#F05338]" />
+                  <Icon icon="iconoir:sort" className="w-[0.85vw] h-[0.85vw] text-[#F05338]" />
                   <span>{sortBy === 'views' ? 'Most viewed' : sortBy === 'name' ? 'Alphabetical' : 'Recent'}</span>
                   <Icon icon="solar:alt-arrow-down-linear" className="w-[0.7vw] h-[0.7vw] text-slate-500" />
                 </button>
@@ -935,31 +1122,32 @@ export default function Overview() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-[0.74vw]">
                 <thead>
-                  <tr className="bg-[#FAF9F7] text-slate-600 font-medium text-[0.7vw] border-b border-slate-200">
-                    <th className="py-[0.6vw] px-[0.9vw] font-medium">S.No</th>
-                    <th className="py-[0.6vw] px-[0.9vw] font-medium">Subject</th>
-                    <th className="py-[0.6vw] px-[0.9vw] font-medium">Views</th>
-                    <th className="py-[0.6vw] px-[0.9vw] font-medium">Unique Visitors</th>
-                    <th className="py-[0.6vw] px-[0.9vw] font-medium">Avg. Reading Time</th>
-                    <th className="py-[0.6vw] px-[0.9vw] font-medium">Total Reading Time</th>
-                    <th className="py-[0.6vw] px-[0.9vw] font-medium">Last Update</th>
-                    <th className="py-[0.6vw] px-[0.9vw] font-medium text-right">Action</th>
+                  <tr className="bg-[#FAF9F7] text-slate-700 font-semibold text-[0.7vw] border-b border-slate-200">
+                    <th className="py-[0.65vw] px-[0.9vw]">S.no</th>
+                    <th className="py-[0.65vw] px-[0.9vw]">Flipbooks</th>
+                    <th className="py-[0.65vw] px-[0.9vw]">Total Views</th>
+                    <th className="py-[0.65vw] px-[0.9vw]">Unique Readers</th>
+                    <th className="py-[0.65vw] px-[0.9vw]">Total Leads</th>
+                    <th className="py-[0.65vw] px-[0.9vw]">Top Device</th>
+                    <th className="py-[0.65vw] px-[0.9vw]">Top location</th>
+                    <th className="py-[0.65vw] px-[0.9vw]">Total Downloads</th>
+                    <th className="py-[0.65vw] px-[0.9vw] text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredBooks.length === 0 ? (
+                  {paginatedBooks.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="py-[2.5vw] text-center text-slate-500 font-normal">
+                      <td colSpan="9" className="py-[2.5vw] text-center text-slate-500 font-normal">
                         No flipbooks found.
                       </td>
                     </tr>
                   ) : (
-                    filteredBooks.map((book) => (
+                    paginatedBooks.map((book) => (
                       <tr
                         key={book.v_id || book.sNo}
                         className="hover:bg-slate-50/70 transition-colors"
                       >
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-500 font-medium">
+                        <td className="py-[0.65vw] px-[0.9vw] text-slate-500 font-normal">
                           {book.sNo}
                         </td>
 
@@ -968,7 +1156,7 @@ export default function Overview() {
                             <div className="w-[2.6vw] h-[2vw] rounded-[0.3vw] bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
                               {book.bookObj?.thumbnailUrl || book.bookObj?.coverImage ? (
                                 <img
-                                  src={book.bookObj.thumbnailUrl || book.bookObj.coverImage}
+                                  src={book.bookObj.thumbnailUrl || book.bookObj?.coverImage}
                                   alt={book.flipbookName}
                                   className="w-full h-full object-cover"
                                 />
@@ -980,37 +1168,41 @@ export default function Overview() {
                                 />
                               )}
                             </div>
-                            <span className="text-slate-900 font-medium truncate max-w-[16vw]" title={book.flipbookName}>
+                            <span className="text-slate-900 font-medium truncate max-w-[14vw]" title={book.flipbookName}>
                               {book.flipbookName}
                             </span>
                           </div>
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-medium">
+                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
                           {book.views.toLocaleString()}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-medium">
+                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
                           {book.uniqueVisitors.toLocaleString()}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-medium">
-                          {book.avgDurationFormatted}
+                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                          {book.leads.toLocaleString()}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-medium">
-                          {book.totalReadingHours}
+                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                          {book.topDevice}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-600 font-medium">
-                          {book.lastUpdate}
+                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                          {book.topLocation}
                         </td>
 
-                        {/* Action: View Analytics with immediate scroll to top */}
+                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                          {book.downloads.toLocaleString()}
+                        </td>
+
+                        {/* Action: View Analytics button */}
                         <td className="py-[0.65vw] px-[0.9vw] text-right">
-                          <button className="cursor-pointer"
+                          <button
                             onClick={() => handleOpenBookAnalytics(book.v_id)}
-                            className="inline-flex items-center gap-[0.2vw] text-[0.72vw] font-medium text-[#F05338] bg-[#FFF2EE] hover:bg-[#FFE6E0] border border-orange-200 px-[0.7vw] py-[0.3vw] rounded-[0.4vw] transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-[0.25vw] text-[0.72vw] font-medium text-[#F05338] bg-[#FFF2EE] hover:bg-[#FFE6E0] border border-orange-200/90 px-[0.7vw] py-[0.3vw] rounded-[0.4vw] transition-colors cursor-pointer"
                           >
                             <span>View Analytics</span>
                             <Icon icon="solar:arrow-right-up-linear" className="w-[0.7vw] h-[0.7vw]" />
@@ -1023,6 +1215,31 @@ export default function Overview() {
               </table>
             </div>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredBooks.length > 0 && (
+            <div className="flex items-center justify-between pt-[0.4vw] text-[0.72vw]">
+              <span className="text-slate-500 font-normal">
+                Showing {Math.min((currentPage - 1) * pageSize + 1, filteredBooks.length)}–{Math.min(currentPage * pageSize, filteredBooks.length)} of {filteredBooks.length}
+              </span>
+
+              <div className="flex items-center gap-[0.3vw]">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-[1.6vw] h-[1.6vw] rounded-[0.35vw] text-[0.72vw] font-medium transition-colors cursor-pointer flex items-center justify-center ${
+                      currentPage === page
+                        ? 'bg-[#F05338] text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
 

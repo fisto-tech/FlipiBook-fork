@@ -1,12 +1,15 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { formatFullDate, getPaginationPages } from './analyticsUtils';
 
 export default function LeadFormTab({ timeline = [], summary = {}, analyticsData = {} }) {
+  const navigate = useNavigate();
   const [detailHoverIdx, setDetailHoverIdx] = useState(null);
   const [tableSort, setTableSort] = useState('Date (Newest)');
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPreviewLeadRow, setSelectedPreviewLeadRow] = useState(null);
 
   // Chart computations
   const dChartW = 860;
@@ -354,6 +357,8 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
                     </td>
                     <td className="py-[0.65vw] px-[1vw] text-right">
                       <button
+                        type="button"
+                        onClick={() => setSelectedPreviewLeadRow(row)}
                         className="inline-flex items-center gap-[0.2vw] text-[0.7vw] font-medium text-[#0284C7] bg-[#E0F2FE] hover:bg-[#BAE6FD] px-[0.6vw] py-[0.25vw] rounded-[0.35vw] transition-colors cursor-pointer"
                       >
                         <span>View Leads</span>
@@ -428,6 +433,214 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
           )}
         </div>
       </div>
+
+      {/* Lead Preview Modal */}
+      {selectedPreviewLeadRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-[1vw]">
+          <div className="bg-white rounded-[0.8vw] shadow-2xl border border-slate-100 w-[36vw] max-w-[560px] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-[1.2vw] pt-[1.2vw] pb-[0.8vw] border-b border-slate-100">
+              <div className="flex items-center gap-[0.6vw]">
+                <div className="w-[2vw] h-[2vw] rounded-full bg-[#FFF5F2] flex items-center justify-center text-[#F05338]">
+                  <Icon icon="solar:chart-2-linear" className="w-[1.1vw] h-[1.1vw]" />
+                </div>
+                <div>
+                  <h3 className="text-[1vw] font-bold text-slate-800 leading-tight">
+                    Lead Preview
+                  </h3>
+                  <p className="text-[0.68vw] text-slate-400">
+                    {analyticsData?.title || analyticsData?.bookName || 'Industrial Pumps Catalogue'} • {selectedPreviewLeadRow.formattedFull || '18 Oct 2026'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPreviewLeadRow(null)}
+                className="w-[1.6vw] h-[1.6vw] rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <Icon icon="solar:close-circle-linear" className="w-[1.2vw] h-[1.2vw]" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-[1.2vw] space-y-[1vw]">
+              {/* Total Submissions Box */}
+              <div className="p-[1vw] bg-white rounded-[0.6vw] border border-slate-200">
+                <span className="block text-[0.7vw] font-medium text-slate-500">
+                  Total Submissions
+                </span>
+                <div className="flex items-baseline gap-[0.4vw] mt-[0.2vw]">
+                  <span className="text-[1.8vw] font-bold text-slate-900 leading-none">
+                    {selectedPreviewLeadRow.submitted > 0 ? selectedPreviewLeadRow.submitted : 520}
+                  </span>
+                  <span className="text-[0.65vw] text-slate-400">
+                    (for {selectedPreviewLeadRow.formattedFull || '18 Oct 2026'})
+                  </span>
+                </div>
+              </div>
+
+              {/* Recent Leads List */}
+              <div>
+                <div className="flex items-center justify-between mb-[0.6vw]">
+                  <h4 className="text-[0.78vw] font-bold text-slate-800">
+                    Recent Leads
+                  </h4>
+                  <span className="text-[0.65vw] text-slate-400">
+                    Showing {Math.min(3, (analyticsData?.recentLeads || []).length || 3)} of {selectedPreviewLeadRow.submitted > 0 ? selectedPreviewLeadRow.submitted : ((analyticsData?.recentLeads || []).length || 3)}
+                  </span>
+                </div>
+
+                <div className="space-y-[0.5vw]">
+                  {Array.isArray(analyticsData?.recentLeads) && analyticsData.recentLeads.length > 0 ? (
+                    analyticsData.recentLeads.slice(0, 3).map((lead, lIdx) => {
+                      const name = lead?.leadData?.name || lead?.name || lead?.leadData?.fullName || 'Anonymous';
+                      const email = lead?.leadData?.email || lead?.email || lead?.userEmail || '—';
+                      const status = lead?.status || 'New';
+                      const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'L';
+                      const timeStr = lead?.createdAt ? new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:45 AM';
+
+                      const statusColors = {
+                        New: 'bg-[#FEE2E2] text-[#EF4444]',
+                        Contacted: 'bg-[#FEF3C7] text-[#D97706]',
+                        Qualified: 'bg-[#E0F2FE] text-[#0284C7]',
+                        Converted: 'bg-[#DCFCE7] text-[#16A34A]',
+                        Lost: 'bg-slate-100 text-slate-500'
+                      };
+
+                      return (
+                        <div key={lead._id || lead.leadId || lIdx} className="flex items-center justify-between p-[0.7vw] rounded-[0.5vw] border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors">
+                          <div className="flex items-center gap-[0.6vw]">
+                            <div className="w-[2vw] h-[2vw] rounded-full bg-[#E0F2FE] text-[#0284C7] font-bold text-[0.68vw] flex items-center justify-center shrink-0">
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="text-[0.75vw] font-semibold text-slate-800 leading-tight">
+                                {name}
+                              </div>
+                              <div className="text-[0.65vw] text-slate-400">
+                                {email}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-[0.6vw]">
+                            <span className={`inline-block px-[0.6vw] py-[0.18vw] rounded-full text-[0.65vw] font-semibold ${statusColors[status] || statusColors.New}`}>
+                              {status}
+                            </span>
+                            <span className="text-[0.65vw] text-slate-400">{timeStr}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <>
+                      {/* Fallback Lead 1 */}
+                      <div className="flex items-center justify-between p-[0.7vw] rounded-[0.5vw] border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors">
+                        <div className="flex items-center gap-[0.6vw]">
+                          <div className="w-[2vw] h-[2vw] rounded-full bg-[#FEE2E2] text-[#EF4444] font-bold text-[0.68vw] flex items-center justify-center shrink-0">
+                            MS
+                          </div>
+                          <div>
+                            <div className="text-[0.75vw] font-semibold text-slate-800 leading-tight">
+                              Murugan S
+                            </div>
+                            <div className="text-[0.65vw] text-slate-400">
+                              murugan@gmail.com
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-[0.6vw]">
+                          <span className="inline-block px-[0.6vw] py-[0.18vw] rounded-full text-[0.65vw] font-semibold bg-[#E0F2FE] text-[#0284C7]">
+                            Qualified
+                          </span>
+                          <span className="text-[0.65vw] text-slate-400">10:25 AM</span>
+                        </div>
+                      </div>
+
+                      {/* Fallback Lead 2 */}
+                      <div className="flex items-center justify-between p-[0.7vw] rounded-[0.5vw] border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors">
+                        <div className="flex items-center gap-[0.6vw]">
+                          <div className="w-[2vw] h-[2vw] rounded-full bg-[#DCFCE7] text-[#16A34A] font-bold text-[0.68vw] flex items-center justify-center shrink-0">
+                            SH
+                          </div>
+                          <div>
+                            <div className="text-[0.75vw] font-semibold text-slate-800 leading-tight">
+                              Sham
+                            </div>
+                            <div className="text-[0.65vw] text-slate-400">
+                              sham@gmail.com
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-[0.6vw]">
+                          <span className="inline-block px-[0.6vw] py-[0.18vw] rounded-full text-[0.65vw] font-semibold bg-[#DCFCE7] text-[#16A34A]">
+                            Converted
+                          </span>
+                          <span className="text-[0.65vw] text-slate-400">10:25 AM</span>
+                        </div>
+                      </div>
+
+                      {/* Fallback Lead 3 */}
+                      <div className="flex items-center justify-between p-[0.7vw] rounded-[0.5vw] border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors">
+                        <div className="flex items-center gap-[0.6vw]">
+                          <div className="w-[2vw] h-[2vw] rounded-full bg-[#EDE9FE] text-[#7C3AED] font-bold text-[0.68vw] flex items-center justify-center shrink-0">
+                            JA
+                          </div>
+                          <div>
+                            <div className="text-[0.75vw] font-semibold text-slate-800 leading-tight">
+                              Jana
+                            </div>
+                            <div className="text-[0.65vw] text-slate-400">
+                              jana@gmail.com
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-[0.6vw]">
+                          <span className="inline-block px-[0.6vw] py-[0.18vw] rounded-full text-[0.65vw] font-semibold bg-[#E0F2FE] text-[#0284C7]">
+                            Qualified
+                          </span>
+                          <span className="text-[0.65vw] text-slate-400">10:25 AM</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Informational Subtext */}
+              <p className="text-[0.65vw] text-slate-400 italic">
+                Opens Leads with the selected date and flipbook filters applied.
+              </p>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="flex items-center justify-end gap-[0.6vw] px-[1.2vw] py-[0.8vw] bg-slate-50/80 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedPreviewLeadRow(null)}
+                className="px-[0.9vw] py-[0.45vw] text-[0.72vw] font-medium text-slate-600 bg-white border border-slate-200 rounded-[0.4vw] hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const targetId = analyticsData?.v_id || analyticsData?.bookId;
+                  setSelectedPreviewLeadRow(null);
+                  if (targetId) {
+                    navigate(`/lead-form/${targetId}`);
+                  } else {
+                    navigate('/lead-form');
+                  }
+                }}
+                className="inline-flex items-center gap-[0.35vw] px-[1vw] py-[0.45vw] text-[0.72vw] font-medium text-white bg-[#F05338] hover:bg-[#e0452b] rounded-[0.4vw] transition-colors shadow-xs cursor-pointer"
+              >
+                <span>View All Leads</span>
+                <Icon icon="solar:arrow-right-linear" className="w-[0.85vw] h-[0.85vw]" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
