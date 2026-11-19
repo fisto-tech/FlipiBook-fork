@@ -1089,6 +1089,15 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
         navigator.clipboard.writeText(publicUrl);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+
+        const vid = currentBook?.v_id || currentBook?.bookId || currentBook?._id;
+        if (vid) {
+            analyticsApi.recordShare({
+                v_id: vid,
+                platform: 'copy-link',
+                bookName: currentBook?.flipbookName || currentBook?.title
+            }).catch(e => console.warn('[Analytics recordShare warning]:', e?.message));
+        }
     };
 
     const shareModel = async (platform = 'native') => {
@@ -1099,6 +1108,17 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
         const shareTitle = currentBook?.flipbookName || 'Check out my flipbook!';
         const shareUrl = publicUrl;
 
+        const vid = currentBook?.v_id || currentBook?.bookId || currentBook?._id;
+        const trackShare = (plat) => {
+            if (vid) {
+                analyticsApi.recordShare({
+                    v_id: vid,
+                    platform: plat,
+                    bookName: currentBook?.flipbookName || currentBook?.title
+                }).catch(e => console.warn('[Analytics recordShare warning]:', e?.message));
+            }
+        };
+
         if (platform === 'native' && navigator.share) {
             try {
                 await navigator.share({
@@ -1106,6 +1126,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                     text: 'I created a flipbook on Fisto. Take a look!',
                     url: shareUrl
                 });
+                trackShare('native');
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     console.error('Error sharing:', err);
@@ -1116,18 +1137,23 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
             switch (platform) {
                 case 'whatsapp':
                     url = `https://wa.me/?text=${encodeURIComponent(shareTitle + ' ' + shareUrl)}`;
+                    trackShare('whatsapp');
                     break;
                 case 'facebook':
                     url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+                    trackShare('facebook');
                     break;
                 case 'x':
                     url = `https://x.com/intent/tweet?text=${encodeURIComponent(shareTitle)}&url=${encodeURIComponent(shareUrl)}`;
+                    trackShare('x');
                     break;
                 case 'mail':
                     url = `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent('Check out this flipbook: ' + shareUrl)}`;
+                    trackShare('mail');
                     break;
                 case 'linkedin':
                     url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+                    trackShare('linkedin');
                     break;
                 case 'drive':
                     // Just copy link for drive

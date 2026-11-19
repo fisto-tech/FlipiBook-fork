@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { flipbookApi, analyticsApi } from '../api';
+import customizedEditorApi from '../api/customizedEditorApi';
 import LazyPreview from '../components/MyFlipbooks/LazyPreview';
 import { FlipbookDetailAnalytics, AnalyticsDatePicker, formatDuration, formatShortDate, formatFullDate, getCountryFlag, scrollToTop } from '../components/Analytics';
 
@@ -24,9 +25,11 @@ export default function Overview() {
     endDate: new Date()
   });
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
+  const [overallAnalyticsData, setOverallAnalyticsData] = useState(null);
 
   // Sync route param with selectedBookId
   useEffect(() => {
@@ -42,34 +45,109 @@ export default function Overview() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('views');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [focusedSortIndex, setFocusedSortIndex] = useState(-1);
+  const sortDropdownRef = useRef(null);
+  const sortOptions = useMemo(() => [
+    { label: 'Most viewed', value: 'views' },
+    { label: 'Alphabetical', value: 'name' },
+    { label: 'Most readers', value: 'readers' },
+    { label: 'Most leads', value: 'leads' },
+    { label: 'Most downloads', value: 'downloads' },
+  ], []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target)) {
+        setIsSortDropdownOpen(false);
+      }
+    };
+    if (isSortDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSortDropdownOpen]);
+
+  const handleSortKeyDown = (e) => {
+    if (!isSortDropdownOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsSortDropdownOpen(true);
+        const currentIndex = sortOptions.findIndex(opt => opt.value === sortBy);
+        setFocusedSortIndex(currentIndex >= 0 ? currentIndex : 0);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedSortIndex((prev) => (prev + 1) % sortOptions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedSortIndex((prev) => (prev - 1 + sortOptions.length) % sortOptions.length);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (focusedSortIndex >= 0 && focusedSortIndex < sortOptions.length) {
+        setSortBy(sortOptions[focusedSortIndex].value);
+        setIsSortDropdownOpen(false);
+      }
+    } else if (e.key === 'Escape' || e.key === 'Tab') {
+      setIsSortDropdownOpen(false);
+    }
+  };
   const [currentPage, setCurrentPage] = useState(1);
+  const [directLeadsList, setDirectLeadsList] = useState([]);
   const pageSize = 7;
 
-  // Fetch creator's flipbooks
+  // Fetch creator's flipbooks and analytics in parallel for fastest loading
   useEffect(() => {
     if (!userEmail) return;
+    let isMounted = true;
     const fetchBooks = async () => {
       try {
         const res = await flipbookApi.getBooks({ emailId: userEmail });
         const list = res.data?.books || res.data?.flipbooks || [];
-        if (Array.isArray(list)) {
+        if (isMounted && Array.isArray(list)) {
           setFlipbooks(list.filter(b => !b.trash));
         }
       } catch (err) {
         console.warn('Could not load flipbooks list:', err);
       }
     };
+    const fetchDirectLeads = async () => {
+      try {
+        const res = await customizedEditorApi.getLeads({ limit: 500 });
+        if (isMounted && res.data?.leads) {
+          setDirectLeadsList(res.data.leads);
+        }
+      } catch (err) {
+        console.warn('Could not load leads directly:', err);
+      }
+    };
     fetchBooks();
+    fetchDirectLeads();
+    return () => { isMounted = false; };
   }, [userEmail]);
 
   // Fetch analytics data (for overall or specific flipbook)
-  const loadAnalytics = useCallback(async (isRefresh = false) => {
+  const isInitialLoad = useRef(true);
+
+  const loadAnalytics = useCallback(async (isRefresh = false, onlyTimeline = false) => {
     if (!userEmail) {
       setLoading(false);
+      setChartLoading(false);
       return;
     }
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+
+    if (onlyTimeline) {
+      setChartLoading(true);
+    } else if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -83,29 +161,77 @@ export default function Overview() {
 
       if (!selectedBookId) {
         const res = await analyticsApi.getUserAnalytics(userEmail, daysParam);
-        setAnalyticsData({
-          mode: 'OVERALL',
-          ...res.data
-        });
+        if (onlyTimeline) {
+          setAnalyticsData(prev => ({
+            ...prev,
+            dailyViews: res.data?.dailyViews || []
+          }));
+          setOverallAnalyticsData(prev => ({
+            ...prev,
+            dailyViews: res.data?.dailyViews || []
+          }));
+        } else {
+          setAnalyticsData({
+            mode: 'OVERALL',
+            ...res.data
+          });
+          setOverallAnalyticsData({
+            mode: 'OVERALL',
+            ...res.data
+          });
+        }
       } else {
-        const res = await analyticsApi.getFlipbookAnalytics(selectedBookId, daysParam);
-        setAnalyticsData({
-          mode: 'SINGLE',
-          ...res.data
-        });
+        const fetchTasks = [analyticsApi.getFlipbookAnalytics(selectedBookId, daysParam)];
+        if (!overallAnalyticsData) {
+          fetchTasks.push(analyticsApi.getUserAnalytics(userEmail, 30));
+        }
+        const results = await Promise.all(fetchTasks);
+        const res = results[0];
+        if (results[1]) {
+          setOverallAnalyticsData({
+            mode: 'OVERALL',
+            ...results[1].data
+          });
+        }
+        if (onlyTimeline) {
+          setAnalyticsData(prev => ({
+            ...prev,
+            dailyViews: res.data?.dailyViews || []
+          }));
+        } else {
+          setAnalyticsData({
+            mode: 'SINGLE',
+            ...res.data
+          });
+        }
       }
     } catch (err) {
       console.error('Failed to load analytics:', err);
       setError('Unable to load analytics data. Please check back shortly.');
     } finally {
       setLoading(false);
+      setChartLoading(false);
       setRefreshing(false);
     }
   }, [userEmail, selectedBookId, selectedDays, customRange]);
 
+  // Initial or book/email change loads whole page
   useEffect(() => {
-    loadAnalytics();
-  }, [loadAnalytics]);
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      loadAnalytics(false, false);
+    } else {
+      // If selectedDays or customRange changed, only reload timeline chart
+      loadAnalytics(false, true);
+    }
+  }, [selectedDays, customRange]);
+
+  // Reload full page when user switches between books or overall
+  useEffect(() => {
+    if (!isInitialLoad.current) {
+      loadAnalytics(false, false);
+    }
+  }, [selectedBookId]);
 
   // Selected Flipbook Details
   const selectedFlipbookObj = useMemo(() => {
@@ -137,17 +263,20 @@ export default function Overview() {
     if (!analyticsData) {
       return { totalViews: 0, uniqueVisitors: 0, avgDuration: 0, totalDuration: 0, shares: 0, downloads: 0 };
     }
-    const tv = analyticsData.totalViews || 0;
-    const uv = analyticsData.uniqueVisitors || 0;
-    const ad = analyticsData.avgDurationSeconds || 0;
-    const td = analyticsData.totalDurationSeconds || 0;
+    const tv = Number(analyticsData.totalViews) || 0;
+    const uv = Number(analyticsData.uniqueVisitors) || 0;
+    const ad = Number(analyticsData.avgDurationSeconds) || 0;
+    const td = Number(analyticsData.totalDurationSeconds) || 0;
+    const dl = Number(analyticsData.totalDownloads !== undefined ? analyticsData.totalDownloads : analyticsData.downloads) || 0;
+    const sh = Number(analyticsData.shares) || 0;
+
     return {
       totalViews: tv,
       uniqueVisitors: uv,
       avgDuration: ad,
       totalDuration: td,
-      shares: analyticsData.shares || Math.round(tv * 0.15) || 0,
-      downloads: analyticsData.downloads || Math.round(tv * 0.08) || 0,
+      shares: sh,
+      downloads: dl,
     };
   }, [analyticsData]);
 
@@ -167,7 +296,8 @@ export default function Overview() {
     const sharesGrowth = g.sharesGrowthPct !== undefined ? formatGrowth(g.sharesGrowthPct) : '+0%';
     const downloadsGrowth = g.downloadsGrowthPct !== undefined ? formatGrowth(g.downloadsGrowthPct) : '+0%';
 
-    const subText = typeof selectedDays === 'number' ? `vs previous ${selectedDays} days` : 'vs previous period';
+    // Growth subtext for KPI cards is static "vs previous 30 days" for overall baseline
+    const subText = 'vs previous 30 days';
 
     return [
       {
@@ -297,13 +427,14 @@ export default function Overview() {
     const total = aggregated.reduce((sum, c) => sum + c.views, 0) || 1;
     const top4 = aggregated.slice(0, 4).map(c => ({
       name: c.name,
+      code: c.code || 'IN',
       flag: getCountryFlag(c.code),
       pct: Math.round((c.views / total) * 100)
     }));
     const top4PctSum = top4.reduce((s, c) => s + c.pct, 0);
     const othersPct = Math.max(0, 100 - top4PctSum);
     if (aggregated.length > 4 || othersPct > 0) {
-      top4.push({ name: 'Others', flag: '🌐', pct: othersPct });
+      top4.push({ name: 'Others', code: 'UN', flag: '🌐', pct: othersPct });
     }
     return top4;
   }, [rawCountries]);
@@ -356,11 +487,21 @@ export default function Overview() {
       topBooksMap.set(tb.v_id || tb._id, tb);
     });
 
+    const directLeadsMap = new Map();
+    (directLeadsList || []).forEach(l => {
+      const vId = l.v_id || l.bookId;
+      if (vId) {
+        directLeadsMap.set(vId, (directLeadsMap.get(vId) || 0) + 1);
+      }
+    });
+
     return flipbooks.map((b, idx) => {
       const stats = topBooksMap.get(b.v_id);
-      const views = stats?.views ?? (Number(b.viewsCount) || Number(b.views) || 0);
-      const uniqueVisitors = Math.max(0, Math.round(views * 0.8));
-      const leads = stats?.leads ?? 0;
+      const views = stats !== undefined ? Number(stats.views) || 0 : (Number(b.viewsCount) || Number(b.views) || 0);
+      const uniqueVisitors = Math.min(views, stats?.uniqueVisitors !== undefined ? stats.uniqueVisitors : Math.max(0, Math.round(views * 0.8)));
+      const leads = directLeadsMap.get(b.v_id) !== undefined
+        ? directLeadsMap.get(b.v_id)
+        : (stats?.leads ?? 0);
       const topDevice = stats?.topDevice || 'Desktop';
       let topLocation = stats?.topLocation || 'India';
       if (topLocation.toLowerCase().includes('local') || topLocation === '—' || topLocation === 'Unknown') {
@@ -387,7 +528,7 @@ export default function Overview() {
         bookObj: b
       };
     });
-  }, [flipbooks, analyticsData]);
+  }, [flipbooks, analyticsData, directLeadsList]);
 
   // Filtered and Sorted Flipbooks Table List
   const filteredBooks = useMemo(() => {
@@ -400,6 +541,12 @@ export default function Overview() {
       list.sort((a, b) => b.views - a.views);
     } else if (sortBy === 'name') {
       list.sort((a, b) => a.flipbookName.localeCompare(b.flipbookName));
+    } else if (sortBy === 'readers') {
+      list.sort((a, b) => b.uniqueVisitors - a.uniqueVisitors);
+    } else if (sortBy === 'leads') {
+      list.sort((a, b) => b.leads - a.leads);
+    } else if (sortBy === 'downloads') {
+      list.sort((a, b) => b.downloads - a.downloads);
     }
     return list.map((b, i) => ({ ...b, sNo: String(i + 1).padStart(2, '0') }));
   }, [tableBooks, searchQuery, sortBy]);
@@ -519,8 +666,9 @@ export default function Overview() {
 
   // Enrich flipbooks list with views from topBooks and viewsCount
   const enrichedFlipbooks = useMemo(() => {
+    const dataSource = overallAnalyticsData?.topBooks || (analyticsData?.mode === 'OVERALL' ? analyticsData?.topBooks : []);
     const topBooksMap = new Map();
-    (analyticsData?.topBooks || []).forEach(tb => {
+    (dataSource || []).forEach(tb => {
       topBooksMap.set(tb.v_id || tb._id, Number(tb.views) || 0);
     });
 
@@ -533,7 +681,7 @@ export default function Overview() {
         views: views
       };
     });
-  }, [flipbooks, analyticsData?.topBooks]);
+  }, [flipbooks, analyticsData, overallAnalyticsData]);
 
   // If a specific flipbook is selected, show the modular FlipbookDetailAnalytics view
   if (selectedBookId) {
@@ -555,14 +703,14 @@ export default function Overview() {
 
   // OVERALL ANALYTICS DASHBOARD VIEW
   return (
-    <div className="w-full min-h-screen bg-[#FDFBF9] py-[1.2vw] px-[1.8vw] font-['Plus_Jakarta_Sans',sans-serif] text-slate-800 antialiased">
+    <div className="w-full h-full overflow-y-auto overflow-x-hidden bg-[#FDFBF9] py-[1.2vw] px-[1.8vw] text-slate-800 antialiased">
       <div className="w-full space-y-[1.1vw]">
 
         {/* 1. Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-[0.8vw]">
           <div>
             <div className="flex items-center gap-[0.6vw]">
-              <h1 className="text-[1.45vw] font-semibold tracking-tight text-slate-900 font-['Outfit',sans-serif]">
+              <h1 className="text-[1.45vw] font-semibold tracking-tight text-slate-900 ">
                 Flipibook Analytics
               </h1>
             </div>
@@ -613,9 +761,13 @@ export default function Overview() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-[1.45vw] font-semibold text-slate-950 tracking-tight font-['Outfit',sans-serif] leading-tight">
-                    {card.value}
-                  </div>
+                  {loading ? (
+                    <div className="h-[1.5vw] w-[3.8vw] bg-slate-100 rounded-[0.3vw] animate-pulse" />
+                  ) : (
+                    <div className="text-[1.45vw] font-semibold text-slate-950 tracking-tight leading-tight">
+                      {card.value}
+                    </div>
+                  )}
                   <div className="text-[0.74vw] text-slate-600 font-medium mt-[0.1vw]">
                     {card.title}
                   </div>
@@ -628,20 +780,24 @@ export default function Overview() {
               {/* Bottom Row: Growth badge + Mini sparkline */}
               <div className="mt-[0.6vw] pt-[0.1vw] flex items-end justify-between">
                 <div className="space-y-[0.05vw]">
-                  <div className={`flex items-center gap-[0.15vw] text-[0.7vw] font-semibold ${card.isPositive !== false ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    <Icon
-                      icon="carbon:growth"
-                      className={`w-[0.75vw] h-[0.75vw] ${card.isPositive !== false ? 'text-emerald-600' : 'text-rose-600 rotate-180'}`}
-                    />
-                    <span>{card.growth}</span>
-                  </div>
+                  {loading ? (
+                    <div className="h-[0.7vw] w-[2.8vw] bg-slate-100 rounded animate-pulse" />
+                  ) : (
+                    <div className={`flex items-center gap-[0.15vw] text-[0.7vw] font-semibold ${card.isPositive !== false ? 'text-emerald-700' : 'text-rose-600'}`}>
+                      <Icon
+                        icon="carbon:growth"
+                        className={`w-[0.75vw] h-[0.75vw] ${card.isPositive !== false ? 'text-emerald-600' : 'text-rose-600 rotate-180'}`}
+                      />
+                      <span>{card.growth}</span>
+                    </div>
+                  )}
                   <div className="text-[0.64vw] text-slate-500 font-normal">
                     {card.growthSub}
                   </div>
                 </div>
 
                 <div className="w-[4.2vw] h-[2vw] overflow-hidden">
-                  <svg viewBox="0 0 70 35" className="w-full h-full">
+                  <svg viewBox="0 0 70 35" className="w-full h-full opacity-60">
                     <defs>
                       <linearGradient id={card.sparkGradientId} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={card.sparkColor} stopOpacity="0.32" />
@@ -677,7 +833,7 @@ export default function Overview() {
                   <Icon icon="lucide:chart-no-axes-combined" className="w-[1.3vw] h-[1.3vw]" />
                 </div>
                 <div>
-                  <h3 className="text-[1vw] font-bold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
+                  <h3 className="text-[1vw] font-bold text-slate-900 tracking-tight ">
                     Views Over Time
                   </h3>
                   <p className="text-[0.72vw] text-slate-500 font-normal">
@@ -723,6 +879,12 @@ export default function Overview() {
 
             {/* Area Chart Canvas */}
             <div className="relative w-full mt-[0.1vw]">
+              {(loading || chartLoading) && (
+                <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center rounded-[0.5vw]">
+                  <Icon icon="solar:restart-linear" className="w-[1.4vw] h-[1.4vw] text-[#F05338] animate-spin mb-[0.2vw]" />
+                  <span className="text-[0.68vw] text-slate-500 font-medium">Updating chart...</span>
+                </div>
+              )}
               <svg
                 viewBox={`0 0 ${chartW} ${chartH}`}
                 className="w-full h-auto overflow-visible select-none"
@@ -882,7 +1044,7 @@ export default function Overview() {
                     </div>
                     <div className="flex items-center gap-[0.35vw] mt-[0.1vw]">
                       <span className="w-[0.45vw] h-[0.45vw] rounded-full bg-[#F05338] shrink-0"></span>
-                      <span className="text-[0.78vw] font-bold text-slate-900 font-['Outfit',sans-serif]">
+                      <span className="text-[0.78vw] font-bold text-slate-900 ">
                         {activePt.views || 0}{' '}
                         <span className="font-semibold text-slate-800">views</span>
                       </span>
@@ -901,7 +1063,7 @@ export default function Overview() {
                   <Icon icon="circum:globe" className="w-[1.4vw] h-[1.4vw]" />
                 </div>
                 <div>
-                  <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
+                  <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight ">
                     Top Locations
                   </h3>
                   <p className="text-[0.7vw] text-slate-600 font-normal">
@@ -915,12 +1077,12 @@ export default function Overview() {
                 <div className="space-y-[0.85vw] animate-pulse">
                   {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="flex items-center gap-[0.6vw]">
-                      <div className="w-[1.2vw] h-[0.9vw] bg-slate-200 rounded-[0.2vw] shrink-0" />
-                      <div className="w-[6.5vw] h-[0.75vw] bg-slate-200 rounded-[0.25vw]" />
-                      <div className="flex-1 bg-slate-100 rounded-full h-[0.45vw] overflow-hidden">
-                        <div className="bg-slate-200 h-full rounded-full w-2/3" />
+                      <div className="w-[1vw] h-[0.75vw] bg-slate-100 rounded-[0.2vw] shrink-0" />
+                      <div className="w-[5.5vw] h-[0.6vw] bg-slate-100 rounded" />
+                      <div className="flex-1 bg-slate-50 rounded-full h-[0.35vw] overflow-hidden">
+                        <div className="bg-slate-100 h-full rounded-full w-2/3" />
                       </div>
-                      <div className="w-[2.2vw] h-[0.75vw] bg-slate-200 rounded-[0.25vw] shrink-0" />
+                      <div className="w-[1.8vw] h-[0.6vw] bg-slate-100 rounded shrink-0" />
                     </div>
                   ))}
                 </div>
@@ -932,8 +1094,27 @@ export default function Overview() {
                 <div className="space-y-[0.85vw]">
                   {topLocations.map(loc => (
                     <div key={loc.name} className="flex items-center gap-[0.6vw]">
-                      <span className="text-[0.95vw] shrink-0 leading-none">{loc.flag}</span>
-                      <span className="text-[0.76vw] text-slate-800 font-medium w-[6.5vw] truncate">
+                      <div className="w-[1.25vw] h-[0.9vw] rounded-[0.2vw] overflow-hidden shrink-0 flex items-center justify-center bg-slate-100 shadow-2xs">
+                        {loc.code && loc.code !== 'UN' ? (
+                          <img
+                            src={`https://flagcdn.com/w40/${loc.code.toLowerCase()}.png`}
+                            alt={loc.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              if (e.currentTarget.nextSibling) {
+                                e.currentTarget.nextSibling.style.display = 'inline-block';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <span
+                          className={`text-[0.75vw] leading-none ${loc.code && loc.code !== 'UN' ? 'hidden' : 'inline-block'}`}
+                        >
+                          {loc.flag || '🌐'}
+                        </span>
+                      </div>
+                      <span className="text-[0.76vw] text-slate-800 font-medium w-[6.2vw] truncate">
                         {loc.name}
                       </span>
                       <div className="flex-1 bg-slate-100 rounded-full h-[0.45vw] overflow-hidden">
@@ -960,7 +1141,7 @@ export default function Overview() {
                   <Icon icon="energy-icons:devices-20-bold" className="w-[1.4vw] h-[1.4vw]" />
                 </div>
                 <div>
-                  <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
+                  <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight ">
                     Devices Used
                   </h3>
                   <p className="text-[0.66vw] text-slate-600 font-normal leading-tight">
@@ -972,10 +1153,10 @@ export default function Overview() {
               {loading ? (
                 /* Skeleton Loader for Devices Used */
                 <div className="py-[1.2vw] flex flex-col items-center justify-center animate-pulse space-y-[1vw]">
-                  <div className="w-[8vw] h-[8vw] rounded-full border-[10px] border-slate-200" />
-                  <div className="w-full space-y-[0.4vw]">
-                    <div className="h-[0.75vw] bg-slate-200 rounded-[0.25vw] w-full" />
-                    <div className="h-[0.75vw] bg-slate-200 rounded-[0.25vw] w-4/5" />
+                  <div className="w-[8vw] h-[8vw] rounded-full border-[8px] border-slate-100" />
+                  <div className="w-full space-y-[0.35vw] px-[1vw]">
+                    <div className="h-[0.6vw] bg-slate-100 rounded w-full" />
+                    <div className="h-[0.6vw] bg-slate-100 rounded w-3/4" />
                   </div>
                 </div>
               ) : devicesBreakdown.length === 0 ? (
@@ -1015,7 +1196,7 @@ export default function Overview() {
                     })()}
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                      <span className="text-[1.35vw] font-semibold text-slate-950 font-['Outfit',sans-serif] leading-tight">
+                      <span className="text-[1.35vw] font-semibold text-slate-950 leading-tight">
                         100%
                       </span>
                       <span className="text-[0.68vw] text-slate-500 font-medium mt-[0.1vw]">
@@ -1046,98 +1227,146 @@ export default function Overview() {
         <div className="bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-[0.9vw]">
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-[0.6vw]">
-            <div className="flex items-center gap-[0.5vw]">
-              <div className="w-[1.8vw] h-[1.8vw] rounded-[0.45vw] bg-orange-50 text-[#F05338] flex items-center justify-center shrink-0">
-                <Icon icon="basil:book-open-outline" className="w-[1.1vw] h-[1.1vw]" />
-              </div>
+            <div className="flex items-start gap-[0.55vw]">
+              <Icon icon="basil:book-open-outline" className="w-[1.4vw] h-[1.4vw] text-[#F05338] shrink-0 mt-[0.1vw]" />
               <div>
-                <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
+                <h3 className="text-[1vw] font-bold text-slate-900 tracking-tight ">
                   Flipbook Performance
                 </h3>
-                <p className="text-[0.7vw] text-slate-600 font-normal">
+                <p className="text-[0.72vw] text-slate-500 font-normal">
                   Detailed performance of all your flipbooks. Click on a flipbook to view full analytics.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-[0.7vw] flex-wrap">
-              <div className="relative">
+              <div className="relative flex items-center">
                 <Icon
                   icon="lineicons:search-2"
-                  className="w-[0.85vw] h-[0.85vw] text-slate-500 absolute left-[0.6vw] top-1/2 -translate-y-1/2"
+                  className="w-[1.05vw] h-[1.05vw] text-[#F05338] absolute left-[0.8vw] pointer-events-none translate-y-[0.05vw]"
                 />
                 <input
                   type="text"
-                  placeholder="Search Flipbooks..."
+                  placeholder="Search Flipibooks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-[14vw] pl-[1.8vw] pr-[0.6vw] py-[0.35vw] bg-slate-50 border border-slate-300 rounded-[0.45vw] text-[0.74vw] text-slate-800 placeholder-slate-500 focus:outline-none focus:border-[#F05338] transition-colors"
+                  className="w-[18vw] pl-[2.4vw] pr-[0.8vw] py-[0.45vw] bg-white border-[1.5px] border-slate-300 hover:border-slate-400 rounded-[0.55vw] text-[0.78vw] leading-none text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#F05338] focus:ring-2 focus:ring-[#F05338]/10 transition-all font-normal shadow-xs"
                 />
                 {searchQuery && (
-                  <button className="cursor-pointer"
+                  <button
+                    type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-[0.5vw] top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    className="absolute right-[0.6vw] text-slate-400 hover:text-slate-600 cursor-pointer flex items-center justify-center"
                   >
-                    <Icon icon="solar:close-circle-bold" className="w-[0.8vw] h-[0.8vw]" />
+                    <Icon icon="solar:close-circle-bold" className="w-[0.85vw] h-[0.85vw]" />
                   </button>
                 )}
               </div>
 
-              <div className="relative">
-                <button className="cursor-pointer"
+              <div className="relative" ref={sortDropdownRef} onKeyDown={handleSortKeyDown}>
+                <button
                   type="button"
-                  onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                  className="inline-flex items-center gap-[0.4vw] px-[0.75vw] py-[0.35vw] bg-slate-50 border border-slate-300 rounded-[0.45vw] text-[0.74vw] text-slate-800 font-medium hover:bg-slate-100 transition-colors cursor-pointer"
+                  onClick={() => {
+                    const next = !isSortDropdownOpen;
+                    setIsSortDropdownOpen(next);
+                    if (next) {
+                      const cur = sortOptions.findIndex(o => o.value === sortBy);
+                      setFocusedSortIndex(cur >= 0 ? cur : 0);
+                    }
+                  }}
+                  aria-haspopup="listbox"
+                  aria-expanded={isSortDropdownOpen}
+                  className="inline-flex items-center gap-[0.45vw] px-[0.9vw] py-[0.42vw] bg-white border-[1.5px] border-slate-300 hover:border-slate-400 rounded-[0.55vw] text-[0.76vw] text-slate-700 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#F05338]/20 transition-all cursor-pointer shadow-xs"
                 >
-                  <Icon icon="iconoir:sort" className="w-[0.85vw] h-[0.85vw] text-[#F05338]" />
-                  <span>{sortBy === 'views' ? 'Most viewed' : sortBy === 'name' ? 'Alphabetical' : 'Recent'}</span>
-                  <Icon icon="solar:alt-arrow-down-linear" className="w-[0.7vw] h-[0.7vw] text-slate-500" />
+                  <Icon icon="iconoir:sort" className="w-[0.95vw] h-[0.95vw] text-[#F05338]" />
+                  <span>{sortOptions.find(o => o.value === sortBy)?.label || 'Most viewed'}</span>
+                  <Icon icon="solar:alt-arrow-down-linear" className="w-[0.75vw] h-[0.75vw] text-slate-400" />
                 </button>
 
                 {isSortDropdownOpen && (
-                  <div className="absolute right-0 mt-[0.25vw] w-[8.5vw] bg-white border border-slate-200 rounded-[0.45vw] shadow-lg py-[0.25vw] z-20 text-[0.72vw]">
-                    <button className="cursor-pointer"
-                      onClick={() => { setSortBy('views'); setIsSortDropdownOpen(false); }}
-                      className={`w-full text-left px-[0.7vw] py-[0.3vw] hover:bg-slate-50 transition-colors cursor-pointer ${sortBy === 'views' ? 'text-[#F05338] font-semibold' : 'text-slate-800'}`}
-                    >
-                      Most viewed
-                    </button>
-                    <button className="cursor-pointer"
-                      onClick={() => { setSortBy('name'); setIsSortDropdownOpen(false); }}
-                      className={`w-full text-left px-[0.7vw] py-[0.3vw] hover:bg-slate-50 transition-colors cursor-pointer ${sortBy === 'name' ? 'text-[#F05338] font-semibold' : 'text-slate-800'}`}
-                    >
-                      Alphabetical
-                    </button>
+                  <div
+                    role="listbox"
+                    className="absolute right-0 mt-[0.4vw] w-[11.5vw] bg-white border border-slate-200 rounded-[0.55vw] shadow-[0_6px_24px_rgba(0,0,0,0.08)] py-[0.35vw] px-[0.3vw] z-20 text-[0.76vw]"
+                  >
+                    {sortOptions.map((opt, idx) => {
+                      const isSelected = sortBy === opt.value;
+                      const isFocused = focusedSortIndex === idx;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          onMouseEnter={() => setFocusedSortIndex(idx)}
+                          onClick={() => {
+                            setSortBy(opt.value);
+                            setIsSortDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-[0.8vw] py-[0.45vw] rounded-[0.4vw] transition-colors cursor-pointer flex items-center justify-between font-normal ${
+                            isSelected
+                              ? 'text-[#F05338] bg-orange-50/50'
+                              : isFocused
+                              ? 'bg-slate-100 text-slate-900'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {isSelected && <Icon icon="solar:check-read-linear" className="w-[0.85vw] h-[0.85vw] text-[#F05338]" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
-              <span className="text-[0.74vw] text-slate-700 font-medium">
-                Total Books {flipbooks.length}
-              </span>
+              <div className="flex items-center gap-[0.35vw] text-[0.74vw] text-slate-600 font-medium pl-[0.2vw]">
+                <span>Total Books</span>
+                <span className="font-semibold text-slate-900">{flipbooks.length}</span>
+              </div>
             </div>
           </div>
 
-          <div className="border border-slate-200 rounded-[0.55vw] overflow-hidden">
+          <div className="border border-slate-200 rounded-[0.65vw] overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-[0.74vw]">
+              <table className="w-full text-left border-collapse text-[0.76vw]">
                 <thead>
-                  <tr className="bg-[#FAF9F7] text-slate-700 font-semibold text-[0.7vw] border-b border-slate-200">
-                    <th className="py-[0.65vw] px-[0.9vw]">S.no</th>
-                    <th className="py-[0.65vw] px-[0.9vw]">Flipbooks</th>
-                    <th className="py-[0.65vw] px-[0.9vw]">Total Views</th>
-                    <th className="py-[0.65vw] px-[0.9vw]">Unique Readers</th>
-                    <th className="py-[0.65vw] px-[0.9vw]">Total Leads</th>
-                    <th className="py-[0.65vw] px-[0.9vw]">Top Device</th>
-                    <th className="py-[0.65vw] px-[0.9vw]">Top location</th>
-                    <th className="py-[0.65vw] px-[0.9vw]">Total Downloads</th>
-                    <th className="py-[0.65vw] px-[0.9vw] text-right">Action</th>
+                  <tr className="bg-slate-50/80 text-slate-600 font-semibold text-[0.72vw] border-b border-slate-200 tracking-wide uppercase">
+                    <th className="py-[0.7vw] px-[0.9vw] text-center">S.No</th>
+                    <th className="py-[0.7vw] px-[0.9vw]">Flipbook</th>
+                    <th className="py-[0.7vw] px-[0.9vw] text-center">Total Views</th>
+                    <th className="py-[0.7vw] px-[0.9vw] text-center">Unique Readers</th>
+                    <th className="py-[0.7vw] px-[0.9vw] text-center">Total Leads</th>
+                    <th className="py-[0.7vw] px-[0.9vw] text-center">Top Device</th>
+                    <th className="py-[0.7vw] px-[0.9vw] text-center">Top Location</th>
+                    <th className="py-[0.7vw] px-[0.9vw] text-center">Total Downloads</th>
+                    <th className="py-[0.7vw] px-[0.9vw] text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {paginatedBooks.length === 0 ? (
+                  {loading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <tr key={`table-skel-${i}`} className="animate-pulse">
+                        <td className="py-[0.65vw] px-[0.9vw] text-center">
+                          <div className="h-[0.55vw] w-[1.2vw] bg-slate-100 rounded mx-auto" />
+                        </td>
+                        <td className="py-[0.65vw] px-[0.9vw]">
+                          <div className="flex items-center gap-[0.6vw]">
+                            <div className="w-[2.4vw] h-[1.8vw] rounded-[0.25vw] bg-slate-100 shrink-0" />
+                            <div className="h-[0.55vw] w-[7vw] bg-slate-100 rounded" />
+                          </div>
+                        </td>
+                        <td className="py-[0.65vw] px-[0.9vw] text-center"><div className="h-[0.55vw] w-[2.2vw] bg-slate-100 rounded mx-auto" /></td>
+                        <td className="py-[0.65vw] px-[0.9vw] text-center"><div className="h-[0.55vw] w-[2.2vw] bg-slate-100 rounded mx-auto" /></td>
+                        <td className="py-[0.65vw] px-[0.9vw] text-center"><div className="h-[0.55vw] w-[2.2vw] bg-slate-100 rounded mx-auto" /></td>
+                        <td className="py-[0.65vw] px-[0.9vw] text-center"><div className="h-[0.55vw] w-[3vw] bg-slate-100 rounded mx-auto" /></td>
+                        <td className="py-[0.65vw] px-[0.9vw] text-center"><div className="h-[0.55vw] w-[3vw] bg-slate-100 rounded mx-auto" /></td>
+                        <td className="py-[0.65vw] px-[0.9vw] text-center"><div className="h-[0.55vw] w-[2.2vw] bg-slate-100 rounded mx-auto" /></td>
+                        <td className="py-[0.65vw] px-[0.9vw] text-center"><div className="h-[1.3vw] w-[4.8vw] bg-slate-100 rounded-[0.35vw] mx-auto" /></td>
+                      </tr>
+                    ))
+                  ) : paginatedBooks.length === 0 ? (
                     <tr>
-                      <td colSpan="9" className="py-[2.5vw] text-center text-slate-500 font-normal">
+                      <td colSpan="9" className="py-[3vw] text-center text-slate-400 font-normal">
                         No flipbooks found.
                       </td>
                     </tr>
@@ -1147,13 +1376,13 @@ export default function Overview() {
                         key={book.v_id || book.sNo}
                         className="hover:bg-slate-50/70 transition-colors"
                       >
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-500 font-normal">
+                        <td className="py-[0.7vw] px-[0.9vw] text-slate-800 font-normal text-center">
                           {book.sNo}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw]">
-                          <div className="flex items-center gap-[0.6vw]">
-                            <div className="w-[2.6vw] h-[2vw] rounded-[0.3vw] bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                        <td className="py-[0.7vw] px-[0.9vw]">
+                          <div className="flex items-center gap-[0.65vw]">
+                            <div className="w-[2.8vw] h-[2.1vw] rounded-[0.35vw] bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center shadow-xs">
                               {book.bookObj?.thumbnailUrl || book.bookObj?.coverImage ? (
                                 <img
                                   src={book.bookObj.thumbnailUrl || book.bookObj?.coverImage}
@@ -1168,44 +1397,45 @@ export default function Overview() {
                                 />
                               )}
                             </div>
-                            <span className="text-slate-900 font-medium truncate max-w-[14vw]" title={book.flipbookName}>
+                            <span className="text-slate-800 font-normal truncate max-w-[14vw]" title={book.flipbookName}>
                               {book.flipbookName}
                             </span>
                           </div>
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                        <td className="py-[0.7vw] px-[0.9vw] text-slate-800 font-normal text-center">
                           {book.views.toLocaleString()}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                        <td className="py-[0.7vw] px-[0.9vw] text-slate-800 font-normal text-center">
                           {book.uniqueVisitors.toLocaleString()}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                        <td className="py-[0.7vw] px-[0.9vw] text-slate-800 font-normal text-center">
                           {book.leads.toLocaleString()}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                        <td className="py-[0.7vw] px-[0.9vw] text-slate-800 font-normal text-center">
                           {book.topDevice}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                        <td className="py-[0.7vw] px-[0.9vw] text-slate-800 font-normal text-center">
                           {book.topLocation}
                         </td>
 
-                        <td className="py-[0.65vw] px-[0.9vw] text-slate-800 font-normal">
+                        <td className="py-[0.7vw] px-[0.9vw] text-slate-800 font-normal text-center">
                           {book.downloads.toLocaleString()}
                         </td>
 
                         {/* Action: View Analytics button */}
-                        <td className="py-[0.65vw] px-[0.9vw] text-right">
+                        <td className="py-[0.7vw] px-[0.9vw] text-center">
                           <button
+                            type="button"
                             onClick={() => handleOpenBookAnalytics(book.v_id)}
-                            className="inline-flex items-center gap-[0.25vw] text-[0.72vw] font-medium text-[#F05338] bg-[#FFF2EE] hover:bg-[#FFE6E0] border border-orange-200/90 px-[0.7vw] py-[0.3vw] rounded-[0.4vw] transition-colors cursor-pointer"
+                            className="inline-flex items-center justify-center gap-[0.3vw] text-[0.72vw] font-medium text-[#F05338] bg-[#FFF2EE] hover:bg-[#FFE6E0] border border-[#F05338]/20 hover:border-[#F05338]/30 px-[0.75vw] py-[0.35vw] rounded-[0.45vw] transition-all cursor-pointer shadow-xs"
                           >
                             <span>View Analytics</span>
-                            <Icon icon="solar:arrow-right-up-linear" className="w-[0.7vw] h-[0.7vw]" />
+                            <Icon icon="solar:arrow-right-up-linear" className="w-[0.75vw] h-[0.75vw]" />
                           </button>
                         </td>
                       </tr>
@@ -1219,7 +1449,7 @@ export default function Overview() {
           {/* Pagination Controls */}
           {filteredBooks.length > 0 && (
             <div className="flex items-center justify-between pt-[0.4vw] text-[0.72vw]">
-              <span className="text-slate-500 font-normal">
+              <span className="text-black font-medium">
                 Showing {Math.min((currentPage - 1) * pageSize + 1, filteredBooks.length)}–{Math.min(currentPage * pageSize, filteredBooks.length)} of {filteredBooks.length}
               </span>
 

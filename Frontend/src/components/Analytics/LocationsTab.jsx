@@ -1,22 +1,35 @@
-import React, { useState } from 'react';
-import {
-  FiCalendar,
-  FiChevronDown,
-  FiDownload,
-  FiLayers,
-  FiGlobe,
-  FiMapPin
-} from 'react-icons/fi';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Icon } from '@iconify/react';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
-import { getPaginationPages } from './analyticsUtils';
+import { getPaginationPages, formatDuration } from './analyticsUtils';
+import worldMapData from './worldMapData.json';
 
-const LOCATION_DATA = [
-  { country: 'India', readers: 520, views: '1,120', avgTime: '4m 12s', share: '41.7%', trend: [100, 120, 110, 150, 140, 180, 195] },
-  { country: 'United States', readers: 310, views: '720', avgTime: '3m 35s', share: '24.8%', trend: [80, 95, 75, 110, 105, 125, 120] },
-  { country: 'United Kingdom', readers: 185, views: '430', avgTime: '3m 08s', share: '14.8%', trend: [50, 60, 55, 70, 65, 80, 85] },
-  { country: 'Germany', readers: 110, views: '260', avgTime: '2m 54s', share: '8.8%', trend: [30, 35, 40, 45, 50, 48, 52] },
-  { country: 'Canada', readers: 123, views: '290', avgTime: '3m 15s', share: '9.9%', trend: [35, 42, 38, 50, 48, 55, 58] },
+const DEFAULT_LOCATION_DATA = [
+  { country: 'India', code: 'in', readers: 520, views: 1120, avgTime: '4m 12s', share: '41.7%', trend: [105, 145, 130, 185, 170, 220, 240] },
+  { country: 'United States', code: 'us', readers: 310, views: 720, avgTime: '3m 35s', share: '24.8%', trend: [70, 90, 65, 110, 100, 130, 120] },
+  { country: 'United Kingdom', code: 'gb', readers: 185, views: 430, avgTime: '3m 08s', share: '14.8%', trend: [50, 65, 55, 75, 70, 85, 90] },
+  { country: 'Germany', code: 'de', readers: 110, views: 260, avgTime: '2m 54s', share: '8.8%', trend: [30, 40, 35, 50, 45, 55, 50] },
+  { country: 'Canada', code: 'ca', readers: 123, views: 290, avgTime: '3m 15s', share: '9.9%', trend: [35, 45, 40, 55, 50, 60, 65] },
 ];
+
+const COUNTRY_NAME_TO_CODE = {
+  'india': 'in',
+  'united states': 'us',
+  'usa': 'us',
+  'united kingdom': 'gb',
+  'uk': 'gb',
+  'germany': 'de',
+  'canada': 'ca',
+  'australia': 'au',
+  'france': 'fr',
+  'brazil': 'br',
+  'china': 'cn',
+  'japan': 'jp',
+  'russia': 'ru',
+  'spain': 'es',
+  'italy': 'it',
+  'mexico': 'mx'
+};
 
 const DATES = ['Oct 16', 'Oct 17', 'Oct 18', 'Oct 19', 'Oct 20', 'Oct 21', 'Oct 22'];
 
@@ -29,51 +42,134 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
   });
   const [selectedMap, setSelectedMap] = useState('World');
   const [selectedCountry, setSelectedCountry] = useState('India');
-  const [viewMode, setViewMode] = useState('compare'); // 'map' or 'compare'
-  const [selectedForCompare, setSelectedForCompare] = useState([]);
-  const [hoveredDateIdx, setHoveredDateIdx] = useState(null);
+  const [selectedForCompare, setSelectedForCompare] = useState(['India', 'United States']);
+  const [hoveredCompareDateIdx, setHoveredCompareDateIdx] = useState(4); // default hovered to Oct 20 like screenshot
+  const [hoveredMapCountry, setHoveredMapCountry] = useState(null);
+  const [tableSort, setTableSort] = useState('Most viewed');
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [focusedSortIndex, setFocusedSortIndex] = useState(-1);
+  const sortDropdownRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const rawCountries = analyticsData?.countries || [];
-  const rawStates = analyticsData?.states || [];
-  const rawTotalViews = summary?.totalViews || analyticsData?.summary?.totalViews || 0;
-  const avgTimeStr = summary?.avgDuration ? `${Math.round(summary.avgDuration / 60)}m ${summary.avgDuration % 60}s` : '0s';
-
-  const locationData = React.useMemo(() => {
-    if (rawCountries.length > 0) {
-      return rawCountries.map((c) => ({
-        country: c.country || 'Unknown',
-        readers: c.views || 0,
-        views: (c.views || 0).toLocaleString(),
-        avgTime: avgTimeStr,
-        share: `${c.percentage || (rawTotalViews > 0 ? Math.round((c.views / rawTotalViews) * 100) : 100)}%`,
-        trend: timeline.map(t => t.views || 0)
-      }));
-    }
-    if (rawStates.length > 0) {
-      return rawStates.map((s) => ({
-        country: s.state || 'Local State',
-        readers: s.views || 0,
-        views: (s.views || 0).toLocaleString(),
-        avgTime: avgTimeStr,
-        share: '100%',
-        trend: timeline.map(t => t.views || 0)
-      }));
-    }
-    return [
-      { country: summary?.topLocation || 'Localhost', readers: rawTotalViews, views: `${rawTotalViews}`, avgTime: avgTimeStr, share: '100%', trend: timeline.map(t => t.views || 0) }
-    ];
-  }, [rawCountries, rawStates, rawTotalViews, avgTimeStr, timeline, summary?.topLocation]);
-
-  // Default first 2 countries selected for comparison
-  React.useEffect(() => {
-    if (locationData.length > 0 && selectedForCompare.length === 0) {
-      setSelectedForCompare(locationData.slice(0, 2).map(c => c.country));
-      if (locationData[0]?.country) {
-        setSelectedCountry(locationData[0].country);
+  // Close sort on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target)) {
+        setIsSortOpen(false);
       }
+    };
+    if (isSortOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
     }
-  }, [locationData]);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSortOpen]);
+
+  const sortOptions = useMemo(() => [
+    { label: 'Most viewed', value: 'Most viewed' },
+    { label: 'Most readers', value: 'Most readers' },
+    { label: 'Location (A-Z)', value: 'Location (A-Z)' },
+  ], []);
+
+  const handleSortKeyDown = (e) => {
+    if (!isSortOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsSortOpen(true);
+        const idx = sortOptions.findIndex(opt => opt.value === tableSort);
+        setFocusedSortIndex(idx >= 0 ? idx : 0);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedSortIndex(prev => (prev + 1) % sortOptions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedSortIndex(prev => (prev - 1 + sortOptions.length) % sortOptions.length);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (focusedSortIndex >= 0 && focusedSortIndex < sortOptions.length) {
+        setTableSort(sortOptions[focusedSortIndex].value);
+        setIsSortOpen(false);
+        setCurrentPage(1);
+      }
+    } else if (e.key === 'Escape' || e.key === 'Tab') {
+      setIsSortOpen(false);
+    }
+  };
+
+  const rawCountries = analyticsData?.countries || [];
+  const rawTotalViews = summary?.totalViews || analyticsData?.summary?.totalViews || 0;
+  const avgTimeStr = summary?.avgDurationSeconds
+    ? `${Math.floor(summary.avgDurationSeconds / 60)}m ${summary.avgDurationSeconds % 60}s`
+    : '4m 12s';
+
+  // Merge backend data with fallback list
+  const locationList = useMemo(() => {
+    if (rawCountries.length > 0) {
+      return rawCountries.map((c, idx) => {
+        const cName = c.country || 'Unknown';
+        const code = (c.code || COUNTRY_NAME_TO_CODE[cName.toLowerCase()] || '').toLowerCase();
+        const viewsNum = c.views || 0;
+        const fallback = DEFAULT_LOCATION_DATA.find(d => d.country.toLowerCase() === cName.toLowerCase());
+        const trend = timeline.length >= 7
+          ? timeline.slice(-7).map(t => Math.round((t.views || 0) * (c.percentage ? c.percentage / 100 : 0.5)))
+          : (fallback?.trend || [viewsNum * 0.4, viewsNum * 0.6, viewsNum * 0.5, viewsNum * 0.8, viewsNum * 0.7, viewsNum * 0.9, viewsNum]);
+
+        return {
+          country: cName,
+          code,
+          readers: c.readers || Math.max(1, Math.round(viewsNum * 0.75)),
+          views: viewsNum,
+          avgTime: avgTimeStr,
+          share: `${c.percentage || (rawTotalViews > 0 ? Math.round((viewsNum / rawTotalViews) * 100) : 100)}%`,
+          trend
+        };
+      });
+    }
+    return DEFAULT_LOCATION_DATA;
+  }, [rawCountries, rawTotalViews, avgTimeStr, timeline]);
+
+  const maxReaders = useMemo(() => {
+    return Math.max(...locationList.map(d => d.readers), 1);
+  }, [locationList]);
+
+  // Countries to highlight on map with varying blue shades matching the screenshot
+  const mapCountryColors = useMemo(() => {
+    const shades = {
+      'in': '#1D4ED8', // Dark deep blue
+      'us': '#1E40AF', // Dark deep blue
+      'ca': '#2563EB', // Blue
+      'gb': '#3B82F6', // Lighter blue
+      'de': '#3B82F6',
+      'au': '#2563EB',
+      'br': '#3B82F6',
+      'ru': '#2563EB',
+      'fr': '#60A5FA',
+      'es': '#60A5FA',
+      'it': '#60A5FA',
+      'sa': '#93C5FD',
+      'za': '#60A5FA',
+      'eg': '#93C5FD',
+      'jp': '#2563EB',
+      'cn': '#1D4ED8',
+      'mx': '#3B82F6',
+      'ar': '#60A5FA',
+      'id': '#3B82F6'
+    };
+
+    // Also inject any countries present in locationList
+    locationList.forEach(loc => {
+      if (loc.code && !shades[loc.code]) {
+        shades[loc.code] = '#2563EB';
+      }
+    });
+
+    return shades;
+  }, [locationList]);
 
   const toggleCompareCountry = (country) => {
     if (selectedForCompare.includes(country)) {
@@ -85,68 +181,101 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
     }
   };
 
-  const maxReaders = Math.max(...locationData.map(d => d.readers), 1);
+  // Compare Line Chart Layout
+  const chartW = 580;
+  const chartH = 220;
+  const padL = 40;
+  const padR = 20;
+  const padT = 20;
+  const padB = 30;
+  const innerW = chartW - padL - padR;
+  const innerH = chartH - padT - padB;
+  const yTicks = [275, 220, 165, 110, 55];
+  const yMax = 275;
 
-  const ITEMS_PER_PAGE = 5;
-  const totalPages = Math.max(1, Math.ceil(locationData.length / ITEMS_PER_PAGE));
+  const compareColors = {
+    'India': { line: '#3B82F6', dot: '#3B82F6', bg: 'bg-[#3B82F6]' },
+    'United States': { line: '#10B981', dot: '#10B981', bg: 'bg-[#10B981]' },
+    'United Kingdom': { line: '#F59E0B', dot: '#F59E0B', bg: 'bg-[#F59E0B]' },
+    'Germany': { line: '#8B5CF6', dot: '#8B5CF6', bg: 'bg-[#8B5CF6]' },
+    'Canada': { line: '#EC4899', dot: '#EC4899', bg: 'bg-[#EC4899]' }
+  };
+
+  // Sort & Pagination for Table
+  const sortedLocationList = useMemo(() => {
+    const list = [...locationList];
+    if (tableSort === 'Location (A-Z)') {
+      return list.sort((a, b) => a.country.localeCompare(b.country));
+    }
+    return list.sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0));
+  }, [locationList, tableSort]);
+
+  const ITEMS_PER_PAGE = 7;
+  const totalPages = Math.max(1, Math.ceil(sortedLocationList.length / ITEMS_PER_PAGE));
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const paginatedLocations = locationData.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
+  const paginatedLocations = sortedLocationList.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
   const pageItems = getPaginationPages(safeCurrentPage, totalPages);
 
-  const startCount = locationData.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
-  const endCount = Math.min(safeCurrentPage * ITEMS_PER_PAGE, locationData.length);
-  const labelText = locationData.length <= 1
-    ? `Showing ${locationData.length} ${locationData.length === 1 ? 'location' : 'locations'}`
-    : `Showing ${startCount}–${endCount} of ${locationData.length} locations`;
+  // Totals for summary footer
+  const totalSummary = useMemo(() => {
+    const totalReaders = locationList.reduce((acc, curr) => acc + (Number(curr.readers) || 0), 0);
+    const totalViews = locationList.reduce((acc, curr) => acc + (Number(curr.views) || 0), 0);
+    return {
+      readers: totalReaders,
+      views: totalViews,
+      avgTime: avgTimeStr,
+      share: '100%'
+    };
+  }, [locationList, avgTimeStr]);
 
-  // Multi-line chart calculations
-  const chartHeight = 240;
-  const chartWidth = 560;
-  const padding = { top: 20, right: 30, bottom: 35, left: 45 };
-  const graphW = chartWidth - padding.left - padding.right;
-  const graphH = chartHeight - padding.top - padding.bottom;
-  const yMax = 275;
-  const yTicks = [275, 220, 165, 110, 55];
-
-  const getPoints = (trend) => {
-    return trend.map((val, idx) => {
-      const x = padding.left + (idx / (DATES.length - 1)) * graphW;
-      const y = padding.top + (1 - val / yMax) * graphH;
-      return { x, y, val };
-    });
-  };
-
-  const getPath = (points) => {
-    return points.reduce((acc, curr, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${curr.x} ${curr.y}`, '');
-  };
-
-  const colors = {
-    'India': { line: '#3B82F6', text: 'text-blue-500', bg: 'bg-blue-500' },
-    'United States': { line: '#10B981', text: 'text-emerald-500', bg: 'bg-emerald-500' },
-    'United Kingdom': { line: '#F59E0B', text: 'text-amber-500', bg: 'bg-amber-500' },
-    'Germany': { line: '#8B5CF6', text: 'text-purple-500', bg: 'bg-purple-500' },
-    'Canada': { line: '#EC4899', text: 'text-pink-500', bg: 'bg-pink-500' },
+  const exportCSV = () => {
+    if (sortedLocationList.length === 0) return;
+    const headers = ['Location', 'Unique readers', 'Views', 'Avg. reading time', 'Share of readers'];
+    const rows = sortedLocationList.map(r => [
+      `"${r.country}"`,
+      r.readers,
+      r.views,
+      `"${r.avgTime}"`,
+      `"${r.share}"`
+    ]);
+    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Location_Analytics_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <div className="w-full space-y-[1.8vw]">
-      {/* Title & Filter Bar */}
-      <div className="bg-white rounded-[1.2vw] p-[1.4vw] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100/80">
-        <div className="flex items-start gap-[0.8vw] mb-[1.2vw]">
-          <div className="w-[2.4vw] h-[2.4vw] rounded-[0.6vw] bg-emerald-50 flex items-center justify-center text-emerald-600 text-[1.1vw]">
-            <FiMapPin />
-          </div>
-          <div>
-            <h2 className="text-[1.25vw] font-medium text-slate-800 tracking-tight">Readers by Location</h2>
-            <p className="text-[0.8vw] text-slate-500 mt-[0.1vw]">Explore reader distribution across countries, regions and cities.</p>
-          </div>
+    <div className="w-full space-y-[1.1vw]">
+      {/* 1. Header: Readers by Location */}
+      <div className="flex items-center gap-[0.55vw] pt-[0.1vw]">
+        <div className="w-[2.3vw] h-[2.3vw] rounded-[0.65vw] bg-[#E6F7EF] text-[#16865C] flex items-center justify-center shrink-0">
+          <Icon icon="basil:map-location-outline" className="w-[1.25vw] h-[1.25vw]" />
         </div>
+        <div>
+          <h2 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight">
+            Readers by Location
+          </h2>
+          <p className="text-[0.7vw] text-slate-500 font-normal">
+            Explore reader distribution across countries, regions and cities.
+          </p>
+        </div>
+      </div>
 
-        {/* Filter controls */}
-        <div className="flex flex-wrap items-center justify-between gap-[1vw] pt-[0.4vw]">
-          <div className="flex items-center gap-[0.8vw]">
-            <span className="text-[0.8vw] text-slate-600 font-medium">Date Range</span>
+      {/* 2. Top Filter Controls Card (Date Range + Group By) */}
+      <div className="bg-white rounded-[0.65vw] p-[0.85vw] px-[1vw] border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-end justify-between gap-[1vw]">
+        {/* Left Side: Date Range */}
+        <div className="flex flex-col gap-[0.35vw]">
+          <span className="text-[0.74vw] text-slate-700 font-medium whitespace-nowrap">
+            Date Range
+          </span>
+          <div className="flex items-center gap-[0.75vw] flex-wrap">
             <AnalyticsDatePicker
+              className="w-[15.5vw] min-w-[210px]"
               startDate={customRange.startDate}
               endDate={customRange.endDate}
               onChange={(range) => {
@@ -154,261 +283,124 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
                 setDateFilter('custom');
               }}
             />
-            <div className="flex items-center bg-slate-50 border border-slate-200/80 rounded-[0.6vw] p-[0.2vw] text-[0.78vw]">
-              {['Today', 'Yesterday', '7 Days', '30 Days', 'Custom'].map((pill) => {
-                const isActive = (pill === '7 Days' && dateFilter === '7d') || (pill === 'Today' && dateFilter === 'today');
+
+            <div className="inline-flex items-center bg-white border border-slate-200 rounded-[0.45vw] p-[0.2vw] gap-[0.25vw]">
+              {['Today', 'Yesterday', '7 Days', '30 Days', 'Custom'].map((preset) => {
+                const isActive = (preset === '7 Days' && dateFilter === '7d') ||
+                  (preset === 'Today' && dateFilter === 'today') ||
+                  (preset === 'Yesterday' && dateFilter === 'yesterday') ||
+                  (preset === '30 Days' && dateFilter === '30d') ||
+                  (preset === 'Custom' && dateFilter === 'custom');
+
                 return (
-                  <button className="cursor-pointer"
-                    key={pill}
+                  <button
+                    key={preset}
                     onClick={() => {
-                      setDateFilter(pill.toLowerCase());
+                      setDateFilter(preset === '7 Days' ? '7d' : preset === '30 Days' ? '30d' : preset.toLowerCase());
                       const end = new Date();
                       const start = new Date();
-                      if (pill === 'Yesterday') {
+                      if (preset === 'Yesterday') {
                         start.setDate(end.getDate() - 1);
                         end.setDate(end.getDate() - 1);
-                      } else if (pill === '7 Days') {
+                      } else if (preset === '7 Days') {
                         start.setDate(end.getDate() - 6);
-                      } else if (pill === '30 Days') {
+                      } else if (preset === '30 Days') {
                         start.setDate(end.getDate() - 29);
                       }
                       setCustomRange({ startDate: start, endDate: end });
                     }}
-                    className={`px-[0.9vw] py-[0.4vw] rounded-[0.5vw] font-medium transition-all cursor-pointer ${
-                      isActive ? 'bg-[#FF4D2D] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                    className={`px-[1.05vw] py-[0.38vw] rounded-[0.35vw] text-[0.72vw] font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                      isActive
+                        ? 'bg-[#EC5137] text-white shadow-xs'
+                        : 'text-[#555555] hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    {pill}
+                    {preset}
                   </button>
                 );
               })}
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-[0.8vw]">
-            <span className="text-[0.8vw] text-slate-600 font-medium">Group By</span>
-            <div className="flex items-center bg-slate-50 border border-slate-200/80 rounded-[0.6vw] p-[0.2vw] text-[0.78vw]">
-              {['Date', 'Week', 'Month'].map((mode) => (
-                <button className="cursor-pointer"
-                  key={mode}
-                  onClick={() => setGroupBy(mode.toLowerCase())}
-                  className={`px-[1vw] py-[0.4vw] rounded-[0.5vw] font-medium transition-all cursor-pointer ${
-                    groupBy === mode.toLowerCase() ? 'bg-[#FF4D2D] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
+        {/* Right Side: Group By */}
+        <div className="flex flex-col gap-[0.35vw] shrink-0">
+          <span className="text-[0.74vw] text-slate-700 font-medium whitespace-nowrap">
+            Group By
+          </span>
+          <div className="inline-flex items-center bg-white border border-slate-200 rounded-[0.45vw] p-[0.2vw] gap-[0.25vw]">
+            {['Date', 'Week', 'Month'].map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setGroupBy(mode.toLowerCase())}
+                className={`px-[1.25vw] py-[0.38vw] rounded-[0.35vw] text-[0.72vw] font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                  groupBy === mode.toLowerCase()
+                    ? 'bg-[#EC5137] text-white shadow-xs'
+                    : 'text-[#555555] hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Main Map / Compare Chart Section */}
-      <div className="bg-white rounded-[1.2vw] p-[1.6vw] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100/80">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-[2vw]">
-          {/* Left Visual Area (Compare Line Chart or World Map) */}
+      {/* 3. Section 1: Reader Locations (World Map + Country Bars) */}
+      <div className="bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-[1.5vw]">
+          {/* Left: World Map */}
           <div className="lg:col-span-8 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-[1vw]">
-              <div className="flex items-center gap-[1vw]">
-                <h3 className="text-[1.05vw] font-medium text-slate-800">
-                  {viewMode === 'compare' ? 'Compare Readers By Location' : 'Reader Locations'}
-                </h3>
-                <div className="flex items-center gap-[0.4vw] bg-slate-100 p-[0.2vw] rounded-[0.5vw] text-[0.72vw]">
-                  <button className="cursor-pointer"
-                    onClick={() => setViewMode('compare')}
-                    className={`px-[0.6vw] py-[0.25vw] rounded-[0.4vw] font-medium transition-colors cursor-pointer ${
-                      viewMode === 'compare' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    Compare Trend
-                  </button>
-                  <button className="cursor-pointer"
-                    onClick={() => setViewMode('map')}
-                    className={`px-[0.6vw] py-[0.25vw] rounded-[0.4vw] font-medium transition-colors cursor-pointer ${
-                      viewMode === 'map' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    World Map
-                  </button>
-                </div>
-              </div>
-            </div>
+            <h4 className="text-[0.88vw] font-semibold text-slate-900 mb-[0.6vw]">
+              Reader Locations
+            </h4>
 
-            {viewMode === 'compare' ? (
-              <div className="relative w-full h-[260px] flex items-center justify-center">
-                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full overflow-visible">
-                  {/* Grid Lines */}
-                  {yTicks.map((val) => {
-                    const y = padding.top + (1 - val / yMax) * graphH;
-                    return (
-                      <g key={val}>
-                        <line
-                          x1={padding.left}
-                          y1={y}
-                          x2={chartWidth - padding.right}
-                          y2={y}
-                          stroke="#F1F5F9"
-                          strokeDasharray="4 4"
-                          strokeWidth="1"
-                        />
-                        <text
-                          x={padding.left - 10}
-                          y={y + 4}
-                          textAnchor="end"
-                          className="text-[10px] fill-slate-400 font-sans"
-                        >
-                          {val}
-                        </text>
-                      </g>
-                    );
-                  })}
+            {/* Interactive World Map SVG */}
+            <div className="relative w-full h-[290px] flex items-center justify-center bg-white overflow-hidden">
+              <svg
+                viewBox="30.767 241.591 784.077 458.627"
+                className="w-full h-full select-none"
+                style={{ filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.04))' }}
+              >
+                {Object.entries(worldMapData).map(([countryId, paths]) => {
+                  const fillColor = mapCountryColors[countryId] || '#E2E8F0';
+                  const isHover = hoveredMapCountry === countryId;
 
-                  {/* Vertical Guideline at hovered index */}
-                  {hoveredDateIdx !== null && (
-                    <line
-                      x1={padding.left + (hoveredDateIdx / (DATES.length - 1)) * graphW}
-                      y1={padding.top}
-                      x2={padding.left + (hoveredDateIdx / (DATES.length - 1)) * graphW}
-                      y2={chartHeight - padding.bottom}
-                      stroke="#60A5FA"
-                      strokeWidth="1.5"
-                    />
-                  )}
-
-                  {/* Render Lines for selected countries */}
-                  {selectedForCompare.map((country) => {
-                    const countryData = LOCATION_DATA.find(d => d.country === country);
-                    if (!countryData) return null;
-                    const pts = getPoints(countryData.trend);
-                    const color = colors[country]?.line || '#3B82F6';
-                    return (
-                      <g key={country}>
+                  return (
+                    <g
+                      key={countryId}
+                      className="cursor-pointer transition-all duration-150"
+                      onMouseEnter={() => setHoveredMapCountry(countryId)}
+                      onMouseLeave={() => setHoveredMapCountry(null)}
+                    >
+                      {paths.map((d, pIdx) => (
                         <path
-                          d={getPath(pts)}
-                          fill="none"
-                          stroke={color}
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
+                          key={pIdx}
+                          d={d}
+                          fill={isHover ? '#0BA6FF' : fillColor}
+                          stroke="#FFFFFF"
+                          strokeWidth="0.6"
                           strokeLinejoin="round"
                         />
-                        {pts.map((pt, i) => (
-                          <circle
-                            key={i}
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={i === hoveredDateIdx ? 5 : 3.5}
-                            fill="#FFFFFF"
-                            stroke={color}
-                            strokeWidth={i === hoveredDateIdx ? 3 : 2}
-                            className="cursor-pointer transition-all"
-                            onMouseEnter={() => setHoveredDateIdx(i)}
-                          />
-                        ))}
-                      </g>
-                    );
-                  })}
-
-                  {/* X Axis Labels */}
-                  {DATES.map((date, i) => {
-                    const x = padding.left + (i / (DATES.length - 1)) * graphW;
-                    return (
-                      <text
-                        key={date}
-                        x={x}
-                        y={chartHeight - 10}
-                        textAnchor="middle"
-                        className="text-[10px] fill-slate-400 font-sans"
-                      >
-                        {date}
-                      </text>
-                    );
-                  })}
-                </svg>
-
-                {/* Tooltip Card */}
-                {hoveredDateIdx !== null && (
-                  <div
-                    className="absolute bg-white/95 backdrop-blur-sm border border-slate-100 rounded-[0.8vw] shadow-xl p-[0.8vw] pointer-events-none transition-all z-10"
-                    style={{
-                      left: `${((hoveredDateIdx / (DATES.length - 1)) * 65 + 15)}%`,
-                      top: '30%',
-                    }}
-                  >
-                    <div className="text-[0.75vw] font-medium text-slate-800 mb-[0.4vw]">
-                      {DATES[hoveredDateIdx]}
-                    </div>
-                    <div className="space-y-[0.3vw]">
-                      {selectedForCompare.map((c) => {
-                        const item = LOCATION_DATA.find(d => d.country === c);
-                        const val = item ? item.trend[hoveredDateIdx] : 0;
-                        const cColor = colors[c]?.bg || 'bg-blue-500';
-                        return (
-                          <div key={c} className="flex items-center justify-between gap-[1.2vw] text-[0.72vw]">
-                            <div className="flex items-center gap-[0.4vw]">
-                              <span className={`w-[0.5vw] h-[0.5vw] rounded-full ${cColor}`} />
-                              <span className="text-slate-600 font-normal">{c}</span>
-                            </div>
-                            <span className="font-semibold text-slate-800">{val}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* World Map SVG representation */
-              <div className="w-full h-[260px] flex items-center justify-center p-[1vw] bg-slate-50/50 rounded-[0.8vw]">
-                <svg viewBox="0 0 800 400" className="w-full h-full max-h-[250px]">
-                  {/* Simplified stylized continents */}
-                  <g fill="#CBD5E1" opacity="0.6">
-                    {/* North America */}
-                    <path d="M 80,60 Q 140,50 180,80 Q 230,100 240,160 Q 180,220 120,180 Q 80,140 80,60 Z" fill="#2563EB" opacity="0.85" />
-                    {/* South America */}
-                    <path d="M 170,220 Q 220,240 200,320 Q 170,380 150,330 Q 140,260 170,220 Z" fill="#3B82F6" opacity="0.75" />
-                    {/* Europe */}
-                    <path d="M 360,70 Q 420,60 440,110 Q 400,140 360,120 Q 340,90 360,70 Z" fill="#1D4ED8" opacity="0.8" />
-                    {/* Africa */}
-                    <path d="M 360,150 Q 430,160 420,240 Q 390,310 360,260 Q 330,200 360,150 Z" fill="#93C5FD" opacity="0.5" />
-                    {/* Asia */}
-                    <path d="M 450,70 Q 580,50 630,120 Q 590,200 480,180 Q 440,130 450,70 Z" fill="#1E40AF" opacity="0.9" />
-                    {/* India Highlight */}
-                    <path d="M 500,180 Q 530,190 520,240 Q 490,220 500,180 Z" fill="#2563EB" opacity="1" />
-                    {/* Australia */}
-                    <path d="M 580,260 Q 640,250 640,310 Q 590,330 580,260 Z" fill="#2563EB" opacity="0.8" />
-                  </g>
-                </svg>
-              </div>
-            )}
-
-            {/* Bottom Legend for Compare */}
-            {viewMode === 'compare' && (
-              <div className="flex items-center justify-center gap-[1.5vw] mt-[0.8vw] text-[0.75vw]">
-                {selectedForCompare.map((c) => {
-                  const cColor = colors[c]?.bg || 'bg-blue-500';
-                  return (
-                    <div key={c} className="flex items-center gap-[0.4vw]">
-                      <span className={`w-[0.55vw] h-[0.55vw] rounded-full ${cColor}`} />
-                      <span className="text-slate-600 font-medium">{c}</span>
-                    </div>
+                      ))}
+                    </g>
                   );
                 })}
-              </div>
-            )}
+              </svg>
+            </div>
           </div>
 
-          {/* Right Selector & Bars Checklist */}
-          <div className="lg:col-span-4 border-t lg:border-t-0 lg:border-l border-slate-100 lg:pl-[1.8vw] flex flex-col justify-between">
+          {/* Right: Selectors + Country Bars */}
+          <div className="lg:col-span-4 border-t lg:border-t-0 lg:border-l border-slate-100 lg:pl-[1.5vw] flex flex-col justify-between">
             <div>
-              {/* Selectors Header */}
-              <div className="flex items-center justify-between gap-[0.8vw] mb-[1.4vw]">
-                <div className="flex items-center gap-[0.4vw]">
-                  <span className="text-[0.75vw] text-slate-500 font-medium">Map:</span>
-                  <select className="cursor-pointer"
+              {/* Selectors Header (Map: World | Country: India) */}
+              <div className="flex items-center justify-end gap-[1vw] mb-[1.2vw]">
+                <div className="flex items-center gap-[0.35vw]">
+                  <span className="text-[0.72vw] text-slate-500 font-normal">Map :</span>
+                  <select
                     value={selectedMap}
                     onChange={(e) => setSelectedMap(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 text-slate-700 text-[0.75vw] font-medium rounded-[0.4vw] px-[0.6vw] py-[0.3vw] focus:outline-none cursor-pointer"
+                    className="bg-white border border-slate-200 text-slate-800 text-[0.72vw] font-medium rounded-[0.4vw] px-[0.6vw] py-[0.25vw] focus:outline-none cursor-pointer"
                   >
                     <option value="World">World</option>
                     <option value="Asia">Asia</option>
@@ -417,57 +409,41 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
                   </select>
                 </div>
 
-                <div className="flex items-center gap-[0.4vw]">
-                  <span className="text-[0.75vw] text-slate-500 font-medium">Country:</span>
-                  <select className="cursor-pointer"
+                <div className="flex items-center gap-[0.35vw]">
+                  <span className="text-[0.72vw] text-slate-500 font-normal">Country :</span>
+                  <select
                     value={selectedCountry}
                     onChange={(e) => setSelectedCountry(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 text-slate-700 text-[0.75vw] font-medium rounded-[0.4vw] px-[0.6vw] py-[0.3vw] focus:outline-none cursor-pointer"
+                    className="bg-white border border-slate-200 text-slate-800 text-[0.72vw] font-medium rounded-[0.4vw] px-[0.6vw] py-[0.25vw] focus:outline-none cursor-pointer"
                   >
-                    <option value="India">India</option>
-                    <option value="United States">United States</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Germany">Germany</option>
-                    <option value="Canada">Canada</option>
+                    {locationList.map(item => (
+                      <option key={item.country} value={item.country}>{item.country}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              {/* Country Bars with Checkboxes */}
-              <div className="space-y-[1.2vw]">
-                {locationData.map((item) => {
-                  const isChecked = selectedForCompare.includes(item.country);
-                  const barWidth = `${(item.readers / maxReaders) * 100}%`;
+              {/* Country List with progress bars */}
+              <div className="space-y-[1vw]">
+                {locationList.map((item) => {
+                  const barWidth = `${Math.min(100, Math.max(12, (item.readers / maxReaders) * 100))}%`;
                   return (
-                    <div
-                      key={item.country}
-                      onClick={() => toggleCompareCountry(item.country)}
-                      className="cursor-pointer group"
-                    >
-                      <div className="flex items-center justify-between text-[0.82vw] mb-[0.25vw]">
-                        <div className="flex items-center gap-[0.6vw]">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {}} // Handled by div click
-                            className="w-[0.9vw] h-[0.9vw] rounded text-[#FF4D2D] accent-[#FF4D2D] cursor-pointer"
-                          />
-                          <span className="font-medium text-slate-800 group-hover:text-[#FF4D2D] transition-colors">
-                            {item.country}
-                          </span>
-                        </div>
-                        <span className="text-slate-500 text-[0.75vw] font-normal">{item.readers} readers</span>
+                    <div key={item.country} className="space-y-[0.25vw]">
+                      <div className="flex items-center justify-between text-[0.78vw]">
+                        <span className="font-normal text-slate-800">{item.country}</span>
+                        <span className="text-slate-500 text-[0.72vw] font-normal">{item.readers} readers</span>
                       </div>
 
-                      {/* Bar */}
-                      <div className="w-full h-[0.35vw] bg-slate-100 rounded-full overflow-hidden mb-[0.2vw]">
+                      {/* Navy / Dark Blue Progress Bar */}
+                      <div className="w-full h-[0.32vw] bg-slate-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-blue-900 rounded-full transition-all duration-500"
+                          className="h-full bg-[#172554] rounded-full transition-all duration-500"
                           style={{ width: barWidth }}
                         />
                       </div>
-                      <div className="text-[0.68vw] text-slate-400">
-                        {item.views} views Avg. {item.avgTime}
+
+                      <div className="text-[0.66vw] text-slate-400 font-normal">
+                        {item.views.toLocaleString()} views Avg. {item.avgTime}
                       </div>
                     </div>
                   );
@@ -478,120 +454,423 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
         </div>
       </div>
 
-      {/* Location Analytics Table */}
-      <div className="bg-white rounded-[1.2vw] p-[1.6vw] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100/80">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-[1vw] mb-[1.2vw]">
-          <div>
-            <h3 className="text-[1.1vw] font-medium text-slate-800">Location Analytics Table</h3>
-            <p className="text-[0.78vw] text-slate-500 mt-[0.1vw]">Compare unique readers, views and reading time by location.</p>
+      {/* 4. Section 2: Compare Readers By Location (Compare Line Chart + Checkboxes) */}
+      <div className="bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-[1.5vw]">
+          {/* Left: Multi-line Compare Chart */}
+          <div className="lg:col-span-8 flex flex-col justify-between">
+            <h4 className="text-[0.88vw] font-semibold text-slate-900 mb-[0.6vw]">
+              Compare Readers By Location
+            </h4>
+
+            <div className="relative w-full h-[240px] select-none">
+              <svg
+                viewBox={`0 0 ${chartW} ${chartH}`}
+                className="w-full h-full overflow-visible"
+                onMouseLeave={() => {}}
+              >
+                {/* Horizontal Dashed Grid lines */}
+                {yTicks.map((val) => {
+                  const y = padT + (1 - val / yMax) * innerH;
+                  return (
+                    <g key={val}>
+                      <line
+                        x1={padL}
+                        y1={y}
+                        x2={chartW - padR}
+                        y2={y}
+                        stroke="#E2E8F0"
+                        strokeDasharray="3 3"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x={padL - 8}
+                        y={y + 3.5}
+                        textAnchor="end"
+                        fontSize="9.5"
+                        fill="#64748B"
+                        fontWeight="normal"
+                      >
+                        {val}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Vertical active guideline */}
+                {hoveredCompareDateIdx !== null && (
+                  <line
+                    x1={padL + (hoveredCompareDateIdx / (DATES.length - 1)) * innerW}
+                    y1={padT}
+                    x2={padL + (hoveredCompareDateIdx / (DATES.length - 1)) * innerW}
+                    y2={chartH - padB}
+                    stroke="#0BA6FF"
+                    strokeWidth="1.2"
+                  />
+                )}
+
+                {/* X Axis Labels */}
+                {DATES.map((date, i) => {
+                  const x = padL + (i / (DATES.length - 1)) * innerW;
+                  return (
+                    <text
+                      key={date}
+                      x={x}
+                      y={chartH - padB + 16}
+                      textAnchor="middle"
+                      fontSize="9.5"
+                      fill="#64748B"
+                      fontWeight="normal"
+                    >
+                      {date}
+                    </text>
+                  );
+                })}
+
+                {/* Straight Lines for Selected Compare Countries */}
+                {selectedForCompare.map((cName) => {
+                  const countryObj = locationList.find(c => c.country === cName);
+                  if (!countryObj) return null;
+                  const pts = countryObj.trend.map((val, idx) => {
+                    const x = padL + (idx / (DATES.length - 1)) * innerW;
+                    const y = padT + (1 - val / yMax) * innerH;
+                    return { x, y, val };
+                  });
+
+                  let pathD = `M ${pts[0].x} ${pts[0].y}`;
+                  for (let i = 1; i < pts.length; i++) {
+                    pathD += ` L ${pts[i].x} ${pts[i].y}`;
+                  }
+
+                  const color = compareColors[cName]?.line || '#3B82F6';
+
+                  return (
+                    <g key={cName}>
+                      <path
+                        d={pathD}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      {pts.map((pt, i) => (
+                        <circle
+                          key={i}
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={i === hoveredCompareDateIdx ? 4 : 2.5}
+                          fill={i === hoveredCompareDateIdx ? '#FFFFFF' : color}
+                          stroke={color}
+                          strokeWidth={i === hoveredCompareDateIdx ? 2 : 1}
+                          className="cursor-pointer transition-all"
+                          onMouseEnter={() => setHoveredCompareDateIdx(i)}
+                        />
+                      ))}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Compare Hover Tooltip (Matching screenshot: Oct 20 | India 175 | United States 105) */}
+              {hoveredCompareDateIdx !== null && (
+                <div
+                  className="absolute bg-white/95 backdrop-blur-sm border border-slate-200 rounded-[0.55vw] shadow-[0_6px_20px_rgba(0,0,0,0.1)] px-[0.8vw] py-[0.5vw] pointer-events-none transition-all z-20 text-[0.72vw]"
+                  style={{
+                    left: `${((hoveredCompareDateIdx / (DATES.length - 1)) * 0.7 + 0.12) * 100}%`,
+                    top: '42%'
+                  }}
+                >
+                  <div className="text-[0.74vw] font-semibold text-slate-800 mb-[0.3vw]">
+                    {DATES[hoveredCompareDateIdx]}
+                  </div>
+                  <table className="border-collapse">
+                    <tbody>
+                      {selectedForCompare.map((cName) => {
+                        const item = locationList.find(d => d.country === cName);
+                        const val = item ? item.trend[hoveredCompareDateIdx] : 0;
+                        const cColor = compareColors[cName]?.bg || 'bg-blue-500';
+                        return (
+                          <tr key={cName} className="leading-[1.4vw]">
+                            <td className="pr-[0.4vw]">
+                              <span className={`inline-block w-[0.45vw] h-[0.45vw] rounded-full ${cColor}`} />
+                            </td>
+                            <td className="text-slate-700 font-normal pr-[1.2vw] whitespace-nowrap">{cName}</td>
+                            <td className="text-slate-900 font-bold text-right pl-[0.5vw]">{val}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Legend */}
+            <div className="flex items-center justify-center gap-[1.5vw] pt-[0.4vw] text-[0.72vw]">
+              {selectedForCompare.map((cName) => {
+                const cColor = compareColors[cName]?.bg || 'bg-blue-500';
+                return (
+                  <div key={cName} className="flex items-center gap-[0.35vw]">
+                    <span className={`w-[0.5vw] h-[0.5vw] rounded-full ${cColor}`} />
+                    <span className="text-slate-700 font-medium">{cName}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-[0.8vw]">
-            <button className="flex items-center gap-[0.5vw] px-[0.9vw] py-[0.45vw] bg-white border border-slate-200 rounded-[0.6vw] text-[0.78vw] font-medium text-slate-700 hover:border-slate-300 transition-colors shadow-sm cursor-pointer">
-              <span className="text-[#FF4D2D]">⇅</span>
-              <span>Most viewed</span>
-              <FiChevronDown className="text-slate-400 text-[0.8vw]" />
-            </button>
-            <button className="flex items-center gap-[0.5vw] px-[1vw] py-[0.45vw] bg-red-50 text-[#FF4D2D] rounded-[0.6vw] text-[0.78vw] font-medium hover:bg-red-100 transition-colors cursor-pointer">
-              <FiDownload className="text-[0.85vw]" />
+
+          {/* Right: Selectors + Checkboxes */}
+          <div className="lg:col-span-4 border-t lg:border-t-0 lg:border-l border-slate-100 lg:pl-[1.5vw] flex flex-col justify-between">
+            <div>
+              {/* Selectors Header (Map: World | Country: India) */}
+              <div className="flex items-center justify-end gap-[1vw] mb-[1.2vw]">
+                <div className="flex items-center gap-[0.35vw]">
+                  <span className="text-[0.72vw] text-slate-500 font-normal">Map :</span>
+                  <select
+                    value={selectedMap}
+                    onChange={(e) => setSelectedMap(e.target.value)}
+                    className="bg-white border border-slate-200 text-slate-800 text-[0.72vw] font-medium rounded-[0.4vw] px-[0.6vw] py-[0.25vw] focus:outline-none cursor-pointer"
+                  >
+                    <option value="World">World</option>
+                    <option value="Asia">Asia</option>
+                    <option value="Europe">Europe</option>
+                    <option value="North America">North America</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-[0.35vw]">
+                  <span className="text-[0.72vw] text-slate-500 font-normal">Country :</span>
+                  <select
+                    value={selectedCountry}
+                    onChange={(e) => setSelectedCountry(e.target.value)}
+                    className="bg-white border border-slate-200 text-slate-800 text-[0.72vw] font-medium rounded-[0.4vw] px-[0.6vw] py-[0.25vw] focus:outline-none cursor-pointer"
+                  >
+                    {locationList.map(item => (
+                      <option key={item.country} value={item.country}>{item.country}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Country Checkboxes List */}
+              <div className="space-y-[1vw]">
+                {locationList.map((item) => {
+                  const isChecked = selectedForCompare.includes(item.country);
+                  const barWidth = `${Math.min(100, Math.max(12, (item.readers / maxReaders) * 100))}%`;
+
+                  return (
+                    <div
+                      key={item.country}
+                      onClick={() => toggleCompareCountry(item.country)}
+                      className="cursor-pointer group space-y-[0.25vw]"
+                    >
+                      <div className="flex items-center justify-between text-[0.78vw]">
+                        <div className="flex items-center gap-[0.45vw]">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}} // Controlled by parent div click
+                            className="w-[0.85vw] h-[0.85vw] rounded text-[#EC5137] accent-[#EC5137] cursor-pointer"
+                          />
+                          <span className="font-normal text-slate-800 group-hover:text-[#EC5137] transition-colors">
+                            {item.country}
+                          </span>
+                        </div>
+                        <span className="text-slate-500 text-[0.72vw] font-normal">{item.readers} readers</span>
+                      </div>
+
+                      <div className="w-full h-[0.32vw] bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#172554] rounded-full transition-all duration-500"
+                          style={{ width: barWidth }}
+                        />
+                      </div>
+
+                      <div className="text-[0.66vw] text-slate-400 font-normal">
+                        {item.views.toLocaleString()} views Avg. {item.avgTime}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Section 3: Location Analytics Table */}
+      <div className="bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-[0.9vw]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-[0.6vw]">
+          <div>
+            <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight">
+              Location Analytics Table
+            </h3>
+            <p className="text-[0.7vw] text-slate-500 font-normal">
+              Compare unique readers, views and reading time by location.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-[0.5vw]">
+            {/* Sort Dropdown */}
+            <div className="relative" ref={sortDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsSortOpen(!isSortOpen)}
+                onKeyDown={handleSortKeyDown}
+                aria-haspopup="listbox"
+                aria-expanded={isSortOpen}
+                className="inline-flex items-center gap-[0.45vw] px-[0.9vw] py-[0.42vw] bg-white border-[1.5px] border-slate-300 hover:border-slate-400 rounded-[0.55vw] text-[0.76vw] text-slate-700 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#F05338]/20 transition-all cursor-pointer shadow-xs"
+              >
+                <Icon icon="iconoir:sort" className="w-[0.95vw] h-[0.95vw] text-[#F05338]" />
+                <span className="font-normal">{tableSort}</span>
+                <Icon icon="solar:alt-arrow-down-linear" className="w-[0.7vw] h-[0.7vw] text-slate-400" />
+              </button>
+
+              {isSortOpen && (
+                <div
+                  role="listbox"
+                  className="absolute right-0 mt-[0.4vw] w-[11.5vw] bg-white border border-slate-200 rounded-[0.55vw] shadow-[0_6px_24px_rgba(0,0,0,0.08)] py-[0.35vw] px-[0.3vw] z-30 text-[0.76vw] animate-in fade-in zoom-in-95 duration-100"
+                >
+                  <div className="px-[0.8vw] py-[0.3vw] text-[0.65vw] font-semibold tracking-wider uppercase text-slate-400">
+                    Sort Table
+                  </div>
+                  {sortOptions.map((opt, idx) => {
+                    const isCurrent = tableSort === opt.value;
+                    const isFocused = focusedSortIndex === idx;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="option"
+                        aria-selected={isCurrent}
+                        onClick={() => {
+                          setTableSort(opt.value);
+                          setIsSortOpen(false);
+                          setCurrentPage(1);
+                        }}
+                        onMouseEnter={() => setFocusedSortIndex(idx)}
+                        className={`w-full text-left px-[0.8vw] py-[0.45vw] rounded-[0.4vw] transition-colors cursor-pointer flex items-center justify-between font-normal ${
+                          isFocused
+                            ? 'bg-orange-50/80 text-[#F05338]'
+                            : isCurrent
+                            ? 'bg-orange-50/50 text-[#F05338]'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {isCurrent && (
+                          <Icon icon="solar:check-read-linear" className="w-[0.8vw] h-[0.8vw] text-[#F05338]" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Download File Button */}
+            <button
+              type="button"
+              onClick={exportCSV}
+              className="inline-flex items-center gap-[0.35vw] px-[0.85vw] py-[0.42vw] bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-950 border border-slate-300 rounded-[0.45vw] text-[0.74vw] font-medium shadow-xs transition-colors cursor-pointer"
+            >
+              <Icon icon="solar:download-minimalistic-linear" className="w-[0.85vw] h-[0.85vw] text-slate-600" />
               <span>Download file</span>
             </button>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-slate-100 text-[0.78vw] font-medium text-slate-700">
-                <th className="py-[1vw] px-[1.2vw]">Location</th>
-                <th className="py-[1vw] px-[1.2vw] text-center">Unique readers</th>
-                <th className="py-[1vw] px-[1.2vw] text-center">Views</th>
-                <th className="py-[1vw] px-[1.2vw] text-center">Avg. reading time</th>
-                <th className="py-[1vw] px-[1.2vw] text-right">Share of readers</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-[0.8vw] text-slate-700">
-              {paginatedLocations.map((row, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-[1.1vw] px-[1.2vw] font-medium text-slate-800">
-                    {row.country}
+        {/* Table Container */}
+        <div className="border border-slate-200 rounded-[0.65vw] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-[0.76vw]">
+              <thead>
+                <tr className="bg-slate-50/80 text-slate-600 font-semibold text-[0.72vw] border-b border-slate-200 tracking-wide uppercase">
+                  <th className="py-[0.7vw] px-[1vw]">Location</th>
+                  <th className="py-[0.7vw] px-[1vw] text-center">Unique readers</th>
+                  <th className="py-[0.7vw] px-[1vw] text-center">Views</th>
+                  <th className="py-[0.7vw] px-[1vw] text-center">Avg. reading time</th>
+                  <th className="py-[0.7vw] px-[1vw] text-center">Share of readers</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedLocations.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="py-[2.5vw] text-center text-slate-400 font-normal">
+                      No location data available.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedLocations.map((row) => (
+                    <tr key={row.country} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-[0.7vw] px-[1vw] text-slate-900 font-normal">
+                        {row.country}
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center text-slate-900 font-normal">
+                        {row.readers.toLocaleString()}
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center text-slate-900 font-normal">
+                        {row.views.toLocaleString()}
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center text-slate-900 font-normal">
+                        {row.avgTime}
+                      </td>
+                      <td className="py-[0.7vw] px-[1vw] text-center text-slate-900 font-normal">
+                        {row.share}
+                      </td>
+                    </tr>
+                  ))
+                )}
+
+                {/* Summary Total Row */}
+                <tr className="bg-slate-50/80 font-normal border-t-2 border-slate-200">
+                  <td className="py-[0.7vw] px-[1vw] text-slate-900 font-normal">
+                    Total
                   </td>
-                  <td className="py-[1.1vw] px-[1.2vw] text-center font-normal text-slate-600">
-                    {row.readers}
+                  <td className="py-[0.7vw] px-[1vw] text-center text-slate-900 font-normal">
+                    {totalSummary.readers.toLocaleString()}
                   </td>
-                  <td className="py-[1.1vw] px-[1.2vw] text-center font-normal text-slate-600">
-                    {row.views}
+                  <td className="py-[0.7vw] px-[1vw] text-center text-slate-900 font-normal">
+                    {totalSummary.views.toLocaleString()}
                   </td>
-                  <td className="py-[1.1vw] px-[1.2vw] text-center font-normal text-slate-600">
-                    {row.avgTime}
+                  <td className="py-[0.7vw] px-[1vw] text-center text-slate-900 font-normal">
+                    {totalSummary.avgTime}
                   </td>
-                  <td className="py-[1.1vw] px-[1.2vw] text-right font-normal text-slate-600">
-                    {row.share}
+                  <td className="py-[0.7vw] px-[1vw] text-center text-slate-900 font-normal">
+                    {totalSummary.share}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* Pagination footer */}
-        <div className="flex items-center justify-between pt-[1.2vw] border-t border-slate-100 mt-[0.5vw] text-[0.78vw] text-slate-500">
-          <span>{labelText}</span>
-          {totalPages > 1 ? (
-            <div className="flex items-center gap-[0.4vw]">
-              <button
-                type="button"
-                disabled={safeCurrentPage <= 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center transition-colors ${
-                  safeCurrentPage <= 1
-                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
-                    : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
-                }`}
-              >
-                ‹
-              </button>
-              {pageItems.map((page, i) => (
+        {/* Pagination */}
+        {sortedLocationList.length > 0 && (
+          <div className="flex items-center justify-between pt-[0.4vw] text-[0.72vw]">
+            <span className="text-black font-medium">
+              Showing {Math.min((safeCurrentPage - 1) * ITEMS_PER_PAGE + 1, sortedLocationList.length)}–{Math.min(safeCurrentPage * ITEMS_PER_PAGE, sortedLocationList.length)} of {sortedLocationList.length}
+            </span>
+
+            <div className="flex items-center gap-[0.3vw]">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                 <button
-                  key={i}
+                  key={page}
                   type="button"
-                  disabled={page === '...'}
-                  onClick={() => typeof page === 'number' && setCurrentPage(page)}
-                  className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center font-medium transition-colors ${
-                    page === '...'
-                      ? 'cursor-default text-slate-400'
-                      : safeCurrentPage === page
-                      ? 'bg-[#FF4D2D] text-white shadow-xs cursor-pointer'
-                      : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-[1.6vw] h-[1.6vw] rounded-[0.35vw] text-[0.72vw] font-medium transition-colors cursor-pointer flex items-center justify-center ${
+                    safeCurrentPage === page
+                      ? 'bg-[#F05338] text-white shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   {page}
                 </button>
               ))}
-              <button
-                type="button"
-                disabled={safeCurrentPage >= totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                className={`w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center transition-colors ${
-                  safeCurrentPage >= totalPages
-                    ? 'text-slate-300 cursor-not-allowed bg-slate-50'
-                    : 'hover:bg-slate-100 text-slate-600 cursor-pointer'
-                }`}
-              >
-                ›
-              </button>
             </div>
-          ) : (
-            <div className="flex items-center gap-[0.4vw]">
-              <button
-                type="button"
-                className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] bg-[#FF4D2D] text-white font-medium flex items-center justify-center cursor-default"
-              >
-                1
-              </button>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

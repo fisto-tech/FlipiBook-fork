@@ -8,6 +8,7 @@ import customizedEditorApi from '../api/customizedEditorApi';
 import LazyPreview from '../components/MyFlipbooks/LazyPreview';
 import AnalyticsDatePicker from '../components/Analytics/AnalyticsDatePicker';
 import { getPaginationPages, formatFullDate, formatShortDate } from '../components/Analytics/analyticsUtils';
+import { useToast } from '../components/CustomToast';
 
 const STATUS_OPTIONS = ['All Status', 'New', 'Contacted', 'Qualified', 'Converted', 'Lost'];
 const STATUS_MENU_OPTIONS = [
@@ -28,7 +29,7 @@ const DATE_RANGE_OPTIONS = [
 
 // Helper to robustly extract lead fields regardless of label casing or structure
 export const extractLeadDetails = (lead) => {
-  if (!lead) return { name: 'Anonymous', email: '-', phone: '-', message: '-', category: 'General', product: '-' };
+  if (!lead) return { name: '-', email: '-', phone: '-', message: '-', category: '-', product: '-' };
 
   const data = lead.leadData || {};
   const raw = lead.rawLeadData || {};
@@ -54,7 +55,7 @@ export const extractLeadDetails = (lead) => {
   const name =
     findVal(['fullname', 'yourname', 'firstname', 'clientname', 'customername', 'name', 'user']) ||
     lead.name ||
-    'Anonymous';
+    '-';
 
   const email =
     findVal(['emailaddress', 'emailid', 'mailid', 'email', 'mail']) ||
@@ -73,11 +74,11 @@ export const extractLeadDetails = (lead) => {
 
   const category =
     findVal(['category', 'sector', 'department', 'type', 'industry']) ||
-    'Electronic';
+    '-';
 
   const product =
     findVal(['productname', 'product', 'item', 'model', 'equipment']) ||
-    'Speaker v55.76.23';
+    '-';
 
   return { name, email, phone, message, category, product };
 };
@@ -86,6 +87,7 @@ export default function LeadFormAnalytics() {
   const navigate = useNavigate();
   const { bookId: routeBookId } = useParams();
   const { user } = useAuth();
+  const toast = useToast();
 
   const userEmail = useMemo(() => {
     return (user?.emailId || user?.email || '').toLowerCase();
@@ -112,15 +114,23 @@ export default function LeadFormAnalytics() {
 
   // Selected lead for right-hand drawer
   const [selectedLead, setSelectedLead] = useState(null);
+  const [highlightedLeadId, setHighlightedLeadId] = useState(null);
 
-  // Drawer status dropdown & note input states
+  // Drawer status dropdown, activity popup & note input states
   const [drawerStatusOpen, setDrawerStatusOpen] = useState(false);
+  const [statusChangeConfirm, setStatusChangeConfirm] = useState(null); // { leadId, newStatus, currentStatus }
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [activityType, setActivityType] = useState('Note');
+  const [activityDetails, setActivityDetails] = useState('');
+  const [isActivityTypeDropdownOpen, setIsActivityTypeDropdownOpen] = useState(false);
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
 
   // Dropdown menus state
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [statusFocusedIndex, setStatusFocusedIndex] = useState(-1);
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
+  const [dateFocusedIndex, setDateFocusedIndex] = useState(-1);
   const [activeActionMenuId, setActiveActionMenuId] = useState(null);
 
   // Sync route param with selectedBookId
@@ -149,95 +159,23 @@ export default function LeadFormAnalytics() {
     fetchBooks();
   }, [userEmail]);
 
-  // Fetch leads from backend
+  // Fetch leads from backend (fetches all creator leads so sidebar badges always reflect accurate totals)
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
       const res = await customizedEditorApi.getLeads({
-        v_id: selectedBookId || undefined,
-        limit: 500
+        limit: 1000
       });
       const fetched = res.data?.leads || [];
-      if (fetched.length > 0) {
-        setLeads(fetched);
-      } else {
-        // Generate realistic initial leads aligned with actual user flipbooks
-        const generated = [];
-        const booksPool = flipbooks.length > 0 ? flipbooks : [
-          { v_id: 'book-1', title: 'Industrial Pumps Catalogue' }
-        ];
-
-        const sampleNames = [
-          { name: 'Naveen', email: 'Naveen@gmail.com', phone: '1234567890', cat: 'Industrial', prod: 'Pump v12.4', msg: 'Hi, I am interested in your industrial products, Please share the pricing detail..', status: 'New', time: '10:45 AM' },
-          { name: 'Praveen', email: 'Praveen@gmail.com', phone: '1234567890', cat: 'Machinery', prod: 'Turbine M200', msg: 'I would like to know more about your services and business solutions.', status: 'Contacted', time: '11:20 AM' },
-          { name: 'Murugan S', email: 'murugan@gmail.com', phone: '1234567890', cat: 'Electronic', prod: 'Speaker v55.76.23', msg: 'Please share the product specifications and available models.', status: 'Qualified', time: '12:56 PM' },
-          { name: 'Sham', email: 'Sham@gmail.com', phone: '1234567890', cat: 'Enterprise', prod: 'Commercial Kit B', msg: 'Can you provide a quotation for bulk orders?', status: 'Converted', time: '01:10 PM' },
-          { name: 'Jana', email: 'Jana@gmail.com', phone: '1234567890', cat: 'Wholesale', prod: 'Standard Line', msg: 'I am interested in collaborating with your company. Please contact me.', status: 'Qualified', time: '02:15 PM' },
-          { name: 'Pradeepa', email: 'Pradeepa@gmail.com', phone: '1234567890', cat: 'Parts', prod: 'Spare Valve 14', msg: 'Kindly share the product catalogue and delivery details.', status: 'New', time: '03:40 PM' },
-          { name: 'Dheiva Dharshini', email: 'Dharshini@gmail.com', phone: '1234567890', cat: 'Industrial', prod: 'Model A-99', msg: 'I would like to know more about the product features and pricing.', status: 'Converted', time: '04:05 PM' }
-        ];
-
-        booksPool.forEach((book, bIdx) => {
-          const bId = book.v_id || book._id;
-          const bTitle = book.title || book.bookName || 'Flipbook';
-          // Assign 2 to 3 sample leads per book
-          const count = 2 + (bIdx % 2);
-          for (let i = 0; i < count; i++) {
-            const sample = sampleNames[(bIdx * 2 + i) % sampleNames.length];
-            const leadDate = new Date(Date.now() - (i * 3 + bIdx) * 3600 * 1000 * 8);
-            generated.push({
-              leadId: `lead-${bId}-${i + 1}`,
-              v_id: bId,
-              flipbookName: bTitle,
-              formName: 'Product Enquiry Form',
-              status: sample.status,
-              createdAt: leadDate.toISOString(),
-              submittedAt: leadDate.toISOString(),
-              leadData: {
-                name: sample.name,
-                email: sample.email,
-                phoneNumber: sample.phone,
-                category: sample.cat,
-                product: sample.prod,
-                message: sample.msg
-              },
-              internalNotes: [
-                {
-                  noteId: `n-${bId}-${i}`,
-                  text: 'Client requested complete price sheet and delivery timetable.',
-                  createdAt: leadDate.toISOString()
-                }
-              ],
-              timeline: [
-                {
-                  title: 'Form Submitted',
-                  subtitle: `${formatShortDate(leadDate)} • ${sample.time}`,
-                  timestamp: leadDate.toISOString()
-                },
-                {
-                  title: 'Lead Created',
-                  subtitle: `${formatShortDate(leadDate)} • ${sample.time}`,
-                  timestamp: leadDate.toISOString()
-                },
-                {
-                  title: 'Status Updated',
-                  subtitle: `${sample.status} • ${sample.time}`,
-                  timestamp: leadDate.toISOString()
-                }
-              ]
-            });
-          }
-        });
-
-        setLeads(generated);
-      }
+      setLeads(fetched);
     } catch (err) {
       console.warn('Backend leads API unavailable:', err);
+      setLeads([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedBookId, flipbooks]);
+  }, []);
 
   useEffect(() => {
     fetchLeads();
@@ -259,16 +197,41 @@ export default function LeadFormAnalytics() {
     fetchLeads();
   };
 
-  // Status update
-  const handleUpdateStatus = async (leadId, newStatus) => {
+  // Trigger status update confirmation
+  const requestStatusUpdate = (leadId, newStatus) => {
     setActiveActionMenuId(null);
     setDrawerStatusOpen(false);
 
+    const lead = leads.find(l => (l.leadId || l._id) === leadId) || selectedLead;
+    const currentStatus = lead?.status || 'New';
+
+    if (currentStatus.toLowerCase() === newStatus.toLowerCase()) return;
+
+    setStatusChangeConfirm({
+      leadId,
+      newStatus,
+      currentStatus
+    });
+  };
+
+  // Perform confirmed status update
+  const confirmStatusUpdate = async () => {
+    if (!statusChangeConfirm) return;
+    const { leadId, newStatus } = statusChangeConfirm;
+    setStatusChangeConfirm(null);
+
+    // Briefly highlight the updated row for 3 seconds
+    setHighlightedLeadId(leadId);
+    setTimeout(() => {
+      setHighlightedLeadId((prev) => (prev === leadId ? null : prev));
+    }, 3000);
+
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = formatShortDate(now);
     const newTimelineItem = {
       title: 'Status Updated',
-      subtitle: `${newStatus} • ${timeStr}`,
+      subtitle: `${newStatus} • ${dateFormatted}, ${timeStr}`,
       timestamp: now.toISOString()
     };
 
@@ -296,8 +259,79 @@ export default function LeadFormAnalytics() {
 
     try {
       await customizedEditorApi.updateLeadStatus(leadId, newStatus);
+      if (toast?.success) {
+        toast.success(`Status updated to ${newStatus} successfully!`);
+      }
     } catch (err) {
       console.warn('Could not persist status to backend:', err);
+      if (toast?.error) {
+        toast.error('Failed to update lead status');
+      }
+    }
+  };
+
+  // Save Activity Handler (records to activity & timeline, plus internal notes if note)
+  const handleSaveActivity = async () => {
+    if (!selectedLead) return;
+    const resolvedType = activityType.trim() || 'Activity';
+    const targetLeadId = selectedLead.leadId || selectedLead._id;
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = formatShortDate(now);
+
+    const desc = activityDetails.trim() || `${resolvedType} recorded`;
+    const newTimelineItem = {
+      title: resolvedType,
+      subtitle: `${desc} • ${dateFormatted}, ${timeFormatted}`,
+      timestamp: now.toISOString()
+    };
+
+    const newNoteObj = activityDetails.trim()
+      ? {
+          noteId: 'n-' + Date.now(),
+          text: `[${resolvedType}] ${activityDetails.trim()}`,
+          createdAt: now.toISOString()
+        }
+      : null;
+
+    setLeads(prev =>
+      prev.map(l => {
+        if (l.leadId === targetLeadId || l._id === targetLeadId) {
+          const currentTimeline = Array.isArray(l.timeline) ? l.timeline : [];
+          const currentNotes = Array.isArray(l.internalNotes) ? l.internalNotes : [];
+          return {
+            ...l,
+            timeline: [...currentTimeline, newTimelineItem],
+            internalNotes: newNoteObj ? [...currentNotes, newNoteObj] : currentNotes
+          };
+        }
+        return l;
+      })
+    );
+
+    setSelectedLead(prev => {
+      const currentTimeline = Array.isArray(prev.timeline) ? prev.timeline : [];
+      const currentNotes = Array.isArray(prev.internalNotes) ? prev.internalNotes : [];
+      return {
+        ...prev,
+        timeline: [...currentTimeline, newTimelineItem],
+        internalNotes: newNoteObj ? [...currentNotes, newNoteObj] : currentNotes
+      };
+    });
+
+    setIsActivityModalOpen(false);
+    setActivityDetails('');
+    setActivityType('Note');
+    if (toast?.success) {
+      toast.success('Activity saved successfully!');
+    }
+
+    if (newNoteObj) {
+      try {
+        await customizedEditorApi.addLeadNote(targetLeadId, newNoteObj.text);
+      } catch (err) {
+        console.warn('Could not persist activity note to backend:', err);
+      }
     }
   };
 
@@ -329,6 +363,9 @@ export default function LeadFormAnalytics() {
 
     setNewNoteText('');
     setIsAddingNote(false);
+    if (toast?.success) {
+      toast.success('Note saved successfully!');
+    }
 
     try {
       await customizedEditorApi.addLeadNote(targetLeadId, text);
@@ -370,7 +407,8 @@ export default function LeadFormAnalytics() {
       if (
         !e.target.closest('.lead-detail-drawer') &&
         !e.target.closest('.lead-row-clickable') &&
-        !e.target.closest('.action-menu-container')
+        !e.target.closest('.action-menu-container') &&
+        !e.target.closest('.modal-container')
       ) {
         setSelectedLead(null);
       }
@@ -417,7 +455,7 @@ export default function LeadFormAnalytics() {
       });
     } else if (dateRange !== 'all') {
       const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - Number(dateRange));
+      cutoff.setDate(cutoff.getDate() - (Number(dateRange) - 1));
       cutoff.setHours(0, 0, 0, 0);
       result = result.filter(l => {
         const d = new Date(l.submittedAt || l.createdAt || Date.now());
@@ -566,7 +604,7 @@ export default function LeadFormAnalytics() {
     return {
       total,
       newCount,
-      avgContactTime: '20 min',
+      avgContactTime: contactedCount > 0 ? '20 min' : '-',
       qualifiedCount,
       convertedCount,
       periodLabel: `vs previous ${days} days`,
@@ -595,13 +633,12 @@ export default function LeadFormAnalytics() {
     const end = new Date();
     const start = new Date();
     if (typeof dateRange === 'number') {
-      start.setDate(end.getDate() - dateRange);
+      // For N days inclusive of today, subtract (N - 1) days
+      start.setDate(end.getDate() - (dateRange - 1));
     } else {
-      start.setDate(end.getDate() - 30);
+      start.setDate(end.getDate() - 29);
     }
-    const fmt = (d) =>
-      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `${fmt(start)} - ${fmt(end)}`;
+    return `${formatShortDate(start)}, ${start.getFullYear()} - ${formatShortDate(end)}, ${end.getFullYear()}`;
   }, [dateRange, customRange]);
 
   // Export CSV
@@ -638,7 +675,8 @@ export default function LeadFormAnalytics() {
   const paginatedLeads = filteredLeads.slice(startIndex, startIndex + pageSize);
   const pageItems = getPaginationPages(safeCurrentPage, totalPages);
 
-  // Helper to ensure 'Form Submitted' and 'Lead Created' always lead the timeline
+  // Helper for timeline - For a newly submitted form, only 'Form Submitted' & 'Lead Created' exist.
+  // 'Status Updated' only appears after an actual status update occurred and recorded in lead.timeline.
   const getFullTimeline = (lead) => {
     if (!lead) return [];
     const submittedDate = new Date(lead.submittedAt || lead.createdAt || Date.now());
@@ -659,19 +697,12 @@ export default function LeadFormAnalytics() {
     ];
 
     const rawTimeline = Array.isArray(lead.timeline) ? lead.timeline : [];
-    const statusEvents = rawTimeline.filter(
+    // Only pick real updates beyond the initial creation
+    const activityEvents = rawTimeline.filter(
       ev => ev.title !== 'Form Submitted' && ev.title !== 'Lead Created'
     );
 
-    if (statusEvents.length === 0 && lead.status) {
-      statusEvents.push({
-        title: 'Status Updated',
-        subtitle: `${lead.status} • ${timeFormatted}`,
-        timestamp: submittedDate.toISOString()
-      });
-    }
-
-    return [...baseEvents, ...statusEvents];
+    return [...baseEvents, ...activityEvents];
   };
 
   // Status color pill generator
@@ -754,22 +785,32 @@ export default function LeadFormAnalytics() {
             <div className="relative flex-1 flex items-center">
               <Icon
                 icon="lineicons:search-2"
-                className="absolute left-[0.6vw] w-[0.85vw] h-[0.85vw] text-slate-400 pointer-events-none"
+                className="absolute left-[0.6vw] w-[0.85vw] h-[0.85vw] text-[#858585] pointer-events-none"
               />
               <input
                 type="text"
                 value={booksSearch}
                 onChange={(e) => setBooksSearch(e.target.value)}
                 placeholder="Search Flipbooks..."
-                className="w-full pl-[1.8vw] pr-[0.6vw] py-[0.45vw] text-[0.72vw] bg-white border border-slate-200 rounded-[0.45vw] placeholder-slate-400 focus:outline-none focus:border-[#4A3AFF] transition-colors"
+                className="w-full pl-[1.8vw] pr-[1.8vw] py-[0.45vw] text-[0.72vw] bg-white border border-slate-200 rounded-[0.45vw] placeholder-slate-400 focus:outline-none focus:border-[#4A3AFF] transition-colors"
               />
+              {booksSearch && (
+                <button
+                  type="button"
+                  onClick={() => setBooksSearch('')}
+                  className="absolute right-[0.5vw] text-slate-400 hover:text-slate-600 cursor-pointer flex items-center justify-center p-[0.15vw]"
+                  title="Clear search"
+                >
+                  <Icon icon="solar:close-circle-bold" className="w-[0.8vw] h-[0.8vw]" />
+                </button>
+              )}
             </div>
             <button
               type="button"
-              className="p-[0.45vw] border border-slate-200 rounded-[0.45vw] hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer shrink-0"
+              className="p-[0.45vw] border border-slate-200 rounded-[0.45vw] hover:bg-slate-50 text-[#858585] transition-colors cursor-pointer shrink-0"
               title="Sort / Filter"
             >
-              <Icon icon="iconoir:sort" className="w-[0.9vw] h-[0.9vw]" />
+              <Icon icon="iconoir:sort" className="w-[0.9vw] h-[0.9vw] text-[#858585]" />
             </button>
           </div>
 
@@ -788,9 +829,11 @@ export default function LeadFormAnalytics() {
               }`}
             >
               {/* Red badge in top-right corner */}
-              <span className="absolute -top-[0.25vw] -right-[0.25vw] min-w-[1.05vw] h-[1.05vw] px-[0.18vw] rounded-full bg-[#E54833] text-white text-[0.58vw] font-bold flex items-center justify-center shadow-xs z-10 leading-none">
-                {leads.length > 0 ? leads.length : 29}
-              </span>
+              {leads.length > 0 && (
+                <span className="absolute -top-[0.25vw] -right-[0.25vw] min-w-[1.05vw] h-[1.05vw] px-[0.18vw] rounded-full bg-[#E54833] text-white text-[0.58vw] font-bold flex items-center justify-center shadow-xs z-10 leading-none">
+                  {leads.length}
+                </span>
+              )}
 
               <div className="flex items-center gap-[0.75vw] min-w-0 pr-[0.8vw]">
                 <div className="w-[3.6vw] h-[3.1vw] rounded-[0.45vw] bg-[#FDEEE9] flex items-center justify-center text-[#E54833] shrink-0">
@@ -801,7 +844,7 @@ export default function LeadFormAnalytics() {
                     All Flipbooks
                   </h4>
                   <p className="text-[0.68vw] text-slate-500 truncate mt-[0.15vw]">
-                    Total Leads : {leads.length > 0 ? leads.length.toLocaleString() : '4,586'}
+                    Total Leads : {leads.length.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -812,10 +855,10 @@ export default function LeadFormAnalytics() {
               const bId = book.v_id || book._id;
               const isSelected = selectedBookId === bId;
               const count = leadsPerBook[bId] || 0;
-              const viewsCount = book.viewsCount || book.views || 4586;
+              const viewsCount = book.viewsCount ?? book.views ?? 0;
               const dateDisplay = book.createdAt
-                ? formatShortDate(book.createdAt)
-                : '16 Oct 2026';
+                ? formatFullDate(book.createdAt)
+                : '-';
 
               return (
                 <div
@@ -831,9 +874,11 @@ export default function LeadFormAnalytics() {
                   }`}
                 >
                   {/* Red badge in top-right corner */}
-                  <span className="absolute -top-[0.25vw] -right-[0.25vw] min-w-[1.05vw] h-[1.05vw] px-[0.18vw] rounded-full bg-[#E54833] text-white text-[0.58vw] font-bold flex items-center justify-center shadow-xs z-10 leading-none">
-                    {count > 0 ? count : 12}
-                  </span>
+                  {count > 0 && (
+                    <span className="absolute -top-[0.25vw] -right-[0.25vw] min-w-[1.05vw] h-[1.05vw] px-[0.18vw] rounded-full bg-[#E54833] text-white text-[0.58vw] font-bold flex items-center justify-center shadow-xs z-10 leading-none">
+                      {count}
+                    </span>
+                  )}
 
                   <div className="flex items-center gap-[0.75vw] min-w-0 pr-[0.8vw]">
                     <div className="w-[3.6vw] h-[3.1vw] rounded-[0.45vw] bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
@@ -853,9 +898,9 @@ export default function LeadFormAnalytics() {
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-[0.88vw] font-bold text-slate-900 truncate leading-snug">
-                        {book.title || book.bookName || 'Industrial Pumps Catlougue'}
+                        {book.title || book.bookName || 'Untitled'}
                       </h4>
-                      <p className="text-[0.68vw] text-slate-500 truncate mt-[0.15vw]">
+                      <p className="text-[0.68vw] text-gray-700 truncate mt-[0.15vw]">
                         {viewsCount.toLocaleString()} Views &nbsp; {dateDisplay}
                       </p>
                     </div>
@@ -1151,88 +1196,202 @@ export default function LeadFormAnalytics() {
           </div>
 
           {/* Filters Bar: Activity Status & Date Range */}
-          <div className="bg-white rounded-[0.8vw] border border-slate-200/80 p-[1.2vw] shadow-2xs">
-            <div className="flex items-center gap-[1vw]">
+          <div className="bg-white rounded-[0.8vw] border border-slate-200/80 px-[1.2vw] py-[0.7vw] shadow-2xs">
+            <div className="flex items-center gap-[1.2vw]">
               {/* Activity Status Dropdown */}
-              <div className="relative status-dropdown-container w-[16vw]">
-                <label className="block text-[0.68vw] font-medium text-slate-600 mb-[0.25vw]">
+              <div
+                className="relative status-dropdown-container w-[19vw]"
+                onKeyDown={(e) => {
+                  if (!statusDropdownOpen) {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setStatusDropdownOpen(true);
+                      const currentIdx = STATUS_OPTIONS.findIndex(
+                        (o) => o.toLowerCase() === statusFilter.toLowerCase()
+                      );
+                      setStatusFocusedIndex(currentIdx >= 0 ? currentIdx : 0);
+                    }
+                    return;
+                  }
+
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setStatusFocusedIndex((prev) => (prev + 1) % STATUS_OPTIONS.length);
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setStatusFocusedIndex((prev) => (prev <= 0 ? STATUS_OPTIONS.length - 1 : prev - 1));
+                  } else if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (statusFocusedIndex >= 0 && statusFocusedIndex < STATUS_OPTIONS.length) {
+                      setStatusFilter(STATUS_OPTIONS[statusFocusedIndex]);
+                      setStatusDropdownOpen(false);
+                      setCurrentPage(1);
+                    }
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setStatusDropdownOpen(false);
+                  }
+                }}
+              >
+                <label className="block text-[0.72vw] font-medium text-slate-700 mb-[0.25vw]">
                   Activity Status
                 </label>
                 <button
                   type="button"
-                  onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
-                  className="w-full flex items-center justify-between px-[0.75vw] py-[0.45vw] text-[0.72vw] bg-white border border-slate-200 rounded-[0.4vw] text-slate-700 hover:border-slate-300 transition-colors cursor-pointer"
+                  onClick={() => {
+                    const next = !statusDropdownOpen;
+                    setStatusDropdownOpen(next);
+                    if (next) {
+                      const currentIdx = STATUS_OPTIONS.findIndex(
+                        (o) => o.toLowerCase() === statusFilter.toLowerCase()
+                      );
+                      setStatusFocusedIndex(currentIdx >= 0 ? currentIdx : 0);
+                    }
+                  }}
+                  className="w-full flex items-center justify-between px-[0.85vw] py-[0.52vw] text-[0.78vw] bg-white border border-slate-200 rounded-[0.4vw] text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-colors cursor-pointer"
+                  tabIndex={0}
+                  aria-haspopup="listbox"
+                  aria-expanded={statusDropdownOpen}
                 >
-                  <span className="flex items-center gap-[0.35vw]">
-                    <Icon icon="hugeicons:tick-02" className="w-[0.85vw] h-[0.85vw] text-slate-500" />
+                  <span className="flex items-center gap-[0.4vw]">
+                    <Icon icon="hugeicons:tick-02" className="w-[0.95vw] h-[0.95vw] text-slate-500" />
                     <span>{statusFilter}</span>
                   </span>
-                  <Icon icon="solar:alt-arrow-down-linear" className="w-[0.7vw] h-[0.7vw] text-slate-400" />
+                  <Icon icon="solar:alt-arrow-down-linear" className="w-[0.75vw] h-[0.75vw] text-slate-400" />
                 </button>
 
                 {statusDropdownOpen && (
-                  <div className="absolute z-20 top-full left-0 mt-[0.2vw] w-full bg-white border border-slate-200 rounded-[0.4vw] shadow-lg py-[0.3vw]">
-                    {STATUS_OPTIONS.map((opt) => (
-                      <div
-                        key={opt}
-                        onClick={() => {
-                          setStatusFilter(opt);
-                          setStatusDropdownOpen(false);
-                          setCurrentPage(1);
-                        }}
-                        className={`px-[0.75vw] py-[0.35vw] text-[0.72vw] cursor-pointer flex items-center justify-between ${
-                          statusFilter === opt ? 'bg-slate-50 font-semibold text-[#4A3AFF]' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>{opt}</span>
-                        {statusFilter === opt && (
-                          <Icon icon="hugeicons:tick-02" className="w-[0.8vw] h-[0.8vw]" />
-                        )}
-                      </div>
-                    ))}
+                  <div
+                    role="listbox"
+                    className="absolute z-20 top-full left-0 mt-[0.2vw] w-full bg-white border border-slate-200 rounded-[0.4vw] shadow-lg py-[0.3vw]"
+                  >
+                    {STATUS_OPTIONS.map((opt, idx) => {
+                      const isSelected = statusFilter.toLowerCase() === opt.toLowerCase();
+                      const isFocused = statusFocusedIndex === idx;
+                      return (
+                        <div
+                          key={opt}
+                          role="option"
+                          aria-selected={isSelected}
+                          onMouseEnter={() => setStatusFocusedIndex(idx)}
+                          onClick={() => {
+                            setStatusFilter(opt);
+                            setStatusDropdownOpen(false);
+                            setCurrentPage(1);
+                          }}
+                          className={`px-[0.85vw] py-[0.4vw] text-[0.78vw] cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? 'font-semibold text-[#4A3AFF] bg-indigo-50/60'
+                              : isFocused
+                              ? 'bg-slate-100 text-slate-900'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>{opt}</span>
+                          {isSelected && (
+                            <Icon icon="hugeicons:tick-02" className="w-[0.85vw] h-[0.85vw]" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
               {/* Date Range Dropdown */}
-              <div className="relative date-dropdown-container w-[16vw]">
-                <label className="block text-[0.68vw] font-medium text-slate-600 mb-[0.25vw]">
+              <div
+                className="relative date-dropdown-container w-[19vw]"
+                onKeyDown={(e) => {
+                  if (!dateDropdownOpen) {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setDateDropdownOpen(true);
+                      const currentIdx = DATE_RANGE_OPTIONS.findIndex((o) => o.value === dateRange);
+                      setDateFocusedIndex(currentIdx >= 0 ? currentIdx : 0);
+                    }
+                    return;
+                  }
+
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setDateFocusedIndex((prev) => (prev + 1) % DATE_RANGE_OPTIONS.length);
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setDateFocusedIndex((prev) => (prev <= 0 ? DATE_RANGE_OPTIONS.length - 1 : prev - 1));
+                  } else if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (dateFocusedIndex >= 0 && dateFocusedIndex < DATE_RANGE_OPTIONS.length) {
+                      setDateRange(DATE_RANGE_OPTIONS[dateFocusedIndex].value);
+                      setDateDropdownOpen(false);
+                      setCurrentPage(1);
+                    }
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setDateDropdownOpen(false);
+                  }
+                }}
+              >
+                <label className="block text-[0.72vw] font-medium text-slate-700 mb-[0.25vw]">
                   Date Range
                 </label>
                 <button
                   type="button"
-                  onClick={() => setDateDropdownOpen(!dateDropdownOpen)}
-                  className="w-full flex items-center justify-between px-[0.75vw] py-[0.45vw] text-[0.72vw] bg-white border border-slate-200 rounded-[0.4vw] text-slate-700 hover:border-slate-300 transition-colors cursor-pointer"
+                  onClick={() => {
+                    const next = !dateDropdownOpen;
+                    setDateDropdownOpen(next);
+                    if (next) {
+                      const currentIdx = DATE_RANGE_OPTIONS.findIndex((o) => o.value === dateRange);
+                      setDateFocusedIndex(currentIdx >= 0 ? currentIdx : 0);
+                    }
+                  }}
+                  className="w-full flex items-center justify-between px-[0.85vw] py-[0.52vw] text-[0.78vw] bg-white border border-slate-200 rounded-[0.4vw] text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-colors cursor-pointer"
+                  tabIndex={0}
+                  aria-haspopup="listbox"
+                  aria-expanded={dateDropdownOpen}
                 >
-                  <span className="flex items-center gap-[0.35vw]">
-                    <Icon icon="ic:outline-calendar-month" className="w-[0.85vw] h-[0.85vw] text-slate-500" />
+                  <span className="flex items-center gap-[0.4vw]">
+                    <Icon icon="ic:outline-calendar-month" className="w-[0.95vw] h-[0.95vw] text-slate-500" />
                     <span>
                       {DATE_RANGE_OPTIONS.find(d => d.value === dateRange)?.label || 'Last 7 Days'}
                     </span>
                   </span>
-                  <Icon icon="solar:alt-arrow-down-linear" className="w-[0.7vw] h-[0.7vw] text-slate-400" />
+                  <Icon icon="solar:alt-arrow-down-linear" className="w-[0.75vw] h-[0.75vw] text-slate-400" />
                 </button>
 
                 {dateDropdownOpen && (
-                  <div className="absolute z-20 top-full left-0 mt-[0.2vw] w-full bg-white border border-slate-200 rounded-[0.4vw] shadow-lg py-[0.3vw]">
-                    {DATE_RANGE_OPTIONS.map((opt) => (
-                      <div
-                        key={opt.value}
-                        onClick={() => {
-                          setDateRange(opt.value);
-                          setDateDropdownOpen(false);
-                          setCurrentPage(1);
-                        }}
-                        className={`px-[0.75vw] py-[0.35vw] text-[0.72vw] cursor-pointer flex items-center justify-between ${
-                          dateRange === opt.value ? 'bg-slate-50 font-semibold text-[#4A3AFF]' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>{opt.label}</span>
-                        {dateRange === opt.value && (
-                          <Icon icon="hugeicons:tick-02" className="w-[0.8vw] h-[0.8vw]" />
-                        )}
-                      </div>
-                    ))}
+                  <div
+                    role="listbox"
+                    className="absolute z-20 top-full left-0 mt-[0.2vw] w-full bg-white border border-slate-200 rounded-[0.4vw] shadow-lg py-[0.3vw]"
+                  >
+                    {DATE_RANGE_OPTIONS.map((opt, idx) => {
+                      const isSelected = dateRange === opt.value;
+                      const isFocused = dateFocusedIndex === idx;
+                      return (
+                        <div
+                          key={opt.value}
+                          role="option"
+                          aria-selected={isSelected}
+                          onMouseEnter={() => setDateFocusedIndex(idx)}
+                          onClick={() => {
+                            setDateRange(opt.value);
+                            setDateDropdownOpen(false);
+                            setCurrentPage(1);
+                          }}
+                          className={`px-[0.85vw] py-[0.4vw] text-[0.78vw] cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? 'font-semibold text-[#4A3AFF] bg-indigo-50/60'
+                              : isFocused
+                              ? 'bg-slate-100 text-slate-900'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {isSelected && (
+                            <Icon icon="hugeicons:tick-02" className="w-[0.85vw] h-[0.85vw]" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1251,10 +1410,10 @@ export default function LeadFormAnalytics() {
                 ) : (
                   <div
                     onClick={() => setDateRange('custom')}
-                    className="flex items-center gap-[0.4vw] px-[0.75vw] py-[0.45vw] text-[0.72vw] bg-white border border-slate-200 rounded-[0.4vw] text-slate-600 hover:border-slate-300 transition-colors cursor-pointer whitespace-nowrap"
+                    className="flex items-center gap-[0.4vw] px-[0.85vw] py-[0.52vw] text-[0.78vw] bg-white border border-slate-200 rounded-[0.4vw] text-slate-600 hover:border-slate-300 transition-colors cursor-pointer whitespace-nowrap"
                     title="Click to select custom date range"
                   >
-                    <Icon icon="ic:outline-calendar-month" className="w-[0.85vw] h-[0.85vw] text-slate-500" />
+                    <Icon icon="ic:outline-calendar-month" className="w-[0.95vw] h-[0.95vw] text-slate-500" />
                     <span className="text-slate-300">|</span>
                     <span>{dateRangeDisplay}</span>
                   </div>
@@ -1290,8 +1449,21 @@ export default function LeadFormAnalytics() {
                       setCurrentPage(1);
                     }}
                     placeholder="Search Leads..."
-                    className="w-[14vw] pl-[1.8vw] pr-[0.8vw] py-[0.38vw] text-[0.72vw] bg-[#F8FAFC] border border-slate-200 rounded-[0.4vw] focus:outline-none focus:border-[#4A3AFF] transition-colors"
+                    className="w-[14vw] pl-[1.8vw] pr-[1.8vw] py-[0.38vw] text-[0.72vw] bg-[#F8FAFC] border border-slate-200 rounded-[0.4vw] focus:outline-none focus:border-[#4A3AFF] transition-colors"
                   />
+                  {searchLeadQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchLeadQuery('');
+                        setCurrentPage(1);
+                      }}
+                      className="absolute right-[0.5vw] text-slate-400 hover:text-slate-600 cursor-pointer flex items-center justify-center p-[0.15vw]"
+                      title="Clear search"
+                    >
+                      <Icon icon="solar:close-circle-bold" className="w-[0.8vw] h-[0.8vw]" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Download file button */}
@@ -1333,12 +1505,17 @@ export default function LeadFormAnalytics() {
                     const timePart = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                     const leadKey = lead.leadId || lead._id;
                     const isRowSelected = selectedLead && (selectedLead.leadId === leadKey || selectedLead._id === leadKey);
+                    const isRowHighlighted = highlightedLeadId === leadKey;
 
                     return (
                       <tr
                         key={leadKey}
-                        className={`lead-row-clickable transition-colors cursor-pointer ${
-                          isRowSelected ? 'bg-orange-50/50' : 'hover:bg-slate-50/70'
+                        className={`lead-row-clickable transition-all duration-500 cursor-pointer ${
+                          isRowHighlighted
+                            ? 'bg-amber-100/70 ring-1 ring-amber-300'
+                            : isRowSelected
+                            ? 'bg-orange-50/50'
+                            : 'hover:bg-slate-50/70'
                         }`}
                       >
                         {/* Name with Avatar - Clickable */}
@@ -1564,7 +1741,7 @@ export default function LeadFormAnalytics() {
                             key={item.label}
                             type="button"
                             onClick={() =>
-                              handleUpdateStatus(selectedLead.leadId || selectedLead._id, item.label)
+                              requestStatusUpdate(selectedLead.leadId || selectedLead._id, item.label)
                             }
                             className={`w-full text-left px-[0.75vw] py-[0.4vw] text-[0.72vw] flex items-center gap-[0.4vw] hover:bg-slate-50 transition-colors ${
                               (selectedLead.status || 'New').toLowerCase() === item.label.toLowerCase()
@@ -1583,7 +1760,11 @@ export default function LeadFormAnalytics() {
                   {/* Add Activity Button */}
                   <button
                     type="button"
-                    onClick={() => setIsAddingNote(true)}
+                    onClick={() => {
+                      setIsActivityModalOpen(true);
+                      setActivityType('Note');
+                      setActivityDetails('');
+                    }}
                     className="w-full flex items-center justify-center gap-[0.3vw] px-[0.8vw] py-[0.48vw] rounded-[0.4vw] text-[0.72vw] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
                   >
                     <Icon icon="ci:add-plus" className="w-[0.8vw] h-[0.8vw]" />
@@ -1603,28 +1784,32 @@ export default function LeadFormAnalytics() {
                         <Icon icon="boxicons:form" className="w-[0.85vw] h-[0.85vw] text-[#EF4444]" />
                         <span className="text-slate-600 font-normal w-[5.5vw]">Form Name</span>
                         <span className="text-slate-800 font-normal truncate">
-                          {selectedLead.formName || 'Product Enquiry Form'}
+                          {selectedLead.formName || '-'}
                         </span>
                       </div>
                       <div className="flex items-center gap-[0.5vw]">
                         <Icon icon="basil:book-open-outline" className="w-[0.85vw] h-[0.85vw] text-[#EF4444]" />
                         <span className="text-slate-600 font-normal w-[5.5vw]">Flipbook</span>
                         <span className="text-slate-800 font-normal truncate">
-                          {selectedLead.flipbookName || 'Interactive Product Catalogue'}
+                          {selectedLead.flipbookName || '-'}
                         </span>
                       </div>
                       <div className="flex items-center gap-[0.5vw]">
                         <Icon icon="ic:outline-calendar-month" className="w-[0.85vw] h-[0.85vw] text-[#EF4444]" />
                         <span className="text-slate-600 font-normal w-[5.5vw]">Date</span>
                         <span className="text-slate-800 font-normal">
-                          {new Date(selectedLead.submittedAt || selectedLead.createdAt || Date.now()).toLocaleDateString('en-US', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric'
-                          })}, {new Date(selectedLead.submittedAt || selectedLead.createdAt || Date.now()).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {selectedLead.submittedAt || selectedLead.createdAt ? (
+                            `${new Date(selectedLead.submittedAt || selectedLead.createdAt).toLocaleDateString('en-US', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}, ${new Date(selectedLead.submittedAt || selectedLead.createdAt).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}`
+                          ) : (
+                            '-'
+                          )}
                         </span>
                       </div>
                     </div>
@@ -1660,32 +1845,40 @@ export default function LeadFormAnalytics() {
                     </div>
                   </div>
 
-                  {/* Section 3: Lead Form Details */}
-                  <div className="pt-[0.4vw] border-t border-slate-100">
-                    <h4 className="text-[0.78vw] font-semibold text-slate-800 mb-[0.6vw]">
-                      Lead Form Details
-                    </h4>
-                    <div className="space-y-[0.5vw] text-[0.72vw]">
-                      <div className="flex items-start gap-[0.5vw]">
-                        <span className="text-slate-600 font-normal w-[5.5vw]">Category</span>
-                        <span className="text-slate-800 font-normal">
-                          {drawerDetails.category}
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-[0.5vw]">
-                        <span className="text-slate-600 font-normal w-[5.5vw]">Product</span>
-                        <span className="text-slate-800 font-normal">
-                          {drawerDetails.product}
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-[0.5vw]">
-                        <span className="text-slate-600 font-normal w-[5.5vw]">Description</span>
-                        <span className="text-slate-800 font-normal flex-1">
-                          {drawerDetails.message !== '-' ? drawerDetails.message : 'Please share the product specifications and available models.'}
-                        </span>
+                  {/* Section 3: Lead Form Details - Only rendered or shown with actual values / '-' */}
+                  {(drawerDetails.category !== '-' || drawerDetails.product !== '-' || drawerDetails.message !== '-') && (
+                    <div className="pt-[0.4vw] border-t border-slate-100">
+                      <h4 className="text-[0.78vw] font-semibold text-slate-800 mb-[0.6vw]">
+                        Lead Form Details
+                      </h4>
+                      <div className="space-y-[0.5vw] text-[0.72vw]">
+                        {drawerDetails.category !== '-' && (
+                          <div className="flex items-start gap-[0.5vw]">
+                            <span className="text-slate-600 font-normal w-[5.5vw]">Category</span>
+                            <span className="text-slate-800 font-normal">
+                              {drawerDetails.category}
+                            </span>
+                          </div>
+                        )}
+                        {drawerDetails.product !== '-' && (
+                          <div className="flex items-start gap-[0.5vw]">
+                            <span className="text-slate-600 font-normal w-[5.5vw]">Product</span>
+                            <span className="text-slate-800 font-normal">
+                              {drawerDetails.product}
+                            </span>
+                          </div>
+                        )}
+                        {drawerDetails.message !== '-' && (
+                          <div className="flex items-start gap-[0.5vw]">
+                            <span className="text-slate-600 font-normal w-[5.5vw]">Description</span>
+                            <span className="text-slate-800 font-normal flex-1">
+                              {drawerDetails.message}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  )}
 
                 {/* Section 4: Internal Notes */}
                 <div className="pt-[0.4vw] border-t border-slate-100">
@@ -1704,54 +1897,22 @@ export default function LeadFormAnalytics() {
                         </div>
                       ))
                     ) : (
-                      <div className="flex items-start justify-between p-[0.6vw] bg-slate-50 border border-slate-200/80 rounded-[0.4vw] text-[0.68vw] text-slate-700">
-                        <p className="flex-1 pr-[0.4vw] leading-relaxed">
-                          Client Asked to share Specifications and models for their recrements like machine , motor, ect...
-                        </p>
-                        <Icon icon="akar-icons:more-vertical-fill" className="w-[0.75vw] h-[0.75vw] text-slate-400" />
+                      <div className="py-[0.8vw] text-center text-slate-400 text-[0.68vw] italic bg-slate-50/50 rounded-[0.4vw] border border-dashed border-slate-200">
+                        No internal notes added yet.
                       </div>
                     )}
 
-                    {/* Add note input form */}
-                    {isAddingNote ? (
-                      <div className="mt-[0.4vw] space-y-[0.3vw]">
-                        <textarea
-                          value={newNoteText}
-                          onChange={(e) => setNewNoteText(e.target.value)}
-                          placeholder="Type an internal note..."
-                          className="w-full p-[0.5vw] text-[0.7vw] border border-slate-200 rounded-[0.4vw] focus:outline-none focus:border-[#F05338]"
-                          rows={2}
-                        />
-                        <div className="flex items-center justify-end gap-[0.3vw]">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingNote(false);
-                              setNewNoteText('');
-                            }}
-                            className="px-[0.6vw] py-[0.25vw] text-[0.65vw] text-slate-500 hover:text-slate-700 cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSaveNote}
-                            className="px-[0.6vw] py-[0.25vw] text-[0.65vw] text-white bg-[#F05338] rounded-[0.3vw] cursor-pointer"
-                          >
-                            Save Note
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingNote(true)}
-                        className="w-full py-[0.45vw] text-[0.72vw] font-medium text-[#F05338] bg-[#FFF5F2] hover:bg-[#FEE2E2] rounded-[0.4vw] transition-colors flex items-center justify-center gap-[0.3vw] cursor-pointer"
-                      >
-                        <Icon icon="solar:add-circle-linear" className="w-[0.8vw] h-[0.8vw]" />
-                        <span>Add Notes</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewNoteText('');
+                        setIsAddingNote(true);
+                      }}
+                      className="w-full py-[0.45vw] text-[0.72vw] font-medium text-[#F05338] bg-[#FFF5F2] hover:bg-[#FEE2E2] rounded-[0.4vw] transition-colors flex items-center justify-center gap-[0.3vw] cursor-pointer"
+                    >
+                      <Icon icon="solar:add-circle-linear" className="w-[0.8vw] h-[0.8vw]" />
+                      <span>Add Notes</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1793,6 +1954,266 @@ export default function LeadFormAnalytics() {
             </motion.aside>
           );
         })()}
+        </AnimatePresence>
+        {/* Add Activity Modal Dialog */}
+        <AnimatePresence>
+          {isActivityModalOpen && (
+            <div className="modal-container fixed inset-0 z-[200] flex items-center justify-center p-[1vw] bg-black/40 backdrop-blur-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="w-[28vw] min-w-[360px] max-w-[460px] bg-white rounded-[1vw] shadow-2xl p-[1.4vw] flex flex-col gap-[1vw] relative border border-slate-100"
+              >
+                {/* Header: Red Icon + Title + horizontal rule + Close button */}
+                <div className="flex items-center justify-between pb-[0.2vw]">
+                  <div className="flex items-center gap-[0.7vw] flex-1">
+                    <div className="w-[2.4vw] h-[2.4vw] rounded-[0.6vw] bg-[#FDEEE9] flex items-center justify-center text-[#E54833] shrink-0">
+                      <Icon icon="carbon:activity" className="w-[1.4vw] h-[1.4vw]" />
+                    </div>
+                    <div className="flex-1 flex items-center gap-[0.8vw]">
+                      <h3 className="text-[1.1vw] font-bold text-slate-900 whitespace-nowrap">
+                        Add Activity
+                      </h3>
+                      <div className="flex-1 h-[1px] bg-slate-200" />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsActivityModalOpen(false)}
+                    className="p-[0.3vw] text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer shrink-0 ml-[0.6vw]"
+                    aria-label="Close"
+                  >
+                    <Icon icon="iconoir:cancel" className="w-[1.2vw] h-[1.2vw]" />
+                  </button>
+                </div>
+
+                <p className="text-[0.72vw] text-slate-400 -mt-[0.6vw]">
+                  Record an interaction with this lead.
+                </p>
+
+                {/* Field 1: Activity Type Free Text Input */}
+                <div>
+                  <label className="block text-[0.78vw] font-medium text-slate-800 mb-[0.35vw]">
+                    Activity Type
+                  </label>
+                  <input
+                    type="text"
+                    value={activityType}
+                    onChange={(e) => setActivityType(e.target.value)}
+                    placeholder="e.g. Note, Call, Meeting, Follow-up..."
+                    className="w-full px-[0.85vw] py-[0.55vw] text-[0.78vw] bg-white border border-slate-200 rounded-[0.5vw] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#E54833] transition-colors"
+                  />
+                </div>
+
+                {/* Field 2: Details Textarea */}
+                <div>
+                  <label className="block text-[0.78vw] font-medium text-slate-800 mb-[0.35vw]">
+                    Details
+                  </label>
+                  <textarea
+                    value={activityDetails}
+                    onChange={(e) => setActivityDetails(e.target.value)}
+                    placeholder="Describe the activity..."
+                    rows={4}
+                    className="w-full p-[0.75vw] text-[0.78vw] bg-white border border-slate-200 rounded-[0.5vw] placeholder-slate-400 focus:outline-none focus:border-[#E54833] transition-colors resize-none"
+                  />
+                </div>
+
+                {/* Bottom Action Buttons: Cancel & Save Activity */}
+                <div className="flex items-center justify-end gap-[0.6vw] pt-[0.4vw]">
+                  <button
+                    type="button"
+                    onClick={() => setIsActivityModalOpen(false)}
+                    className="flex items-center gap-[0.3vw] px-[1vw] py-[0.5vw] text-[0.78vw] font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-[0.45vw] transition-colors cursor-pointer"
+                  >
+                    <Icon icon="iconoir:cancel" className="w-[0.85vw] h-[0.85vw] text-slate-500" />
+                    <span>Cancel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveActivity}
+                    className="flex items-center gap-[0.35vw] px-[1.1vw] py-[0.5vw] text-[0.78vw] font-semibold text-white bg-[#E54833] hover:bg-[#d63e2a] rounded-[0.45vw] shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Icon icon="charm:tick" className="w-[0.9vw] h-[0.9vw] text-white" />
+                    <span>Save Activity</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Add Notes Modal Dialog */}
+        <AnimatePresence>
+          {isAddingNote && (
+            <div className="modal-container fixed inset-0 z-[200] flex items-center justify-center p-[1vw] bg-black/40 backdrop-blur-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="w-[30vw] min-w-[380px] max-w-[480px] bg-white rounded-[1vw] shadow-2xl p-[1.4vw] flex flex-col gap-[1vw] relative border border-slate-100"
+              >
+                {/* Header: Note Icon + Title + horizontal rule + Close button */}
+                <div className="flex items-center justify-between pb-[0.2vw]">
+                  <div className="flex items-center gap-[0.7vw] flex-1">
+                    <div className="w-[2.4vw] h-[2.4vw] rounded-[0.6vw] bg-[#FDEEE9] flex items-center justify-center text-[#E54833] shrink-0">
+                      <Icon icon="fluent:notepad-edit-16-regular" className="w-[1.4vw] h-[1.4vw]" />
+                    </div>
+                    <div className="flex-1 flex items-center gap-[0.8vw]">
+                      <h3 className="text-[1.1vw] font-bold text-slate-900 whitespace-nowrap">
+                        Add Notes
+                      </h3>
+                      <div className="flex-1 h-[1px] bg-slate-200" />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingNote(false);
+                      setNewNoteText('');
+                    }}
+                    className="p-[0.3vw] text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer shrink-0 ml-[0.6vw]"
+                    aria-label="Close"
+                  >
+                    <Icon icon="iconoir:cancel" className="w-[1.2vw] h-[1.2vw]" />
+                  </button>
+                </div>
+
+                <p className="text-[0.72vw] text-slate-400 -mt-[0.6vw]">
+                  Record internal information about this lead.
+                </p>
+
+                {/* Field: Note Textarea */}
+                <div>
+                  <label className="block text-[0.78vw] font-medium text-slate-800 mb-[0.35vw]">
+                    Enter New Note
+                  </label>
+                  <textarea
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    placeholder="Enter internal note..."
+                    rows={4}
+                    className="w-full p-[0.75vw] text-[0.78vw] bg-white border border-slate-200 rounded-[0.5vw] placeholder-slate-400 focus:outline-none focus:border-[#E54833] transition-colors resize-none"
+                  />
+                  <p className="text-[0.65vw] text-slate-400 mt-[0.3vw]">
+                    Only you can see this note.
+                  </p>
+                </div>
+
+                {/* Bottom Action Buttons: Cancel & Save Note */}
+                <div className="flex items-center justify-end gap-[0.6vw] pt-[0.4vw]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingNote(false);
+                      setNewNoteText('');
+                    }}
+                    className="flex items-center gap-[0.3vw] px-[1vw] py-[0.5vw] text-[0.78vw] font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-[0.45vw] transition-colors cursor-pointer"
+                  >
+                    <Icon icon="iconoir:cancel" className="w-[0.85vw] h-[0.85vw] text-slate-500" />
+                    <span>Cancel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!newNoteText.trim()}
+                    onClick={handleSaveNote}
+                    className={`flex items-center gap-[0.35vw] px-[1.1vw] py-[0.5vw] text-[0.78vw] font-semibold text-white rounded-[0.45vw] shadow-sm transition-colors ${
+                      newNoteText.trim()
+                        ? 'bg-[#E54833] hover:bg-[#d63e2a] cursor-pointer'
+                        : 'bg-slate-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <Icon icon="charm:tick" className="w-[0.9vw] h-[0.9vw] text-white" />
+                    <span>Save Note</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Confirmation Modal for Status Change */}
+        <AnimatePresence>
+          {statusChangeConfirm && (
+            <div className="modal-container fixed inset-0 z-[200] flex items-center justify-center p-[1vw] bg-black/40 backdrop-blur-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.15 }}
+                className="w-[28vw] min-w-[360px] max-w-[460px] bg-white rounded-[1vw] shadow-2xl p-[1.4vw] flex flex-col gap-[1vw] relative border border-slate-100"
+              >
+                {/* Header: Amber Alert Icon + Title + horizontal rule + Close button */}
+                <div className="flex items-center justify-between pb-[0.2vw]">
+                  <div className="flex items-center gap-[0.7vw] flex-1">
+                    <div className="w-[2.4vw] h-[2.4vw] rounded-[0.6vw] bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
+                      <Icon icon="mingcute:alert-line" className="w-[1.4vw] h-[1.4vw]" />
+                    </div>
+                    <div className="flex-1 flex items-center gap-[0.8vw]">
+                      <h3 className="text-[1.1vw] font-bold text-slate-900 whitespace-nowrap">
+                        Confirm Status Change
+                      </h3>
+                      <div className="flex-1 h-[1px] bg-slate-200" />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setStatusChangeConfirm(null)}
+                    className="p-[0.3vw] text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer shrink-0 ml-[0.6vw]"
+                    aria-label="Close"
+                  >
+                    <Icon icon="iconoir:cancel" className="w-[1.2vw] h-[1.2vw]" />
+                  </button>
+                </div>
+
+                <p className="text-[0.72vw] text-slate-400 -mt-[0.6vw]">
+                  This update will be logged in the activity timeline.
+                </p>
+
+                {/* Question Box */}
+                <div className="bg-[#F8FAFC] border border-slate-200/80 rounded-[0.5vw] p-[0.9vw] text-[0.78vw] text-slate-600 leading-relaxed">
+                  Are you sure you want to change this lead status from{' '}
+                  <span className="font-semibold text-slate-900">
+                    {statusChangeConfirm.currentStatus}
+                  </span>{' '}
+                  to{' '}
+                  <span className="font-semibold text-[#E54833]">
+                    {statusChangeConfirm.newStatus}
+                  </span>
+                  ?
+                </div>
+
+                {/* Bottom Action Buttons: Cancel & Confirm */}
+                <div className="flex items-center justify-end gap-[0.6vw] pt-[0.2vw]">
+                  <button
+                    type="button"
+                    onClick={() => setStatusChangeConfirm(null)}
+                    className="flex items-center gap-[0.3vw] px-[1vw] py-[0.5vw] text-[0.78vw] font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-[0.45vw] transition-colors cursor-pointer"
+                  >
+                    <Icon icon="iconoir:cancel" className="w-[0.85vw] h-[0.85vw] text-slate-500" />
+                    <span>Cancel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={confirmStatusUpdate}
+                    className="flex items-center gap-[0.35vw] px-[1.1vw] py-[0.5vw] text-[0.78vw] font-semibold text-white bg-[#E54833] hover:bg-[#d63e2a] rounded-[0.45vw] shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Icon icon="charm:tick" className="w-[0.9vw] h-[0.9vw] text-white" />
+                    <span>Confirm</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
         </AnimatePresence>
       </div>
     </div>

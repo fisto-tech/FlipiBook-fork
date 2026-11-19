@@ -6,7 +6,7 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
   const [tableSort, setTableSort] = useState('Most viewed');
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [hoveredSource, setHoveredSource] = useState('Referral');
+  const [hoveredSource, setHoveredSource] = useState(null);
 
   const rawDevices = analyticsData?.devices || [];
   const rawBrowsers = analyticsData?.browsers || [];
@@ -152,12 +152,12 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
   return (
     <div className="space-y-[1.1vw]">
       {/* Sub-Header */}
-      <div className="flex items-center gap-[0.5vw] pt-[0.1vw]">
-        <div className="w-[1.8vw] h-[1.8vw] rounded-full bg-purple-50 text-[#7C3AED] flex items-center justify-center shrink-0">
-          <Icon icon="solar:devices-bold" className="w-[0.95vw] h-[0.95vw]" />
+      <div className="flex items-center gap-[0.55vw] pt-[0.1vw]">
+        <div className="w-[2.3vw] h-[2.3vw] rounded-[0.65vw] bg-[#F0EDFF] text-[#7357C8] flex items-center justify-center shrink-0">
+          <Icon icon="energy-icons:devices-20-bold" className="w-[1.15vw] h-[1.15vw]" />
         </div>
         <div>
-          <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
+          <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight ">
             Device Breakdown
           </h3>
           <p className="text-[0.7vw] text-slate-500 font-normal">
@@ -171,7 +171,7 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
 
         {/* Left: Devices Used Donut with leader lines */}
         <div className="bg-white rounded-[0.75vw] p-[1.2vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-          <h4 className="text-[0.85vw] font-semibold text-slate-900 font-['Outfit',sans-serif] mb-[0.5vw]">
+          <h4 className="text-[0.85vw] font-semibold text-slate-900 mb-[0.5vw]">
             Devices Used
           </h4>
 
@@ -288,12 +288,15 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
 
         {/* Right: Views by source (Bar chart) */}
         <div className="bg-white rounded-[0.75vw] p-[1.2vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-          <h4 className="text-[0.85vw] font-semibold text-slate-900 font-['Outfit',sans-serif] mb-[0.5vw]">
+          <h4 className="text-[0.85vw] font-semibold text-slate-900 mb-[0.5vw]">
             Views by source
           </h4>
 
           {/* Bar Chart Canvas with Dotted Grid */}
-          <div className="relative w-full h-[15vw] flex flex-col justify-between my-[0.4vw]">
+          <div
+            className="relative w-full h-[15vw] flex flex-col justify-between my-[0.4vw]"
+            onMouseLeave={() => setHoveredSource(null)}
+          >
             <svg viewBox="0 0 440 200" className="w-full h-full select-none overflow-visible">
               {/* Dotted Y-axis Guide lines */}
               {[0, 20, 40, 60, 80, 100].map(v => {
@@ -401,7 +404,7 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {} }) 
       <div className="bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-[0.9vw]">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-[0.6vw]">
           <div>
-            <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight font-['Outfit',sans-serif]">
+            <h3 className="text-[0.95vw] font-semibold text-slate-900 tracking-tight ">
               Traffic Sources
             </h3>
             <p className="text-[0.7vw] text-slate-500 font-normal">

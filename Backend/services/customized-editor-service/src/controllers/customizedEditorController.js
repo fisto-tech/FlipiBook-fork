@@ -1740,7 +1740,11 @@ const updateLeadStatus = async (req, res) => {
     const dateFormatted = now.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
     // Check existing timeline
-    const existingLead = await Lead.findOne({ ...userQuery, leadId });
+    const leadQuery = mongoose.Types.ObjectId.isValid(leadId)
+      ? { $or: [{ leadId }, { _id: leadId }] }
+      : { leadId };
+
+    const existingLead = await Lead.findOne({ ...userQuery, ...leadQuery });
     if (!existingLead) {
       return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
     }
@@ -1773,7 +1777,7 @@ const updateLeadStatus = async (req, res) => {
     const finalTimeline = [...(existingLead.timeline && existingLead.timeline.length > 0 ? existingLead.timeline : initialTimeline), newTimelineItem];
 
     const updated = await Lead.findOneAndUpdate(
-      { ...userQuery, leadId },
+      { ...userQuery, ...leadQuery },
       {
         $set: {
           status,
@@ -1812,8 +1816,12 @@ const addLeadNote = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Note text required' });
     }
 
+    const leadQuery = mongoose.Types.ObjectId.isValid(leadId)
+      ? { $or: [{ leadId }, { _id: leadId }] }
+      : { leadId };
+
     const updated = await Lead.findOneAndUpdate(
-      { ...userQuery, leadId },
+      { ...userQuery, ...leadQuery },
       {
         $push: {
           internalNotes: {

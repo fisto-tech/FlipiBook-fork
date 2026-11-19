@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { Icon } from '@iconify/react';
 
 const MONTH_NAMES = [
@@ -27,14 +27,23 @@ function formatDisplayDate(date) {
  * - endDate: Date | null
  * - onChange: ({ startDate, endDate }) => void
  */
-export default function AnalyticsDatePicker({
+const AnalyticsDatePicker = forwardRef(function AnalyticsDatePicker({
   startDate = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
   endDate = new Date(),
   onChange,
   className = ''
-}) {
+}, ref) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
+  const presetsScrollRef = useRef(null);
+
+  // Expose imperative methods like open()
+  useImperativeHandle(ref, () => ({
+    open: () => setIsOpen(true),
+    close: () => setIsOpen(false),
+    toggle: () => setIsOpen(prev => !prev),
+    isOpen: () => isOpen
+  }));
 
   // Temporary selection state when popover is open
   const [tempStart, setTempStart] = useState(startDate);
@@ -139,40 +148,41 @@ export default function AnalyticsDatePicker({
     const targetTime = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     const startTime = new Date(tempStart.getFullYear(), tempStart.getMonth(), tempStart.getDate()).getTime();
 
-    if (tempEnd) {
-      const endTime = new Date(tempEnd.getFullYear(), tempEnd.getMonth(), tempEnd.getDate()).getTime();
-      return targetTime >= Math.min(startTime, endTime) && targetTime <= Math.max(startTime, endTime);
+    const effectiveEnd = tempEnd || hoverDate;
+    if (!effectiveEnd) {
+      return targetTime === startTime;
     }
 
-    if (hoverDate) {
-      const hoverTime = new Date(hoverDate.getFullYear(), hoverDate.getMonth(), hoverDate.getDate()).getTime();
-      return targetTime >= Math.min(startTime, hoverTime) && targetTime <= Math.max(startTime, hoverTime);
-    }
+    const endTime = new Date(effectiveEnd.getFullYear(), effectiveEnd.getMonth(), effectiveEnd.getDate()).getTime();
+    const minTime = Math.min(startTime, endTime);
+    const maxTime = Math.max(startTime, endTime);
 
-    return false;
+    return targetTime >= minTime && targetTime <= maxTime;
   };
 
-  const handleDayClick = (cellDate) => {
+  const handleDayClick = (date) => {
     if (!tempStart || (tempStart && tempEnd)) {
-      setTempStart(cellDate);
+      // First click in a new selection
+      setTempStart(date);
       setTempEnd(null);
+      setHoverDate(null);
     } else if (tempStart && !tempEnd) {
-      if (cellDate < tempStart) {
-        setTempStart(cellDate);
+      // Second click finishes the range
+      if (date < tempStart) {
         setTempEnd(tempStart);
+        setTempStart(date);
       } else {
-        setTempEnd(cellDate);
+        setTempEnd(date);
       }
+      setHoverDate(null);
     }
   };
 
   const applyRange = () => {
-    if (tempStart && !tempEnd) {
+    if (tempStart && tempEnd) {
+      onChange && onChange({ startDate: tempStart, endDate: tempEnd });
+    } else if (tempStart && !tempEnd) {
       onChange && onChange({ startDate: tempStart, endDate: tempStart });
-    } else if (tempStart && tempEnd) {
-      const s = tempStart <= tempEnd ? tempStart : tempEnd;
-      const e = tempStart <= tempEnd ? tempEnd : tempStart;
-      onChange && onChange({ startDate: s, endDate: e });
     }
     setIsOpen(false);
   };
@@ -200,126 +210,161 @@ export default function AnalyticsDatePicker({
   return (
     <div className={`relative inline-block ${className}`} ref={containerRef}>
       {/* Trigger Button */}
-      <button className="cursor-pointer"
+      <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-[0.45vw] px-[0.65vw] py-[0.35vw] bg-white border border-slate-200/90 rounded-[0.45vw] text-[0.72vw] text-slate-700 hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs transition-all cursor-pointer select-none"
+        className="w-full flex items-center justify-center gap-[0.55vw] px-[1.1vw] py-[0.52vw] bg-white border border-slate-200 rounded-[0.4vw] text-[0.78vw] text-[#555555] hover:border-slate-300 transition-colors cursor-pointer whitespace-nowrap select-none"
       >
-        <div className="w-[1vw] h-[1vw] flex items-center justify-center text-[#F05338]">
-          <Icon icon="solar:calendar-date-bold" className="w-[0.95vw] h-[0.95vw]" />
-        </div>
-        <span className="font-medium text-slate-800 tracking-tight">{displayLabel}</span>
-        <Icon
-          icon="solar:alt-arrow-down-linear"
-          className={`w-[0.65vw] h-[0.65vw] text-slate-400 transition-transform duration-200 ${
-            isOpen ? 'rotate-180 text-slate-700' : ''
-          }`}
-        />
+        <Icon icon="ic:outline-calendar-month" className="w-[1vw] h-[1vw] text-[#EC5137] shrink-0" />
+        <span className="text-slate-300">|</span>
+        <span className="text-[#555555]">{displayLabel}</span>
       </button>
 
       {/* Popover Calendar Dropdown */}
       {isOpen && (
-        <div className="absolute left-0 mt-[0.3vw] z-[120] w-[15.5vw] min-w-[215px] max-w-[245px] bg-white border border-slate-200/90 rounded-[0.6vw] shadow-[0_8px_24px_rgba(0,0,0,0.08)] p-[0.65vw] text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute left-0 mt-[0.3vw] z-[120] w-[18vw] min-w-[270px] max-w-[320px] bg-white border border-slate-200/90 rounded-[0.7vw] shadow-[0_12px_32px_rgba(0,0,0,0.12)] p-[0.9vw] text-slate-800 animate-in fade-in zoom-in-95 duration-150">
           {/* Header Controls */}
-          <div className="flex items-center justify-between pb-[0.4vw] border-b border-slate-100">
-            <span className="text-[0.7vw] font-semibold text-slate-900 tracking-tight">
+          <div className="flex items-center justify-between pb-[0.5vw] border-b border-slate-100">
+            <span className="text-[0.82vw] font-bold text-slate-900 tracking-tight">
               {MONTH_NAMES[viewMonth]} {viewYear}
             </span>
-            <div className="flex items-center gap-[0.1vw]">
+            <div className="flex items-center gap-[0.2vw]">
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="p-[0.2vw] rounded-[0.25vw] text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors"
+                className="p-[0.3vw] rounded-[0.3vw] text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors"
                 title="Previous Month"
               >
-                <Icon icon="solar:alt-arrow-left-linear" className="w-[0.65vw] h-[0.65vw]" />
+                <Icon icon="solar:alt-arrow-left-linear" className="w-[0.8vw] h-[0.8vw]" />
               </button>
               <button
                 type="button"
                 onClick={handleNextMonth}
-                className="p-[0.2vw] rounded-[0.25vw] text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors"
+                className="p-[0.3vw] rounded-[0.3vw] text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors"
                 title="Next Month"
               >
-                <Icon icon="solar:alt-arrow-right-linear" className="w-[0.65vw] h-[0.65vw]" />
+                <Icon icon="solar:alt-arrow-right-linear" className="w-[0.8vw] h-[0.8vw]" />
               </button>
             </div>
           </div>
 
-          {/* Quick Preset Buttons */}
-          <div className="flex items-center gap-[0.2vw] py-[0.35vw] border-b border-slate-100 text-[0.56vw]">
-            {[
-              { label: 'Today', days: 1 },
-              { label: 'Last 7 Days', days: 7 },
-              { label: 'Last 30 Days', days: 30 },
-              { label: 'Last 90 Days', days: 90 },
-            ].map(p => (
-              <button className="cursor-pointer"
-                key={p.label}
-                type="button"
-                onClick={() => applyPreset(p.days)}
-                className="px-[0.35vw] py-[0.15vw] bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-[0.25vw] font-medium transition-colors cursor-pointer"
-              >
-                {p.label}
-              </button>
+          {/* Quick Preset Buttons with horizontal scroll & chevron */}
+          <div className="relative flex items-center py-[0.45vw] border-b border-slate-100">
+            <div
+              ref={presetsScrollRef}
+              className="flex items-center gap-[0.35vw] overflow-x-auto scrollbar-none scroll-smooth flex-1 pr-[1.4vw]"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {[
+                { label: 'Today', days: 1 },
+                { label: 'Yesterday', days: 2 },
+                { label: '7 Days', days: 7 },
+                { label: '14 Days', days: 14 },
+                { label: '30 Days', days: 30 },
+                { label: '90 Days', days: 90 },
+              ].map(preset => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => applyPreset(preset.days)}
+                  className="px-[0.55vw] py-[0.22vw] text-[0.66vw] rounded-[0.25vw] bg-slate-100 text-slate-700 hover:bg-[#F05338] hover:text-white font-medium transition-colors shrink-0 cursor-pointer"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Scroll Right Chevron Arrow */}
+            <button
+              type="button"
+              onClick={() => {
+                if (presetsScrollRef.current) {
+                  presetsScrollRef.current.scrollBy({ left: 80, behavior: 'smooth' });
+                }
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 h-[1.5vw] w-[1.2vw] flex items-center justify-center bg-gradient-to-l from-white via-white to-transparent text-slate-500 hover:text-slate-900 cursor-pointer z-10"
+              title="More presets"
+            >
+              <Icon icon="solar:alt-arrow-right-linear" className="w-[0.7vw] h-[0.7vw]" />
+            </button>
+          </div>
+
+          {/* Weekday Row */}
+          <div className="grid grid-cols-7 gap-[0.2vw] py-[0.4vw] text-center text-[0.64vw] font-semibold text-slate-400">
+            {DAYS.map(day => (
+              <span key={day}>{day}</span>
             ))}
           </div>
 
-          {/* Day of Week Headers */}
-          <div className="grid grid-cols-7 gap-[0.1vw] pt-[0.35vw] text-center text-[0.56vw] font-medium text-slate-400">
-            {DAYS.map(d => (
-              <div key={d} className="py-[0.08vw]">
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar Grid Days */}
-          <div className="grid grid-cols-7 gap-[0.1vw] pt-[0.1vw]">
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-y-[0.15vw]">
             {daysInMonth.map((cell, idx) => {
               const isStart = isSameDay(cell.date, tempStart);
-              const isEnd = isSameDay(cell.date, tempEnd);
+              const isEnd = isSameDay(cell.date, tempEnd || hoverDate);
               const inRange = isInRange(cell.date);
               const isToday = isSameDay(cell.date, new Date());
+              const colIndex = idx % 7;
+              const isRowStart = colIndex === 0;
+              const isRowEnd = colIndex === 6;
 
               return (
-                <button className="cursor-pointer"
+                <div
                   key={idx}
-                  type="button"
-                  onClick={() => handleDayClick(cell.date)}
-                  onMouseEnter={() => !tempEnd && setHoverDate(cell.date)}
-                  className={`relative h-[1.45vw] min-h-[21px] rounded-[0.28vw] text-[0.6vw] font-medium flex items-center justify-center transition-all cursor-pointer select-none ${
-                    !cell.isCurrentMonth ? 'text-slate-300' : 'text-slate-700'
+                  className={`relative py-[0.05vw] flex items-center justify-center ${
+                    inRange && !isStart && !isEnd
+                      ? 'bg-orange-50'
+                      : inRange && isStart && !isEnd
+                      ? 'bg-gradient-to-r from-transparent to-orange-50'
+                      : inRange && isEnd && !isStart
+                      ? 'bg-gradient-to-l from-transparent to-orange-50'
+                      : ''
                   } ${
-                    inRange && !isStart && !isEnd ? 'bg-orange-50 text-[#F05338] rounded-none' : ''
+                    inRange && isRowStart ? 'rounded-l-[0.3vw]' : ''
                   } ${
-                    isStart || isEnd
-                      ? 'bg-[#F05338] text-white shadow-xs font-semibold z-10'
-                      : 'hover:bg-slate-100'
-                  } ${isToday && !isStart && !isEnd ? 'ring-1 ring-[#F05338]/40 font-semibold' : ''}`}
+                    inRange && isRowEnd ? 'rounded-r-[0.3vw]' : ''
+                  }`}
                 >
-                  {cell.day}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDayClick(cell.date)}
+                    onMouseEnter={() => !tempEnd && setHoverDate(cell.date)}
+                    className={`w-[1.7vw] h-[1.7vw] min-w-[24px] min-h-[24px] rounded-[0.35vw] text-[0.68vw] font-medium flex items-center justify-center transition-all cursor-pointer select-none ${
+                      !cell.isCurrentMonth
+                        ? 'text-slate-300'
+                        : isStart || isEnd
+                        ? 'text-white'
+                        : inRange
+                        ? 'text-[#E54833] font-semibold'
+                        : 'text-slate-700'
+                    } ${
+                      isStart || isEnd
+                        ? 'bg-[#E54833] shadow-xs font-semibold z-10'
+                        : inRange
+                        ? 'hover:bg-orange-100'
+                        : 'hover:bg-slate-100'
+                    } ${isToday && !isStart && !isEnd && !inRange ? 'border border-[#E54833]/50 font-semibold' : ''}`}
+                  >
+                    {cell.day}
+                  </button>
+                </div>
               );
             })}
           </div>
 
           {/* Bottom Actions */}
-          <div className="flex items-center justify-between pt-[0.45vw] mt-[0.35vw] border-t border-slate-100 text-[0.58vw]">
-            <span className="text-slate-500 font-normal truncate max-w-[55%]">
-              {tempStart ? formatDisplayDate(tempStart) : 'Start'} → {tempEnd ? formatDisplayDate(tempEnd) : 'End'}
-            </span>
-            <div className="flex items-center gap-[0.25vw]">
-              <button className="cursor-pointer"
+          <div className="flex items-center justify-end pt-[0.55vw] mt-[0.5vw] border-t border-slate-100 text-[0.68vw]">
+            <div className="flex items-center gap-[0.35vw] shrink-0">
+              <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="px-[0.4vw] py-[0.18vw] text-slate-600 hover:text-slate-900 rounded-[0.25vw] font-medium transition-colors cursor-pointer"
+                className="px-[0.55vw] py-[0.25vw] text-slate-600 hover:text-slate-900 rounded-[0.3vw] font-medium transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={applyRange}
-                className="px-[0.55vw] py-[0.18vw] bg-[#F05338] hover:bg-[#d9442a] text-white rounded-[0.25vw] font-medium shadow-xs transition-colors cursor-pointer"
+                className="px-[0.75vw] py-[0.25vw] bg-[#E54833] hover:bg-[#d63e2a] text-white rounded-[0.3vw] font-semibold shadow-xs transition-colors cursor-pointer"
               >
                 Apply
               </button>
@@ -329,4 +374,6 @@ export default function AnalyticsDatePicker({
       )}
     </div>
   );
-}
+});
+
+export default AnalyticsDatePicker;
