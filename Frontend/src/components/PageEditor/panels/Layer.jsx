@@ -466,7 +466,7 @@ const LayerItem = ({
       if (isGroup && layer.children && layer.children.length > 0) setIsOpen(!isOpen);
     }
 
-    window.dispatchEvent(new CustomEvent('force-update-selection-box'));
+    window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: targetId } }));
   };
 
   const handleContextMenu = (e) => {

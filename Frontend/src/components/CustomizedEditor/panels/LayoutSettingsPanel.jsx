@@ -146,8 +146,11 @@ const TocItem = ({ item, index, isEditing, onUpdate, onDelete, activeTOCItem, se
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              value={item.page || ''}
-              placeholder={`Page-${index + 1}`}
+              value={(() => {
+                const val = (item.page !== undefined && item.page !== null && item.page !== '') ? String(item.page).replace(/\D/g, '') : '';
+                return val ? (parseInt(val, 10) < 10 ? `0${parseInt(val, 10)}` : val) : '';
+              })()}
+              placeholder={index + 1 < 10 ? `0${index + 1}` : `${index + 1}`}
               onChange={(e) => {
                 const numericVal = e.target.value.replace(/\D/g, '');
                 onUpdate({ ...item, page: numericVal });
@@ -223,8 +226,15 @@ const TocItem = ({ item, index, isEditing, onUpdate, onDelete, activeTOCItem, se
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    value={sub.page || ''}
-                    placeholder={`Page-${sIdx + 1}`}
+                    value={(() => {
+                      const val = (sub.page !== undefined && sub.page !== null && sub.page !== '') ? String(sub.page).replace(/\D/g, '') : '';
+                      return val ? (parseInt(val, 10) < 10 ? `0${parseInt(val, 10)}` : val) : '';
+                    })()}
+                    placeholder={(() => {
+                      const parentVal = (item.page !== undefined && item.page !== null && item.page !== '') ? String(item.page).replace(/\D/g, '') : '';
+                      const num = parentVal ? parseInt(parentVal, 10) : (index + 1);
+                      return num < 10 ? `0${num}` : `${num}`;
+                    })()}
                     onChange={(e) => {
                       const numericVal = e.target.value.replace(/\D/g, '');
                       const newSubs = [...item.subheadings];
@@ -580,7 +590,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
                             newContent.splice(nextIdx, 0, {
                               id: Date.now(),
                               title: `Heading ${content.length + 1}`,
-                              page: `Page-${nextIdx + 1}`,
+                              page: `${nextIdx + 1}`,
                               subheadings: []
                             });
                             updateRootSetting('tocSettings', 'content', newContent);
@@ -592,12 +602,13 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
                             if (content.length > 0) {
                               const newContent = [...content];
                               const targetItem = newContent[idx];
+                              const parentPage = targetItem.page ? String(targetItem.page).replace(/\D/g, '') : `${idx + 1}`;
                               const updatedItem = {
                                 ...targetItem,
                                 subheadings: [...(targetItem.subheadings || []), {
                                   id: Date.now() + 1,
                                   title: `Subheading ${(targetItem.subheadings || []).length + 1}`,
-                                  page: `Page-${(targetItem.subheadings || []).length + 1}`
+                                  page: parentPage
                                 }]
                               };
                               newContent[idx] = updatedItem;
@@ -615,7 +626,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
                         <div className="flex justify-center py-[1vw]">
                           <button
                             onClick={() => {
-                              const newContent = [{ id: Date.now(), title: 'Heading 1', page: 'Page-1', subheadings: [] }];
+                              const newContent = [{ id: Date.now(), title: 'Heading 1', page: '1', subheadings: [] }];
                               updateRootSetting('tocSettings', 'content', newContent);
                               setEditingTOCIndex(0);
                               setActiveTOCItem({ type: 'head', index: 0 });

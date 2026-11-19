@@ -7,6 +7,7 @@ import { sanitizeSvgXml } from '../utils/editorUtils';
 import { useAuth } from '../context/AuthContext';
 import { getInitialUser } from '../utils/authUtils';
 import { useToast } from '../components/CustomToast';
+import { LazyPreview as SharedLazyPreview } from '../components/MyFlipbooks/LazyPreview';
 import p1 from '../assets/Explore/p1.png';
 import cover1 from '../assets/Explore/c-bg1.png';
 import cover2 from '../assets/Explore/c-bg2.png';
@@ -45,7 +46,7 @@ const defaultMockBooks = [
     { title: "The Art of Spending Money 2", cover: cover3, pages: 30, views: '7.8k', rating: 4.6, orientation: 'landscape' },
 ];
 
-const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl, title, imageUrl, onOrientationDetected }) => {
+const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl, title, imageUrl, coverPicture = null, pages = [], onOrientationDetected }) => {
     const containerRef = useRef(null);
     const [html, setHtml] = useState(null);
     const [fetchedBaseUrl, setFetchedBaseUrl] = useState('');
@@ -407,14 +408,24 @@ const CreatorFlipbookCard = ({ book, creator, onOpenBook, isFavorited: propIsFav
                     const folderName = rawBook?.folderName || 'default';
                     const bookTitleResolved = rawBook?.flipbookName || rawBook?.realName || bookTitle;
                     const resolvedIframeBaseUrl = getAssetBaseUrl(userFolder, folderName, bookTitleResolved);
+                    const coverPicture =
+                        rawBook?.coverPicture ||
+                        rawBook?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+                        rawBook?.Customized_Settings?.otherSetup?.coverPicture ||
+                        rawBook?.Customized_Settings?.coverPicture ||
+                        rawBook?.meta?.coverPicture ||
+                        book?.coverPicture ||
+                        null;
                     return (
-                        <LazyPreview
+                        <SharedLazyPreview
                             v_id={v_id}
                             emailId={rawBook?.userEmail || creator?.emailId || creator?.email}
                             backendUrl={BACKEND_URL}
                             iframeBaseUrl={resolvedIframeBaseUrl}
                             title={bookTitle || "Flipbook"}
                             imageUrl={rawBook?.image || book?.cover || null}
+                            coverPicture={coverPicture}
+                            pages={rawBook?.pages || []}
                         />
                     );
                 })()}

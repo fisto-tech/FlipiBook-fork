@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 const getLayoutColor = (id, defaultColor) => `var(--${id}, ${defaultColor})`;
 const getLayoutColorRgba = (id, defaultRgb, defaultOpacity) =>
@@ -799,15 +800,13 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                     style={{ color: getLayoutColor('toolbar-text-main', '#FFFFFF'), opacity: 0.9 }}>{/* {bookName} */}</span>
                             )}
                             <div className="flex items-center">
-                                {settings.brandingProfile.logo && logoSettings?.src && (
-                                    <img
-                                        src={logoSettings.src}
-                                        alt="Brand Logo"
-                                        className={`${isMobileLandscape ? 'h-[1.8vw]' : 'h-[1.5vw]'} w-auto transition-all cursor-pointer hover:scale-105 active:scale-95`}
-                                        style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                                        onClick={() => setShowProfilePopup(true)}
-                                    />
-                                )}
+                                <BrandLogo
+                                    logoSettings={logoSettings}
+                                    settings={settings}
+                                    isTablet={isTablet}
+                                    className={`${isMobileLandscape ? 'h-[1.8vw]' : 'h-[1.5vw]'}`}
+                                    onClick={() => setShowProfilePopup(true)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -926,7 +925,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                 <div className={isFullscreen ? 'absolute bottom-0 left-0 w-full z-[1000] bg-transparent' : 'shrink-0'}>
                     <div className={`${!isBigBars ? (isMobileLandscape ? 'h-[4vh] pt-[0.5vh]' : isTablet ? 'h-[5vh]' : 'h-[6.5vh] pt-[1vh]') : (isMobileLandscape ? 'h-[4.5vh] pt-[0.5vh]' : isTablet ? 'h-[5.5vh]' : 'h-[6.5vh] pt-[1vh]')} flex items-start justify-between px-[2vw] w-full z-[1001] transition-all duration-500 ease-in-out ${isFullscreen ? `absolute bottom-0 left-0 ${!isCanvasHovered ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}` : 'relative'}`}
                         onClick={(e) => e.stopPropagation()}
-                        style={{ backgroundColor: getLayoutColorRgba('bottom-toolbar-bg', '62, 68, 145', '1') }}>
+                        style={{ backgroundColor: getLayoutColorRgba('bottom-toolbar-bg', '87, 92, 156', '1') }}>
 
                         {/* Left: Page Counter Rounded Box */}
                         {(settings?.navigation?.pageQuickAccess ?? true) && (
@@ -1237,7 +1236,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                             <div
                                 ref={scrollRef}
                                 onScroll={checkScroll}
-                                className={`flex w-full ${spreads.length > maxItems ? 'overflow-x-auto justify-start' : 'overflow-x-hidden justify-center'} no-scrollbar scroll-smooth items-center h-full ${isTablet ? 'gap-[0.5vw] px-[0.7vw]' : 'gap-[0.8vw] px-[1vw]'}`}
+                                className={`flex w-full ${spreads.length > maxItems ? 'overflow-x-auto justify-start' : 'overflow-x-hidden justify-center'} overflow-y-hidden scroll-smooth items-center h-full ${isTablet ? 'gap-[0.5vw] px-[0.7vw]' : 'gap-[0.8vw] px-[1vw]'}`}
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                             >
                                 {spreads.map((spread, idx) => {
                                     const isSelected = spread.indices.includes(currentPage);

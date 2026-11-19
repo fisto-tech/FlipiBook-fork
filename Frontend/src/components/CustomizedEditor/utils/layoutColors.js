@@ -37,7 +37,7 @@ export const LAYOUT_DEFAULT_COLORS = {
   ],
   3: [
     { id: 'toolbar-bg', label: 'Top bar background color', hex: '#555555', opacity: 100, component: 'Toolbar' },
-    { id: 'bottom-toolbar-bg', label: 'Bottom bar background color', hex: '#3E4491', opacity: 100, component: 'Toolbar' },
+    { id: 'bottom-toolbar-bg', label: 'Bottom bar background color', hex: '#555555', opacity: 100, component: 'Toolbar' },
     { id: 'toolbar-text-main', label: 'Toolbar text color', hex: '#FFFFFF', opacity: 100, component: 'Toolbar' },
     { id: 'toolbar-icon', label: 'Icon color', hex: '#FFFFFF', opacity: 100, component: 'Toolbar' },
     { id: 'search-bg-v2', label: 'Search bar background color', hex: '#FFFFFF', opacity: 100, component: 'Toolbar' },

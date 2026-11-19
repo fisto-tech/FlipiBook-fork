@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 const Grid6Layout = ({
     children,
@@ -503,36 +504,12 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
 
                 {/* Right: Logo */}
                 <div className="flex items-center">
-                    {(settings?.brandingProfile?.logo !== false) && logoSettings?.src && (
-                        (() => {
-                            const adj = logoSettings.adjustments || {};
-                            const filterStr = `brightness(${100 + (adj.exposure || 0)}%) contrast(${100 + (adj.contrast || 0)}%) saturate(${100 + (adj.saturation || 0)}%) hue-rotate(${adj.tint || 0}deg) sepia(${adj.temperature > 0 ? adj.temperature : 0}%) brightness(${100 + ((adj.highlights || 0) / 5)}%) contrast(${100 + ((adj.shadows || 0) / 5)}%)`;
-                            
-                            const innerImg = (
-                                <img
-                                    src={logoSettings.src}
-                                    alt="Logo"
-                                    className={`${isTablet ? 'h-[1.8vw]' : 'h-[2.2vw]'} w-auto`}
-                                    style={{ opacity: (logoSettings.opacity ?? 100) / 100, filter: filterStr }}
-                                />
-                            );
-                            
-                            return logoSettings.url ? (
-                                <a 
-                                    href={logoSettings.url.startsWith('http') ? logoSettings.url : `https://${logoSettings.url}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="bg-transparent p-[0.4vw] transition-opacity hover:opacity-80 block"
-                                >
-                                    {innerImg}
-                                </a>
-                            ) : (
-                                <div className="bg-transparent p-[0.4vw] transition-opacity hover:opacity-80 block">
-                                    {innerImg}
-                                </div>
-                            );
-                        })()
-                    )}
+                    <BrandLogo
+                        logoSettings={logoSettings}
+                        settings={settings}
+                        isTablet={isTablet}
+                        className={`${isTablet ? 'h-[1.8vw]' : 'h-[2.2vw]'}`}
+                    />
                 </div>
             </div>
 
@@ -617,7 +594,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                                             </div>
                                                             {settings.tocSettings?.addPageNumber !== false && (
                                                                 <span className={`${isTablet ? 'text-[0.75vw]' : 'text-[0.9vw]'} font-bold opacity-40 group-hover:opacity-80 tabular-nums`}>
-                                                                    {item.page < 10 ? `0${item.page}` : item.page}
+                                                                    {(() => {
+                                                                        const num = parseInt(String(item.page || '').replace(/\D/g, ''), 10);
+                                                                        if (isNaN(num)) return '';
+                                                                        return num < 10 ? `0${num}` : `${num}`;
+                                                                    })()}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -630,7 +611,12 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                                                             key={sIdx}
                                                                             className="flex items-center justify-between py-[0.6vh] px-[0.8vw] hover:bg-white/10 rounded-[0.5vw] cursor-pointer transition-all group"
                                                                             style={{ color: getLayoutColor('toc-text', '#555555') }}
-                                                                            onClick={() => { onPageClick(sub.page - 1); setShowTOCMemo?.(false); setTocSearchQuery(''); }}
+                                                                            onClick={() => {
+                                                                                const p = parseInt(String(sub.page || '').replace(/\D/g, ''), 10);
+                                                                                if (!isNaN(p) && p >= 1) onPageClick(p - 1);
+                                                                                setShowTOCMemo?.(false);
+                                                                                setTocSearchQuery('');
+                                                                            }}
                                                                         >
                                                                             <div className="flex items-center gap-[0.4vw] truncate pr-[0.5vw] pl-[0.5vw]">
                                                                                 {settings.tocSettings?.addSerialNumberToSubheading !== false && (
@@ -642,7 +628,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                                                             </div>
                                                                             {settings.tocSettings?.addPageNumber !== false && (
                                                                                 <span className={`${isTablet ? 'text-[0.7vw]' : 'text-[0.85vw]'} font-semibold opacity-30 group-hover:opacity-60 tabular-nums`}>
-                                                                                    {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                                                    {(() => {
+                                                                                        const num = parseInt(String(sub.page || '').replace(/\D/g, ''), 10);
+                                                                                        if (isNaN(num)) return '';
+                                                                                        return num < 10 ? `0${num}` : `${num}`;
+                                                                                    })()}
                                                                                 </span>
                                                                             )}
                                                                         </div>
@@ -1024,7 +1014,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                             }}
                         >
                             <Icon icon="fluent:text-bullet-list-24-filled" width={isTablet ? '1.1vw' : '1.3vw'} height={isTablet ? '1.1vw' : '1.3vw'} className="transition-transform group-hover:scale-110" />
-                            {settings?.toolbar?.addTextBelowIcons && <span className={`${isTablet ? 'text-[0.35vw]' : 'text-[0.45vw]'} font-semibold leading-tight text-center`} style={{ fontFamily: settings?.toolbar?.textProperties?.font || 'inherit' }}>Table of<br />Contents</span>}
+                            {settings?.toolbar?.addTextBelowIcons && <span className={`${isTablet ? 'text-[0.35vw]' : 'text-[0.45vw]'} font-semibold leading-tight text-center`} style={{ fontFamily: settings?.toolbar?.textProperties?.font || 'inherit' }}>TOC</span>}
                             <div className={`absolute left-[calc(100%+1vw)] top-1/2 -translate-y-1/2 hidden ${!settings?.toolbar?.addTextBelowIcons ? 'group-hover:block' : ''} whitespace-nowrap pointer-events-none z-[9999]`}
                                 style={{
                                     background: 'rgba(10, 10, 12, 0.55)',
@@ -1039,7 +1029,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                     fontSize: isTablet ? '0.55vw' : '0.65vw',
                                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)'
                                 }}>
-                                Table of Contents
+                                TOC
                                 <div className="absolute top-1/2 -translate-y-1/2 -left-[0.3vw] w-0 h-0 border-solid border-t-transparent border-b-transparent border-r-[0.35vw] border-t-[0.35vw] border-b-[0.35vw]" style={{ borderRightColor: 'rgba(10, 10, 12, 0.55)' }}></div>
                             </div>
                         </button>

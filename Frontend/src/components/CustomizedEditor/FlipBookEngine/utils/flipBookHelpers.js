@@ -452,6 +452,5 @@ export const checkTurnReady = ($book) => {
     }
 };
 
-
 /** Defaults for a transparent sheet's look (Book Appearance → Transparent Sheet → Sheet Texture) */
 export const SHEET_STYLE_DEFAULTS = { blur: 1, haze: 36, tint: '#f3f4f6', textureIntensity: 100, textureSize: 100 };

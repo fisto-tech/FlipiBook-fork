@@ -113,7 +113,7 @@ export default function HowItWorksSection() {
           // Card Box: order-1 on mobile/tab (always on top of text), alternating on desktop, slightly reduced width
           const cardBox = (
             <div
-              className={`w-full lg:w-[94%] mx-auto bg-[#e2e4e7] rounded-[26px] lg:rounded-[1.6vw] p-2.5 sm:p-3 lg:p-[0.7vw] aspect-[1/1.12] relative shadow-xs group-hover:shadow-md transition-all duration-300 overflow-hidden ${
+              className={`w-full lg:w-[94%] mx-auto bg-[#e2e4e7] rounded-[26px] lg:rounded-[1.6vw] p-2.5 sm:p-3 lg:p-[0.7vw] aspect-[1/1.12] relative shadow-xs hover:shadow-xl hover:-translate-y-2 hover:bg-[#d8dade] transition-all duration-300 ease-out overflow-hidden cursor-pointer ${
                 isTopText ? 'order-1 lg:order-2' : 'order-1 lg:order-1'
               }`}
             >
@@ -127,7 +127,7 @@ export default function HowItWorksSection() {
                 <img
                   src={step.image}
                   alt={step.title}
-                  className={`${step.imgClass} group-hover:scale-105 transition-transform duration-500`}
+                  className={`${step.imgClass}`}
                 />
               </div>
             </div>

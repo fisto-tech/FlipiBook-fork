@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import Sound from '../popups/Sound';
 const MobileLayout1 = lazy(() => import('../Mobile/MobileLayouts/MobileLayout1'));
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 const getLayoutColor = (id, defaultColor) => {
     return `var(--${id}, ${defaultColor})`;
@@ -794,50 +795,15 @@ const Grid1Layout = React.memo((props) => {
                         */}
 
                         {/* Logo Area */}
-                        {settings.brandingProfile.logo && logoSettings?.src && (
-                            <div className="flex items-center gap-[1vw]">
-                                {(() => {
-                                    const adj = logoSettings.adjustments || {};
-                                    const exposure = adj.exposure || 0;
-                                    const contrast = adj.contrast || 0;
-                                    const saturation = adj.saturation || 0;
-                                    const temperature = adj.temperature || 0;
-                                    const tint = adj.tint || 0;
-                                    const highlights = (adj.highlights || 0) / 5;
-                                    const shadows = (adj.shadows || 0) / 5;
-                                    const filterStr = `brightness(${100 + exposure}%) contrast(${100 + contrast}%) saturate(${100 + saturation}%) hue-rotate(${tint}deg) sepia(${temperature > 0 ? temperature : 0}%) brightness(${100 + highlights}%) contrast(${100 + shadows}%)`;
-                                    const logoStyle = {
-                                        objectFit: logoObjectFit,
-                                        filter: filterStr,
-                                        opacity: (logoSettings.opacity ?? 100) / 100,
-                                        ...logoCropStyle
-                                    };
-
-                                    return logoSettings.url ? (
-                                        <a
-                                            href={logoSettings.url.startsWith('http') ? logoSettings.url : `https://${logoSettings.url}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block hover:scale-105 transition-transform"
-                                        >
-                                            <img
-                                                src={logoSettings.src}
-                                                alt="Brand Logo"
-                                                className={`${isTablet ? 'h-[1.2vw]' : 'h-[2vw]'} w-auto transition-all duration-300`}
-                                                style={logoStyle}
-                                            />
-                                        </a>
-                                    ) : (
-                                        <img
-                                            src={logoSettings.src}
-                                            alt="Brand Logo"
-                                            className={`${isTablet ? 'h-[1.5vw] ' : 'h-[2vw]'} w-auto transition-all duration-300`}
-                                            style={logoStyle}
-                                        />
-                                    );
-                                })()}
-                            </div>
-                        )}
+                        <div className="flex items-center gap-[1vw]">
+                            <BrandLogo
+                                logoSettings={logoSettings}
+                                settings={settings}
+                                isTablet={isTablet}
+                                logoObjectFit={logoObjectFit}
+                                logoCropStyle={logoCropStyle}
+                            />
+                        </div>
                     </div>
                 </div>
             )}

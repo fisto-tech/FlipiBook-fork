@@ -11,7 +11,7 @@ export default function CreationFeatures() {
   const navigate = useNavigate();
 
   return (
-    <div className="w-full min-h-screen bg-white text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden selection:bg-[#EA580C]/10 selection:text-[#EA580C]">
+    <div className="w-full min-h-screen bg-white text-[#1E293B] font-poppins flex flex-col justify-between overflow-x-hidden">
       <main className="w-full flex-1 pb-2">
         {/* =========================================
             SECTION 1: HERO (CREATION BANNER)
@@ -35,9 +35,9 @@ export default function CreationFeatures() {
                 <button
                   type="button"
                   onClick={() => navigate('/features')}
-                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-gray-200 bg-white/90 text-gray-600 text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-xs transition-all cursor-pointer backdrop-blur-xs hover:bg-white"
+                  className="inline-flex items-center gap-1.5 md:gap-[0.5vw] px-3 md:px-3.5 py-1.5 rounded-sm border border-[#EA580C] bg-white/10 text-[#EA580C] text-xs sm:text-sm md:text-[0.9vw] font-semibold shadow-sm hover:shadow transition-all cursor-pointer backdrop-blur-xl hover:shadow-[#EA580C]"
                 >
-                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-gray-600" />
+                  <Icon icon="lucide:arrow-left" className="w-3.5 h-3.5 md:w-[1vw] md:h-[1vw] text-[#EA580C]" />
                   <span>Back to Features</span>
                 </button>
               </div>
@@ -100,211 +100,208 @@ export default function CreationFeatures() {
           </div>
         </section>
 
-          <div className="max-w-[92vw] mx-auto px-4 md:px-[2vw] flex flex-col gap-6">
-            {/* Top 2-Column Section: 1 & 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-              
-              {/* =========================================
+        <div className="max-w-[92vw] mx-auto px-4 md:px-[2vw] flex flex-col gap-6">
+          {/* Top 2-Column Section: 1 & 2 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+
+            {/* =========================================
                   LEFT COLUMN:
                   1. Image 1 Card (Upload and Transform in Seconds)
                   2. Mini Cards 1 (Effortless File Import & Interactive Design Studio)
               ========================================= */}
-              <div className="flex flex-col gap-6">
-                {/* 1. UPLOAD AND TRANSFORM (IMAGE CARD) */}
-                <div className="relative w-full rounded-2xl overflow-hidden shadow-sm group">
-                  <img
-                    src={Creation1Img}
-                    alt="Upload and Transform in Seconds"
-                    className="w-full h-[240px] sm:h-[350px] md:h-[400px] object-cover block"
-                  />
-                  {/* Overlay Title */}
-                  <div className="absolute top-5 left-5 sm:top-7 sm:left-7 z-10">
-                    <h3 className="text-white text-[17px] sm:text-[21px] md:text-[22px] font-semibold leading-snug drop-shadow-md">
-                      1. Upload and Transform
-                      <br />
-                      &nbsp;&nbsp;&nbsp;&nbsp;in Seconds
-                    </h3>
-                  </div>
-                </div>
-
-                {/* PAIR 1: TWO MINI CARDS (CARD 1 DETAILS) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Effortless File Import (White Card) */}
-                  <div className="relative bg-white border border-[#D5D9E0] rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-[190px] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <Icon icon="ph:file-text" className="w-7 h-7 text-[#EA580C]" />
-                        <span 
-                          className="text-4xl sm:text-5xl font-extrabold text-transparent select-none leading-none"
-                          style={{
-                            WebkitTextStroke: '2.5px #EA580C',
-                            filter: 'drop-shadow(2.5px 2.5px 0px rgba(234, 88, 12, 0.35))',
-                          }}
-                        >
-                          1
-                        </span>
-                      </div>
-                      <h4 className="text-[14px] sm:text-[15px] font-bold text-[#111827] mb-2 leading-snug">
-                        Effortless File Import:
-                      </h4>
-                      <p className="text-[12px] sm:text-[12.5px] text-[#64748B] leading-relaxed">
-                        Upload standard formats like PDF, Word, and PowerPoint with smart conversion that preserves every layout and visual detail.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Interactive Design Studio (Grey Card) */}
-                  <div className="bg-[#D3D8DF] rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-[190px]">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <Icon icon="ph:sparkle" className="w-7 h-7 text-[#111827]" />
-                      </div>
-                      <h4 className="text-[14px] sm:text-[15px] font-bold text-[#111827] mb-2 leading-snug">
-                        Interactive Design Studio:
-                      </h4>
-                      <p className="text-[12px] sm:text-[12.5px] text-[#475569] leading-relaxed">
-                        Customize your uploaded document in our editor by adding clickable buttons, external links, social integrations, map directions, and popup templates.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* =========================================
-                  RIGHT COLUMN:
-                  1. Mini Cards 2 (Custom Dimensions & Interactive Design Studio)
-                  2. Image 2 Card (Build Your Publication Design From Zero)
-              ========================================= */}
-              <div className="flex flex-col gap-6">
-                {/* PAIR 2: TWO MINI CARDS (CARD 2 DETAILS) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Custom Dimensions (White Card) */}
-                  <div className="relative bg-white border border-[#D5D9E0] rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-[190px] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <Icon icon="ph:crop" className="w-7 h-7 text-[#EA580C]" />
-                        <span 
-                          className="text-4xl sm:text-5xl font-extrabold text-transparent select-none leading-none"
-                          style={{
-                            WebkitTextStroke: '2.5px #EA580C',
-                            filter: 'drop-shadow(2.5px 2.5px 0px rgba(234, 88, 12, 0.35))',
-                          }}
-                        >
-                          2
-                        </span>
-                      </div>
-                      <h4 className="text-[14px] sm:text-[15px] font-bold text-[#111827] mb-2 leading-snug">
-                        Custom Dimensions
-                      </h4>
-                      <p className="text-[12px] sm:text-[12.5px] text-[#64748B] leading-relaxed">
-                        Choose standard sizes like A3 and A4 or set custom dimensions, then select portrait or landscape orientation and specify your exact page count.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Interactive Design Studio (Dark Card) */}
-                  <div className="bg-[#353535] rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-[190px]">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <Icon icon="ph:pen-nib" className="w-7 h-7 text-white" />
-                      </div>
-                      <h4 className="text-[14px] sm:text-[15px] font-bold text-white mb-2 leading-snug">
-                        Interactive Design Studio:
-                      </h4>
-                      <p className="text-[12px] sm:text-[12.5px] text-[#CBD5E1] leading-relaxed">
-                        Use our drag-and-drop editor to arrange text, shapes, slideshows, clickable buttons, and rich media from scratch.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. BUILD YOUR PUBLICATION DESIGN FROM ZERO (IMAGE CARD) */}
-                <div className="relative w-full rounded-2xl overflow-hidden shadow-sm group">
-                  <img
-                    src={Creation2Img}
-                    alt="Build Your Publication Design From Zero"
-                    className="w-full h-[240px] sm:h-[350px] md:h-[400px] object-cover block"
-                  />
-                  {/* Overlay Title */}
-                  <div className="absolute top-5 left-5 sm:top-7 sm:left-7 z-10">
-                    <h3 className="text-white text-[17px] sm:text-[21px] md:text-[22px] font-semibold leading-snug drop-shadow-md">
-                      2. Build Your Publication
-                      <br />
-                      &nbsp;&nbsp;&nbsp;&nbsp;Design From Zero
-                    </h3>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* =========================================
-                BOTTOM ROW (ROW 3): SAME HEIGHT ROW
-                Image 3 (Left half, 50%) + Mini Cards 3 (Right half, 50% divided into 2 cards)
-            ========================================= */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-              {/* 3. DESIGN FASTER WITH READY-MADE LAYOUTS (IMAGE CARD) */}
-              <div className="relative w-full h-full min-h-[220px] rounded-2xl overflow-hidden shadow-sm group">
+            <div className="flex flex-col gap-6">
+              {/* 1. UPLOAD AND TRANSFORM (IMAGE CARD) */}
+              <div className="relative w-full rounded-2xl overflow-hidden shadow-sm group">
                 <img
-                  src={Creation3Img}
-                  alt="Design Faster With Ready-Made Layouts"
-                  className="w-full h-full object-cover block"
+                  src={Creation1Img}
+                  alt="Upload and Transform in Seconds"
+                  className="w-full h-[240px] sm:h-[350px] md:h-[400px] object-cover block"
                 />
                 {/* Overlay Title */}
-                <div className="absolute top-5 left-5 sm:top-6 sm:left-6 z-10">
-                  <h3 className="text-white text-[16px] sm:text-[20px] md:text-[21px] font-semibold leading-snug drop-shadow-md">
-                    3. Design Faster With Ready-
+                <div className="absolute top-5 left-5 sm:top-7 sm:left-7 z-10">
+                  <h3 className="text-white text-[17px] sm:text-[21px] md:text-[22px] font-semibold leading-snug drop-shadow-md">
+                    1. Upload and Transform
                     <br />
-                    &nbsp;&nbsp;&nbsp;&nbsp;Made Layouts
+                    &nbsp;&nbsp;&nbsp;&nbsp;in Seconds
                   </h3>
                 </div>
               </div>
 
-              {/* PAIR 3: TWO MINI CARDS (CARD 3 DETAILS) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-full">
-                {/* Industry-Ready Templates (White Card) */}
-                <div className="relative bg-white border border-[#D5D9E0] rounded-2xl p-5 sm:p-6 flex flex-col justify-between h-full shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+              {/* PAIR 1: TWO MINI CARDS (CARD 1 DETAILS) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Effortless File Import (White Card) */}
+                <div className="relative bg-white border border-[#D5D9E0] rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-[190px] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <Icon icon="ph:layout" className="w-7 h-7 text-[#EA580C]" />
-                      <span 
+                      <Icon icon="ph:file-text" className="w-7 h-7 text-[#EA580C]" />
+                      <span
                         className="text-4xl sm:text-5xl font-extrabold text-transparent select-none leading-none"
                         style={{
                           WebkitTextStroke: '2.5px #EA580C',
                           filter: 'drop-shadow(2.5px 2.5px 0px rgba(234, 88, 12, 0.35))',
                         }}
                       >
-                        3
+                        1
                       </span>
                     </div>
                     <h4 className="text-[14px] sm:text-[15px] font-bold text-[#111827] mb-2 leading-snug">
-                      Industry-Ready Templates:
+                      Effortless File Import:
                     </h4>
                     <p className="text-[12px] sm:text-[12.5px] text-[#64748B] leading-relaxed">
-                      Jumpstart your project with ready-made layouts built specifically for catalogues, magazines, portfolios, and brochures.
+                      Upload standard formats like PDF, Word, and PowerPoint with smart conversion that preserves every layout and visual detail.
                     </p>
                   </div>
                 </div>
 
-                {/* Fast & Flexible Customization (Dark Card) */}
-                <div className="bg-[#353535] rounded-2xl p-5 sm:p-6 flex flex-col justify-between h-full">
+                {/* Interactive Design Studio (Grey Card) */}
+                <div className="bg-[#D3D8DF] rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-[190px]">
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <Icon icon="ph:sliders-horizontal" className="w-7 h-7 text-white" />
+                      <Icon icon="ph:sparkle" className="w-7 h-7 text-[#111827]" />
                     </div>
-                    <h4 className="text-[14px] sm:text-[15px] font-bold text-white mb-2 leading-snug">
-                      Fast &amp; Flexible Customization:
+                    <h4 className="text-[14px] sm:text-[15px] font-bold text-[#111827] mb-2 leading-snug">
+                      Interactive Design Studio:
                     </h4>
-                    <p className="text-[12px] sm:text-[12.5px] text-[#CBD5E1] leading-relaxed">
-                      Skip the blank page, drop in your content, and effortlessly adapt colors, fonts, and imagery to match your brand.
+                    <p className="text-[12px] sm:text-[12.5px] text-[#475569] leading-relaxed">
+                      Customize your uploaded document in our editor by adding clickable buttons, external links, social integrations, map directions, and popup templates.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* =========================================
+                  RIGHT COLUMN:
+                  1. Mini Cards 2 (Custom Dimensions & Interactive Design Studio)
+                  2. Image 2 Card (Build Your Publication Design From Zero)
+              ========================================= */}
+            <div className="flex flex-col gap-6">
+              {/* PAIR 2: TWO MINI CARDS (CARD 2 DETAILS) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Custom Dimensions (White Card) */}
+                <div className="relative bg-white border border-[#D5D9E0] rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-[190px] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <Icon icon="ph:crop" className="w-7 h-7 text-[#EA580C]" />
+                      <span
+                        className="text-4xl sm:text-5xl font-extrabold text-transparent select-none leading-none"
+                        style={{
+                          WebkitTextStroke: '2.5px #EA580C',
+                          filter: 'drop-shadow(2.5px 2.5px 0px rgba(234, 88, 12, 0.35))',
+                        }}
+                      >
+                        2
+                      </span>
+                    </div>
+                    <h4 className="text-[14px] sm:text-[15px] font-bold text-[#111827] mb-2 leading-snug">
+                      Custom Dimensions
+                    </h4>
+                    <p className="text-[12px] sm:text-[12.5px] text-[#64748B] leading-relaxed">
+                      Choose standard sizes like A3 and A4 or set custom dimensions, then select portrait or landscape orientation and specify your exact page count.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Interactive Design Studio (Dark Card) */}
+                <div className="bg-[#353535] rounded-2xl p-5 sm:p-6 flex flex-col justify-between min-h-[190px]">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <Icon icon="ph:pen-nib" className="w-7 h-7 text-white" />
+                    </div>
+                    <h4 className="text-[14px] sm:text-[15px] font-bold text-white mb-2 leading-snug">
+                      Interactive Design Studio:
+                    </h4>
+                    <p className="text-[12px] sm:text-[12.5px] text-[#CBD5E1] leading-relaxed">
+                      Use our drag-and-drop editor to arrange text, shapes, slideshows, clickable buttons, and rich media from scratch.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. BUILD YOUR PUBLICATION DESIGN FROM ZERO (IMAGE CARD) */}
+              <div className="relative w-full rounded-2xl overflow-hidden shadow-sm group">
+                <img
+                  src={Creation2Img}
+                  alt="Build Your Publication Design From Zero"
+                  className="w-full h-[240px] sm:h-[350px] md:h-[400px] object-cover block"
+                />
+                {/* Overlay Title */}
+                <div className="absolute top-5 left-5 sm:top-7 sm:left-7 z-10">
+                  <h3 className="text-white text-[17px] sm:text-[21px] md:text-[22px] font-semibold leading-snug drop-shadow-md">
+                    2. Build Your Publication
+                    <br />
+                    &nbsp;&nbsp;&nbsp;&nbsp;Design From Zero
+                  </h3>
+                </div>
+              </div>
+            </div>
+
           </div>
-       
+
+          {/* =========================================
+                BOTTOM ROW (ROW 3): SAME HEIGHT ROW
+                Image 3 (Left half, 50%) + Mini Cards 3 (Right half, 25% + 25%)
+            ========================================= */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+            {/* 3. DESIGN FASTER WITH READY-MADE LAYOUTS (IMAGE CARD - 50% width on lg) */}
+            <div className="md:col-span-2 lg:col-span-2 relative w-full h-[185px] sm:h-[195px] md:h-[205px] rounded-2xl overflow-hidden shadow-sm group">
+              <img
+                src={Creation3Img}
+                alt="Design Faster With Ready-Made Layouts"
+                className="w-full h-full object-cover object-center block"
+              />
+              {/* Overlay Title */}
+              <div className="absolute top-4 left-4 sm:top-5 sm:left-5 z-10">
+                <h3 className="text-white text-[16px] sm:text-[18px] md:text-[20px] font-semibold leading-snug drop-shadow-md">
+                  3. Design Faster With Ready-
+                  <br />
+                  &nbsp;&nbsp;&nbsp;&nbsp;Made Layouts
+                </h3>
+              </div>
+            </div>
+
+            {/* Industry-Ready Templates (White Card - 25% width on lg) */}
+            <div className="lg:col-span-1 relative bg-white border border-[#D5D9E0] rounded-2xl p-5 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Icon icon="ph:layout" className="w-7 h-7 text-[#EA580C]" />
+                  <span
+                    className="text-3xl sm:text-6xl mt-4 font-extrabold text-transparent select-none leading-none"
+                    style={{
+                      WebkitTextStroke: '2px #EA580C',
+                      filter: 'drop-shadow(2px 2px 0px rgba(234, 88, 12, 0.35))',
+                    }}
+                  >
+                    3
+                  </span>
+                </div>
+                <h4 className="text-[14px] sm:text-[15px] font-bold text-[#111827] mb-1.5 mt-8 leading-snug">
+                  Industry-Ready Templates:
+                </h4>
+                <p className="text-[12px] sm:text-[12.5px] mt-4 text-[#64748B] leading-relaxed">
+                  Jumpstart your project with ready-made layouts built specifically for catalogues, magazines, portfolios, and brochures.
+                </p>
+              </div>
+            </div>
+
+            {/* Fast & Flexible Customization (Dark Card - 25% width on lg) */}
+            <div className="lg:col-span-1 bg-[#353535] rounded-2xl p-5 sm:p-5">
+              <div>
+                <div className="flex items-center mt-4 justify-between mb-2">
+                  <Icon icon="ph:sliders-horizontal" className="w-6 h-6 text-white" />
+                </div>
+                <h4 className="text-[14px] sm:text-[15px] mt-8 font-bold text-white mb-1.5 leading-snug">
+                  Fast &amp; Flexible Customization:
+                </h4>
+                <p className="text-[12px] sm:text-[12.5px] mt-4 pb-10 text-[#CBD5E1] leading-relaxed">
+                  Skip the blank page, drop in your content, and effortlessly adapt colors, fonts, and imagery to match your brand.
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
       </main>
       <Footer />
     </div>
