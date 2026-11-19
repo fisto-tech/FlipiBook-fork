@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import HTMLFlipBook from 'react-pageflip';
 import { 
-  ChevronLeft, ChevronRight, Check, X, FileText, 
+  ChevronLeft, ChevronRight, Check, X, FileText, FilePlus, ArrowRight,
   ChevronDown, BookOpen, Layers
 } from 'lucide-react';
 
@@ -209,28 +209,28 @@ export default function TemplateModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-[1.2vw] shadow-2xl w-full max-w-[80vw] h-[86vh] max-h-[86vh] flex overflow-hidden relative border border-gray-100"
+        className="bg-white rounded-[1vw] shadow-2xl w-full max-w-[76vw] h-[80vh] max-h-[80vh] flex overflow-hidden relative border border-gray-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* LEFT COLUMN: Title, Description, 3D FlipBook, Spread Page Counter */}
-        <div className="flex-1 flex flex-col justify-between p-[2vw] border-r border-gray-100/90 overflow-hidden bg-white">
+        <div className="flex-1 flex flex-col justify-between p-[1.4vw] pb-[1vw] border-r border-gray-100/90 overflow-hidden bg-white">
           {/* Header Title + Category Pill + Description */}
           <div className="flex-shrink-0">
-            <div className="flex items-center gap-[0.75vw]">
-              <h1 className="text-[1.8vw] font-bold text-gray-900 tracking-tight leading-tight">
+            <div className="flex items-center gap-[0.5vw]">
+              <h1 className="text-[1.2vw] font-semibold text-gray-900 tracking-tight leading-snug">
                 {template.title}
               </h1>
-              <span className="px-[0.6vw] py-[0.18vw] bg-[#FFF5F3] text-[#ea543a] text-[0.75vw] font-semibold rounded-[0.35vw] leading-none">
+              <span className="px-[0.5vw] py-[0.12vw] bg-[#FFF5F3] text-[#ea543a] text-[0.68vw] font-semibold rounded-[0.3vw] leading-none">
                 {template.badge || template.category}
               </span>
             </div>
-            <p className="text-[0.8vw] text-gray-400 font-normal mt-[0.35vw] leading-relaxed max-w-[48vw]">
+            <p className="text-[0.72vw] text-gray-400 font-normal mt-[0.2vw] leading-normal max-w-[48vw]">
               {template.desc || 'A clean and professional template perfect for company profiles, business presentations and corporate brochures.'}
             </p>
           </div>
 
           {/* Center 3D TurnJS / HTMLFlipBook Area */}
-          <div className="relative flex-1 flex items-center justify-center min-h-[35vh] max-h-[52vh] my-[0.5vw]">
+          <div className="relative flex-1 flex items-center justify-center min-h-[36vh] max-h-[56vh] my-[0.2vw]">
             {/* Left Nav Arrow */}
             <button
               type="button"
@@ -308,7 +308,7 @@ export default function TemplateModal({
           </div>
 
           {/* Bottom Spread Page Indicator (e.g. 4 / 12) */}
-          <div className="text-[0.85vw] font-semibold text-gray-600 text-center flex-shrink-0">
+          <div className="text-[0.78vw] font-semibold text-gray-600 text-center flex-shrink-0">
             {currentFlipPage === 0
               ? `1 / ${templatePages.length || template.pages}`
               : currentFlipPage >= (templatePages.length || template.pages) - 1
@@ -319,10 +319,10 @@ export default function TemplateModal({
         </div>
 
         {/* RIGHT COLUMN: Pages Grid Thumbnails + Dropdowns Form + USE THIS TEMPLATE Button */}
-        <div className="w-[28vw] flex flex-col justify-between p-[1.8vw] bg-white overflow-y-auto custom-scrollbar">
+        <div className="w-[27vw] flex flex-col justify-between p-[1.4vw] bg-white overflow-y-auto custom-scrollbar">
           {/* Top Header: "Pages" title & Close button */}
-          <div className="flex items-center justify-between pb-[0.8vw] flex-shrink-0">
-            <h2 className="text-[1.2vw] font-bold text-gray-900 tracking-tight">Pages</h2>
+          <div className="flex items-center justify-between pb-[0.6vw] flex-shrink-0">
+            <h2 className="text-[1.1vw] font-semibold text-gray-900 tracking-tight">Pages</h2>
             <button
               onClick={onClose}
               className="p-[0.35vw] rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
@@ -390,19 +390,19 @@ export default function TemplateModal({
           {/* Bottom Settings & Controls Form matching screenshot */}
           <div className="flex flex-col gap-[0.6vw] pt-[0.8vw] border-t border-gray-100 flex-shrink-0">
             {/* Row 1: Document Page Count */}
-            <div className="flex items-center gap-[0.5vw] text-[0.8vw] text-gray-600 font-medium">
-              <FileText className="w-[0.95vw] h-[0.95vw] text-gray-400 flex-shrink-0" />
+            <div className="flex items-center gap-[0.6vw] text-[0.8vw] text-gray-600 font-medium">
+              <FileText className="w-[1.1vw] h-[1.1vw] text-gray-500 flex-shrink-0" />
               <span>
                 {selectedPages.size} {selectedPages.size === 1 ? 'page' : 'pages'}
               </span>
             </div>
 
-            {/* Row 2: Paper Size & Orientation 50/50 Grid */}
-            <div className="flex items-center gap-[0.5vw]">
-              <BookOpen className="w-[0.95vw] h-[0.95vw] text-gray-400 flex-shrink-0" />
-              <div className="grid grid-cols-2 gap-[0.5vw] flex-1 min-w-0">
+            {/* Row 2: Paper Size & Orientation Grid */}
+            <div className="flex items-center gap-[0.6vw]">
+              <FileText className="w-[1.1vw] h-[1.1vw] text-gray-500 flex-shrink-0" />
+              <div className="flex items-center gap-[0.4vw] flex-1 min-w-0">
                 {/* Paper Size Selector */}
-                <div ref={sizeDropdownRef} className="relative w-full min-w-0">
+                <div ref={sizeDropdownRef} className="relative flex-1 min-w-0">
                   <button
                     type="button"
                     onClick={() => {
@@ -411,12 +411,12 @@ export default function TemplateModal({
                       setIsPlacementOpen(false);
                       setIsTargetPageOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-2xs cursor-pointer ${
-                      isSizeOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20 text-[#ea543a]' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-xs cursor-pointer text-[#ea543a] ${
+                      isSizeOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20' : 'border-gray-200/90 hover:border-gray-300'
                     }`}
                   >
                     <span className="truncate">{selectedPaperSize}</span>
-                    <ChevronDown className={`w-[0.75vw] h-[0.75vw] flex-shrink-0 ml-[0.2vw] transition-transform ${isSizeOpen ? 'rotate-180 text-[#ea543a]' : 'text-gray-400'}`} />
+                    <ChevronDown className={`w-[0.8vw] h-[0.8vw] flex-shrink-0 ml-[0.2vw] transition-transform text-gray-600 ${isSizeOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isSizeOpen && (
@@ -441,8 +441,10 @@ export default function TemplateModal({
                   )}
                 </div>
 
+                <span className="text-gray-300 text-[0.75vw] select-none">-</span>
+
                 {/* Orientation Selector */}
-                <div ref={orientDropdownRef} className="relative w-full min-w-0">
+                <div ref={orientDropdownRef} className="relative flex-1 min-w-0">
                   <button
                     type="button"
                     onClick={() => {
@@ -451,12 +453,12 @@ export default function TemplateModal({
                       setIsPlacementOpen(false);
                       setIsTargetPageOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-2xs cursor-pointer ${
-                      isOrientOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20 text-[#ea543a]' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-xs cursor-pointer text-[#ea543a] ${
+                      isOrientOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20' : 'border-gray-200/90 hover:border-gray-300'
                     }`}
                   >
                     <span className="truncate">{selectedOrientation}</span>
-                    <ChevronDown className={`w-[0.75vw] h-[0.75vw] flex-shrink-0 ml-[0.2vw] transition-transform ${isOrientOpen ? 'rotate-180 text-[#ea543a]' : 'text-gray-400'}`} />
+                    <ChevronDown className={`w-[0.8vw] h-[0.8vw] flex-shrink-0 ml-[0.2vw] transition-transform text-gray-600 ${isOrientOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isOrientOpen && (
@@ -484,11 +486,11 @@ export default function TemplateModal({
             </div>
 
             {/* Row 3: Add Pages To Placement & Target Page Grid */}
-            <div className="flex items-center gap-[0.5vw]">
-              <Layers className="w-[0.95vw] h-[0.95vw] text-gray-400 flex-shrink-0" />
-              <div className="grid grid-cols-2 gap-[0.5vw] flex-1 min-w-0">
+            <div className="flex items-center gap-[0.6vw]">
+              <FilePlus className="w-[1.1vw] h-[1.1vw] text-gray-500 flex-shrink-0" />
+              <div className="flex items-center gap-[0.4vw] flex-1 min-w-0">
                 {/* Placement Selector (e.g. After Current Page) */}
-                <div ref={placementDropdownRef} className="relative w-full min-w-0">
+                <div ref={placementDropdownRef} className="relative flex-1 min-w-0">
                   <button
                     type="button"
                     onClick={() => {
@@ -497,14 +499,14 @@ export default function TemplateModal({
                       setIsOrientOpen(false);
                       setIsTargetPageOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-2xs cursor-pointer ${
-                      isPlacementOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20 text-[#ea543a]' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-xs cursor-pointer text-[#ea543a] ${
+                      isPlacementOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20' : 'border-gray-200/90 hover:border-gray-300'
                     }`}
                   >
                     <span className="truncate">
                       {placement === 'after' ? 'After Current Page' : placement === 'before' ? 'Before Current Page' : placement === 'replace' ? 'Replace Current Page' : 'At The End'}
                     </span>
-                    <ChevronDown className={`w-[0.75vw] h-[0.75vw] flex-shrink-0 ml-[0.2vw] transition-transform ${isPlacementOpen ? 'rotate-180 text-[#ea543a]' : 'text-gray-400'}`} />
+                    <ChevronDown className={`w-[0.8vw] h-[0.8vw] flex-shrink-0 ml-[0.2vw] transition-transform text-gray-600 ${isPlacementOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isPlacementOpen && (
@@ -534,8 +536,10 @@ export default function TemplateModal({
                   )}
                 </div>
 
+                <span className="text-gray-300 text-[0.75vw] select-none">-</span>
+
                 {/* Target Page Selector (e.g. Page 4) */}
-                <div ref={targetPageDropdownRef} className="relative w-full min-w-0">
+                <div ref={targetPageDropdownRef} className="relative flex-1 min-w-0">
                   <button
                     type="button"
                     onClick={() => {
@@ -544,12 +548,12 @@ export default function TemplateModal({
                       setIsOrientOpen(false);
                       setIsPlacementOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-2xs cursor-pointer ${
-                      isTargetPageOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20 text-[#ea543a]' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-xs cursor-pointer text-[#ea543a] ${
+                      isTargetPageOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20' : 'border-gray-200/90 hover:border-gray-300'
                     }`}
                   >
                     <span className="truncate">Page {targetPageIndex + 1}</span>
-                    <ChevronDown className={`w-[0.75vw] h-[0.75vw] flex-shrink-0 ml-[0.2vw] transition-transform ${isTargetPageOpen ? 'rotate-180 text-[#ea543a]' : 'text-gray-400'}`} />
+                    <ChevronDown className={`w-[0.8vw] h-[0.8vw] flex-shrink-0 ml-[0.2vw] transition-transform text-gray-600 ${isTargetPageOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isTargetPageOpen && (
@@ -581,7 +585,7 @@ export default function TemplateModal({
               type="button"
               onClick={handleConfirm}
               disabled={isApplying || selectedPages.size === 0}
-              className="w-full mt-[0.3vw] py-[0.75vw] bg-[#ea543a] hover:bg-[#d9482f] active:scale-[0.99] text-white font-bold text-[0.85vw] rounded-[0.5vw] flex items-center justify-center gap-[0.5vw] shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              className="w-full mt-[0.3vw] py-[0.75vw] bg-[#ea543a] hover:bg-[#d9482f] active:scale-[0.99] text-white font-semibold text-[0.85vw] rounded-[0.5vw] flex items-center justify-center gap-[0.5vw] shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               {isApplying ? (
                 <>
@@ -591,7 +595,7 @@ export default function TemplateModal({
               ) : (
                 <>
                   <span>USE THIS TEMPLATE</span>
-                  <ChevronRight className="w-[1vw] h-[1vw]" />
+                  <ArrowRight className="w-[1vw] h-[1vw]" strokeWidth={2.2} />
                 </>
               )}
             </button>

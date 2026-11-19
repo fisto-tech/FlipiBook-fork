@@ -52,7 +52,7 @@ export const COVER_TEMPLATES = [
   { id: 4, label: 'Modern Magazine', orientation: 'portrait', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 50%, #A7F3D0 100%)', defaultText1: 'Magazine Lookbook', defaultText2: 'Vol. 24 / Summer Edition' },
   { id: 5, label: 'Dual Layer Spread', orientation: 'portrait', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 50%, #E9D5FF 100%)', defaultText1: 'Master Collection', defaultText2: 'Series Edition Vol. 1' },
   { id: 6, label: 'Isometric Portfolio', orientation: 'portrait', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 50%, #DDD6FE 100%)', defaultText1: 'Minimalist Journal', defaultText2: 'Special Edition Portfolio' },
-  
+
   // Landscape
   { id: 3, label: 'Landscape Catalog', orientation: 'landscape', maxPages: 1, defaultBgColor: 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 50%, #99F6E4 100%)', defaultText1: 'Corporate Showcase', defaultText2: 'Annual Brochure & Catalog' },
   { id: 7, label: 'Landscape Dual Spread', orientation: 'landscape', maxPages: 2, defaultBgColor: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #BBF7D0 100%)', defaultText1: 'Landscape Spread', defaultText2: '2-Page Open Lookbook' },
@@ -78,6 +78,47 @@ export const extractPageBgColor = (page) => {
     }
   }
   return null;
+};
+
+export const detectFlipbookOrientation = (bookOrSettings, pages = []) => {
+  // 1. Explicit orientation property
+  const explicitOrient = (
+    bookOrSettings?.orientation ||
+    bookOrSettings?.rawBook?.orientation ||
+    bookOrSettings?.Customized_Settings?.FlipbookInfo?.orientation ||
+    bookOrSettings?.settings?.orientation ||
+    ''
+  ).toLowerCase();
+
+  if (explicitOrient.includes('landscape') || explicitOrient.includes('horizontal') || bookOrSettings?.isLandscape) return 'landscape';
+  if (explicitOrient.includes('square')) return 'square';
+  if (explicitOrient.includes('portrait') || explicitOrient.includes('vertical')) return 'portrait';
+
+  // 2. Width and height on book/settings
+  const w = Number(bookOrSettings?.Customized_Settings?.FlipbookInfo?.width || bookOrSettings?.width || bookOrSettings?.rawBook?.width || bookOrSettings?.pageWidth || 0);
+  const h = Number(bookOrSettings?.Customized_Settings?.FlipbookInfo?.height || bookOrSettings?.height || bookOrSettings?.rawBook?.height || bookOrSettings?.pageHeight || 0);
+  if (w > 0 && h > 0) {
+    if (Math.abs(w - h) < 2) return 'square';
+    return w > h ? 'landscape' : 'portrait';
+  }
+
+  // 3. Inspect first available page dimensions / viewBox / SVG
+  const pageList = Array.isArray(pages) && pages.length > 0
+    ? pages
+    : Array.isArray(bookOrSettings?.pages) && bookOrSettings.pages.length > 0
+      ? bookOrSettings.pages
+      : [];
+
+  if (pageList.length > 0) {
+    const firstPage = pageList[0];
+    const aspect = getPageAspectRatio(firstPage);
+    if (aspect) {
+      if (Math.abs(aspect - 1) < 0.05) return 'square';
+      return aspect > 1.05 ? 'landscape' : 'portrait';
+    }
+  }
+
+  return 'portrait';
 };
 
 export const getPageAspectRatio = (page) => {
@@ -195,16 +236,16 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
       // Dual Brochure Mockup - Clean Flat Paper Spreads (No dark side edge gradients)
       return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transform ${scaleClass}`}>
-          {/* Back book */}
-          <div className={`absolute w-[10vw] h-[13.5vw] ${page1 ? 'bg-white' : 'bg-[#FDFBF7] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.4vw] transform -rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden shadow-lg`}>
-            {page1 ? (
+          {/* Back book (Page 2 / Back Cover) */}
+          <div className={`absolute w-[10vw] h-[13.5vw] ${page2 ? 'bg-white' : 'bg-[#FDFBF7] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.4vw] transform -rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden shadow-lg`}>
+            {page2 ? (
               <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
-                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between border-b border-[#E2DDD3] pb-[0.3vw] z-10">
-                  <span className="text-[0.5vw] font-mono tracking-widest text-[#7C7267] uppercase">EDITION 01</span>
+                  <span className="text-[0.5vw] font-mono tracking-widest text-[#7C7267] uppercase">EDITION 02</span>
                   <div className="w-[1.1vw] h-[1.1vw] bg-[#3E3A36] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-bold">M</div>
                 </div>
                 <div className="my-auto py-[0.4vw] z-10 flex flex-col items-start text-left">
@@ -217,23 +258,23 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
                   </div>
                 </div>
                 <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">
-                  PAGE 01
+                  PAGE 02
                 </div>
               </>
             )}
             <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none transform rotate-45 z-20" />
           </div>
 
-          {/* Front book */}
-          <div className={`absolute w-[10vw] h-[13.5vw] ${page2 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.4vw] shadow-xl transform rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
-            {page2 ? (
+          {/* Front book (Page 1 / Front Cover) */}
+          <div className={`absolute w-[10vw] h-[13.5vw] ${page1 ? 'bg-white' : 'bg-[#FAF8F5] border border-[#E7E3D8] p-[0.7vw]'} rounded-[0.4vw] shadow-xl transform rotate-6 flex flex-col justify-between text-[#2C2825] overflow-hidden`}>
+            {page1 ? (
               <div className="absolute inset-0 pointer-events-none bg-white flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block">
-                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page2Html }} />
+                <div className="w-full h-full flex items-center justify-center overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block" dangerouslySetInnerHTML={{ __html: page1Html }} />
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between border-b border-[#E2DDD3] pb-[0.3vw] z-10">
-                  <span className="text-[0.5vw] font-mono tracking-widest text-[#7C7267] uppercase">EDITION 02</span>
+                  <span className="text-[0.5vw] font-mono tracking-widest text-[#7C7267] uppercase">EDITION 01</span>
                   <div className="w-[1.1vw] h-[1.1vw] bg-[#E84E1B] rounded-[0.2vw] flex items-center justify-center text-white text-[0.55vw] font-bold">V</div>
                 </div>
                 <div className="my-auto py-[0.4vw] z-10 flex flex-col items-start text-left">
@@ -246,7 +287,7 @@ export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], 
                   </div>
                 </div>
                 <div className="text-[0.4vw] text-[#8C8275] font-mono tracking-wider z-10">
-                  PAGE 02
+                  PAGE 01
                 </div>
               </>
             )}
@@ -1166,16 +1207,30 @@ export const TemplatePreview = ({
   );
 };
 
-export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages = [], zIndex = 'z-[200]', inline = false }) => {
-  const incomingTplId = typeof settings.coverPicture?.selectedTemplate === 'object' && settings.coverPicture?.selectedTemplate
-    ? settings.coverPicture.selectedTemplate.id
-    : Number(settings.coverPicture?.selectedTemplate || settings.coverPicture?.templateId || 1);
-  const resolvedInitialTpl = COVER_TEMPLATES.find(t => t.id === incomingTplId) || COVER_TEMPLATES[0];
+export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages = [], currentBook = null, zIndex = 'z-[200]', inline = false }) => {
+  // Automatically detect flipbook orientation from currentBook, settings, or pages
+  const detectedBookOrientation = useMemo(() => {
+    return detectFlipbookOrientation(currentBook || settings, pages);
+  }, [currentBook, settings, pages]);
 
-  const [option, setOption] = useState(settings.coverPicture?.type || 'template');
-  const [activeTab, setActiveTab] = useState(settings.coverPicture?.activeTab || 'cover');
+  const incomingTplId = typeof settings?.coverPicture?.selectedTemplate === 'object' && settings?.coverPicture?.selectedTemplate
+    ? settings.coverPicture.selectedTemplate.id
+    : Number(settings?.coverPicture?.selectedTemplate || settings?.coverPicture?.templateId || 0);
+
+  // If incoming template matches orientation, use it; otherwise fallback to first template matching detected orientation
+  const resolvedInitialTpl = useMemo(() => {
+    const found = COVER_TEMPLATES.find(t => t.id === incomingTplId);
+    if (found && (found.orientation || 'portrait').toLowerCase() === detectedBookOrientation.toLowerCase()) {
+      return found;
+    }
+    const matchingOrientTpl = COVER_TEMPLATES.find(t => (t.orientation || 'portrait').toLowerCase() === detectedBookOrientation.toLowerCase());
+    return matchingOrientTpl || COVER_TEMPLATES[0];
+  }, [incomingTplId, detectedBookOrientation]);
+
+  const [option, setOption] = useState(settings?.coverPicture?.type || 'template');
+  const [activeTab, setActiveTab] = useState(settings?.coverPicture?.activeTab || 'cover');
   const [coverCategory, setCoverCategory] = useState(
-    resolvedInitialTpl?.orientation === 'landscape' ? 'Landscape' : resolvedInitialTpl?.orientation === 'square' ? 'Square' : 'Portrait'
+    detectedBookOrientation === 'landscape' ? 'Landscape' : detectedBookOrientation === 'square' ? 'Square' : 'Portrait'
   );
   const [selectedTemplate, setSelectedTemplate] = useState(resolvedInitialTpl);
 
@@ -1575,33 +1630,35 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                 <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-[1vw] py-[1.2vw] pr-[1.2vw] custom-popup-scrollbar">
                   {activeTab === 'cover' ? (
                     <div className="flex flex-col gap-[0.8vw]">
-                      {/* Sub-tabs / Filter pills for Portrait, Landscape, Square */}
-                      <div className="flex items-center gap-[0.35vw] bg-gray-100 p-[0.2vw] rounded-[0.45vw] w-fit">
-                        {[
-                          { id: 'Portrait', label: 'Portrait' },
-                          { id: 'Landscape', label: 'Landscape' },
-                          { id: 'Square', label: 'Square' }
-                        ].map(cat => (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => setCoverCategory(cat.id)}
-                            className={`px-[0.7vw] py-[0.25vw] text-[0.65vw] font-bold rounded-[0.35vw] transition-all cursor-pointer ${
-                              coverCategory === cat.id
+                      {/* Sub-tabs / Filter pills: Hide categories that don't match the flipbook's page orientation */}
+                      {(!detectedBookOrientation || detectedBookOrientation === 'all') && (
+                        <div className="flex items-center gap-[0.35vw] bg-gray-100 p-[0.2vw] rounded-[0.45vw] w-fit">
+                          {[
+                            { id: 'Portrait', label: 'Portrait' },
+                            { id: 'Landscape', label: 'Landscape' },
+                            { id: 'Square', label: 'Square' }
+                          ].map(cat => (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => setCoverCategory(cat.id)}
+                              className={`px-[0.7vw] py-[0.25vw] text-[0.65vw] font-bold rounded-[0.35vw] transition-all cursor-pointer ${coverCategory === cat.id
                                 ? 'bg-white text-gray-900 shadow-xs'
                                 : 'text-gray-500 hover:text-gray-800'
-                            }`}
-                          >
-                            {cat.label}
-                          </button>
-                        ))}
-                      </div>
+                                }`}
+                            >
+                              {cat.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
-                      {/* Templates Grid filtered by category */}
+                      {/* Templates Grid filtered by detected book orientation / category */}
                       <div className="grid grid-cols-3 gap-[0.5vw]">
                         {COVER_TEMPLATES.filter(tpl => {
                           const orient = (tpl.orientation || 'portrait').toLowerCase();
-                          return orient === coverCategory.toLowerCase();
+                          const targetOrient = (detectedBookOrientation || coverCategory || 'portrait').toLowerCase();
+                          return orient === targetOrient;
                         }).map((tpl) => (
                           <div
                             key={tpl.id}
@@ -2000,9 +2057,8 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                                     <button
                                       type="button"
                                       onClick={() => setOpenSlotDropdown(isDropdownOpen ? null : slotIdx)}
-                                      className={`w-full h-[2.2vw] px-[0.85vw] border rounded-[0.5vw] flex items-center justify-between bg-white text-[0.78vw] font-medium transition-all cursor-pointer shadow-2xs ${
-                                        isDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-gray-300 hover:border-gray-400'
-                                      }`}
+                                      className={`w-full h-[2.2vw] px-[0.85vw] border rounded-[0.5vw] flex items-center justify-between bg-white text-[0.78vw] font-medium transition-all cursor-pointer shadow-2xs ${isDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-gray-300 hover:border-gray-400'
+                                        }`}
                                     >
                                       <span className={currentVal ? 'text-gray-900 font-semibold' : 'text-gray-400 font-normal'}>
                                         {currentVal ? `Page ${currentVal}` : 'None'}
@@ -2024,9 +2080,8 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                                             });
                                             setOpenSlotDropdown(null);
                                           }}
-                                          className={`px-[0.85vw] py-[0.4vw] text-[0.75vw] font-medium cursor-pointer transition-colors ${
-                                            !currentVal ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
-                                          }`}
+                                          className={`px-[0.85vw] py-[0.4vw] text-[0.75vw] font-medium cursor-pointer transition-colors ${!currentVal ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                                            }`}
                                         >
                                           None
                                         </div>
@@ -2047,9 +2102,8 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                                                 setLastInteractedPage(pageNumber);
                                                 setOpenSlotDropdown(null);
                                               }}
-                                              className={`px-[0.85vw] py-[0.4vw] text-[0.75vw] font-medium cursor-pointer transition-colors flex items-center justify-between ${
-                                                isSelected ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
-                                              }`}
+                                              className={`px-[0.85vw] py-[0.4vw] text-[0.75vw] font-medium cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                                                }`}
                                             >
                                               <span>Page {pageNumber}</span>
                                               {pageNumber === 1 && <span className="text-[0.55vw] text-gray-400 font-normal">Cover</span>}
@@ -2256,10 +2310,15 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
         currentBook?.meta?.coverPicture ||
         null;
 
+      const detectedOrient = detectFlipbookOrientation(currentBook, currentBook?.pages || []);
       const tplId = typeof rawCp?.selectedTemplate === 'object' && rawCp?.selectedTemplate
         ? rawCp.selectedTemplate.id
-        : Number(rawCp?.selectedTemplate || rawCp?.templateId || 1);
-      const initialTemplate = COVER_TEMPLATES.find(t => t.id === tplId) || COVER_TEMPLATES[0];
+        : Number(rawCp?.selectedTemplate || rawCp?.templateId || 0);
+
+      const foundInitial = COVER_TEMPLATES.find(t => t.id === tplId);
+      const initialTemplate = (foundInitial && (foundInitial.orientation || 'portrait').toLowerCase() === detectedOrient.toLowerCase())
+        ? foundInitial
+        : (COVER_TEMPLATES.find(t => (t.orientation || 'portrait').toLowerCase() === detectedOrient.toLowerCase()) || COVER_TEMPLATES[0]);
       const bookTitle = currentBook?.flipbookName || currentBook?.realName || currentBook?.title || '';
       const bookSubtitle = currentBook?.quotes || currentBook?.quote || currentBook?.tagline || '';
 
@@ -2411,7 +2470,7 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
       >
         {/* Header */}
         <div className="flex items-center gap-[1vw] mb-[0.2vw]">
-          <h2 className="text-[1.2vw] font-bold text-gray-900 whitespace-nowrap tracking-tight">
+          <h2 className="text-[1.4vw] font-bold text-gray-900 whitespace-nowrap tracking-tight">
             {showCoverPopup ? (
               <>
                 Flipbook Information <span className="text-gray-400 font-medium mx-[0.4vw]">&rarr;</span> Cover Picture Customization
@@ -2439,6 +2498,7 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
           <CoverPicturePopup
             inline={true}
             settings={{ coverPicture }}
+            currentBook={currentBook}
             pages={currentBook?.pages || []}
             onClose={() => setShowCoverPopup(false)}
             onSave={async (coverData) => {
@@ -2689,12 +2749,12 @@ const FlipbookInfoModal = ({ isOpen, onClose, currentBook, onSaveSuccess }) => {
                   <div className="flex items-center gap-[0.4vw]">
                     <Info size="0.9vw" className="text-[#4338ca] flex-shrink-0" />
                     <span className="text-[0.78vw] font-semibold text-gray-800">
-                      Visibility : <span className="text-[#4338ca] font-bold">{visibilityMode}</span>
+                      Access Mode : <span className="text-[#4338ca] font-bold">{visibilityMode}</span>
                     </span>
                   </div>
                   <p className="text-[0.68vw] text-gray-500 leading-snug pl-[1.3vw]">
-                    This flipbook will be published as {visibilityMode}.<br />
-                    Change later from: <strong className="text-gray-700 font-semibold">Customize &gt; Visibility</strong>
+                    When published, this flipbook will be visible as {visibilityMode}.<br />
+                    Change access settings anytime from: <strong className="text-gray-700 font-semibold">Customize &gt; Visibility</strong>
                   </p>
                 </div>
               </div>
