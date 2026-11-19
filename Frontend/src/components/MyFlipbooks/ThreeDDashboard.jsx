@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import dashboardBannerImg from '../../assets/Dashboard/Main.png';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 import AlertModal from '../AlertModal';
 import ThreeDBanner from './ThreeDBanner';
 import ThreeDUploadHero from './ThreeDUploadHero';

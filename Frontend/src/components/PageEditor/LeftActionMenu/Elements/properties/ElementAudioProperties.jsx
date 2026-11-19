@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../../../utils/assets/assetUtils';
 import sampleAudio from '../../../../../assets/Audios/bg music1.mp3';
 import ColorPicker, { parseGradient, generateGradientString } from '../../../properties/ColorPicker';
 import { handleScrubHelper } from '../../../properties/Color';

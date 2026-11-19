@@ -8,11 +8,11 @@ import {
   Filter, ArrowUpDown, Heart, Loader2, ChevronLeft, ChevronRight,
   FileText, BookOpen
 } from 'lucide-react';
-import { formatTemplateSvgToPageSvg } from '../utils/editorUtils';
+import { formatTemplateSvgToPageSvg } from '../utils/pageEditor/editorUtils';
 import TemplateModal from './TemplateModal';
 
 // Template Preview SVGs from Backend assets
-import { getBookPageUrl } from '../utils/templateAssets';
+import { getBookPageUrl } from '../utils/pageEditor/templateAssets';
 import { useAuth } from '../context/AuthContext';
 
 // Interactive Flipbook Single Page component with forwardRef for HTMLFlipBook

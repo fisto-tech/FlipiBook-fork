@@ -1,4 +1,4 @@
-import { rewriteHtmlUploads } from '../../../../utils/assetUtils';
+import { rewriteHtmlUploads } from '../../../../utils/assets/assetUtils';
 
 /* ─────────────────────────────── helpers ─────────────────────────────── */
 

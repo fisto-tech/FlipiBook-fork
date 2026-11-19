@@ -50,7 +50,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -64,7 +64,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -182,7 +182,7 @@ export const useCanvasZoomPan = ({
         currentPanRef.current = newPan;
 
         containerEl.style.transition = 'none';
-        containerEl.style.transform = `translate(${newPanX}px, ${newPanY}px) scale(${newScale})`;
+        containerEl.style.transform = `translate3d(${newPanX}px, ${newPanY}px, 0px) scale(${newScale})`;
 
         if (wheelRafRef.current) {
           cancelAnimationFrame(wheelRafRef.current);

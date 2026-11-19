@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useEffect } from "react";
 import axios from "axios";
 import { checkFbxLegacyVersion, convertModelFileIfNeeded } from "../utils/modelConversionUtils";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 import { process3DDropEvent } from "../utils/modelDropHandler";
 import { useAuth } from "../../../context/AuthContext";
 

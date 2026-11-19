@@ -5,7 +5,7 @@ import FlipbookPreview from '../components/PageEditor/modals/FlipbookPreview';
 import { LAYOUT_DEFAULT_COLORS } from '../components/CustomizedEditor/utils/layoutColors';
 import { Icon } from '@iconify/react';
 import { Ghost, ArrowLeft, Home, BookOpen, Clock, X, Heart } from 'lucide-react';
-import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assetUtils';
+import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useToast } from '../components/CustomToast';
 import { useAuth } from '../context/AuthContext';
 

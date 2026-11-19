@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Icon } from "@iconify/react";
-import { resolveUploadsPath } from "../../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../../utils/assets/assetUtils";
 import { textureData } from "../../../../data/textureData";
 import ColorPicker from "../../ColorPicker";
 import { AxisInput, SliderRow, DualAxisInput, ToggleSwitch } from "../common/PanelInputs";

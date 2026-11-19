@@ -9,8 +9,8 @@ import {
   Database,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { clearSession } from "../../utils/authUtils";
-import { resolveUploadsPath } from "../../utils/assetUtils";
+import { clearSession } from "../../utils/auth/authUtils";
+import { resolveUploadsPath } from "../../utils/assets/assetUtils";
 
 const defaultColors = [
   "#4c5add",

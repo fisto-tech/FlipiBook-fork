@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { X, Upload, Check, AlertCircle, Edit3, ChevronDown } from "lucide-react";
 import axios from "axios";
 import { useToast } from "../../../components/CustomToast";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 import { useAuth } from "../../../context/AuthContext";
 
 const MapUploadBox = ({ label, id, maps, setMaps, setMapFiles, mapMenuOpen, setMapMenuOpen, handleMapUpload, loadingMaps, setLoadingMaps, isRequired = false, isSmall = false }) => {

@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-import LayoutColorCustomizer from '../LayoutColorCustomizer';
-import ColorPicker from '../../ColorPallet';
-import { LAYOUT_DEFAULT_COLORS } from '../utils/layoutColors';
+import LayoutColorCustomizer from '../../LayoutColorCustomizer';
+import ColorPicker from '../../../ColorPallet';
+import { LAYOUT_DEFAULT_COLORS } from '../../utils/layoutColors';
 
-import layout1 from '../../../assets/layout/Layout1.webp';
-import layout2 from '../../../assets/layout/Layout2.webp';
-import layout3 from '../../../assets/layout/Layout3.webp';
-import layout4 from '../../../assets/layout/Layout4.webp';
-import layout5 from '../../../assets/layout/Layout5.webp';
-import layout6 from '../../../assets/layout/Layout6.webp';
-import layout7 from '../../../assets/layout/Layout7.webp';
-import layout8 from '../../../assets/layout/Layout8.webp';
+import layout1 from '../../../../assets/layout/Layout1.webp';
+import layout2 from '../../../../assets/layout/Layout2.webp';
+import layout3 from '../../../../assets/layout/Layout3.webp';
+import layout4 from '../../../../assets/layout/Layout4.webp';
+import layout5 from '../../../../assets/layout/Layout5.webp';
+import layout6 from '../../../../assets/layout/Layout6.webp';
+import layout7 from '../../../../assets/layout/Layout7.webp';
+import layout8 from '../../../../assets/layout/Layout8.webp';
 
 const layoutImages = [layout1, layout2, layout3, layout4, layout5, layout6, layout7, layout8];
 
@@ -342,7 +342,7 @@ const Layout = ({ onBack, activeLayout, onUpdateLayout, layoutColors, onUpdateLa
 
     // ─────────────────────────────────────────────────────────────────────
     return (
-        <div className="flex flex-col h-full bg-white font-sans relative">
+        <div className="flex flex-col h-full bg-transparent font-sans relative">
             <style>{`
                 .hide-scrollbar::-webkit-scrollbar {
                     display: none;
@@ -365,10 +365,10 @@ const Layout = ({ onBack, activeLayout, onUpdateLayout, layoutColors, onUpdateLa
                 )}
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-white pb-[2.5vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex-1 overflow-y-auto bg-transparent pb-[2.5vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="relative flex flex-col w-full min-h-full pb-[5vw]">
                     {/* ── Top Tab Buttons ── */}
-                    <div className="sticky top-0 z-[50] grid grid-cols-2 gap-[0.8vw] py-[0.8vw] mb-[1vw] bg-white px-[1vw] border-b border-gray-100">
+                    <div className="sticky top-0 z-[50] grid grid-cols-2 gap-[0.8vw] py-[0.8vw] mb-[1vw] bg-[#1a2332] px-[1vw] border-b border-[#26354a]">
                 {['Layouts', 'Layout Colors'].map((tab) => {
                     const isActive = activeTab === tab;
                     return (

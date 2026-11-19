@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { verifyToken } from '../utils/authUtils';
+import { verifyToken } from '../utils/auth/authUtils';
 
 export default function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading, openAuthModal } = useAuth();

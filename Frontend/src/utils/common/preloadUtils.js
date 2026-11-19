@@ -5,9 +5,9 @@
  */
 export const preloadEditorComponents = () => {
   try {
-    import("../Layouts/EditorLayout");
-    import("../components/CustomizedEditor/CustomizedEditor");
-    import("../components/PageEditor/PageEditor");
+    import("../../Layouts/EditorLayout");
+    import("../../components/CustomizedEditor/CustomizedEditor");
+    import("../../components/PageEditor/PageEditor");
   } catch (e) {
     // Non-blocking warmup
   }

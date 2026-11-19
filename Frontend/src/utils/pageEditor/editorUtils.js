@@ -515,4 +515,4 @@ export function formatTemplateSvgToPageSvg(svgContent, targetW = 210, targetH = 
   }
 };
 
-export { sanitizeSvgXml, safeSerializeSvg } from '../components/PageEditor/utils/editorUtils';
+export { sanitizeSvgXml, safeSerializeSvg } from '../../components/PageEditor/utils/editorUtils';

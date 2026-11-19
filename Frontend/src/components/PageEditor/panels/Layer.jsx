@@ -21,6 +21,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useConfirm } from '../../../context/ConfirmationContext';
 import CustomScrollbar from '../../CustomScrollbar';
 import { MaskIcon, FlattenIcon } from '../mainEditor/components/editorIcons';
+import { getCachedRaster, getOrRasterizePage } from '../../../utils/customizedEditor/pageRasterCache';
 
 // Memoized isolated vector SVG preview container with CSS containment
 const MemoizedPagePreview = React.memo(({ pageId, pageHtml, isHidden }) => {
@@ -80,6 +81,27 @@ const MemoizedPagePreview = React.memo(({ pageId, pageHtml, isHidden }) => {
 
 const PageThumbnail = ({ page, index, activePageIndex }) => {
   const [imgError, setImgError] = useState(false);
+  const pageKey = page?.id || `page_${index}`;
+  const [rasterUrl, setRasterUrl] = useState(() => getCachedRaster(pageKey));
+
+  useEffect(() => {
+    if (!page?.html) return;
+    const key = page?.id || `page_${index}`;
+    const cached = getCachedRaster(key);
+    if (cached) {
+      setRasterUrl(cached);
+      return;
+    }
+
+    let isSubscribed = true;
+    getOrRasterizePage(key, page.html, 300, 424).then(url => {
+      if (isSubscribed && url) {
+        setRasterUrl(url);
+      }
+    }).catch(() => {});
+
+    return () => { isSubscribed = false; };
+  }, [page?.id, page?.html, index]);
 
   if (!page || !page.html) {
     return (
@@ -90,9 +112,22 @@ const PageThumbnail = ({ page, index, activePageIndex }) => {
     );
   }
 
-  // If page contains vector shapes, MemoizedPagePreview renders real vector graphics directly
-  const hasVectorData = page.html.includes('<path') || page.html.includes('<polygon') || page.html.includes('<polyline');
+  // 1. Prioritize lightweight GPU raster snapshot (drops 10,000+ DOM nodes from sidebar)
+  if (rasterUrl && !imgError) {
+    return (
+      <img
+        src={rasterUrl}
+        alt={page.name || `Page ${index + 1}`}
+        className="w-full h-full object-contain pointer-events-none select-none"
+        loading="lazy"
+        decoding="async"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
 
+  // 2. Direct PDF Image match
+  const hasVectorData = page.html.includes('<path') || page.html.includes('<polygon') || page.html.includes('<polyline');
   if (!hasVectorData && !imgError) {
     const pdfImgMatch = page.html.match(/<image[^>]+(?:href|xlink:href)=["']([^"']+)["'][^>]*data-name=["']PDF Background["']/i) ||
                         page.html.match(/<g\b[^>]*data-name=["']PDF Background["'][^>]*>[\s\S]*?<image[^>]+(?:href|xlink:href)=["']([^"']+)["']/i);
@@ -112,6 +147,7 @@ const PageThumbnail = ({ page, index, activePageIndex }) => {
     }
   }
 
+  // 3. Transient vector preview while raster generates
   return (
     <MemoizedPagePreview
       pageId={page.id}

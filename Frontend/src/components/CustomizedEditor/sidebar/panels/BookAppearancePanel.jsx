@@ -1,8 +1,8 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
-import PremiumDropdown from '../components/PremiumDropdown';
-import { TransparentSheetSection } from '../components/TransparentSheetUI';
-import Switch from '../components/Switch';
+import PremiumDropdown from '../../components/PremiumDropdown';
+import { TransparentSheetSection } from '../../components/TransparentSheetUI';
+import Switch from '../../components/Switch';
 
 const BookAppearanceSection = ({
   onBack,
@@ -15,7 +15,7 @@ const BookAppearanceSection = ({
 }) => {
 
   return (
-    <div className="flex flex-col h-full bg-white font-sans relative">
+    <div className="flex flex-col h-full bg-transparent font-sans relative">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -38,7 +38,7 @@ const BookAppearanceSection = ({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-white pb-[2.5vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="flex-1 overflow-y-auto bg-transparent pb-[2.5vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="p-[1vw] ">
 
       {/* Hard Cover Settings - Designed From Image */}

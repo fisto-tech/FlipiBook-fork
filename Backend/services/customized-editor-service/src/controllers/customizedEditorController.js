@@ -2441,16 +2441,25 @@ const getPublicBook = async (req, res) => {
       }
       if (!manifestData) {
         for (const uf of userFolders) {
-          const mPath = path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json');
-          if (fs.existsSync(mPath)) {
-            manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
-            break;
+          const candManifests = [
+            path.join(storageRoot, uf, 'books', primaryFolder, safeBookName, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', 'default', safeBookName, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', 'default', book.v_id, 'manifest.json')
+          ];
+          for (const mPath of candManifests) {
+            if (fs.existsSync(mPath)) {
+              manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+              break;
+            }
           }
+          if (manifestData) break;
         }
       }
 
       if (manifestData && Array.isArray(manifestData.pages) && manifestData.pages.length > 0) {
-        const mBaseUrl = manifestData.baseUrl || `/storage/${effectiveUserFolder}/books/${book.v_id}/pages/`;
+        const defaultBaseUrl = `/storage/${effectiveUserFolder}/books/${primaryFolder}/${safeBookName}/pages/webp_page/`;
+        const mBaseUrl = manifestData.baseUrl || defaultBaseUrl;
         const totalManifestPages = manifestData.pages.length;
 
         const existingMap = new Map();

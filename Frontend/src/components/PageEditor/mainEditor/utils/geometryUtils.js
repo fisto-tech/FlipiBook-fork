@@ -18,7 +18,37 @@ export const formatSmoothPathD = (pts) => {
   return d;
 };
 
+// ── Frame-Level Bounding Box Cache ───────────────────────────────────────────
+// Caches bounding boxes within the current animation frame to eliminate layout thrashing
+// when multiple subsystems (smart guides, highlight overlay, marquee, drag) query BBox.
+const visualBBoxCache = new WeakMap();
+let activeFrameId = 0;
+
+if (typeof window !== 'undefined') {
+  const advanceFrameTick = () => {
+    activeFrameId++;
+    requestAnimationFrame(advanceFrameTick);
+  };
+  requestAnimationFrame(advanceFrameTick);
+}
+
+export const invalidateVisualBBox = (el) => {
+  if (el) visualBBoxCache.delete(el);
+  else activeFrameId++;
+};
+
 export const getVisualBBox = (el) => {
+  if (!el || typeof el.getBBox !== 'function') return { x: 0, y: 0, width: 0, height: 0 };
+  const cached = visualBBoxCache.get(el);
+  if (cached && cached.frameId === activeFrameId) {
+    return cached.bbox;
+  }
+  const result = calculateRawVisualBBox(el);
+  visualBBoxCache.set(el, { frameId: activeFrameId, bbox: result });
+  return result;
+};
+
+const calculateRawVisualBBox = (el) => {
   if (!el || typeof el.getBBox !== 'function') return { x: 0, y: 0, width: 0, height: 0 };
 
   // ── TABLE ELEMENT BOUNDING BOX ──

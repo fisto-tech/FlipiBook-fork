@@ -11,10 +11,10 @@ import {
   isOfficeDocument,
   getOfficeDocType,
   getDocumentDetails
-} from '../../../utils/pdfUtils';
+} from '../../../utils/pdf/pdfUtils';
 import { parseLayersFromSVG } from './svgFilterUtils';
 import { useAuth } from '../../../context/AuthContext';
-import { validateStorageBeforeUpload, formatStorageMB } from '../../../utils/storageValidation';
+import { validateStorageBeforeUpload, formatStorageMB } from '../../../utils/storage/storageValidation';
 import { checkIsLegacyOfficeDocument, getLegacyConverterUrl } from './extractor/officeExtractor';
 
 export const useDocumentImport = ({
@@ -414,7 +414,7 @@ export const useDocumentImport = ({
           percent: pct,
           message: `Extracting page ${curr} of ${total} (${pct}%)...`
         }));
-      });
+      }, null, v_id, user?.userID || 'FLIPI0001');
       if (!images || images.length === 0) return;
 
       // Double-check internal uniformity of the rendered images

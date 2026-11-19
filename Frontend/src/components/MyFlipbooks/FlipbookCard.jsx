@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import LazyPreview from './LazyPreview';
-import { getAssetBaseUrl } from '../../utils/assetUtils';
+import { getAssetBaseUrl } from '../../utils/assets/assetUtils';
 
 const defaultFormatDisplayDate = (dateVal) => {
     if (!dateVal) return 'Recently';

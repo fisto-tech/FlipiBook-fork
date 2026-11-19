@@ -8,7 +8,7 @@ import axios from "axios";
 import RenderModel from "./ModelLoaders";
 import AlertModal from "../../AlertModal";
 import { useToast } from "../../../components/CustomToast";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 import { useAuth } from "../../../context/AuthContext";
 
 class ThumbnailErrorBoundary extends React.Component {

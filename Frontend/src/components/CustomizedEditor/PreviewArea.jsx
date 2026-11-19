@@ -3,7 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import backgroundComponents from './Backgrounds';
 import animationComponents from './Animations';
 import * as BookAppearanceHelpers from './utils/bookAppearanceHelpers';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 
 import { LAYOUT_DEFAULT_COLORS } from './utils/layoutColors';
 import LeadFormPopup from './popups/LeadFormPopup';

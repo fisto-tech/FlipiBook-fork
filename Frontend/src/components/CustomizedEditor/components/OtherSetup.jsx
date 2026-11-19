@@ -1058,7 +1058,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
   }
 
   return (
-    <div className="flex flex-col h-full bg-white relative overflow-visible">
+    <div className="flex flex-col h-full bg-transparent relative overflow-visible">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;

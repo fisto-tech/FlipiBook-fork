@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 import { useAuth, usePageEditorState } from '../../../store/hooks';
 import { safeSerializeSvg } from '../utils/editorUtils';
 

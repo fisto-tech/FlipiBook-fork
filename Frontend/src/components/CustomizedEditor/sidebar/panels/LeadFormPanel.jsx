@@ -3,14 +3,14 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
 import { Plus, Trash2, Mail } from 'lucide-react';
-import PremiumDropdown from '../components/PremiumDropdown';
-import ColorPallet from '../../ColorPallet';
+import PremiumDropdown from '../../components/PremiumDropdown';
+import ColorPallet from '../../../ColorPallet';
 
-import Template1Icon from '../../../assets/quick template/Frame 1171276601 (1).svg';
-import Template2Icon from '../../../assets/quick template/Frame 1171276601 (2).svg';
-import Template3Icon from '../../../assets/quick template/Frame 1171276601 (3).svg';
-import Template4Icon from '../../../assets/quick template/Frame 1171276601 (4).svg';
-import Template5Icon from '../../../assets/quick template/Frame 1171276601 (5).svg';
+import Template1Icon from '../../../../assets/quick template/Frame 1171276601 (1).svg';
+import Template2Icon from '../../../../assets/quick template/Frame 1171276601 (2).svg';
+import Template3Icon from '../../../../assets/quick template/Frame 1171276601 (3).svg';
+import Template4Icon from '../../../../assets/quick template/Frame 1171276601 (4).svg';
+import Template5Icon from '../../../../assets/quick template/Frame 1171276601 (5).svg';
 
 const fontFamilies = [
   'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana',
@@ -637,7 +637,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
   };
 
   return (
-    <div className="flex flex-col h-full bg-white relative overflow-visible">
+    <div className="flex flex-col h-full bg-transparent relative overflow-visible">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;

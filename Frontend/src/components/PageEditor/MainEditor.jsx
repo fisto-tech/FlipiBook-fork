@@ -1545,7 +1545,7 @@ const getDraggableElement = (target, canvasRoot) => {
 
             if (zoomContainerRef.current) {
               zoomContainerRef.current.style.transition = 'none';
-              zoomContainerRef.current.style.transform = `translate(${boundedX}px, ${boundedY}px) scale(${currentScale})`;
+              zoomContainerRef.current.style.transform = `translate3d(${boundedX}px, ${boundedY}px, 0px) scale(${currentScale})`;
             }
             window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: { x: boundedX, y: boundedY } }));
           } else if (marqueeDataRef?.current && (e.buttons & 1) !== 0) {

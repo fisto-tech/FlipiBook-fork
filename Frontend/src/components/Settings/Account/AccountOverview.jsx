@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 import { getAvatarColor } from '../SettingsLayout';
-import { getClientDeviceInfo, getPublicClientIpAndLocation, isIPv4 } from '../../../utils/deviceUtils';
+import { getClientDeviceInfo, getPublicClientIpAndLocation, isIPv4 } from '../../../utils/auth/deviceUtils';
 import { useConfirm } from '../../../context/ConfirmationContext';
 
 const AccountOverview = ({
