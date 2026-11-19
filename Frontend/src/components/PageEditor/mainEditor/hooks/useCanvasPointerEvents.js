@@ -2369,7 +2369,7 @@ export const useCanvasPointerEvents = ({
         }
       });
       document.querySelectorAll('[id^="highlight-overlay-html-"]').forEach(htmlOverlay => {
-        htmlOverlay.querySelectorAll('.resize-handle, .corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"]').forEach(node => {
+        htmlOverlay.querySelectorAll('.resize-handle, .corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"], [id^="interaction-badge-"]').forEach(node => {
           if (!node.id.includes(id)) {
             node.remove();
           }

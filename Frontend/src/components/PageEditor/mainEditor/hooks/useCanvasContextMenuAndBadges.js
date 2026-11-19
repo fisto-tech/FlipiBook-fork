@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { getTopLevelFrames, getDirectChildFrames, hitTest } from '../utils/frameHierarchyUtils';
 import { useCanvasElementBlink } from './useCanvasElementBlink';
+import { clearOverlayType } from '../utils/geometryUtils';
 
 /**
  * Hook managing canvas right-click context menu, selection restoration,
@@ -292,6 +293,13 @@ export const useCanvasContextMenuAndBadges = ({
       const el = document.querySelector(`.page-svg-container [id="${CSS.escape(targetId)}"]`) || document.getElementById(targetId);
       if (el) {
         setTimeout(() => {
+          clearOverlayType('selected');
+          clearOverlayType('child-selected');
+          document.querySelectorAll('[id^="interaction-badge-"]').forEach(b => {
+            if (b.id !== `interaction-badge-${el.id}`) {
+              b.remove();
+            }
+          });
           if (drawOverlayHighlight) drawOverlayHighlight(el, 'selected');
 
           const overlay = document.getElementById('highlight-overlay') || el.ownerSVGElement?.nextElementSibling;

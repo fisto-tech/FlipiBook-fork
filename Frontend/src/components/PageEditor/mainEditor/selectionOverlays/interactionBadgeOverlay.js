@@ -20,22 +20,42 @@ const ACTION_ICONS = {
 export const createInteractionBadgeOverlay = ({
   activeTopToolRef,
   activePageIndex,
+  selectedLayerIdRef,
+  multiSelectedIdsRef,
   setActiveTopTool,
   updateElementAttribute
 }) => {
   const drawInteractionBadge = (el, mapped, htmlOverlay, zoomScale, bbox) => {
     const isInteraction = activeTopToolRef.current === 'interaction';
     const isAnimation = activeTopToolRef.current === 'animation';
-    if (!isInteraction && !isAnimation) return;
-    if (!htmlOverlay) return;
-    if (isAnimation && el.getAttribute('data-name') === 'Free Frame') return;
+    if (!isInteraction && !isAnimation) {
+      document.querySelectorAll('[id^="interaction-badge-"]').forEach(b => b.remove());
+      return;
+    }
+    if (!htmlOverlay || !el) return;
+
+    const badgeId = `interaction-badge-${el.id}`;
+    let badge = htmlOverlay.querySelector(`[id="${badgeId}"]`);
+
+    if (isAnimation && el.getAttribute('data-name') === 'Free Frame') {
+      if (badge) badge.remove();
+      return;
+    }
     if (el.getAttribute('data-type') === 'audio-frame' || el.id?.startsWith('audio-') || (typeof el.closest === 'function' && el.closest('[data-type="audio-frame"], g[id^="audio-"]'))) {
       if (badge) badge.remove();
       return;
     }
 
-    const badgeId = `interaction-badge-${el.id}`;
-    let badge = htmlOverlay.querySelector(`[id="${badgeId}"]`);
+    // Clean up any stale badges for elements that are no longer part of current selection
+    document.querySelectorAll('[id^="interaction-badge-"]').forEach(otherBadge => {
+      if (otherBadge.id !== badgeId) {
+        const otherId = otherBadge.id.replace('interaction-badge-', '');
+        const isMulti = multiSelectedIdsRef?.current && multiSelectedIdsRef.current.has(otherId);
+        if (!isMulti) {
+          otherBadge.remove();
+        }
+      }
+    });
 
     const currentTool = activeTopToolRef.current;
     if (badge && badge.getAttribute('data-tool') !== currentTool) {

@@ -911,7 +911,7 @@ const MainEditor = ({
 
     // Clean up HTML-based UI elements (interaction badges)
     document.querySelectorAll('[id^="interaction-badge-"]').forEach(badge => {
-      if (activeTopTool !== 'interaction') {
+      if (activeTopTool !== 'interaction' && activeTopTool !== 'animation') {
         badge.remove();
       } else {
         const id = badge.id.replace('interaction-badge-', '');
