@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import homes2Img from '../../assets/Home/homes2.png';
+import homes2Img from '../../assets/Home/3dInteractive/homes2.webp';
 
 export default function ThreeDInteractiveDetails({ navigate }) {
   const containerRef = useRef(null);

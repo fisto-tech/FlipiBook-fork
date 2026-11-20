@@ -5,65 +5,65 @@ import HTMLFlipBook from 'react-pageflip';
 import softCoverAudio from '../../assets/Audios/Soft cover page.mp3';
 import audioTrack from '../../assets/Audios/audio.mp3';
 
-import page1 from '../../assets/Home/A4_1.webp';
-import page2 from '../../assets/Home/A4_2.webp';
-import page3 from '../../assets/Home/A4_3.webp';
-import page4 from '../../assets/Home/A4_4.webp';
-import page5 from '../../assets/Home/A4_5.webp';
-import page6 from '../../assets/Home/A4_6.webp';
+import page1 from '../../assets/Home/InteractiveDemo/A4_1.webp';
+import page2 from '../../assets/Home/InteractiveDemo/A4_2.webp';
+import page3 from '../../assets/Home/InteractiveDemo/A4_3.webp';
+import page4 from '../../assets/Home/InteractiveDemo/A4_4.webp';
+import page5 from '../../assets/Home/InteractiveDemo/A4_5.webp';
+import page6 from '../../assets/Home/InteractiveDemo/A4_6.webp';
 
-import demoBook1 from '../../assets/Home/demo1.png';
-import demoBook2 from '../../assets/Home/demo2.png';
-import demoBook3 from '../../assets/Home/demo3.png';
-import demoBook4 from '../../assets/Home/demo4.png';
-import demoBook5 from '../../assets/Home/demo5.png';
+import demoBook1 from '../../assets/Home/InteractiveDemo/demo1.webp';
+import demoBook2 from '../../assets/Home/InteractiveDemo/demo2.webp';
+import demoBook3 from '../../assets/Home/InteractiveDemo/demo3.webp';
+import demoBook4 from '../../assets/Home/InteractiveDemo/demo4.webp';
+import demoBook5 from '../../assets/Home/InteractiveDemo/demo5.webp';
 
 // Food demo book assets & background
-import foodbg from '../../assets/Home/foodbg.png';
-import food1 from '../../assets/Home/food1.png';
-import food2 from '../../assets/Home/food2.png';
-import food3 from '../../assets/Home/food3.png';
-import food4 from '../../assets/Home/food4.png';
-import food5 from '../../assets/Home/food5.png';
-import food6 from '../../assets/Home/food6.png';
-import food7 from '../../assets/Home/food7.png';
-import food8 from '../../assets/Home/food8.png';
+import foodbg from '../../assets/Home/InteractiveDemo/foodbg.webp';
+import food1 from '../../assets/Home/InteractiveDemo/food1.webp';
+import food2 from '../../assets/Home/InteractiveDemo/food2.webp';
+import food3 from '../../assets/Home/InteractiveDemo/food3.webp';
+import food4 from '../../assets/Home/InteractiveDemo/food4.webp';
+import food5 from '../../assets/Home/InteractiveDemo/food5.webp';
+import food6 from '../../assets/Home/InteractiveDemo/food6.webp';
+import food7 from '../../assets/Home/InteractiveDemo/food7.webp';
+import food8 from '../../assets/Home/InteractiveDemo/food8.webp';
 
 // Dress demo book assets & background
-import dressbg from '../../assets/Home/dressbg.png';
-import dress1 from '../../assets/Home/dress1.png';
-import dress2 from '../../assets/Home/dress2.png';
-import dress3 from '../../assets/Home/dress3.png';
-import dress4 from '../../assets/Home/dress4.png';
-import dress5 from '../../assets/Home/dress5.png';
-import dress6 from '../../assets/Home/dress6.png';
+import dressbg from '../../assets/Home/InteractiveDemo/dressbg.webp';
+import dress1 from '../../assets/Home/InteractiveDemo/dress1.webp';
+import dress2 from '../../assets/Home/InteractiveDemo/dress2.webp';
+import dress3 from '../../assets/Home/InteractiveDemo/dress3.webp';
+import dress4 from '../../assets/Home/InteractiveDemo/dress4.webp';
+import dress5 from '../../assets/Home/InteractiveDemo/dress5.webp';
+import dress6 from '../../assets/Home/InteractiveDemo/dress6.webp';
 
 // Hospital demo book assets & background
-import hospitalbg from '../../assets/Home/hospitalbg.png';
-import hospital1 from '../../assets/Home/hospital1.png';
-import hospital2 from '../../assets/Home/hospital2.png';
-import hospital3 from '../../assets/Home/hospital3.png';
-import hospital4 from '../../assets/Home/hospital4.png';
-import hospital5 from '../../assets/Home/hospital5.png';
-import hospital6 from '../../assets/Home/hospital6.png';
+import hospitalbg from '../../assets/Home/InteractiveDemo/hospitalbg.webp';
+import hospital1 from '../../assets/Home/InteractiveDemo/hospital1.webp';
+import hospital2 from '../../assets/Home/InteractiveDemo/hospital2.webp';
+import hospital3 from '../../assets/Home/InteractiveDemo/hospital3.webp';
+import hospital4 from '../../assets/Home/InteractiveDemo/hospital4.webp';
+import hospital5 from '../../assets/Home/InteractiveDemo/hospital5.webp';
+import hospital6 from '../../assets/Home/InteractiveDemo/hospital6.webp';
 
 // Travel demo book assets & background
-import travelbg from '../../assets/Home/travelbg.png';
-import travel1 from '../../assets/Home/travel1.png';
-import travel2 from '../../assets/Home/travel2.png';
-import travel3 from '../../assets/Home/travel3.png';
-import travel4 from '../../assets/Home/travel4.png';
-import travel5 from '../../assets/Home/travel5.png';
-import travel6 from '../../assets/Home/travel6.png';
+import travelbg from '../../assets/Home/InteractiveDemo/travelbg.webp';
+import travel1 from '../../assets/Home/InteractiveDemo/travel1.webp';
+import travel2 from '../../assets/Home/InteractiveDemo/travel2.webp';
+import travel3 from '../../assets/Home/InteractiveDemo/travel3.webp';
+import travel4 from '../../assets/Home/InteractiveDemo/travel4.webp';
+import travel5 from '../../assets/Home/InteractiveDemo/travel5.webp';
+import travel6 from '../../assets/Home/InteractiveDemo/travel6.webp';
 
 // Company demo book assets & background
-import companybg from '../../assets/Home/companybg.png';
-import company1 from '../../assets/Home/company1.png';
-import company2 from '../../assets/Home/company2.png';
-import company3 from '../../assets/Home/company3.png';
-import company4 from '../../assets/Home/company4.png';
-import company5 from '../../assets/Home/company5.png';
-import company6 from '../../assets/Home/company6.png';
+import companybg from '../../assets/Home/InteractiveDemo/companybg.webp';
+import company1 from '../../assets/Home/InteractiveDemo/company1.webp';
+import company2 from '../../assets/Home/InteractiveDemo/company2.webp';
+import company3 from '../../assets/Home/InteractiveDemo/company3.webp';
+import company4 from '../../assets/Home/InteractiveDemo/company4.webp';
+import company5 from '../../assets/Home/InteractiveDemo/company5.webp';
+import company6 from '../../assets/Home/InteractiveDemo/company6.webp';
 
 export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4: h4, page5: h5, page6: h6, page7: h7, page8: h8 }) {
   const [selectedBook, setSelectedBook] = useState(null);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import bookShowImg from '../../assets/Home/final-images/features/features-image.webp';
+import bookShowImg from '../../assets/Home/ReadingExperience/features-image.webp';
 
 export default function ReadingExperienceDark({ onOpenCreateModal }) {
   const features = [

@@ -3,10 +3,10 @@ import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import HTMLFlipBook from 'react-pageflip';
 import softCoverAudio from '../../assets/Audios/Soft cover page.mp3';
-import trustedAvatar1 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-1.webp';
-import trustedAvatar2 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-2.webp';
-import trustedAvatar3 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-3.webp';
-import trustedAvatar4 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-4.webp';
+import trustedAvatar1 from '../../assets/Home/TrustedAvatar/trusted-avatar-1.webp';
+import trustedAvatar2 from '../../assets/Home/TrustedAvatar/trusted-avatar-2.webp';
+import trustedAvatar3 from '../../assets/Home/TrustedAvatar/trusted-avatar-3.webp';
+import trustedAvatar4 from '../../assets/Home/TrustedAvatar/trusted-avatar-4.webp';
 
 export default function HeroSection({ navigate, page1, page2, page3, page4, page5, page6, page7, page8 }) {
   const containerRef = useRef(null);

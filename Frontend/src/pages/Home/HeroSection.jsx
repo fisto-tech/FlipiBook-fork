@@ -1,13 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import topmenuImg from '../../assets/Home/topmenu.png';
-import leftmenuImg from '../../assets/Home/leftmenu.png';
-import bottommenuImg from '../../assets/Home/bottommenu.png';
-import rightpropertiesImg from '../../assets/Home/rightproperties.png';
-import scanImg from '../../assets/Home/scan_img.png';
-import mobileImg from '../../assets/Home/mobile.png';
-import motorImg from '../../assets/Home/motor.png';
+import topmenuImg from '../../assets/Home/Hero/topmenu.webp';
+import leftmenuImg from '../../assets/Home/Hero/leftmenu.webp';
+import bottommenuImg from '../../assets/Home/Hero/bottommenu.webp';
+import rightpropertiesImg from '../../assets/Home/Hero/rightproperties.webp';
+import scanImg from '../../assets/Home/Hero/scan_img.webp';
+import mobileImg from '../../assets/Home/Hero/mobile.webp';
+import motorImg from '../../assets/Home/Hero/motor.webp';
 
 export default function HeroSection({ navigate }) {
   const canvasRef = useRef(null);

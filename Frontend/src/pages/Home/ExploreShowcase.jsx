@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import c1 from '../../assets/Home/final-images/explore-section/explore-slider-img-1.webp';
-import c2 from '../../assets/Home/final-images/explore-section/explore-slider-img-2.webp';
-import c3 from '../../assets/Home/final-images/explore-section/explore-slider-img-3.webp';
-import c4 from '../../assets/Home/final-images/explore-section/explore-slider-img-4.webp';
-import c5 from '../../assets/Home/final-images/explore-section/explore-slider-img-5.webp';
+import c1 from '../../assets/Home/Explore/explore-slider-img-1.webp';
+import c2 from '../../assets/Home/Explore/explore-slider-img-2.webp';
+import c3 from '../../assets/Home/Explore/explore-slider-img-3.webp';
+import c4 from '../../assets/Home/Explore/explore-slider-img-4.webp';
+import c5 from '../../assets/Home/Explore/explore-slider-img-5.webp';
 import p1 from '../../assets/Explore/p1.png';
 import p2 from '../../assets/Explore/p2.png';
 import p3 from '../../assets/Explore/p3.png';
