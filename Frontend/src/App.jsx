@@ -60,7 +60,7 @@ const CopyrightPolicy = lazy(() => import("./pages/LegalFile/LegalCopyright"));
 
 // Preview & Share Pages
 const PreviewPage = lazy(() => import("./pages/PreviewPage"));
-const ShareViewBook = lazy(() => import("./pages/shareviewbook"));
+const ShareViewBook = lazy(() => import("./pages/ShareViewBook/ShareViewBook"));
 const PublicShelfView = lazy(() => import("./pages/PublicShelfView"));
 const ARView = lazy(() => import("./pages/ARView"));
 const ComingSoonBanner = lazy(() => import("./pages/ComingSoonBanner"));

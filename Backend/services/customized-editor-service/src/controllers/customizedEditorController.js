@@ -10,6 +10,7 @@ const Lead = require('../models/lead');
 const UserGallery = require('../../../../shared/models/UserGallery');
 const EditorPreset = require('../models/editorPreset');
 const Flipbook = require('../../../../shared/models/Flipbook');
+const User = require('../../../../shared/models/User');
 const backupService = require('../../../../shared/backupService');
 const bookInfoController = require('./bookInfoController');
 
@@ -2280,6 +2281,16 @@ const findBookByShareId = async (shareId) => {
       ...custObj,
       Visibility: custObj.Visibility || book.Customized_Settings?.Visibility
     };
+    if (custObj.userEmail && !book.userEmail) {
+      book.userEmail = custObj.userEmail;
+    }
+  }
+
+  if (book && !book.userEmail && book.userObjectID) {
+    try {
+      const u = await User.findById(book.userObjectID).select('emailId').lean();
+      if (u?.emailId) book.userEmail = u.emailId;
+    } catch (_) {}
   }
 
   // Ensure shareId is distinct from v_id
@@ -2665,6 +2676,7 @@ const getPublicBook = async (req, res) => {
       flipbookName: book.flipbookName,
       folderName: primaryFolder,
       v_id: book.v_id,
+      userEmail: book.userEmail || '',
       baseUrl: resolvedBaseUrl,
       publisher: publisherName,
       category: docFlipbookInfo.category || 'General',
