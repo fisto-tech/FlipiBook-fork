@@ -1197,7 +1197,7 @@ export default function FlipbookDetailAnalytics({
 
         {/* Dynamic Tab Content */}
         {detailTab === 'leads' && (
-          <LeadFormTab timeline={detailTimeline} summary={summary} analyticsData={analyticsData} loading={loading} />
+          <LeadFormTab flipbook={flipbook} timeline={detailTimeline} summary={summary} analyticsData={analyticsData} loading={loading} />
         )}
 
         {detailTab === 'devices' && (
