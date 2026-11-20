@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import HomeNav from '../components/NavBar/HomeNav';
 import { ChatBotButton, ChatBotDrawer } from '../components/ChatBot';
 import GoToTopButton from '../components/common/GoToTopButton';
-import { LAUNCH_LOCK, isLaunchAllowedPath, requestComingSoonModal } from '../config/launchLock';
 
 export default function MainLayout({ children }) {
   const location = useLocation();
@@ -59,20 +58,7 @@ export default function MainLayout({ children }) {
 
   return (
     <div className="w-screen h-screen max-w-full max-h-screen overflow-hidden bg-[#F8FAFC] flex flex-col font-sans">
-      <header
-        className="w-full flex-none bg-white z-[100] h-14 sm:h-16 md:h-[7vh] min-h-[52px]"
-        onClickCapture={(e) => {
-          if (!LAUNCH_LOCK) return;
-          const el = e.target.closest?.('a, button, [role="button"], [role="menuitem"]');
-          if (!el) return;
-          // Home link / logo stay usable
-          const href = el.tagName === 'A' ? el.getAttribute('href') : null;
-          if (href && isLaunchAllowedPath(href.split(/[?#]/)[0])) return;
-          e.preventDefault();
-          e.stopPropagation();
-          requestComingSoonModal();
-        }}
-      >
+      <header className="w-full flex-none bg-white z-[100] h-14 sm:h-16 md:h-[7vh] min-h-[52px]">
         <HomeNav />
       </header>
       {/* Scrollable container for page views */}

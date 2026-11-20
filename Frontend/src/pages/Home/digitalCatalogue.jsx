@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import HTMLFlipBook from 'react-pageflip';
+import TurnBook from '../../components/common/TurnBook';
 import softCoverAudio from '../../assets/Audios/Soft cover page.mp3';
 import trustedAvatar1 from '../../assets/Home/TrustedAvatar/trusted-avatar-1.webp';
 import trustedAvatar2 from '../../assets/Home/TrustedAvatar/trusted-avatar-2.webp';
@@ -263,49 +263,18 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
             {/* Flipbook Canvas */}
             <div
               key="hero-digital-catalogue-book"
-              className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${coverState === 'front'
-                ? '-translate-x-[25%]'
-                : coverState === 'back'
-                  ? 'translate-x-[25%]'
-                  : 'translate-x-0'
-                }`}
+              className="w-full h-full flex items-center justify-center"
             >
-              <HTMLFlipBook
+              <TurnBook
+                ref={heroBookRef}
+                pages={heroPages}
                 width={595}
                 height={842}
-                size="stretch"
-                minWidth={210}
-                maxWidth={1200}
-                minHeight={297}
-                maxHeight={1700}
-                maxShadowOpacity={0.5}
-                showCover={true}
-                mobileScrollSupport={true}
-                clickEventForward={false}
-                useMouseEvents={true}
-                onFlip={onHeroBookFlip}
-                flippingTime={900}
-                swipeDistance={30}
-                ref={heroBookRef}
+                duration={900}
                 startPage={0}
-                className="w-full h-full mx-auto"
-              >
-                {heroPages.map((pageSrc, index) => {
-                  return (
-                    <div
-                      key={index}
-                      className="bg-white overflow-hidden shadow-inner flex items-center justify-center w-full h-full"
-                    >
-                      <img
-                        src={pageSrc}
-                        alt={`Page ${index + 1}`}
-                        className="w-full h-full block object-cover select-none pointer-events-none"
-                        style={{ margin: 0, padding: 0 }}
-                      />
-                    </div>
-                  );
-                })}
-              </HTMLFlipBook>
+                onFlip={onHeroBookFlip}
+                className="mx-auto"
+              />
             </div>
 
             {/* Right Next Arrow */}

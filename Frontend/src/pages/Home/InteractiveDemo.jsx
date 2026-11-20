@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import HTMLFlipBook from 'react-pageflip';
+import TurnBook from '../../components/common/TurnBook';
 import softCoverAudio from '../../assets/Audios/Soft cover page.mp3';
 import audioTrack from '../../assets/Audios/audio.mp3';
 
@@ -814,52 +814,24 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                 >
                   <div
                     key={`${activeModalBook?.id || 'modal-book'}-${isFullScreen ? 'fullscreen' : 'modal'}`}
-                    className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${isCustomBook || activePages.length === 8
-                        ? modalCoverState === 'front'
-                          ? '-translate-x-[25%]'
-                          : modalCoverState === 'back'
-                            ? 'translate-x-[25%]'
-                            : 'translate-x-0'
-                        : 'translate-x-0'
-                      }`}
+                    className="w-full h-full flex items-center justify-center"
                   >
-                    <HTMLFlipBook
+                    <TurnBook
+                      ref={modalBookRef}
+                      pages={activePages}
                       width={595}
                       height={842}
-                      size="stretch"
-                      minWidth={210}
-                      maxWidth={1200}
-                      minHeight={297}
-                      maxHeight={1700}
-                      maxShadowOpacity={0.5}
-                      showCover={isCustomBook || activePages.length === 8}
-                      mobileScrollSupport={true}
-                      clickEventForward={false}
-                      useMouseEvents={true}
-                      onFlip={onBookFlip}
-                      flippingTime={900}
-                      swipeDistance={30}
-                      ref={modalBookRef}
+                      duration={900}
                       startPage={
                         activeModalBook?.isFood
-                          ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : modalActiveStep === 4 ? 5 : 7
-                          : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany
-                            ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : 5
-                            : 0
+                        ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : modalActiveStep === 4 ? 5 : 7
+                        : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany
+                        ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : 5
+                        : 0
                       }
-                      className="w-full h-full mx-auto"
-                    >
-                      {activePages.map((pageSrc, index) => (
-                        <div key={index} className="bg-white overflow-hidden shadow-inner flex items-center justify-center w-full h-full">
-                          <img
-                            src={pageSrc}
-                            alt={`Page ${index + 1}`}
-                            className="w-full h-full block object-cover select-none pointer-events-none"
-                            style={{ margin: 0, padding: 0 }}
-                          />
-                        </div>
-                      ))}
-                    </HTMLFlipBook>
+                      onFlip={onBookFlip}
+                      className="mx-auto"
+                    />
                   </div>
                 </div>
 
