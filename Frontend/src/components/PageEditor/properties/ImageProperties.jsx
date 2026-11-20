@@ -1521,7 +1521,18 @@ const ImageProperties = ({
               // Apply crop bounds directly in liveElement's local coordinate space.
               // No parent CTM conversion is needed because the clip-path is evaluated 
               // in the local space of the element it's applied to.
-              const groupD = getPathD(clipX, clipY, Math.max(0, clipW), Math.max(0, clipH), radius.tl || 0, radius.tr || 0, radius.br || 0, radius.bl || 0);
+              // The stroke layer lives inside this clipped group: grow the clip by the part of the
+              // stroke that sits outside the crop box, otherwise Outside/Center strokes vanish.
+              const hasStroke = backgroundColor.stroke && backgroundColor.stroke !== 'transparent' && backgroundColor.stroke !== 'none';
+              const sw = hasStroke ? (parseFloat(backgroundColor.strokeWeight) || 0) : 0;
+              const sPos = backgroundColor.strokePosition || 'Outside';
+              const strokeOut = sPos === 'Inside' ? 0 : (sPos === 'Center' ? sw / 2 : sw);
+              const groupD = getPathD(
+                clipX - strokeOut, clipY - strokeOut,
+                Math.max(0, clipW + strokeOut * 2), Math.max(0, clipH + strokeOut * 2),
+                (radius.tl || 0) + (radius.tl ? strokeOut : 0), (radius.tr || 0) + (radius.tr ? strokeOut : 0),
+                (radius.br || 0) + (radius.br ? strokeOut : 0), (radius.bl || 0) + (radius.bl ? strokeOut : 0)
+              );
               groupClipRect.setAttribute('d', groupD);
               liveElement.setAttribute('clip-path', `url(#${groupClipId})`);
               liveElement.style.removeProperty('clip-path');
@@ -3037,6 +3048,50 @@ const ImageProperties = ({
     }
   }, [applyVisuals]);
 
+  // Re-sync fill & stroke layers immediately whenever the element's geometry changes
+  // (resize in Fit/Fill/Crop, crop-box resize) so they always match the selection box.
+  useEffect(() => {
+    if (!selectedElement) return;
+    const CROP_ATTRS = ['data-crop-data', 'data-crop-orig-x', 'data-crop-orig-y', 'data-crop-orig-w', 'data-crop-orig-h'];
+    // Snapshot of the inputs applyVisuals derives fill/stroke from. Only re-run when it
+    // actually changes: never misses a resize step and can't loop on its own writes.
+    const geometrySignature = () => {
+      const media = selectedElement.matches?.('image, video, foreignObject')
+        ? selectedElement
+        : selectedElement.querySelector('image, video, foreignObject');
+      const parts = CROP_ATTRS.map(a => selectedElement.getAttribute(a) || '');
+      if (media) ['x', 'y', 'width', 'height'].forEach(a => parts.push(media.getAttribute(a) || ''));
+      return parts.join('|');
+    };
+    let lastSig = geometrySignature();
+
+    const observer = new MutationObserver((records) => {
+      // Crop mode owns the image transform while panning/zooming; re-running applyVisuals
+      // there re-positions the image with different math and shifts it on Done.
+      // Absorb crop-mode changes into the snapshot so they don't trigger a late re-run after Done.
+      if (document.body.classList.contains('crop-modal-active') || document.querySelector('[data-cropping="true"]')) {
+        lastSig = geometrySignature();
+        return;
+      }
+      // Ignore changes to the derived layers themselves (fill, stroke, clip defs)
+      const relevant = records.some(r => !r.target.closest?.('.image-fill-layer, .svg-image-stroke-overlay, defs, clipPath, mask, pattern'));
+      if (!relevant) return;
+      const sig = geometrySignature();
+      if (sig === lastSig) return;
+      lastSig = sig;
+      // Run now (microtask, before paint) so fill/stroke move in the same frame as the resize
+      hasUserInteractedRef.current = true;
+      applyVisualsRef.current?.();
+      lastSig = geometrySignature(); // absorb any normalisation applyVisuals wrote
+    });
+    observer.observe(selectedElement, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: [...CROP_ATTRS, 'width', 'height', 'x', 'y']
+    });
+    return () => observer.disconnect();
+  }, [selectedElement]);
+
 
 
 
@@ -3395,7 +3450,11 @@ const ImageProperties = ({
                 }}
               >
                 {/* Thumbnail */}
-                <div className="relative w-[7.6vw] h-[5.6vw] rounded-[0.45vw] overflow-hidden bg-gray-50 border border-gray-200 flex-shrink-0 flex items-center justify-center shadow-2xs group">
+                <div
+                  onClick={() => setShowReplaceModal(true)}
+                  title="Replace image"
+                  className="relative w-[7.6vw] h-[5.6vw] rounded-[0.45vw] overflow-hidden bg-gray-50 border border-gray-200 flex-shrink-0 flex items-center justify-center shadow-2xs group cursor-pointer hover:border-gray-300 transition-colors"
+                >
                   {previewSrc ? (
                     <img
                       src={previewSrc}
@@ -3469,7 +3528,7 @@ const ImageProperties = ({
                     value={opacity}
                     onChange={(e) => setOpacity(Number(e.target.value))}
                     className="w-full cursor-pointer custom-range-slider"
-                    style={{ backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${opacity}%, #E2E8F0 ${opacity}%, #E2E8F0 100%)` }}
+                    style={{ backgroundImage: `linear-gradient(to right, #EC5137 0%, #EC5137 ${opacity}%, #E2E8F0 ${opacity}%, #E2E8F0 100%)` }}
                   />
                 </div>
                 <div className="w-[3.3vw] h-[2vw] rounded-[0.4vw] border border-gray-300 bg-white flex items-center justify-center text-[0.8vw] font-medium text-gray-700 shadow-2xs">

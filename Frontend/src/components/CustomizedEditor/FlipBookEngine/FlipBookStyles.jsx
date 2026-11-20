@@ -384,13 +384,38 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 pointer-events: none !important;
             }
 
+            /* Scrollable text on static/turning pages: use the box's chosen scrollbar color
+               (same rules as the interactive layer, so there's no grey flash while turning) */
+            .flipbook-text-scrollbar {
+                scrollbar-color: var(--scrollbar-color, #4B5563) transparent !important;
+                scrollbar-width: thin !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar {
+                width: 6px !important;
+                height: 6px !important;
+                background: transparent !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar-track {
+                background: transparent !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar-thumb {
+                background: var(--scrollbar-color, #4B5563) !important;
+                border-radius: 10px !important;
+            }
+
             /* Prevent editor selection overlay rect from blocking clicks on live map or embed */
             g[data-type="map"] > rect,
             g[id^="map-"] > rect,
-            g[data-type="embed-frame"] > rect,
-            g[id^="embed-"] > rect {
+            g[data-type="embed-frame"] > rect:not(.svg-image-stroke-overlay),
+            g[id^="embed-"] > rect:not(.svg-image-stroke-overlay) {
                 pointer-events: none !important;
                 display: none !important;
+            }
+            /* Keep the user's embed border visible in preview, but never let it block clicks */
+            g[data-type="embed-frame"] > rect.svg-image-stroke-overlay,
+            g[id^="embed-"] > rect.svg-image-stroke-overlay {
+                pointer-events: none !important;
+                fill: none !important;
             }
 
             /* Add a global invisible shield over the entire wrapper during a drag to guarantee mousemove tracking */

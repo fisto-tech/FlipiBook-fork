@@ -85,8 +85,28 @@ export const initSmartGuides = (dragState) => {
     /* fallback */
   }
 
-  // Initial box of the dragged element in SVG space
-  const targetBox = getBoxInSvg(target, svg, svgInvCtm);
+  // Initial box of the dragged element in SVG space.
+  // Multi-selection drags as ONE unit: use the union of all dragged items, so the X,Y badge and
+  // snapping refer to the whole selection (not just the first selected element).
+  let targetBox = getBoxInSvg(target, svg, svgInvCtm);
+  if (dragState.multiDragItems && dragState.multiDragItems.length > 1) {
+    let l = Infinity, r = -Infinity, t = Infinity, b = -Infinity;
+    dragState.multiDragItems.forEach(item => {
+      const bx = getBoxInSvg(item.element, svg, svgInvCtm);
+      if (!bx) return;
+      if (bx.left < l) l = bx.left;
+      if (bx.right > r) r = bx.right;
+      if (bx.top < t) t = bx.top;
+      if (bx.bottom > b) b = bx.bottom;
+    });
+    if (l !== Infinity) {
+      targetBox = {
+        left: l, right: r, top: t, bottom: b,
+        width: r - l, height: b - t,
+        centerX: (l + r) / 2, centerY: (t + b) / 2
+      };
+    }
+  }
   if (!targetBox) return;
 
   // Collect IDs to exclude (target, children, multi-selected elements)

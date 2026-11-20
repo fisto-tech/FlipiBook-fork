@@ -205,6 +205,8 @@ export default function Templates() {
   const [sortBy, setSortBy] = useState('popular');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = useRef(null);
   const [selectedCardId, setSelectedCardId] = useState('interior_book');
   const [activeTab, setActiveTab] = useState('templates'); // 'templates' | 'favorites'
   const [favorites, setFavorites] = useState(() => new Set(['interior_book']));
@@ -233,6 +235,9 @@ export default function Templates() {
       if (orientDropdownRef.current && !orientDropdownRef.current.contains(e.target)) {
         setIsOrientDropdownOpen(false);
       }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setIsSearchFocused(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -241,6 +246,7 @@ export default function Templates() {
   // Modal States
   const [selectedTemplateItem, setSelectedTemplateItem] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [creatingPageCount, setCreatingPageCount] = useState(0);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTemplateIdForModal, setSelectedTemplateIdForModal] = useState('corporate');
   const [existingFlipbooks, setExistingFlipbooks] = useState([]);
@@ -370,6 +376,48 @@ export default function Templates() {
 
     return result;
   }, [searchQuery, selectedCategory, selectedFormat, sortBy, allTemplates, favorites, activeTab]);
+
+  // Live search suggestions based on searchQuery
+  const searchSuggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+
+    const suggestions = [];
+    const seen = new Set();
+
+    allTemplates.forEach(t => {
+      // 1. Title match
+      if (t.title && t.title.toLowerCase().includes(q)) {
+        const key = `title:${t.title}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          suggestions.push({
+            type: 'template',
+            title: t.title,
+            category: t.category,
+            badge: t.badge,
+            preview: t.preview,
+            template: t
+          });
+        }
+      }
+
+      // 2. Category match
+      if (t.category && t.category.toLowerCase().includes(q)) {
+        const key = `cat:${t.category}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          suggestions.push({
+            type: 'category',
+            title: t.category,
+            label: `In Category: ${t.category}`
+          });
+        }
+      }
+    });
+
+    return suggestions.slice(0, 6);
+  }, [searchQuery, allTemplates]);
 
   // Selected template object for persistent right side panel
   const selectedTemplate = useMemo(() => {
@@ -649,6 +697,7 @@ export default function Templates() {
       return;
     }
 
+    setCreatingPageCount(previewSelectedPages.size);
     setIsCreating(true);
 
     const chosenTpl = selectedTemplate;
@@ -752,20 +801,46 @@ export default function Templates() {
   };
 
   // Submit adding selected pages into flipbook and navigate to Editor
-  const handleConfirmAddToFlipbook = async () => {
-    if (modalSelectedPages.size === 0) return;
+  const handleConfirmAddToFlipbook = async (options = {}) => {
+    const selectedIndices = options.selectedPageIndices !== undefined
+      ? Array.from(options.selectedPageIndices).sort((a, b) => a - b)
+      : Array.from(modalSelectedPages).sort((a, b) => a - b);
+
+    if (selectedIndices.length === 0) return;
     setIsPageSelectModalOpen(false);
+    setCreatingPageCount(selectedIndices.length);
     setIsCreating(true);
 
-    const chosenTpl = selectedTemplateItem || selectedTemplate;
-    const sortedIndices = Array.from(modalSelectedPages).sort((a, b) => a - b);
-    const chosenPages = sortedIndices.map((idx) => modalTemplatePages[idx]).filter(Boolean);
+    const chosenTpl = options.template || selectedTemplateItem || selectedTemplate;
+    const tplPages = modalTemplatePages.length > 0
+      ? modalTemplatePages
+      : (Array.isArray(chosenTpl?.pageUrls)
+          ? chosenTpl.pageUrls.map((url, idx) => ({ index: idx, url, name: `Page ${idx + 1}` }))
+          : []);
 
-    // Get width & height from modalPaperSize
+    const chosenPages = selectedIndices.map((idx) => {
+      if (tplPages[idx]) return tplPages[idx];
+      if (chosenTpl?.folder) {
+        return {
+          index: idx,
+          name: `Page ${idx + 1}`,
+          url: getBookPageUrl(chosenTpl.folder, idx + 1)
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    // Get width & height from paper size & orientation
+    const paperSizeLabel = options.paperSize || modalPaperSize;
     const chosenPaperOption =
-      PAPER_SIZE_OPTIONS.find((p) => p.label === modalPaperSize) || PAPER_SIZE_OPTIONS[0];
-    const targetW = chosenPaperOption.width || 210;
-    const targetH = chosenPaperOption.height || 297;
+      PAPER_SIZE_OPTIONS.find((p) => p.label === paperSizeLabel || p.id === paperSizeLabel) || PAPER_SIZE_OPTIONS[0];
+    const paperId = chosenPaperOption.id || 'corporate';
+    const rawOrientation = (options.orientation || selectedOrientation || 'portrait').toLowerCase();
+    const dims = getTemplateDimensions(paperId, rawOrientation);
+    const targetW = dims.width;
+    const targetH = dims.height;
+    const isSquare = paperId === 'square';
+    const finalOrientation = isSquare ? 'square' : rawOrientation;
 
     // Fetch and format the SELECTED pages in parallel
     const formattedPagesContent = await Promise.all(
@@ -813,8 +888,8 @@ export default function Templates() {
         v_id: generatedVId,
         width: targetW,
         height: targetH,
-        templateId: chosenTpl?.templateId || chosenTpl?.formatId || 'corporate',
-        orientation: targetW > targetH ? 'landscape' : 'portrait',
+        templateId: paperId,
+        orientation: finalOrientation,
         templateName: chosenTpl?.title || '',
         isTemplate: true
       }
@@ -833,8 +908,9 @@ export default function Templates() {
       isTemplate: true,
       width: targetW,
       height: targetH,
-      orientation: targetW > targetH ? 'landscape' : 'portrait',
-      paperSize: modalPaperSize
+      orientation: finalOrientation,
+      templateId: paperId,
+      paperSize: `${chosenPaperOption.label || 'A4'} (${finalOrientation})`
     };
 
     try {
@@ -1047,23 +1123,84 @@ export default function Templates() {
 
               {/* Right Controls: Search, Filter, Sort by */}
               <div className="flex items-center gap-[0.5vw] flex-shrink-0">
-                {/* Search Input */}
-                <div className="relative flex items-center">
+                {/* Search Input & Suggestions */}
+                <div ref={searchContainerRef} className="relative flex items-center">
                   <Search className="w-[0.9vw] h-[0.9vw] text-[#ea543a] absolute left-[0.75vw] pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search Flipbook..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setIsSearchFocused(true);
+                    }}
                     className="w-[11.5vw] 2xl:w-[13.5vw] pl-[2.2vw] pr-[1.8vw] py-[0.45vw] bg-white border border-gray-200 rounded-[0.55vw] text-[0.82vw] text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#ea543a] shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-all"
                   />
                   {searchQuery && (
                     <button 
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => {
+                        setSearchQuery('');
+                        setIsSearchFocused(false);
+                      }}
                       className="absolute right-[0.6vw] text-gray-400 hover:text-gray-600 cursor-pointer"
                     >
                       <X className="w-[0.8vw] h-[0.8vw]" />
                     </button>
+                  )}
+
+                  {/* Suggestion Dropdown */}
+                  {isSearchFocused && searchQuery.trim().length > 0 && (
+                    <div className="absolute left-0 top-full mt-[0.35vw] w-[16vw] bg-white border border-gray-200 rounded-[0.6vw] shadow-xl z-50 p-[0.4vw] overflow-hidden">
+                      <div className="text-[0.68vw] font-bold text-gray-400 uppercase tracking-wider px-[0.5vw] py-[0.3vw]">
+                        Suggestions
+                      </div>
+                      {searchSuggestions.length > 0 ? (
+                        <div className="flex flex-col gap-[0.2vw]">
+                          {searchSuggestions.map((sug, i) => (
+                            <button
+                              key={i}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                if (sug.type === 'category') {
+                                  setSelectedCategory(sug.title);
+                                  setSearchQuery('');
+                                } else if (sug.template) {
+                                  setSelectedCardId(sug.template.id);
+                                  setSearchQuery(sug.title);
+                                }
+                                setIsSearchFocused(false);
+                              }}
+                              className="w-full text-left px-[0.5vw] py-[0.4vw] rounded-[0.4vw] hover:bg-red-50/60 flex items-center gap-[0.5vw] transition-colors cursor-pointer group"
+                            >
+                              {sug.preview ? (
+                                <img
+                                  src={sug.preview}
+                                  alt={sug.title}
+                                  className="w-[1.6vw] h-[2vw] object-cover rounded-[0.2vw] border border-gray-200 flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-[1.6vw] h-[2vw] rounded-[0.2vw] bg-gray-100 flex items-center justify-center flex-shrink-0 text-[#ea543a]">
+                                  <Search className="w-[0.75vw] h-[0.75vw]" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[0.8vw] font-medium text-gray-800 truncate group-hover:text-[#ea543a]">
+                                  {sug.title}
+                                </p>
+                                <span className="text-[0.65vw] text-gray-400 block truncate">
+                                  {sug.type === 'category' ? sug.label : sug.category}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="px-[0.6vw] py-[0.8vw] text-center text-[0.75vw] text-gray-400">
+                          No suggestions found
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1074,21 +1211,23 @@ export default function Templates() {
                       setIsFilterOpen(!isFilterOpen);
                       setIsSortOpen(false);
                     }}
-                    className="flex items-center gap-[0.45vw] px-[0.9vw] py-[0.48vw] bg-white border border-gray-200 rounded-[0.55vw] text-[0.82vw] text-gray-700 font-medium hover:bg-gray-50 shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer transition-colors"
+                    className="w-[12.2vw] flex items-center justify-between gap-[0.4vw] px-[0.8vw] py-[0.48vw] bg-white border border-gray-200 rounded-[0.55vw] text-[0.82vw] text-gray-700 font-medium hover:bg-gray-50 shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer transition-colors whitespace-nowrap"
                   >
-                    <Filter className="w-[0.9vw] h-[0.9vw] text-[#ea543a]" />
-                    <span>Filter</span>
-                    <ChevronDown className="w-[0.85vw] h-[0.85vw] text-gray-500" />
+                    <div className="flex items-center gap-[0.4vw] truncate">
+                      <Filter className="w-[0.9vw] h-[0.9vw] text-[#ea543a] flex-shrink-0" />
+                      <span className="truncate">{selectedFormat === 'all' ? 'Filter' : FORMAT_OPTIONS.find(f => f.id === selectedFormat)?.label || 'Filter'}</span>
+                    </div>
+                    <ChevronDown className={`w-[0.85vw] h-[0.85vw] text-gray-500 flex-shrink-0 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isFilterOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsFilterOpen(false)} />
-                      <div className="absolute right-0 top-full mt-[0.4vw] bg-white border border-gray-200 rounded-[0.6vw] shadow-xl z-50 p-[0.75vw] min-w-[14vw]">
-                        <span className="text-[0.72vw] font-bold text-gray-400 uppercase tracking-wider block mb-[0.5vw]">
+                      <div className="absolute left-0 right-0 top-full mt-[0.4vw] bg-white border border-gray-200 rounded-[0.6vw] shadow-xl z-50 p-[0.55vw] w-[12.2vw]">
+                        <span className="text-[0.72vw] font-bold text-gray-400 uppercase tracking-wider block mb-[0.4vw] px-[0.2vw]">
                           Page Formats
                         </span>
-                        <div className="flex flex-col gap-[0.3vw]">
+                        <div className="flex flex-col gap-[0.2vw]">
                           {FORMAT_OPTIONS.map(fmt => (
                             <button
                               key={fmt.id}
@@ -1096,14 +1235,14 @@ export default function Templates() {
                                 setSelectedFormat(fmt.id);
                                 setIsFilterOpen(false);
                               }}
-                              className={`w-full text-left px-[0.7vw] py-[0.45vw] rounded-[0.45vw] text-[0.8vw] font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                              className={`w-full text-left px-[0.55vw] py-[0.4vw] rounded-[0.45vw] text-[0.78vw] font-medium flex items-center justify-between transition-colors cursor-pointer whitespace-nowrap ${
                                 selectedFormat === fmt.id
                                   ? 'bg-red-50 text-[#ea543a] font-semibold'
                                   : 'text-gray-700 hover:bg-gray-50'
                               }`}
                             >
                               <span>{fmt.label}</span>
-                              {selectedFormat === fmt.id && <Check className="w-[0.85vw] h-[0.85vw] text-[#ea543a]" />}
+                              {selectedFormat === fmt.id && <Check className="w-[0.8vw] h-[0.8vw] text-[#ea543a] flex-shrink-0 ml-[0.3vw]" />}
                             </button>
                           ))}
                         </div>
@@ -1283,11 +1422,9 @@ export default function Templates() {
         template={selectedTemplateItem || selectedTemplate}
         existingPageCount={12}
         isApplying={isCreating}
-        onUseTemplate={async ({ selectedPageIndices, paperSize, orientation }) => {
+        onUseTemplate={async (data) => {
           setIsPageSelectModalOpen(false);
-          setModalSelectedPages(new Set(selectedPageIndices));
-          setModalPaperSize(paperSize);
-          await handleConfirmAddToFlipbook();
+          await handleConfirmAddToFlipbook(data);
         }}
       />
 
@@ -1295,7 +1432,7 @@ export default function Templates() {
       {isCreating && (
         <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white select-none">
           <Loader2 className="animate-spin mb-[0.8vw] text-[#ea543a] w-[2.2vw] h-[2.2vw]" />
-          <p className="text-[1vw] font-bold">Creating Flipbook with {previewSelectedPages.size} {previewSelectedPages.size === 1 ? 'Page' : 'Pages'}...</p>
+          <p className="text-[1vw] font-bold">Creating Flipbook with {creatingPageCount || previewSelectedPages.size} {(creatingPageCount || previewSelectedPages.size) === 1 ? 'Page' : 'Pages'}...</p>
           <p className="text-[0.75vw] text-gray-300 mt-[0.25vw]">Preparing canvas pages and vector artwork</p>
         </div>
       )}

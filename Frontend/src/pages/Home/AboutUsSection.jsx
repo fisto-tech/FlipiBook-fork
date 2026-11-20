@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import aboutUsImg from '../../assets/Home/final-images/about-us/about-us-image.png';
+import aboutUsImg from '../../assets/Home/AboutUs/about-us-image.webp';
 
 export default function AboutUsSection() {
   return (
@@ -88,7 +88,7 @@ export default function AboutUsSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
               transition={{ duration: 0.9, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="w-full max-w-full lg:max-w-[26vw] flex flex-col items-start lg:items-end text-xs sm:text-[13.5px] md:text-[14.5px] lg:text-[0.88vw] text-[#2b2e34] font-normal leading-[1.6] sm:leading-[1.7] md:leading-[1.75] lg:leading-[1.5vw] text-justify lg:text-right pb-1 sm:pb-2 mt-2 sm:mt-3 md:mt-4 lg:mt-0"
+              className="w-full max-w-full lg:max-w-[26vw] flex flex-col items-start lg:items-end text-xs sm:text-[13.5px] md:text-[14.5px] lg:text-[0.88vw] text-[#2b2e34] font-normal leading-[1.6] sm:leading-[1.7] md:leading-[1.75] lg:leading-[1.5vw] text-left sm:text-justify lg:text-right pb-1 sm:pb-2 mt-2 sm:mt-3 md:mt-4 lg:mt-0"
             >
               <p className="leading-[1.6] sm:leading-[1.7] md:leading-[1.75] lg:leading-[1.5vw]">
                 FlipiBook by Fisto Tech Pvt Ltd turns static PDFs into interactive digital catalogues. Combine product videos, 3D models, and clickable links to help customers explore your products and understand how they work.

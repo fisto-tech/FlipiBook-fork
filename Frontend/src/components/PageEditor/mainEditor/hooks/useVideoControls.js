@@ -19,13 +19,15 @@ export const useVideoControls = ({ setSelectedLayerId, selectedLayerId, activePa
   useEffect(() => {
     // Inject global styles for the video overlay and progress bar
     const thumbStyleId = 'global-custom-video-progress-style';
-    if (!document.getElementById(thumbStyleId)) {
-      const ts = document.createElement('style');
-      ts.id = thumbStyleId;
+    {
+      let ts = document.getElementById(thumbStyleId);
+      const isNewStyle = !ts;
+      if (!ts) { ts = document.createElement('style'); ts.id = thumbStyleId; }
       ts.textContent = `
+        /* Editor: controls are always visible (preview shows them on hover only) */
         .custom-video-overlay {
-          opacity: 0;
-          pointer-events: none;
+          opacity: 1;
+          pointer-events: auto;
           background: linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0.25) 70%, rgba(0,0,0,0.85) 100%) !important;
           transition: opacity 0.22s ease !important;
           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
@@ -57,7 +59,7 @@ export const useVideoControls = ({ setSelectedLayerId, selectedLayerId, activePa
           background: rgba(0, 0, 0, 0.6) !important;
           backdrop-filter: blur(4px) !important;
           -webkit-backdrop-filter: blur(4px) !important;
-          border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+          border: none !important;
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45) !important;
           color: #ffffff !important;
           display: flex !important;
@@ -88,8 +90,12 @@ export const useVideoControls = ({ setSelectedLayerId, selectedLayerId, activePa
             transform: translate(-50%, -50%) scale(1.35);
           }
         }
+        /* Persistent center play icon while the video is paused */
+        .custom-video-overlay.is-paused .custom-center-play-btn:not(.animate-flash) {
+          opacity: 1 !important;
+        }
       `;
-      document.head.appendChild(ts);
+      if (isNewStyle) document.head.appendChild(ts);
     }
 
     let intervalId;
@@ -466,6 +472,11 @@ export const useVideoControls = ({ setSelectedLayerId, selectedLayerId, activePa
 
           const centerPlayBtn = document.createElement('div');
           centerPlayBtn.className = 'custom-center-play-btn';
+          if (video.paused) centerPlayBtn.innerHTML = CENTER_PLAY_SVG;
+          centerPlayBtn.addEventListener('animationend', () => {
+            centerPlayBtn.classList.remove('animate-flash');
+            if (video.paused) centerPlayBtn.innerHTML = CENTER_PLAY_SVG;
+          });
           centerSlot.appendChild(centerPlayBtn);
 
           const triggerCenterFlash = (action) => {
@@ -484,7 +495,9 @@ export const useVideoControls = ({ setSelectedLayerId, selectedLayerId, activePa
               triggerCenterFlash('play');
             } else {
               video.pause();
-              triggerCenterFlash('pause');
+              // No pause flash: the persistent center play icon shows instead
+              centerPlayBtn.classList.remove('animate-flash');
+              centerPlayBtn.innerHTML = CENTER_PLAY_SVG;
             }
             if (setSelectedLayerId) setSelectedLayerId(layerId);
           };
@@ -570,6 +583,7 @@ export const useVideoControls = ({ setSelectedLayerId, selectedLayerId, activePa
           const onPause = () => {
             playBtn.innerHTML = PLAY_SVG;
             bar.classList.add('is-paused');
+            if (!centerPlayBtn.classList.contains('animate-flash')) centerPlayBtn.innerHTML = CENTER_PLAY_SVG;
           };
           playBtn.innerHTML = video.paused ? PLAY_SVG : PAUSE_SVG;
 
@@ -584,7 +598,9 @@ export const useVideoControls = ({ setSelectedLayerId, selectedLayerId, activePa
               triggerCenterFlash('play');
             } else {
               video.pause();
-              triggerCenterFlash('pause');
+              // No pause flash: the persistent center play icon shows instead
+              centerPlayBtn.classList.remove('animate-flash');
+              centerPlayBtn.innerHTML = CENTER_PLAY_SVG;
             }
             if (setSelectedLayerId) setSelectedLayerId(layerId);
           };
@@ -1200,7 +1216,8 @@ export const useVideoControls = ({ setSelectedLayerId, selectedLayerId, activePa
             const sp = video.getAttribute('data-show-play-pause') !== 'false';
             const sf = video.getAttribute('data-show-fullscreen-button') !== 'false';
             const sd = video.getAttribute('data-show-download-button') !== 'false';
-            bar.style.display = (shouldShowControls || sp || sf || sd) ? 'flex' : 'none';
+            const spb = video.getAttribute('data-show-progress-bar') !== 'false';
+            bar.style.display = (shouldShowControls || sp || sf || sd || spb) ? 'flex' : 'none';
           }
         };
 

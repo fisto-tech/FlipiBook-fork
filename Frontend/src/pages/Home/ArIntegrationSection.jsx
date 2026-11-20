@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import arViewImg from '../../assets/Home/AR-img.png';
+import arViewImg from '../../assets/Home/ArIntegration/AR-img.webp';
 
 export default function ArIntegrationSection() {
   return (

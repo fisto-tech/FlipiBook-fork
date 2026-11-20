@@ -121,7 +121,6 @@ const ShareViewBook = () => {
 
     // Sidebar Modals & Panels State
     const [isBookInfoOpen, setIsBookInfoOpen] = useState(false);
-    const [isAddToShelfOpen, setIsAddToShelfOpen] = useState(false);
     const [isRatingsOpen, setIsRatingsOpen] = useState(false);
     const [editingRatingId, setEditingRatingId] = useState(null);
     const [ratingForm, setRatingForm] = useState({ name: '', rating: 0, review: '' });
@@ -136,7 +135,6 @@ const ShareViewBook = () => {
     // View Count State
     const [viewsCount, setViewsCount] = useState(0);
 
-    const [isAddedToShelf, setIsAddedToShelf] = useState(false);
     const [isFavorited, setIsFavorited] = useState(false);
 
     useEffect(() => {
@@ -182,51 +180,6 @@ const ShareViewBook = () => {
         } catch (err) {
             setIsFavorited(!next);
             toast.error(err.response?.data?.message || "Failed to update favorites.");
-        }
-    };
-
-    useEffect(() => {
-        if (!currentUserEmail || !bookData) return;
-        const checkShelf = async () => {
-            try {
-                const backendUrl = getBackendUrl();
-                const res = await axios.get(`${backendUrl}/api/profile/my-shelf-books`, { withCredentials: true });
-                if (res.data && res.data.books) {
-                    const shelfIds = res.data.books.map(b => b.v_id);
-                    if (shelfIds.includes(bookData.v_id || shareId)) {
-                        setIsAddedToShelf(true);
-                    }
-                }
-            } catch (err) {
-                console.error("Error checking shelf:", err);
-            }
-        };
-        checkShelf();
-    }, [currentUserEmail, bookData, shareId]);
-
-    const handleShelfToggle = async () => {
-        if (!isAddedToShelf) {
-            setIsRatingsOpen(false);
-            setIsAddToShelfOpen(true);
-            return;
-        }
-        
-        // Remove from shelf
-        try {
-            const backendUrl = getBackendUrl();
-            const res = await axios.post(`${backendUrl}/api/profile/remove-from-shelf`, {
-                emailId: currentUserEmail,
-                bookId: bookData?.v_id || shareId
-            });
-            if (res.data?.success) {
-                toast.success("Book removed from your shelf.");
-                setIsAddedToShelf(false);
-            } else {
-                toast.error(res.data?.message || "Failed to remove book from shelf.");
-            }
-        } catch (err) {
-            console.error("Failed to remove from shelf:", err);
-            toast.error(err.response?.data?.message || "Failed to remove book from shelf.");
         }
     };
 
@@ -1332,17 +1285,6 @@ const ShareViewBook = () => {
                             <span className="text-[0.7vw] text-[#2F296D] font-medium leading-tight">ratings</span>
                         </div>
                     </button>
-                    <div className="w-[60%] h-[1px] bg-gray-100 pointer-events-none"></div>
-                    <button onMouseDown={e => e.stopPropagation()} onClick={handleShelfToggle} className="flex flex-col items-center gap-[0.2vw] hover:bg-slate-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full">
-                        {isAddedToShelf ? (
-                            <Icon icon="lucide:check-circle" className="w-[1.2vw] h-[1.2vw] text-green-500" />
-                        ) : (
-                            <Icon icon="ri:book-shelf-line" className="w-[1.2vw] h-[1.2vw] text-[#2F296D] group-hover:scale-110 transition-transform" />
-                        )}
-                        <span className="text-[0.7vw] font-medium text-[#2F296D] text-center leading-tight">
-                            {isAddedToShelf ? <>Book<br />Added</> : <>Add to<br />Shelf</>}
-                        </span>
-                    </button>
                     {!isBookOwner && (
                         <>
                             <div className="w-[60%] h-[1px] bg-gray-100 pointer-events-none"></div>
@@ -1412,16 +1354,6 @@ const ShareViewBook = () => {
                                     <span className="text-[0.65vw] text-gray-400">Readers have opened this book</span>
                                 </div>
                             </div>
-                            <div className="flex-1 bg-gray-50 rounded-xl p-[1vw] flex flex-col gap-[0.5vw]">
-                                <div className="flex items-center gap-[0.5vw]">
-                                    <Icon icon="ri:book-shelf-line" className="w-[1vw] h-[1vw] text-gray-600" />
-                                    <span className="text-[0.85vw] text-gray-600">Added To Shelf</span>
-                                </div>
-                                <div className="flex items-baseline gap-[0.5vw]">
-                                    <span className="text-[1.2vw] font-medium text-gray-800 leading-none">4,586</span>
-                                    <span className="text-[0.65vw] text-gray-400">Readers have added this book</span>
-                                </div>
-                            </div>
                         </div>
 
                         <div className="mt-[1vw] flex flex-col">
@@ -1452,79 +1384,6 @@ const ShareViewBook = () => {
                 </div>
             )}
 
-            {/* Add to Shelf Modal */}
-            {isAddToShelfOpen && (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-[2vw]">
-                    <div className="bg-white rounded-2xl p-[2vw] shadow-2xl w-[90vw] max-w-[38vw] animate-in zoom-in-95 duration-200 relative flex flex-col items-center">
-                        <div className="w-full flex flex-col mb-[1.5vw]">
-                            <div className="flex items-center justify-between w-full mb-[0.2vw]">
-                                <h2 className="text-[1.3vw] font-semibold text-gray-900 shrink-0 mr-[0.5vw]">Add to Shelf</h2>
-                                <div className="h-px bg-gray-300 flex-1 mr-[1vw]"></div>
-                                <button onClick={() => setIsAddToShelfOpen(false)} className="p-[0.3vw] border border-red-500 rounded-md text-red-500 hover:bg-red-50 transition-colors cursor-pointer shrink-0">
-                                    <X className="w-[1vw] h-[1vw]" />
-                                </button>
-                            </div>
-                            <span className="text-[0.75vw] text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis">You can find this book in Profile {'>'} My Shelf {'>'} My Flipbooks</span>
-                        </div>
-
-                        <img 
-                            src={bookData?.meta?.thumbnail || bookData?.Customized_Settings?.othersetup?.coverPicture?.url || bookData?.thumbnail || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e"} 
-                            alt="Book cover" 
-                            className="w-[12vw] h-[12vw] shadow-[0_10px_30px_rgba(0,0,0,0.3)] rounded-sm object-cover aspect-[3/4]" 
-                            onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1543002588-bfa74002ed7e"; }}
-                        />
-
-                        <h3 className="text-[1.1vw] font-medium text-gray-900 mt-[1.5vw]">{bookData?.meta?.flipbookName || bookData?.flipbookName || 'Untitled Flipbook'}</h3>
-
-                        <div className="w-full h-px bg-gray-200 mt-[1.5vw] mb-[1.5vw]"></div>
-
-                        <div className="w-full">
-                            <p className="text-[0.8vw] text-gray-500 text-left">
-                                Do you like to add this Book <strong className="text-gray-700">"{bookData?.meta?.flipbookName || bookData?.flipbookName || 'One Piece'}"</strong> in your Book Shelf ?
-                            </p>
-                        </div>
-
-                        <div className="flex items-center gap-[1vw] w-full mt-[1.5vw]">
-                            <button onClick={() => setIsAddToShelfOpen(false)} className="flex-1 py-[0.8vw] rounded-xl border border-gray-200 text-[0.95vw] font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-[0.5vw] shadow-sm cursor-pointer">
-                                <X className="w-[1vw] h-[1vw]" /> Cancel
-                            </button>
-                            <button 
-                                onClick={async () => {
-                                    if (!currentUserEmail) {
-                                        toast.error("Please log in to add books to your shelf.");
-                                        return;
-                                    }
-                                    try {
-                                        const backendUrl = getBackendUrl();
-                                        const res = await axios.post(`${backendUrl}/api/profile/add-to-shelf`, {
-                                            emailId: currentUserEmail,
-                                            bookId: bookData?.v_id || shareId,
-                                            folderName: 'My Flipbooks'
-                                        });
-                                        if (res.data?.success) {
-                                            toast.success("Book successfully added to your shelf!");
-                                            setIsAddedToShelf(true);
-                                            setIsAddToShelfOpen(false);
-                                        } else {
-                                            toast.error(res.data?.message || "Failed to add book to shelf.");
-                                            if (res.data?.message === 'Book is already on your shelf') {
-                                                setIsAddedToShelf(true);
-                                                setIsAddToShelfOpen(false);
-                                            }
-                                        }
-                                    } catch (err) {
-                                        console.error("Failed to add to shelf:", err);
-                                        toast.error(err.response?.data?.message || "Failed to add book to shelf.");
-                                    }
-                                }} 
-                                className="flex-1 py-[0.8vw] rounded-xl bg-black text-[0.95vw] font-medium text-white hover:bg-gray-900 transition-colors flex items-center justify-center gap-[0.5vw] shadow-md cursor-pointer"
-                            >
-                                <Icon icon="ri:book-shelf-line" className="w-[1vw] h-[1vw]" /> Add to Shelf
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
             {/* Ratings & Reviews Sliding Panel */}
             <div className={`fixed inset-0 z-[1490] ${isRatingsOpen ? '' : 'pointer-events-none'}`}>
                 {/* Optional overlay background */}

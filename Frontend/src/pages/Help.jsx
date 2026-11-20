@@ -280,64 +280,6 @@ export default function Help() {
       {/* Main Content Area */}
       <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-8 sm:py-12 flex-1 w-full space-y-12 sm:space-y-16">
 
-        {/* Category Cards Section - aligned with max-w-6xl like FAQ */}
-        <section className="max-w-6xl mx-auto w-full">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-                Browse by Topic
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1 leading-relaxed">
-                Select a category to filter answers and find relevant instructions.
-              </p>
-            </div>
-            {selectedCategory !== 'all' && (
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className="text-xs sm:text-sm font-semibold text-[#EC5137] hover:underline cursor-pointer"
-              >
-                Reset Filter
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {categories.map((cat) => {
-              const IconComp = cat.icon;
-              const isSelected = selectedCategory === cat.id;
-
-              return (
-                <div
-                  key={cat.id}
-                  onClick={() => handleCategoryClick(cat.id)}
-                  className={`group relative p-5 rounded-2xl border transition-all duration-200 cursor-pointer text-left ${
-                    isSelected
-                      ? 'bg-white border-[#EC5137] shadow-md ring-2 ring-[#EC5137]/15'
-                      : 'bg-white border-gray-200/80 hover:border-gray-300 hover:shadow-xs'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 mb-2.5">
-                    <div className={`p-2 rounded-xl border ${cat.color} transition-transform group-hover:scale-105`}>
-                      <IconComp className="w-4 h-4" />
-                    </div>
-                    <h3 className={`text-sm sm:text-base font-semibold transition-colors ${isSelected ? 'text-[#EC5137]' : 'text-gray-900 group-hover:text-[#EC5137]'}`}>
-                      {cat.title}
-                    </h3>
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-2">
-                    {cat.description}
-                  </p>
-                  <div className="mt-3.5 flex items-center gap-1.5 text-xs font-semibold text-[#EC5137]">
-                    <span>{isSelected ? 'Viewing topic' : 'Explore topic'}</span>
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-
         {/* Frequently Asked Questions (FAQ) Section */}
         <section id="faqs" className="scroll-mt-8">
           <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-8">

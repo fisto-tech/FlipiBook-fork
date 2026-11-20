@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import workImg1 from '../../assets/Home/work-img-1.png';
-import workImg2 from '../../assets/Home/work-img-2.png';
-import workImg3 from '../../assets/Home/work-img-3.png';
-import workImg4 from '../../assets/Home/work-img-4.png';
+import workImg1 from '../../assets/Home/HowItWorks/work-img-1.webp';
+import workImg2 from '../../assets/Home/HowItWorks/work-img-2.webp';
+import workImg3 from '../../assets/Home/HowItWorks/work-img-3.webp';
+import workImg4 from '../../assets/Home/HowItWorks/work-img-4.webp';
 
 export default function HowItWorksSection() {
   const steps = [

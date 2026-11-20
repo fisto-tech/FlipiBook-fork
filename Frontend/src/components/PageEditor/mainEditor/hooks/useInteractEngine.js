@@ -1880,7 +1880,7 @@ export const useInteractEngine = ({
                   // Enable reflow when resizing any handle manually
                   if (dir) {
                     el.setAttribute('data-resized', 'true');
-                    div.style.whiteSpace = 'pre-wrap';
+                    div.style.setProperty('white-space', 'pre-wrap', 'important');
                   }
 
                   // Update the sizing mode to reflect manual user overrides so TextEditor respects them
@@ -1892,10 +1892,26 @@ export const useInteractEngine = ({
                       }
                       div.style.setProperty('width', '100%', 'important');
                       div.style.setProperty('height', '100%', 'important');
+                      div.style.setProperty('justify-content', 'flex-start', 'important');
                     } else {
-                      if (dir === 'e' || dir === 'w' || dir === 'n' || dir === 's') {
+                      if (dir === 'n' || dir === 's') {
+                        // Dragging top/bottom sets an explicit height -> Fixed (keeps width as-is)
+                        el.setAttribute('data-sizing-mode', 'fixed');
+                        el.setAttribute('data-auto-wrap', 'true');
+                        if (!isScrollable) {
+                          div.style.setProperty('overflow', 'visible', 'important');
+                        }
+                        div.style.setProperty('width', '100%', 'important');
+                        div.style.setProperty('height', '100%', 'important');
+                        div.style.setProperty('justify-content', 'flex-start', 'important');
+                      } else if (dir === 'e' || dir === 'w') {
                         el.setAttribute('data-sizing-mode', 'auto-height');
                         el.setAttribute('data-auto-wrap', 'true');
+                        // Undo Auto-W single-line layout so text wraps to the new width
+                        div.style.setProperty('white-space', 'pre-wrap', 'important');
+                        div.style.setProperty('overflow-wrap', 'break-word', 'important');
+                        div.style.setProperty('word-break', 'break-word', 'important');
+                        div.style.setProperty('width', '100%', 'important');
                         // Scrolling is only allowed in 'fixed' mode, so disable it when switching to auto-height
                         if (isScrollable) {
                           el.setAttribute('data-scrollable', 'false');
@@ -1910,6 +1926,7 @@ export const useInteractEngine = ({
                         }
                         div.style.setProperty('width', '100%', 'important');
                         div.style.setProperty('height', '100%', 'important');
+                        div.style.setProperty('justify-content', 'flex-start', 'important');
                       }
                     }
                   }
@@ -1923,7 +1940,10 @@ export const useInteractEngine = ({
 
                   if (!isScrollable) {
                     if (dir === 'e' || dir === 'w') {
-                      // Resize width -> Auto height (Can shrink)
+                      // Resize width -> Auto height (Can shrink).
+                      // Apply the new width FIRST so wrapping is measured at the size being dragged to;
+                      // otherwise the height lags one step and the centered text is clipped top & bottom.
+                      el.setAttribute('width', adjustedWidth);
                       adjustedHeight = Math.max(10, div.scrollHeight + 4);
                     } else if ((dir === 'n' || dir === 's') && el.getAttribute('data-sizing-mode') !== 'fixed') {
                       // Resize height -> adjust width to match new height, keeping text inside
@@ -2111,6 +2131,7 @@ export const useInteractEngine = ({
                       child.classList.contains('svg-image-stroke-overlay') ||
                       child.classList.contains('svg-gif-stroke-overlay') ||
                       child.classList.contains('svg-video-stroke-overlay') ||
+                      child.classList.contains('image-fill-layer') ||
                       child.classList.contains('svg-drop-shadow-caster')
                     );
                     if (isStrokeOverlay) return;
@@ -2237,6 +2258,7 @@ export const useInteractEngine = ({
                       child.classList.contains('svg-image-stroke-overlay') ||
                       child.classList.contains('svg-gif-stroke-overlay') ||
                       child.classList.contains('svg-video-stroke-overlay') ||
+                      child.classList.contains('image-fill-layer') ||
                       child.classList.contains('svg-drop-shadow-caster')
                     );
 

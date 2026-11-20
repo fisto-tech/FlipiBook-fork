@@ -2,11 +2,11 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import SmartOrbitVisual from './SmartOrbitVisual';
-import CotImage from '../../assets/Home/cot.png';
-import HeartImage from '../../assets/Home/heart.png';
-import HouseImage from '../../assets/Home/house.png';
-import FurnitureImage from '../../assets/Home/furniture.png';
-import MachineImage from '../../assets/Home/machine.png';
+import CotImage from '../../assets/Home/SmartSolutions/cot.webp';
+import HeartImage from '../../assets/Home/SmartSolutions/heart.webp';
+import HouseImage from '../../assets/Home/SmartSolutions/house.webp';
+import FurnitureImage from '../../assets/Home/SmartSolutions/furniture.webp';
+import MachineImage from '../../assets/Home/SmartSolutions/machine.webp';
 
 // 3D Model items in slider sequence starting with Cot
 const MODEL_SLIDES = [
@@ -22,11 +22,11 @@ const SmartSolutionsSection = () => {
   const sectionRef = useRef(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
-  // Automatically switch models every 2 seconds (faster, instant cycle)
+  // Automatically switch models every 2.6 seconds (crossfaded)
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % MODEL_SLIDES.length);
-    }, 2000);
+    }, 2600);
 
     return () => clearInterval(timer);
   }, []);
@@ -79,7 +79,7 @@ const SmartSolutionsSection = () => {
         {/* CENTER 3D MODEL & CIRCULAR ORBIT NAVIGATION */}
         <div className="relative w-full lg:w-[50vw] flex items-center justify-center min-h-[190px] sm:min-h-[260px] lg:h-[26vw] py-1 sm:py-2 lg:py-0">
 
-          {/* Center 3D Model Sliding Images (Instant swap feel, no sliding) */}
+          {/* Center 3D Model images — smooth crossfade between models */}
           <motion.div
             initial={{ scale: 0.88, opacity: 0, y: 20 }}
             whileInView={{ scale: 1, opacity: 1, y: 0 }}
@@ -87,12 +87,29 @@ const SmartSolutionsSection = () => {
             transition={{ duration: 1.0, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10 w-[78vw] sm:w-[49vw] md:w-[45vw] lg:w-[38vw] xl:w-[39.5vw] flex flex-col items-center justify-center -mt-2 sm:-mt-4 md:-mt-5 lg:-mt-[7.6vw] xl:-mt-[8vw]"
           >
-            <img
-              key={MODEL_SLIDES[currentSlideIndex].id}
-              src={MODEL_SLIDES[currentSlideIndex].src}
-              alt={MODEL_SLIDES[currentSlideIndex].alt}
-              className="w-full h-auto lg:w-[38vw] xl:w-[39.5vw] object-contain pointer-events-none select-none transition-none"
-            />
+            {/* All models stacked in one grid cell and cross-faded (no layout jump, preloaded) */}
+            <div className="grid w-full place-items-center">
+              {MODEL_SLIDES.map((slide, i) => {
+                const isActive = i === currentSlideIndex;
+                return (
+                  <motion.img
+                    key={slide.id}
+                    src={slide.src}
+                    alt={isActive ? slide.alt : ''}
+                    aria-hidden={!isActive}
+                    initial={false}
+                    animate={{
+                      opacity: isActive ? 1 : 0,
+                      scale: isActive ? 1 : 0.96,
+                      filter: isActive ? 'blur(0px)' : 'blur(4px)',
+                    }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ gridArea: '1 / 1' }}
+                    className="w-full h-auto lg:w-[38vw] xl:w-[39.5vw] object-contain pointer-events-none select-none"
+                  />
+                );
+              })}
+            </div>
           </motion.div>
 
           {/* Whole Orange Arch & Badges - Layered ABOVE the cot image */}
@@ -151,7 +168,7 @@ const SmartSolutionsSection = () => {
 
       {/* 3. BOTTOM FEATURE ITEMS (Clean Minimal Row with Red Dividers - matching Screenshot 2) */}
       <div
-        className="relative z-10 w-full max-w-xl lg:max-w-none lg:w-[86vw] xl:w-[84vw] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 md:gap-2 mt-4 sm:-mt-4 lg:-mt-[5.5vw] xl:-mt-[6vw] mb-4 sm:mb-4 lg:mb-[1vw] px-4 lg:px-2"
+        className="relative z-10 w-full max-w-xl md:max-w-3xl lg:max-w-none lg:w-[86vw] xl:w-[84vw] mx-auto grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-row items-center justify-between gap-6 md:gap-x-8 md:gap-y-6 lg:gap-2 mt-4 sm:-mt-4 lg:-mt-[5.5vw] xl:-mt-[6vw] mb-4 sm:mb-4 lg:mb-[1vw] px-4 lg:px-2"
       >
         {/* ITEM 1: Immersive 3D */}
         <motion.div
@@ -176,7 +193,7 @@ const SmartSolutionsSection = () => {
         </motion.div>
 
         {/* Vertical Divider 1 */}
-        <div className="hidden md:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
+        <div className="hidden lg:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
 
         {/* ITEM 2: Interactive Elements */}
         <motion.div
@@ -201,7 +218,7 @@ const SmartSolutionsSection = () => {
         </motion.div>
 
         {/* Vertical Divider 2 */}
-        <div className="hidden md:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
+        <div className="hidden lg:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
 
         {/* ITEM 3: Publish Anywhere */}
         <motion.div
@@ -226,7 +243,7 @@ const SmartSolutionsSection = () => {
         </motion.div>
 
         {/* Vertical Divider 3 */}
-        <div className="hidden md:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
+        <div className="hidden lg:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
 
         {/* ITEM 4: Augmented Reality */}
         <motion.div

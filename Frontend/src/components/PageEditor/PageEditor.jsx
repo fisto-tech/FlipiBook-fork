@@ -267,11 +267,26 @@ const PageEditor = () => {
     );
   }, [isRulerEnabled, isTrimView]);
 
-  // Automatically switch to Properties panel when an element is selected while Uploads is active
+  // Track genuine user picks (pointer down on the canvas page or the Layers panel).
+  const lastUserPickAtRef = useRef(0);
   useEffect(() => {
-    if (selectedLayerId) {
-      setActiveMainTool((prev) => (prev === "upload" ? "select" : prev));
-    }
+    const onPointerDown = (e) => {
+      const t = e.target;
+      if (t?.closest?.('.page-svg-container, [data-layer-panel], .layer-item, [data-layer-id]')) {
+        lastUserPickAtRef.current = Date.now();
+      }
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => window.removeEventListener("pointerdown", onPointerDown, true);
+  }, []);
+
+  // While Uploads is active, switch to the Properties panel ONLY when the user actually picks
+  // an element. Programmatic selection changes (re-selection, page/background selection, etc.)
+  // must not bounce the Upload tool back to Select.
+  useEffect(() => {
+    if (!selectedLayerId) return;
+    if (Date.now() - lastUserPickAtRef.current > 800) return;
+    setActiveMainTool((prev) => (prev === "upload" ? "select" : prev));
   }, [selectedLayerId]);
 
   // Live listener for background-extracted pages streamed by backgroundExtractionManager

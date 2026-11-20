@@ -46,6 +46,7 @@ import {
   checkTurnReady,
   afterNextFrame,
   SHEET_STYLE_DEFAULTS,
+  stripEditorVideoControls,
 } from "./utils/flipBookHelpers";
 
 /**
@@ -349,7 +350,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
   const isInteractiveHtml = useCallback((rawHtml) => {
     if (!rawHtml || typeof rawHtml !== "string") return false;
-    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|class=["'][^"']*interactive|<a\s+href/i.test(
+    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|data-scrollable=["']true|class=["'][^"']*interactive|<a\s+href/i.test(
       rawHtml,
     );
   }, []);
@@ -414,7 +415,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       // Transparent sheets are clear film: never show the white loading box / spinner. An empty
       // sheet stays empty; a sheet with an image shows just that image.
       if (staticBgEl.getAttribute("data-sheet") === "true") {
-        const sheetHtml = (rawContent || "").trim();
+        const sheetHtml = stripEditorVideoControls((rawContent || "").trim());
         if (staticBgEl.__fbeSheetHtml !== sheetHtml) {
           staticBgEl.__fbeSheetHtml = sheetHtml;
           staticBgEl.innerHTML = sheetHtml

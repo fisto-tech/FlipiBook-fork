@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import exploreArrowIcon from '../../assets/Home/explore-arrow-icon.png';
+import exploreArrowIcon from '../../assets/Home/WhyChoose/explore-arrow-icon.webp';
 
 // Animated Counter Component that smoothly counts up to target number when in view
 function AnimatedCounter({ end, duration = 2, suffix = '+' }) {
@@ -105,7 +105,7 @@ export default function WhyChooseFlipibook() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
           transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="text-[13px] sm:text-[15.5px] lg:text-[0.88vw] text-[#69707D] max-w-[500px] sm:max-w-[620px] lg:max-w-[30vw] mt-3.5 sm:mt-4 lg:mt-[0.6vw] leading-[1.65] font-normal text-justify sm:text-left"
+          className="text-[13px] sm:text-[15.5px] lg:text-[0.88vw] text-[#69707D] max-w-[500px] sm:max-w-[620px] lg:max-w-[30vw] mt-3.5 sm:mt-4 lg:mt-[0.6vw] leading-[1.65] font-normal text-left sm:text-justify sm:text-left"
         >
           Create interactive digital catalogues that help customers understand your products. FlipiBook brings videos, 3D models, and enquiry links together in one shareable catalogue.
         </motion.p>

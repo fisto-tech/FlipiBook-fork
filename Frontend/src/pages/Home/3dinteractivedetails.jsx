@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import homes2Img from '../../assets/Home/homes2.png';
+import homes2Img from '../../assets/Home/3dInteractive/homes2.webp';
 
 export default function ThreeDInteractiveDetails({ navigate }) {
   const containerRef = useRef(null);
@@ -103,8 +103,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: '3D Product Models',
       desc: (
         <>
-          Add your 3D models to catalogue <br />
-          pages so customers can explore <br />
+          Add your 3D models to catalogue <br className="hidden lg:block" />
+          pages so customers can explore <br className="hidden lg:block" />
           product shapes and details.
         </>
       ),
@@ -115,8 +115,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: '360° Product View',
       desc: (
         <>
-          Let customers rotate and zoom in on <br />
-          models to examine them from <br />
+          Let customers rotate and zoom in on <br className="hidden lg:block" />
+          models to examine them from <br className="hidden lg:block" />
           different angles.
         </>
       ),
@@ -127,8 +127,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Materials & Textures',
       desc: (
         <>
-          Customize model surfaces to <br />
-          showcase product colors, materials, <br />
+          Customize model surfaces to <br className="hidden lg:block" />
+          showcase product colors, materials, <br className="hidden lg:block" />
           and finishes.
         </>
       ),
@@ -139,8 +139,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Lighting & Shadows',
       desc: (
         <>
-          Adjust lighting to highlight <br />
-          product details and give models <br />
+          Adjust lighting to highlight <br className="hidden lg:block" />
+          product details and give models <br className="hidden lg:block" />
           a realistic appearance.
         </>
       ),
@@ -151,8 +151,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Background Colors',
       desc: (
         <>
-          Choose 3D viewer background <br />
-          colors that complement your <br />
+          Choose 3D viewer background <br className="hidden lg:block" />
+          colors that complement your <br className="hidden lg:block" />
           products and brand.
         </>
       ),
@@ -275,13 +275,13 @@ export default function ThreeDInteractiveDetails({ navigate }) {
             transition={{ duration: 0.85, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="text-sm sm:text-base lg:text-[0.88vw] font-normal text-[#9ca3af] leading-[170%] mt-4 sm:mt-5 lg:mt-[2.5vh]"
           >
-            Bring 3D product models <br />
-            into your FlipiBook <br />
-            catalogue. Let customers <br />
-            rotate products, inspect <br />
-            details, and discover <br />
-            features through <br />
-            clickable hotspots, <br />
+            Bring 3D product models <br className="hidden lg:block" />
+            into your FlipiBook <br className="hidden lg:block" />
+            catalogue. Let customers <br className="hidden lg:block" />
+            rotate products, inspect <br className="hidden lg:block" />
+            details, and discover <br className="hidden lg:block" />
+            features through <br className="hidden lg:block" />
+            clickable hotspots, <br className="hidden lg:block" />
             videos, and audio.
           </motion.p>
 

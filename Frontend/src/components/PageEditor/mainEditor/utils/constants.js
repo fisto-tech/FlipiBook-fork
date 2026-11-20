@@ -161,7 +161,35 @@ export const svgGlobalStyles = `
   }
 
   /* Hide ONLY the specific image that is actively being cropped to prevent ghosting */
-  body.crop-modal-active .page-svg-container svg [data-cropping="true"] {
+  /* Scrollable text: box > .flipbook-text-outer > .flipbook-text-viewport > .flipbook-text-scrollbar.
+     Every wrapper must fill the box, otherwise the scroller's height:100% resolves to auto,
+     it grows with the text and never scrolls (box just clips the rest). */
+  .page-svg-container svg foreignObject[data-scrollable="true"] > div,
+  .page-svg-container svg foreignObject[data-scrollable="true"] .flipbook-text-viewport {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
+  .page-svg-container svg foreignObject[data-scrollable="true"] .flipbook-text-scrollbar {
+    box-sizing: border-box !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  /* Single-level structure (firstElementChild is itself the scroller) must still scroll */
+  .page-svg-container svg foreignObject[data-scrollable="true"] > div.flipbook-text-scrollbar {
+    overflow-y: auto !important;
+  }
+
+  /* (only the image/video — fill & stroke layers stay visible while cropping) */
+  body.crop-modal-active .page-svg-container svg image[data-cropping="true"],
+  body.crop-modal-active .page-svg-container svg video[data-cropping="true"],
+  body.crop-modal-active .page-svg-container svg [data-cropping="true"] image,
+  body.crop-modal-active .page-svg-container svg [data-cropping="true"] video,
+  body.crop-modal-active .page-svg-container svg [data-cropping="true"] foreignObject {
     opacity: 0 !important;
   }
 
@@ -372,9 +400,8 @@ export const svgGlobalStyles = `
     -webkit-tap-highlight-color: transparent !important;
   }
 
-  /* Hide selection outlines, polygons, corner dots, sides, and rotate handles while moving elements */
-  body.dragging-active .selection-overlay-layer [id^="overlay-poly-"],
-  body.dragging-active .selection-overlay-layer [id^="overlay-path-"],
+  /* While moving elements: keep the selection outline visible (it follows the element),
+     hide only the corner/side resize dots and rotate controls */
   body.dragging-active .resize-handle,
   body.dragging-active .rotate-handle,
   body.dragging-active .rotate-hotspot,

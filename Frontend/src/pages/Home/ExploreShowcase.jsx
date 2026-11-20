@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import c1 from '../../assets/Home/final-images/explore-section/explore-slider-img-1.webp';
-import c2 from '../../assets/Home/final-images/explore-section/explore-slider-img-2.webp';
-import c3 from '../../assets/Home/final-images/explore-section/explore-slider-img-3.webp';
-import c4 from '../../assets/Home/final-images/explore-section/explore-slider-img-4.webp';
-import c5 from '../../assets/Home/final-images/explore-section/explore-slider-img-5.webp';
+import c1 from '../../assets/Home/Explore/explore-slider-img-1.webp';
+import c2 from '../../assets/Home/Explore/explore-slider-img-2.webp';
+import c3 from '../../assets/Home/Explore/explore-slider-img-3.webp';
+import c4 from '../../assets/Home/Explore/explore-slider-img-4.webp';
+import c5 from '../../assets/Home/Explore/explore-slider-img-5.webp';
 import p1 from '../../assets/Explore/p1.png';
 import p2 from '../../assets/Explore/p2.png';
 import p3 from '../../assets/Explore/p3.png';
@@ -119,7 +119,7 @@ export default function ExploreShowcase({ navigate, onOpenCreateModal }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
           transition={{ duration: 0.85, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="text-xs sm:text-sm lg:text-[0.92vw] text-[#717680] font-normal mt-2.5 sm:mt-3 lg:mt-[1vw] leading-[1.6] max-w-2xl mx-auto px-2 text-justify lg:text-center"
+          className="text-xs sm:text-sm lg:text-[0.92vw] text-[#717680] font-normal mt-2.5 sm:mt-3 lg:mt-[1vw] leading-[1.6] max-w-2xl mx-auto px-2 text-center"
         >
           Explore interactive digital catalogues created with FlipiBook. Find fresh ideas for showcasing your products with videos, 3D models, and clickable content. <br className="hidden sm:inline" />
           <span className="text-[#35363A] font-medium">Click any catalogue to explore.</span>
