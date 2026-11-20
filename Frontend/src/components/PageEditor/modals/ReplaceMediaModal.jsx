@@ -7,6 +7,7 @@ import { checkIsAnimatedWebp } from '../utils/editorUtils';
 import { useToast } from '../../CustomToast';
 import { useAuth } from '../../../context/AuthContext';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
+import { createManagedBlobUrl, revokeManagedBlobUrl, revokeBlobUrlsByOwner } from '../../../utils/assets/blobUrlRegistry';
 
 const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titleText, buttonText }) => {
   const toast = useToast();
@@ -33,6 +34,12 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
   const [filePreviewUrl, setFilePreviewUrl] = useState('');
 
   useEffect(() => {
+    return () => {
+      revokeBlobUrlsByOwner('replace_modal');
+    };
+  }, []);
+
+  useEffect(() => {
     if (!replaceModalFile) {
       setFilePreviewUrl('');
       return;
@@ -41,10 +48,10 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
       setFilePreviewUrl(replaceModalFile.url);
       return;
     }
-    const objectUrl = URL.createObjectURL(replaceModalFile);
+    const objectUrl = createManagedBlobUrl(replaceModalFile, 'replace_modal');
     setFilePreviewUrl(objectUrl);
     return () => {
-      URL.revokeObjectURL(objectUrl);
+      revokeManagedBlobUrl(objectUrl);
     };
   }, [replaceModalFile]);
 
@@ -90,14 +97,14 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
 
       const uploadPromises = validFiles.map(async (rawFile) => {
         let newFile = rawFile;
-        let tempUrl = URL.createObjectURL(newFile);
+        let tempUrl = createManagedBlobUrl(newFile, 'replace_modal');
 
         if (mediaType === 'image' && shouldOptimizeImage(newFile)) {
           try {
             const opt = await optimizeImageForWeb(newFile, { maxDimension: 2048, quality: 0.82 });
             if (opt?.file) {
               newFile = opt.file;
-              tempUrl = opt.dataUrl || URL.createObjectURL(newFile);
+              tempUrl = opt.dataUrl || createManagedBlobUrl(newFile, 'replace_modal');
             }
           } catch (optErr) {
             console.warn('[ReplaceMediaModal] Optimization fallback:', optErr);
@@ -494,13 +501,13 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
                     alert(mediaType === 'gif' ? 'Please upload a GIF or animated WebP file.' : mediaType === 'image' ? 'Please upload a static image (not animated WebP or GIF).' : 'Please upload a valid video file.');
                     return;
                   }
-                  let newUrl = URL.createObjectURL(newFile);
+                  let newUrl = createManagedBlobUrl(newFile, 'replace_modal');
                   if (mediaType === 'image' && shouldOptimizeImage(newFile)) {
                     try {
                       const opt = await optimizeImageForWeb(newFile, { maxDimension: 2048, quality: 0.82 });
                       if (opt?.file) {
                         newFile = opt.file;
-                        newUrl = opt.dataUrl || URL.createObjectURL(newFile);
+                        newUrl = opt.dataUrl || createManagedBlobUrl(newFile, 'replace_modal');
                       }
                     } catch (optErr) {
                       console.warn('[ReplaceMediaModal] Replace item optimize fallback:', optErr);

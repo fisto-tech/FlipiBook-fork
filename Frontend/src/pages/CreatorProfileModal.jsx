@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,17 +35,6 @@ const getAvatarColor = (identifier, customColor) => {
     }
     return defaultColors[Math.abs(hash) % defaultColors.length];
 };
-
-const defaultMockBooks = [
-    { title: "Thinking, Fast and Slow", cover: cover1, pages: 28, views: '12.5k', rating: 4.5, orientation: 'portrait' },
-    { title: "The Art of Spending Money", cover: cover2, pages: 32, views: '8.1k', rating: 4.8, orientation: 'landscape' },
-    { title: "Games People Play", cover: cover3, pages: 24, views: '15.3k', rating: 4.6, orientation: 'portrait' },
-    { title: "The Psychology of Leadership", cover: cover4, pages: 40, views: '9.4k', rating: 4.9, orientation: 'landscape' },
-    { title: "Just Keep Buying", cover: cover5, pages: 36, views: '11.2k', rating: 4.7, orientation: 'portrait' },
-    { title: "Seduction", cover: cover1, pages: 20, views: '6.5k', rating: 4.3, orientation: 'landscape' },
-    { title: "Thinking, Fast and Slow 2", cover: cover2, pages: 28, views: '10.1k', rating: 4.5, orientation: 'portrait' },
-    { title: "The Art of Spending Money 2", cover: cover3, pages: 30, views: '7.8k', rating: 4.6, orientation: 'landscape' },
-];
 
 const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl, title, imageUrl, coverPicture = null, pages = [], onOrientationDetected }) => {
     const containerRef = useRef(null);
@@ -323,14 +313,14 @@ const CreatorFlipbookCard = ({ book, creator, onOpenBook, isFavorited: propIsFav
     const v_id = book?.v_id || rawBook?.v_id || rawBook?.vId;
     const bookTitle = book?.title || rawBook?.title || rawBook?.book_name || rawBook?.bookName || 'Flipbook';
     const pages = rawBook?.pages || book?.pages || rawBook?.pageCount || 10;
-    const pagesCount = Array.isArray(pages) ? pages.length : (typeof pages === 'number' ? pages : (book?.pagesCount || 10));
-    const views = book?.views || rawBook?.views || rawBook?.totalViews || '12.5k';
-    const rating = book?.rating || rawBook?.rating || 4.5;
+    const pagesCount = Array.isArray(pages) ? pages.length : (typeof pages === 'number' ? pages : (book?.pagesCount || 0));
+    const views = book?.views !== undefined ? book.views : (rawBook?.views !== undefined ? rawBook.views : (rawBook?.viewsCount !== undefined ? rawBook.viewsCount : (book?.viewsCount !== undefined ? book.viewsCount : 0)));
+    const rating = book?.rating || rawBook?.rating || book?.averageRating || rawBook?.averageRating || 0;
 
     const authorName = book?.authorName || rawBook?.authorName || (creator && (creator.name || creator.fullName)) || 'Creator';
     const authorAvatar = book?.authorPicture || rawBook?.authorPicture || (creator?.profileImg && creator?.profileImg !== 'color_only' ? creator?.profileImg : (creator?.picture && creator?.picture !== 'color_only' ? creator?.picture : null));
     const resolvedAvatar = authorAvatar ? (authorAvatar.startsWith('http') || authorAvatar.startsWith('blob:') || authorAvatar.startsWith('data:') ? authorAvatar : resolveUploadsPath(authorAvatar)) : null;
-    const authorLocation = book?.location || rawBook?.location || creator?.city || creator?.location || 'Coimbatore';
+    const authorLocation = book?.location || rawBook?.location || creator?.city || creator?.location || '';
     const authorBgColor = book?.authorBgColor || rawBook?.authorBgColor || creator?.avatarBgColor;
     const avatarColor = getAvatarColor(authorName || creator?.email, authorBgColor);
 
@@ -538,7 +528,7 @@ const CreatorFlipbookCard = ({ book, creator, onOpenBook, isFavorited: propIsFav
                             </span>
                             <span className="flex items-center gap-[0.2vw] text-[0.68vw] text-gray-400 mt-0.5 truncate">
                                 <Icon icon="lucide:map-pin" className="w-[0.75vw] h-[0.75vw] min-w-[10px] min-h-[10px] text-gray-400 shrink-0" />
-                                <span className="truncate">{authorLocation ? String(authorLocation).replace(/📍/g, '').trim() : 'Coimbatore'}</span>
+                                <span className="truncate">{authorLocation ? String(authorLocation).replace(/📍/g, '').trim() : 'Not specified'}</span>
                             </span>
                         </div>
                     </div>
@@ -692,7 +682,7 @@ export default function CreatorProfileModal({
             city: creator?.city || creator?.location || '',
             pincode: creator?.pincode || '',
             state: creator?.state || '',
-            country: creator?.country || 'INDIA',
+            country: creator?.country || '',
             socials: creator?.socials || {},
             followers: creator?.followers || [],
             following: creator?.following || [],
@@ -709,13 +699,15 @@ export default function CreatorProfileModal({
                 if (currentUserEmail) params.currentEmail = currentUserEmail;
                 if (targetEmail) {
                     params.emailId = targetEmail;
-                } else if (creator?.shareId) {
+                }
+                if (creator?.shareId) {
                     params.shareId = creator.shareId;
-                } else if (creator?.v_id) {
-                    params.v_id = creator.v_id;
                 } else if (typeof window !== 'undefined') {
-                    const match = window.location.pathname.match(/\/share=[^/]+\/([^/?#]+)/);
-                    if (match && match[1]) params.shareId = match[1];
+                    const match = window.location.pathname.match(/\/share(=[^/]+)?\/([^/?#]+)/);
+                    if (match && match[2]) params.shareId = match[2];
+                }
+                if (creator?.v_id) {
+                    params.v_id = creator.v_id;
                 }
 
                 if (!params.emailId && !params.shareId && !params.v_id) {
@@ -740,7 +732,7 @@ export default function CreatorProfileModal({
                         let aName = b.authorName || creatorObj?.displayName || creatorObj?.name;
                         let aPic = b.authorPicture || (creatorObj?.picture !== 'color_only' ? creatorObj?.picture : null);
                         let aBg = b.authorBgColor || creatorObj?.avatarBgColor || '#4c5add';
-                        let aLoc = b.city || b.location || creatorObj?.city || creatorObj?.state || 'Coimbatore';
+                        let aLoc = b.city || b.location || creatorObj?.city || creatorObj?.state || '';
 
                         aName = aName || (b.userEmail ? b.userEmail.split('@')[0] : 'Creator');
 
@@ -776,13 +768,13 @@ export default function CreatorProfileModal({
                             shareId: b.Customized_Settings?.Visibility?.shareId || b.Visibility?.shareId || (b.share?.shareId && b.share.shareId !== b.v_id ? b.share.shareId : null) || (b.shareId && b.shareId !== b.v_id ? b.shareId : null) || b.v_id,
                             access: b.Customized_Settings?.Visibility?.access || b.Visibility?.access || 'public',
                             title: b.flipbookName || b.title || `Flipbook ${idx + 1}`,
-                            cover: b.image || covers[idx % covers.length],
+                            cover: b.image || (Array.isArray(covers) && covers.length > 0 ? covers[idx % covers.length] : null),
                             orientation: rawOrient,
                             isLandscape,
                             pages: Array.isArray(b.pages) ? b.pages.length : (typeof b.pages === 'number' ? b.pages : 0),
-                            views: b.views || b.viewsCount || '1.2k',
-                            rating: b.averageRating || b.rating || 4.5,
-                            description: b.Customized_Settings?.FlipbookInfo?.quotes || b.quotes || '“Bring your content to life with a real, interactive experience”',
+                            views: b.views !== undefined ? b.views : (b.viewsCount !== undefined ? b.viewsCount : 0),
+                            rating: b.averageRating !== undefined ? b.averageRating : (b.rating !== undefined ? b.rating : 0),
+                            description: b.Customized_Settings?.FlipbookInfo?.quotes || b.quotes || '',
                             authorName: aName,
                             authorPicture: aPic,
                             authorBgColor: aBg,
@@ -802,7 +794,7 @@ export default function CreatorProfileModal({
     }, [isOpen, targetEmail, backendUrl, creator, currentUserEmail]);
 
     const profileUser = profileData || creator || {};
-    const books = booksData.length > 0 ? booksData : (isPreview ? defaultMockBooks : (targetEmail ? [] : defaultMockBooks));
+    const books = booksData;
 
     const handleToggleFollowModal = async () => {
         const resolvedCurrentEmail = (
@@ -908,12 +900,14 @@ export default function CreatorProfileModal({
         }
     };
 
+    const portalTarget = typeof document !== 'undefined' ? (document.fullscreenElement || document.body) : null;
+
     if (isMobile) {
-        return (
+        const mobileModal = (
             <AnimatePresence>
                 {isOpen && (
                     <div 
-                        className="absolute inset-0 z-[2000] flex items-center justify-center bg-gray-900/30 backdrop-blur-[2px] p-4"
+                        className="fixed inset-0 z-[99999] flex items-center justify-center bg-gray-900/60 backdrop-blur-[4px] p-4"
                         onClick={onClose}
                     >
                         <motion.div
@@ -1028,7 +1022,7 @@ export default function CreatorProfileModal({
                                                     <Icon icon="mdi:information" className="w-4 h-4 text-gray-600" /> About
                                                 </h3>
                                                 <p className="text-[11px] text-gray-500 leading-relaxed whitespace-pre-wrap pl-5 pr-2">
-                                                    {profileUser?.about || "“Bring your content to life with a real, interactive experience”"}
+                                                    {profileUser?.about || "No bio specified"}
                                                 </p>
                                             </div>
 
@@ -1091,29 +1085,22 @@ export default function CreatorProfileModal({
                 )}
             </AnimatePresence>
         );
+
+        return portalTarget ? createPortal(mobileModal, portalTarget) : mobileModal;
     }
 
-    return (
+    const desktopModal = (
         <AnimatePresence>
             {isOpen && (
                 <div 
-                    className={
-                        isPreview
-                            ? "absolute inset-0 z-[2000] flex items-center justify-center bg-gray-900/40 backdrop-blur-[2px]"
-                            : "fixed inset-0 z-[5000] flex items-center justify-center bg-gray-900/40 backdrop-blur-[2px] p-[1.5vw]"
-                    }
+                    className="fixed inset-0 z-[99999] flex items-center justify-center bg-gray-900/60 backdrop-blur-[4px] p-[1.5vw]"
                     onClick={onClose}
                 >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.98 }}
-                        className={
-                            isPreview
-                                ? `bg-[#f8f9fa] ${isFullscreen ? 'w-[75%] h-[75%] m-auto' : isSidebarOpen ? 'w-[95%] h-[85%]' : `w-[85%] ${isMobile ? 'h-[75%]' : 'h-[85%]'}`} p-[1vw] rounded-[1.5vw] flex flex-col relative shadow-2xl overflow-hidden`
-                                : `bg-[#f8f9fa] ${isMobile ? 'w-[95vw] h-[80vh]' : 'w-[85vw] h-[85vh]'} p-[1vw] rounded-[1.5vw] flex flex-col relative shadow-2xl overflow-hidden`
-                        }
-                        style={isPreview ? { zoom: isFullscreen ? 0.95 : isSidebarOpen ? 0.8 : 0.95 } : {}}
+                        className={`bg-[#f8f9fa] ${isFullscreen ? 'w-[75%] h-[75%] m-auto' : isSidebarOpen ? 'w-[95%] h-[85%]' : 'w-[85vw] h-[85vh]'} p-[1vw] rounded-[1.5vw] flex flex-col relative shadow-2xl overflow-hidden`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Close Button */}
@@ -1222,31 +1209,57 @@ export default function CreatorProfileModal({
                                     </div>
 
                                     {/* Creator Name */}
-                                    <h2 className="text-[1.3vw] font-bold text-gray-900 mt-[0.6vw] text-center truncate max-w-full">
-                                        {profileUser?.displayName || profileUser?.name || 'Creator'}
-                                    </h2>
+                                    {isLoading ? (
+                                        <div className="h-[1.5vw] w-[10vw] bg-gray-200 rounded animate-pulse mt-[0.6vw] mx-auto" />
+                                    ) : (
+                                        <h2 className="text-[1.3vw] font-bold text-gray-900 mt-[0.6vw] text-center truncate max-w-full">
+                                            {profileUser?.displayName || profileUser?.name || 'Creator'}
+                                        </h2>
+                                    )}
 
                                     {/* Subtitle / Company */}
-                                    <p className="text-[0.75vw] text-gray-500 text-center font-normal truncate max-w-full mt-[0.1vw]">
-                                        {profileUser?.companyName || profileUser?.professionalTitle || profileUser?.industryType || (profileUser?.email || profileUser?.emailId || 'Creator')}
-                                    </p>
+                                    {isLoading ? (
+                                        <div className="h-[0.8vw] w-[12vw] bg-gray-100 rounded animate-pulse mt-[0.3vw] mx-auto" />
+                                    ) : (
+                                        <p className="text-[0.75vw] text-gray-500 text-center font-normal truncate max-w-full mt-[0.1vw]">
+                                            {profileUser?.companyName || profileUser?.professionalTitle || profileUser?.industryType || (profileUser?.email || profileUser?.emailId || 'Creator')}
+                                        </p>
+                                    )}
 
-                                    {/* Verified Creator Badge */}
-                                    <div className="mt-[0.5vw] inline-flex items-center gap-[0.3vw] px-[0.7vw] py-[0.2vw] bg-[#eaf8f0] text-[#16a34a] rounded-full text-[0.65vw] font-semibold">
-                                        <Icon icon="solar:check-circle-bold" className="w-[0.85vw] h-[0.85vw] text-[#16a34a]" />
-                                        <span>Verified Creator</span>
-                                    </div>
+                                    {/* Verified Creator Badge - Only when user is verified */}
+                                    {!isLoading && Boolean(profileUser?.isVerified || profileUser?.verified || profileUser?.isVerifiedCreator) && (
+                                        <div className="mt-[0.5vw] inline-flex items-center gap-[0.3vw] px-[0.7vw] py-[0.2vw] bg-[#eaf8f0] text-[#16a34a] rounded-full text-[0.65vw] font-semibold">
+                                            <Icon icon="solar:check-circle-bold" className="w-[0.85vw] h-[0.85vw] text-[#16a34a]" />
+                                            <span>Verified Creator</span>
+                                        </div>
+                                    )}
 
                                     {/* Stats Row with Equal 3-Column Partitions */}
-                                    <div className="grid grid-cols-3 w-full mt-[1.2vw] divide-x divide-gray-200">
-                                        {/* Flipbooks */}
-                                        <div className="flex flex-col items-center justify-center text-center px-[0.2vw]">
-                                            <div className="flex items-center justify-center gap-[0.35vw]">
-                                                <Icon icon="solar:book-2-linear" className="w-[0.95vw] h-[0.95vw] text-gray-800 flex-shrink-0" />
-                                                <span className="text-[0.9vw] font-bold text-gray-900 leading-none">{books ? books.length : 0}</span>
+                                    {isLoading ? (
+                                        <div className="grid grid-cols-3 w-full mt-[1.2vw] divide-x divide-gray-200 animate-pulse">
+                                            <div className="flex flex-col items-center justify-center gap-1">
+                                                <div className="h-[0.9vw] w-[2vw] bg-gray-200 rounded" />
+                                                <div className="h-[0.6vw] w-[3vw] bg-gray-100 rounded" />
                                             </div>
-                                            <span className="text-[0.65vw] text-gray-500 font-normal mt-[0.35vw] leading-none whitespace-nowrap">Flipbooks</span>
+                                            <div className="flex flex-col items-center justify-center gap-1">
+                                                <div className="h-[0.9vw] w-[2vw] bg-gray-200 rounded" />
+                                                <div className="h-[0.6vw] w-[3vw] bg-gray-100 rounded" />
+                                            </div>
+                                            <div className="flex flex-col items-center justify-center gap-1">
+                                                <div className="h-[0.9vw] w-[2vw] bg-gray-200 rounded" />
+                                                <div className="h-[0.6vw] w-[2.5vw] bg-gray-100 rounded" />
+                                            </div>
                                         </div>
+                                    ) : (
+                                        <div className="grid grid-cols-3 w-full mt-[1.2vw] divide-x divide-gray-200">
+                                            {/* Flipbooks */}
+                                            <div className="flex flex-col items-center justify-center text-center px-[0.2vw]">
+                                                <div className="flex items-center justify-center gap-[0.35vw]">
+                                                    <Icon icon="solar:book-2-linear" className="w-[0.95vw] h-[0.95vw] text-gray-800 flex-shrink-0" />
+                                                    <span className="text-[0.9vw] font-bold text-gray-900 leading-none">{books ? books.length : 0}</span>
+                                                </div>
+                                                <span className="text-[0.65vw] text-gray-500 font-normal mt-[0.35vw] leading-none whitespace-nowrap">Flipbooks</span>
+                                            </div>
 
                                         {/* Followers */}
                                         <div className="flex flex-col items-center justify-center text-center px-[0.2vw]">
@@ -1297,6 +1310,7 @@ export default function CreatorProfileModal({
                                             <span className="text-[0.65vw] text-gray-500 font-normal mt-[0.35vw] leading-none whitespace-nowrap">Total Views</span>
                                         </div>
                                     </div>
+                                )}
 
                                     {/* Follow Button */}
                                     <button
@@ -1456,7 +1470,11 @@ export default function CreatorProfileModal({
                                             </div>
 
                                             {/* Books Grid */}
-                                            {displayView === 'book' ? (
+                                            {books.length === 0 ? (
+                                                <div className="py-[2vw] text-center text-gray-400 text-[0.85vw]">
+                                                    No published flipbooks available yet.
+                                                </div>
+                                            ) : displayView === 'book' ? (
                                                 <div className="grid grid-cols-6 gap-[1.2vw] pb-[1vw] items-end">
                                                     {books.map((book, bIdx) => (
                                                         <BookCoverItem
@@ -1483,6 +1501,36 @@ export default function CreatorProfileModal({
                                                 </div>
                                             )}
                                         </div>
+                                    ) : isLoading ? (
+                                        /* Skeleton Loading State during initial fetch */
+                                        <div className="flex flex-col gap-[1.2vw] pb-[1vw] animate-pulse">
+                                            <div>
+                                                <div className="h-[1vw] w-[8vw] bg-gray-200 rounded mb-[0.6vw]" />
+                                                <div className="h-[0.8vw] w-[20vw] bg-gray-100 rounded" />
+                                            </div>
+                                            <div className="w-full h-[1px] bg-gray-100 my-[0.4vw]" />
+                                            <div>
+                                                <div className="h-[1vw] w-[10vw] bg-gray-200 rounded mb-[0.6vw]" />
+                                                <div className="grid grid-cols-3 gap-[1vw]">
+                                                    <div className="h-[2.5vw] bg-gray-100 rounded-[0.4vw]" />
+                                                    <div className="h-[2.5vw] bg-gray-100 rounded-[0.4vw]" />
+                                                    <div className="h-[2.5vw] bg-gray-100 rounded-[0.4vw]" />
+                                                </div>
+                                            </div>
+                                            <div className="w-full h-[1px] bg-gray-100 my-[0.4vw]" />
+                                            <div>
+                                                <div className="h-[1vw] w-[9vw] bg-gray-200 rounded mb-[0.6vw]" />
+                                                <div className="h-[0.8vw] w-[14vw] bg-gray-100 rounded" />
+                                            </div>
+                                            <div className="w-full h-[1px] bg-gray-100 my-[0.4vw]" />
+                                            <div>
+                                                <div className="h-[1vw] w-[6vw] bg-gray-200 rounded mb-[0.6vw]" />
+                                                <div className="flex gap-[1vw]">
+                                                    <div className="h-[6vw] w-[4.5vw] bg-gray-100 rounded-[0.4vw]" />
+                                                    <div className="h-[6vw] w-[4.5vw] bg-gray-100 rounded-[0.4vw]" />
+                                                </div>
+                                            </div>
+                                        </div>
                                     ) : (
                                         /* Mode 1: Normal View (Spacious layout with internal right-card scroll) */
                                         <div className="flex flex-col gap-[1.2vw] pb-[1vw]">
@@ -1493,7 +1541,7 @@ export default function CreatorProfileModal({
                                                     <h3 className="text-[0.95vw] font-bold text-gray-900">About / Bio</h3>
                                                 </div>
                                                 <p className="text-[0.78vw] text-gray-600 leading-relaxed mt-[0.5vw]">
-                                                    {profileUser?.about || profileUser?.bio || "“Bring your content to life with a real, interactive experience”"}
+                                                    {profileUser?.about || profileUser?.bio || "No bio specified"}
                                                 </p>
                                             </div>
 
@@ -1506,8 +1554,8 @@ export default function CreatorProfileModal({
                                                     <h3 className="text-[0.95vw] font-bold text-gray-900">Professional Details</h3>
                                                 </div>
                                                 {(() => {
-                                                    const pType = (profileUser?.profileType || 'Individual').trim();
-                                                    const normalizedType = pType.toLowerCase();
+                                                    const rawPType = (profileUser?.profileType || '').trim();
+                                                    const normalizedType = rawPType.toLowerCase();
                                                     let professionalFields = [];
 
                                                     if (normalizedType === 'company') {
@@ -1546,10 +1594,15 @@ export default function CreatorProfileModal({
                                                                 isEmail: true
                                                             }
                                                         ];
-                                                    } else {
-                                                        // Individual
+                                                    } else if (normalizedType === 'individual') {
                                                         professionalFields = [
                                                             { label: 'Profile Type', value: 'Individual' },
+                                                            { label: 'Professional Title', value: profileUser?.professionalTitle || profileUser?.title || profileUser?.designation || profileUser?.role || 'Not specified' },
+                                                            { label: 'Industry', value: profileUser?.industryType || profileUser?.industry || 'Not specified' }
+                                                        ];
+                                                    } else {
+                                                        professionalFields = [
+                                                            { label: 'Profile Type', value: rawPType || 'Not specified' },
                                                             { label: 'Professional Title', value: profileUser?.professionalTitle || profileUser?.title || profileUser?.designation || profileUser?.role || 'Not specified' },
                                                             { label: 'Industry', value: profileUser?.industryType || profileUser?.industry || 'Not specified' }
                                                         ];
@@ -1753,7 +1806,11 @@ export default function CreatorProfileModal({
                                                 </div>
 
                                                 {/* Books Row */}
-                                                {displayView === 'book' ? (
+                                                {books.length === 0 ? (
+                                                    <div className="py-[1.5vw] text-left text-gray-400 text-[0.82vw]">
+                                                        No published flipbooks available yet.
+                                                    </div>
+                                                ) : displayView === 'book' ? (
                                                     <div className="flex items-end justify-start gap-[2vw] pt-[0.4vw] pb-[0.8vw] overflow-x-auto custom-scrollbar">
                                                         {books.slice(0, 3).map((book, bIdx) => (
                                                             <BookCoverItem
@@ -1819,4 +1876,6 @@ export default function CreatorProfileModal({
             )}
         </AnimatePresence>
     );
+
+    return portalTarget ? createPortal(desktopModal, portalTarget) : desktopModal;
 }

@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import HomeNav from '../components/NavBar/HomeNav';
 import { ChatBotButton, ChatBotDrawer } from '../components/ChatBot';
+import GoToTopButton from '../components/common/GoToTopButton';
 
 export default function MainLayout({ children }) {
   const location = useLocation();
@@ -30,6 +31,18 @@ export default function MainLayout({ children }) {
       pathname.startsWith('/forum') ||
       pathname.startsWith('/help'));
 
+  // Floating "Go to top" button on the main marketing pages
+  const showGoToTop =
+    pathname === '/' ||
+    pathname === '/home' ||
+    pathname.startsWith('/features') ||
+    pathname.startsWith('/help') ||
+    pathname.startsWith('/explore') ||
+    pathname.startsWith('/converter') ||
+    pathname.startsWith('/pricing') ||
+    // Legal & policy pages (pages/LegalFile)
+    ['/terms', '/privacy', '/cookie', '/refund', '/copyright'].some((p) => pathname.startsWith(p));
+
   // Automatically close chat drawer if navigating to a page where chatbot is not allowed
   useEffect(() => {
     if (!isChatBotAllowedPage && isChatOpen) {
@@ -57,6 +70,7 @@ export default function MainLayout({ children }) {
       >
         {children || <Outlet />}
       </main>
+      {showGoToTop && <GoToTopButton scrollerRef={mainRef} resetKey={pathname} />}
 
       {/* Floating Chat Bot FAB & Drawer - strictly restricted to Home, Explore, Features, Converter, Pricing, Forum, Help */}
       {isChatBotAllowedPage && (

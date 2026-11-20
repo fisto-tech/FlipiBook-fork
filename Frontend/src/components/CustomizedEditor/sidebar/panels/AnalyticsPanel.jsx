@@ -1,5 +1,6 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
+import { ChevronsLeft } from 'lucide-react';
 
 /**
  * AnalyticsPanel
@@ -19,7 +20,7 @@ const AnalyticsPanel = ({ onBack }) => {
           onClick={onBack}
           className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90"
         >
-          <Icon icon="ph:arrow-left-bold" className="w-[1.1vw] h-[1.1vw]" />
+          <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
         </button>
       </div>
 

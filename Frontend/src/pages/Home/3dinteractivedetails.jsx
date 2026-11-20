@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import homes2Img from '../../assets/Home/homes2.png';
+import homes2Img from '../../assets/Home/3dInteractive/homes2.webp';
 
 export default function ThreeDInteractiveDetails({ navigate }) {
   const containerRef = useRef(null);
@@ -103,8 +103,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: '3D Product Models',
       desc: (
         <>
-          Add your 3D models to catalogue <br />
-          pages so customers can explore <br />
+          Add your 3D models to catalogue <br className="hidden lg:block" />
+          pages so customers can explore <br className="hidden lg:block" />
           product shapes and details.
         </>
       ),
@@ -115,8 +115,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: '360° Product View',
       desc: (
         <>
-          Let customers rotate and zoom in on <br />
-          models to examine them from <br />
+          Let customers rotate and zoom in on <br className="hidden lg:block" />
+          models to examine them from <br className="hidden lg:block" />
           different angles.
         </>
       ),
@@ -127,8 +127,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Materials & Textures',
       desc: (
         <>
-          Customize model surfaces to <br />
-          showcase product colors, materials, <br />
+          Customize model surfaces to <br className="hidden lg:block" />
+          showcase product colors, materials, <br className="hidden lg:block" />
           and finishes.
         </>
       ),
@@ -139,8 +139,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Lighting & Shadows',
       desc: (
         <>
-          Adjust lighting to highlight <br />
-          product details and give models <br />
+          Adjust lighting to highlight <br className="hidden lg:block" />
+          product details and give models <br className="hidden lg:block" />
           a realistic appearance.
         </>
       ),
@@ -151,8 +151,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Background Colors',
       desc: (
         <>
-          Choose 3D viewer background <br />
-          colors that complement your <br />
+          Choose 3D viewer background <br className="hidden lg:block" />
+          colors that complement your <br className="hidden lg:block" />
           products and brand.
         </>
       ),
@@ -161,7 +161,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
   ];
 
   return (
-    <section className="relative w-full bg-[#030303] text-white min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] flex flex-col justify-start pt-6 sm:pt-8 lg:pt-[1.5vh] pb-8 sm:pb-10 lg:pb-0 px-5 sm:px-8 lg:px-[5vw] xl:px-[5.5vw] font-poppins overflow-hidden">
+    <section className="relative w-full bg-[#030303] text-white min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] flex flex-col justify-start pt-2 sm:pt-3 lg:pt-[1.2vw] pb-8 sm:pb-10 lg:pb-0 px-5 sm:px-8 lg:px-[5vw] xl:px-[5.5vw] font-poppins overflow-hidden">
 
       {/* Top Tag: INTERACTIVE 3D CATALOGUES */}
       <motion.div
@@ -169,12 +169,12 @@ export default function ThreeDInteractiveDetails({ navigate }) {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, amount: 0.3 }}
         transition={{ duration: 0.8 }}
-        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] mt-2 sm:mt-3 lg:mt-[1.2vh] mb-4 sm:mb-5 lg:mb-[1vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
-        <span className="text-xs sm:text-[13px] lg:text-[0.85vw] font-bold tracking-[0.24em] text-white uppercase">
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-white uppercase">
           INTERACTIVE 3D CATALOGUES
         </span>
-        <div className="w-10 sm:w-14 lg:w-[3.6vw] min-w-[35px] h-[1.5px] bg-[#3a3a40]"></div>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] min-w-[35px] h-[1.5px] lg:h-[0.15vh] bg-[#3a3a40]"></div>
       </motion.div>
 
       {/* Main 3-Column Layout: items-start on desktop, stacked on mobile */}
@@ -259,7 +259,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-[2.65vw] font-semibold text-white leading-[1.2] lg:leading-[1.25] tracking-tight"
+            className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-white leading-[1.12] tracking-tight text-left"
           >
             Give Customers <br />
             a <span className="text-[#EC5137]">Closer Look</span> <br />
@@ -275,13 +275,13 @@ export default function ThreeDInteractiveDetails({ navigate }) {
             transition={{ duration: 0.85, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="text-sm sm:text-base lg:text-[0.88vw] font-normal text-[#9ca3af] leading-[170%] mt-4 sm:mt-5 lg:mt-[2.5vh]"
           >
-            Bring 3D product models <br />
-            into your FlipiBook <br />
-            catalogue. Let customers <br />
-            rotate products, inspect <br />
-            details, and discover <br />
-            features through <br />
-            clickable hotspots, <br />
+            Bring 3D product models <br className="hidden lg:block" />
+            into your FlipiBook <br className="hidden lg:block" />
+            catalogue. Let customers <br className="hidden lg:block" />
+            rotate products, inspect <br className="hidden lg:block" />
+            details, and discover <br className="hidden lg:block" />
+            features through <br className="hidden lg:block" />
+            clickable hotspots, <br className="hidden lg:block" />
             videos, and audio.
           </motion.p>
 

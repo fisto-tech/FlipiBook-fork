@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import c1 from '../../assets/Home/final-images/explore-section/explore-slider-img-1.webp';
-import c2 from '../../assets/Home/final-images/explore-section/explore-slider-img-2.webp';
-import c3 from '../../assets/Home/final-images/explore-section/explore-slider-img-3.webp';
-import c4 from '../../assets/Home/final-images/explore-section/explore-slider-img-4.webp';
-import c5 from '../../assets/Home/final-images/explore-section/explore-slider-img-5.webp';
+import c1 from '../../assets/Home/Explore/explore-slider-img-1.webp';
+import c2 from '../../assets/Home/Explore/explore-slider-img-2.webp';
+import c3 from '../../assets/Home/Explore/explore-slider-img-3.webp';
+import c4 from '../../assets/Home/Explore/explore-slider-img-4.webp';
+import c5 from '../../assets/Home/Explore/explore-slider-img-5.webp';
 import p1 from '../../assets/Explore/p1.png';
 import p2 from '../../assets/Explore/p2.png';
 import p3 from '../../assets/Explore/p3.png';
@@ -78,7 +78,7 @@ export default function ExploreShowcase({ navigate, onOpenCreateModal }) {
   ];
 
   return (
-    <motion.section initial={{ opacity: 0, y: 35 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: false, margin: "-50px 0px -50px 0px" }} transition={{ duration: 0.8 }} className="w-full bg-white py-12 lg:py-[3.5vw] px-6 sm:px-10 lg:px-[4.5vw] font-poppins relative">
+    <motion.section initial={{ opacity: 0, y: 35 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: false, margin: "-50px 0px -50px 0px" }} transition={{ duration: 0.8 }} className="w-full bg-white pt-2 sm:pt-3 lg:pt-[1.2vw] pb-12 lg:pb-[3.5vw] px-6 sm:px-10 lg:px-[4.5vw] font-poppins relative">
       
       {/* Top Header Tag */}
       <motion.div
@@ -86,12 +86,12 @@ export default function ExploreShowcase({ navigate, onOpenCreateModal }) {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full flex items-center gap-3 lg:gap-[0.6vw] mb-4 lg:mb-[1.2vw]"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh]"
       >
-        <span className="text-xs lg:text-[0.8vw] font-bold tracking-[0.25em] text-[#35363A] uppercase">
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
           EXPLORE
         </span>
-        <div className="w-8 lg:w-[2.2vw] h-[1.5px] lg:h-[0.1vw] bg-[#35363A]/25"></div>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
       </motion.div>
 
       {/* Main Center Title */}
@@ -119,7 +119,7 @@ export default function ExploreShowcase({ navigate, onOpenCreateModal }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
           transition={{ duration: 0.85, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="text-xs sm:text-sm lg:text-[0.92vw] text-[#717680] font-normal mt-2.5 sm:mt-3 lg:mt-[1vw] leading-[1.6] max-w-2xl mx-auto px-2 text-justify lg:text-center"
+          className="text-xs sm:text-sm lg:text-[0.92vw] text-[#717680] font-normal mt-2.5 sm:mt-3 lg:mt-[1vw] leading-[1.6] max-w-2xl mx-auto px-2 text-center"
         >
           Explore interactive digital catalogues created with FlipiBook. Find fresh ideas for showcasing your products with videos, 3D models, and clickable content. <br className="hidden sm:inline" />
           <span className="text-[#35363A] font-medium">Click any catalogue to explore.</span>

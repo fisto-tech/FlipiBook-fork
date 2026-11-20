@@ -1,69 +1,69 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import HTMLFlipBook from 'react-pageflip';
+import TurnBook from '../../components/common/TurnBook';
 import softCoverAudio from '../../assets/Audios/Soft cover page.mp3';
 import audioTrack from '../../assets/Audios/audio.mp3';
 
-import page1 from '../../assets/Home/A4_1.webp';
-import page2 from '../../assets/Home/A4_2.webp';
-import page3 from '../../assets/Home/A4_3.webp';
-import page4 from '../../assets/Home/A4_4.webp';
-import page5 from '../../assets/Home/A4_5.webp';
-import page6 from '../../assets/Home/A4_6.webp';
+import page1 from '../../assets/Home/InteractiveDemo/A4_1.webp';
+import page2 from '../../assets/Home/InteractiveDemo/A4_2.webp';
+import page3 from '../../assets/Home/InteractiveDemo/A4_3.webp';
+import page4 from '../../assets/Home/InteractiveDemo/A4_4.webp';
+import page5 from '../../assets/Home/InteractiveDemo/A4_5.webp';
+import page6 from '../../assets/Home/InteractiveDemo/A4_6.webp';
 
-import demoBook1 from '../../assets/Home/demo1.png';
-import demoBook2 from '../../assets/Home/demo2.png';
-import demoBook3 from '../../assets/Home/demo3.png';
-import demoBook4 from '../../assets/Home/demo4.png';
-import demoBook5 from '../../assets/Home/demo5.png';
+import demoBook1 from '../../assets/Home/InteractiveDemo/demo1.webp';
+import demoBook2 from '../../assets/Home/InteractiveDemo/demo2.webp';
+import demoBook3 from '../../assets/Home/InteractiveDemo/demo3.webp';
+import demoBook4 from '../../assets/Home/InteractiveDemo/demo4.webp';
+import demoBook5 from '../../assets/Home/InteractiveDemo/demo5.webp';
 
 // Food demo book assets & background
-import foodbg from '../../assets/Home/foodbg.png';
-import food1 from '../../assets/Home/food1.png';
-import food2 from '../../assets/Home/food2.png';
-import food3 from '../../assets/Home/food3.png';
-import food4 from '../../assets/Home/food4.png';
-import food5 from '../../assets/Home/food5.png';
-import food6 from '../../assets/Home/food6.png';
-import food7 from '../../assets/Home/food7.png';
-import food8 from '../../assets/Home/food8.png';
+import foodbg from '../../assets/Home/InteractiveDemo/foodbg.webp';
+import food1 from '../../assets/Home/InteractiveDemo/food1.webp';
+import food2 from '../../assets/Home/InteractiveDemo/food2.webp';
+import food3 from '../../assets/Home/InteractiveDemo/food3.webp';
+import food4 from '../../assets/Home/InteractiveDemo/food4.webp';
+import food5 from '../../assets/Home/InteractiveDemo/food5.webp';
+import food6 from '../../assets/Home/InteractiveDemo/food6.webp';
+import food7 from '../../assets/Home/InteractiveDemo/food7.webp';
+import food8 from '../../assets/Home/InteractiveDemo/food8.webp';
 
 // Dress demo book assets & background
-import dressbg from '../../assets/Home/dressbg.png';
-import dress1 from '../../assets/Home/dress1.png';
-import dress2 from '../../assets/Home/dress2.png';
-import dress3 from '../../assets/Home/dress3.png';
-import dress4 from '../../assets/Home/dress4.png';
-import dress5 from '../../assets/Home/dress5.png';
-import dress6 from '../../assets/Home/dress6.png';
+import dressbg from '../../assets/Home/InteractiveDemo/dressbg.webp';
+import dress1 from '../../assets/Home/InteractiveDemo/dress1.webp';
+import dress2 from '../../assets/Home/InteractiveDemo/dress2.webp';
+import dress3 from '../../assets/Home/InteractiveDemo/dress3.webp';
+import dress4 from '../../assets/Home/InteractiveDemo/dress4.webp';
+import dress5 from '../../assets/Home/InteractiveDemo/dress5.webp';
+import dress6 from '../../assets/Home/InteractiveDemo/dress6.webp';
 
 // Hospital demo book assets & background
-import hospitalbg from '../../assets/Home/hospitalbg.png';
-import hospital1 from '../../assets/Home/hospital1.png';
-import hospital2 from '../../assets/Home/hospital2.png';
-import hospital3 from '../../assets/Home/hospital3.png';
-import hospital4 from '../../assets/Home/hospital4.png';
-import hospital5 from '../../assets/Home/hospital5.png';
-import hospital6 from '../../assets/Home/hospital6.png';
+import hospitalbg from '../../assets/Home/InteractiveDemo/hospitalbg.webp';
+import hospital1 from '../../assets/Home/InteractiveDemo/hospital1.webp';
+import hospital2 from '../../assets/Home/InteractiveDemo/hospital2.webp';
+import hospital3 from '../../assets/Home/InteractiveDemo/hospital3.webp';
+import hospital4 from '../../assets/Home/InteractiveDemo/hospital4.webp';
+import hospital5 from '../../assets/Home/InteractiveDemo/hospital5.webp';
+import hospital6 from '../../assets/Home/InteractiveDemo/hospital6.webp';
 
 // Travel demo book assets & background
-import travelbg from '../../assets/Home/travelbg.png';
-import travel1 from '../../assets/Home/travel1.png';
-import travel2 from '../../assets/Home/travel2.png';
-import travel3 from '../../assets/Home/travel3.png';
-import travel4 from '../../assets/Home/travel4.png';
-import travel5 from '../../assets/Home/travel5.png';
-import travel6 from '../../assets/Home/travel6.png';
+import travelbg from '../../assets/Home/InteractiveDemo/travelbg.webp';
+import travel1 from '../../assets/Home/InteractiveDemo/travel1.webp';
+import travel2 from '../../assets/Home/InteractiveDemo/travel2.webp';
+import travel3 from '../../assets/Home/InteractiveDemo/travel3.webp';
+import travel4 from '../../assets/Home/InteractiveDemo/travel4.webp';
+import travel5 from '../../assets/Home/InteractiveDemo/travel5.webp';
+import travel6 from '../../assets/Home/InteractiveDemo/travel6.webp';
 
 // Company demo book assets & background
-import companybg from '../../assets/Home/companybg.png';
-import company1 from '../../assets/Home/company1.png';
-import company2 from '../../assets/Home/company2.png';
-import company3 from '../../assets/Home/company3.png';
-import company4 from '../../assets/Home/company4.png';
-import company5 from '../../assets/Home/company5.png';
-import company6 from '../../assets/Home/company6.png';
+import companybg from '../../assets/Home/InteractiveDemo/companybg.webp';
+import company1 from '../../assets/Home/InteractiveDemo/company1.webp';
+import company2 from '../../assets/Home/InteractiveDemo/company2.webp';
+import company3 from '../../assets/Home/InteractiveDemo/company3.webp';
+import company4 from '../../assets/Home/InteractiveDemo/company4.webp';
+import company5 from '../../assets/Home/InteractiveDemo/company5.webp';
+import company6 from '../../assets/Home/InteractiveDemo/company6.webp';
 
 export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4: h4, page5: h5, page6: h6, page7: h7, page8: h8 }) {
   const [selectedBook, setSelectedBook] = useState(null);
@@ -73,6 +73,14 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
   const modalContainerRef = useRef(null);
   const modalBookRef = useRef(null);
   const [modalActiveStep, setModalActiveStep] = useState(1);
+  // Real page number (1-based) — used for the counter in mobile single-page view
+  const [modalPage, setModalPage] = useState(1);
+  const [isMobileView, setIsMobileView] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const onResize = () => setIsMobileView(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const modalActiveStepRef = useRef(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(false);
@@ -421,6 +429,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       setIsPlaying(false);
       isPlayingRef.current = false;
       setModalActiveStep(1);
+      setModalPage(1);
       modalActiveStepRef.current = 1;
       setModalCoverState('front');
       if (playIntervalRef.current) clearInterval(playIntervalRef.current);
@@ -429,6 +438,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       }
     } else {
       setModalActiveStep(1);
+      setModalPage(1);
       modalActiveStepRef.current = 1;
       setModalCoverState('front');
     }
@@ -436,6 +446,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
   const onBookFlip = useCallback((e) => {
     const pageIndex = e.data;
+    setModalPage(pageIndex + 1);
     updateStepFromPage(pageIndex);
     playFlipSound();
   }, [playFlipSound, updateStepFromPage]);
@@ -524,36 +535,36 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       id="interactive-demo-section"
       className="w-full bg-[#f6f6f6] pt-5 pb-6 sm:pt-6 sm:pb-8 lg:pt-[1.5vw] lg:pb-[1.8vw] px-6 sm:px-8 md:px-10 lg:px-[4.2vw] font-poppins select-none [--book-shadow:2px_4px_7px_rgba(0,0,0,0.18)] sm:[--book-shadow:4px_7px_12px_rgba(0,0,0,0.22)] lg:[--book-shadow:8px_14px_20px_rgba(0,0,0,0.28)] [--book-shadow-hover:4px_6px_10px_rgba(0,0,0,0.24)] sm:[--book-shadow-hover:6px_10px_16px_rgba(0,0,0,0.28)] lg:[--book-shadow-hover:10px_18px_24px_rgba(0,0,0,0.36)]"
     >
+      {/* Top Header Tag: Single Line like other sections */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full flex items-center justify-start gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-3 sm:mb-4 lg:mb-[1.8vh] flex-shrink-0"
+      >
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase whitespace-nowrap">
+          INTERACTIVE CATALOGUE DEMO
+        </span>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
+      </motion.div>
+
       <div className="w-full mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 sm:gap-8 lg:gap-[4.2vw]">
 
-        {/* Left Column: Heading, Subtitle & Description (Left-aligned like About Us) */}
+        {/* Left Column: Heading, Subtitle & Description */}
         <div
-          className="w-full lg:w-[24%] flex flex-col text-left items-start shrink-0"
+          className="w-full lg:w-[26%] flex flex-col text-left items-start shrink-0"
         >
-          {/* Header Tag */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-center justify-start gap-2.5 sm:gap-3 mb-2.5 sm:mb-3.5 lg:mb-[1.1vw]"
-          >
-            <span className="text-[9.5px] sm:text-[10px] lg:text-[0.7vw] font-medium tracking-[0.2em] text-[#2c2f35] uppercase">
-              INTERACTIVE CATALOGUE DEMO
-            </span>
-            <div className="w-6 sm:w-8 lg:w-[2.2vw] h-[1.5px] bg-[#9ca0a6]"></div>
-          </motion.div>
-
           {/* Title */}
           <motion.h2
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
             transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="text-[32px] xs:text-[36px] sm:text-[44px] md:text-[48px] lg:text-[2.6vw] font-bold text-[#202227] leading-[1.08] sm:leading-[1.05] md:leading-[1.05] lg:leading-[1.1] tracking-tight text-left"
+            className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-[#1f2937] font-sans leading-[1.08] sm:leading-[1.05] md:leading-[1.05] lg:leading-[1.1] tracking-tight text-left"
           >
             <span>Explore</span> <br />
-            <span className="text-[#ED5B43]">Demo</span> <br />
+            <span className="text-[#E75B3E]">Demo</span> <br />
             <span>Books</span>
           </motion.h2>
 
@@ -576,26 +587,6 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
           >
             Explore interactive demo catalogues featuring realistic page flips, videos, and 3D experiences. Discover how FlipiBook brings digital content to life.
           </motion.p>
-
-          {/* CTA Button: Explore Demo Catalogues */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
-            transition={{ duration: 0.85, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-4 sm:mt-5 lg:mt-[1.5vw]"
-          >
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById('explore-section') || document.querySelector('[class*="ExploreShowcase"]');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-[#ED5B43] hover:bg-[#d84e37] text-white rounded-lg text-xs sm:text-sm lg:text-[0.82vw] font-medium shadow-sm transition-all duration-200 active:scale-95 cursor-pointer"
-            >
-              <span>Explore Demo Catalogues</span>
-            </button>
-          </motion.div>
         </div>
 
         {/* Right Column: 5 Standing Books with Staggered Entrance */}
@@ -703,7 +694,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       <AnimatePresence>
         {activeModalBook && (
           <div
-            className={`fixed inset-0 z-50 flex items-center justify-center ${isFullScreen ? 'p-0' : 'p-[2vw] pt-[7vh]'} bg-black/60 backdrop-blur-sm`}
+            className={`fixed inset-0 z-[1000] flex items-center justify-center ${isFullScreen ? 'p-0' : 'p-3 pt-[6vh] sm:p-[2vw] sm:pt-[7vh]'} bg-black/60 backdrop-blur-sm`}
             onClick={() => setActiveModalBook(null)}
           >
             <motion.div
@@ -747,7 +738,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
               }
               className={`relative w-full ${isFullScreen
                   ? 'max-w-none w-screen h-screen max-h-none rounded-none p-0'
-                  : 'max-w-[74vw] xl:max-w-[70vw] rounded-2xl shadow-2xl p-0 h-[84vh] max-h-[86vh]'
+                  : 'max-w-[96vw] sm:max-w-[90vw] lg:max-w-[74vw] xl:max-w-[70vw] rounded-2xl shadow-2xl p-0 h-[82dvh] sm:h-[84vh] max-h-[86vh]'
                 } bg-white flex flex-col items-center justify-between overflow-hidden`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -827,59 +818,33 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                 {/* Flipbook Canvas */}
                 <div
-                  className={`relative mx-auto aspect-[420/297] flex items-center justify-center ${isFullScreen
-                      ? 'w-auto h-[82vh] max-w-[95vw]'
-                      : 'w-auto h-[62vh] max-h-[64vh] max-w-[80vw]'
+                  className={`relative mx-auto aspect-[595/842] sm:aspect-[420/297] flex items-center justify-center ${isFullScreen
+                      ? 'w-[min(80vw,62vh)] sm:w-[min(95vw,116vh)] h-auto'
+                      : 'w-[min(76vw,52dvh)] sm:w-[min(80vw,87vh)] h-auto'
                     }`}
                 >
                   <div
                     key={`${activeModalBook?.id || 'modal-book'}-${isFullScreen ? 'fullscreen' : 'modal'}`}
-                    className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${isCustomBook || activePages.length === 8
-                        ? modalCoverState === 'front'
-                          ? '-translate-x-[25%]'
-                          : modalCoverState === 'back'
-                            ? 'translate-x-[25%]'
-                            : 'translate-x-0'
-                        : 'translate-x-0'
-                      }`}
+                    className="w-full h-full flex items-center justify-center"
                   >
-                    <HTMLFlipBook
+                    <TurnBook
+                      ref={modalBookRef}
+                      pages={activePages}
                       width={595}
                       height={842}
-                      size="stretch"
-                      minWidth={210}
-                      maxWidth={1200}
-                      minHeight={297}
-                      maxHeight={1700}
-                      maxShadowOpacity={0.5}
-                      showCover={isCustomBook || activePages.length === 8}
-                      mobileScrollSupport={true}
-                      clickEventForward={false}
-                      useMouseEvents={true}
-                      onFlip={onBookFlip}
-                      flippingTime={900}
-                      swipeDistance={30}
-                      ref={modalBookRef}
+                      duration={900}
                       startPage={
-                        activeModalBook?.isFood
-                          ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : modalActiveStep === 4 ? 5 : 7
-                          : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany
-                            ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : 5
-                            : 0
+                        isMobileView
+                        ? modalPage - 1
+                        : activeModalBook?.isFood
+                        ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : modalActiveStep === 4 ? 5 : 7
+                        : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany
+                        ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : 5
+                        : 0
                       }
-                      className="w-full h-full mx-auto"
-                    >
-                      {activePages.map((pageSrc, index) => (
-                        <div key={index} className="bg-white overflow-hidden shadow-inner flex items-center justify-center w-full h-full">
-                          <img
-                            src={pageSrc}
-                            alt={`Page ${index + 1}`}
-                            className="w-full h-full block object-cover select-none pointer-events-none"
-                            style={{ margin: 0, padding: 0 }}
-                          />
-                        </div>
-                      ))}
-                    </HTMLFlipBook>
+                      onFlip={onBookFlip}
+                      className="mx-auto"
+                    />
                   </div>
                 </div>
 
@@ -1119,7 +1084,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                   )}
 
                   {/* Dark Bottom Bar */}
-                  <div className="w-full bg-[#424242] border-t border-white/10 px-3 sm:px-5 py-2.5 flex items-center justify-between text-white/90">
+                  <div className="w-full bg-[#424242] border-t border-white/10 px-2 sm:px-5 py-2.5 flex items-center justify-between text-white/90">
                     {/* Left: Table of contents & Thumbnail Grid Icons */}
                     <div className="flex items-center gap-2 sm:gap-3">
                       <button
@@ -1134,13 +1099,13 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
 
                     {/* Center: Play/Pause, Step controls & Progress */}
-                    <div className="flex items-center gap-2.5 sm:gap-3 flex-1 max-w-xl mx-3 sm:mx-4">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl mx-2 sm:mx-4">
                       {/* Backward / First Page Button */}
                       <button
                         type="button"
                         onClick={() => flipToStep(1)}
                         disabled={modalActiveStep <= 1}
-                        className="hover:opacity-75 transition-opacity flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="hover:opacity-75 transition-opacity hidden sm:flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
                         title="First Page (Backward)"
                       >
                         <Icon icon="lucide:skip-back" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -1167,7 +1132,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                         type="button"
                         onClick={() => flipToStep(totalSteps)}
                         disabled={modalActiveStep >= totalSteps}
-                        className="hover:opacity-75 transition-opacity flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="hover:opacity-75 transition-opacity hidden sm:flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
                         title="Last Page (Forward)"
                       >
                         <Icon icon="lucide:skip-forward" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -1175,7 +1140,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                       {/* Progress Bar */}
                       <div
-                        className="flex-1 h-1.5 bg-white/25 hover:bg-white/40 rounded-full cursor-pointer relative flex items-center transition-colors"
+                        className="flex-1 min-w-[60px] h-1.5 bg-white/25 hover:bg-white/40 rounded-full cursor-pointer relative flex items-center transition-colors"
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
                           const clickX = e.clientX - rect.left;
@@ -1188,7 +1153,9 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                         <div
                           className="h-full relative rounded-full bg-white"
                           style={{
-                            width: `${((modalActiveStep - 1) / Math.max(1, totalSteps - 1)) * 100}%`,
+                            width: isMobileView
+                              ? `${((modalPage - 1) / Math.max(1, activePages.length - 1)) * 100}%`
+                              : `${((modalActiveStep - 1) / Math.max(1, totalSteps - 1)) * 100}%`,
                           }}
                         >
                           <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-sm pointer-events-none" />
@@ -1197,7 +1164,9 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                       {/* Page Counter */}
                       <span className="text-[11px] sm:text-xs font-semibold tracking-wider shrink-0 select-none text-white/90">
-                        {activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany ? (
+                        {isMobileView ? (
+                          `${String(Math.min(modalPage, activePages.length)).padStart(2, '0')} / ${String(activePages.length).padStart(2, '0')}`
+                        ) : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany ? (
                           modalActiveStep === 1
                             ? "01 / 06"
                             : modalActiveStep === 2
@@ -1222,7 +1191,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
 
                     {/* Right: Sound & Fullscreen */}
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex items-center gap-0.5 sm:gap-3 shrink-0">
                       <button
                         type="button"
                         onClick={toggleMute}

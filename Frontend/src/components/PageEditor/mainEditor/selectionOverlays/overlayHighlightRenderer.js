@@ -74,6 +74,7 @@ export const createOverlayHighlightRenderer = ({
 
     // Purge stale or competing overlays to prevent duplicate selection boxes
     if (type.includes('selected')) {
+      el.setAttribute('data-selected', 'true');
       const isMulti = multiSelectedIdsRef.current && multiSelectedIdsRef.current.size > 1;
       const keepPolyId = `overlay-poly-${type}-${el.id}`;
       const keepPathId = `overlay-path-${type}-${el.id}`;

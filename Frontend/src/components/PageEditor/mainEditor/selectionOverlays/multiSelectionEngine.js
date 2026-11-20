@@ -179,6 +179,7 @@ export const createMultiSelectionEngine = ({
   const drawMultiSelectionHighlight = (ids, drawOverlayHighlight) => {
     const purgeMultiSelectionOverlays = () => {
       document.querySelectorAll('[id*="multi-selection-bounds"], [id*="overlay-poly-selected-multi"], [id^="resize-handle-multi"], [id^="rotate-handle-multi"], [id^="rotation-degree-badge-multi"], [id^="rotate-hotspot-multi"]').forEach(h => h.remove());
+      document.querySelectorAll('[data-selected="true"]').forEach(el => el.removeAttribute('data-selected'));
     };
 
     purgeMultiSelectionOverlays();
@@ -204,6 +205,7 @@ export const createMultiSelectionEngine = ({
           purgeElementOverlays(el);
           return;
         }
+        el.setAttribute('data-selected', 'true');
         const overlay = getOverlayForElement(el);
         if (!overlay) return;
         if (!elementsByOverlay.has(overlay)) elementsByOverlay.set(overlay, []);

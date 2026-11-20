@@ -29,6 +29,7 @@ const initialState = {
   exportContext: {
     pages: [],
     activePageIndex: 0,
+    activePages: [],
   },
 
   // Save feedback
@@ -91,6 +92,7 @@ export const activeBookSlice = createSlice({
       state.exportContext = {
         pages: action.payload.pages || [],
         activePageIndex: action.payload.activePageIndex || 0,
+        activePages: action.payload.activePages || [],
       };
     },
     setSaveSuccessInfo: (state, action) => {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import Color from '../../../properties/Color';
 import Effect from '../../../properties/Effect';
@@ -10,6 +11,7 @@ import { updateShapeMaskTransform, updateShapeMaskFilters, updateShapeMaskOpacit
 import { parseGradient } from '../../../../ColorPicker';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../../../modals/ImageAdjustmentModal';
 import { PropertySlider } from '../../../properties/propertiesShared';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../../utils/imageOptimizer';
 
 const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIndex, updateElementAttribute, selectedElementProps }) => {
   const [slots, setSlots] = useState([]);
@@ -24,6 +26,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [adjustTargetSlotId, setAdjustTargetSlotId] = useState(null);
   const [slotFilters, setSlotFilters] = useState({});
+  const [compressingSlots, setCompressingSlots] = useState({});
   const slotReplaceRefs = useRef({});
   const activeSlotRef = useRef(null);
 
@@ -701,59 +704,145 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
   useEffect(() => {
     slots.forEach(slot => {
       if (slot.currentImage && !slotMeta[slot.id]) {
-        const img = new window.Image();
-        img.onload = () => {
+        const isDefault = slot.currentImage === DEFAULT_FRAME_IMAGE ||
+          slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD');
+
+        const shapeEl = selectedElement?.querySelector(`[fill="url(#${slot.id})"]`) ||
+          selectedElement?.querySelector(`[data-pattern-id="${slot.id}"]`);
+
+        const isCustom = !isDefault && (
+          shapeEl?.getAttribute('data-mask-enabled') === 'true' ||
+          Boolean(shapeEl?.getAttribute('data-slot-original-url')) ||
+          Boolean(shapeEl?.getAttribute('data-slot-image-name'))
+        );
+
+        if (isCustom) {
+          const savedName = shapeEl?.getAttribute('data-slot-image-name') || 'Image.webp';
+          const savedSize = shapeEl?.getAttribute('data-slot-image-size') || '';
+          const savedMeta = shapeEl?.getAttribute('data-slot-image-meta') || '';
+
+          const img = new window.Image();
+          img.onload = () => {
+            const metaStr = savedMeta 
+              ? `${savedMeta}${savedSize ? ' • ' + savedSize : ''}` 
+              : `${img.width} X ${img.height}${savedSize ? ' • ' + savedSize : ''}`;
+            setSlotMeta(prev => {
+              if (prev[slot.id]) return prev;
+              return {
+                ...prev,
+                [slot.id]: {
+                  name: savedName,
+                  meta: metaStr,
+                  originalUrl: slot.currentImage,
+                  hasUploaded: true
+                }
+              };
+            });
+          };
+          img.src = slot.currentImage;
+        } else {
+          // Default un-uploaded slot: NO fake name, NO fake size
           setSlotMeta(prev => {
             if (prev[slot.id]) return prev;
             return {
               ...prev,
               [slot.id]: {
-                name: 'Image Name .jpg',
-                meta: `${img.width} X ${img.height} • 24MB`
+                name: '',
+                meta: '',
+                originalUrl: DEFAULT_FRAME_IMAGE,
+                hasUploaded: false
               }
             };
           });
-        };
-        img.src = slot.currentImage;
+        }
       }
     });
-  }, [slots]);
+  }, [slots, selectedElement]);
 
-  const processFileForSlot = (file, slotId, customName = null) => {
+  const processFileForSlot = async (file, slotId, customName = null) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       alert('Only Image formats are allowed for slots.');
       return;
     }
     const fileName = customName || file.name || 'Image Name .jpg';
-    const fileSizeFormatted = file.size
-      ? (file.size >= 1024 * 1024
-        ? `${(file.size / (1024 * 1024)).toFixed(0)}MB`
-        : `${Math.max(1, Math.round(file.size / 1024))}KB`)
-      : '24MB';
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target.result;
-      const img = new window.Image();
-      img.onload = () => {
-        setSlotMeta(prev => ({
-          ...prev,
-          [slotId]: {
-            name: fileName,
-            meta: `${img.width} X ${img.height} • ${fileSizeFormatted}`,
-            originalUrl: dataUrl,
-            size: fileSizeFormatted,
-            cropData: null,
-            filters: null,
-            opacity: 100
+    // Set circular spinner state for this slot
+    setCompressingSlots(prev => ({ ...prev, [slotId]: true }));
+
+    try {
+      let finalDataUrl = null;
+      let imgWidth = 0;
+      let imgHeight = 0;
+      let compBytes = file.size;
+
+      if (shouldOptimizeImage(file)) {
+        try {
+          const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+          if (opt?.dataUrl) {
+            finalDataUrl = opt.dataUrl;
+            imgWidth = opt.width;
+            imgHeight = opt.height;
+            compBytes = opt.compressedSize || opt.file?.size || compBytes;
           }
-        }));
-        updateSlotImage(slotId, dataUrl);
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
+        } catch (optErr) {
+          console.warn('[ImageFramingProperties] Optimization error, falling back:', optErr);
+        }
+      }
+
+      if (!finalDataUrl) {
+        finalDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve(event.target.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (!finalDataUrl) return;
+
+      if (!imgWidth || !imgHeight) {
+        await new Promise((resolve) => {
+          const img = new window.Image();
+          img.onload = () => {
+            imgWidth = img.width;
+            imgHeight = img.height;
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = finalDataUrl;
+        });
+      }
+
+      const fileSizeFormatted = compBytes
+        ? (compBytes >= 1024 * 1024
+          ? `${(compBytes / (1024 * 1024)).toFixed(1)}MB`
+          : `${Math.max(1, Math.round(compBytes / 1024))}KB`)
+        : '250KB';
+
+      setSlotMeta(prev => ({
+        ...prev,
+        [slotId]: {
+          name: fileName,
+          meta: `${imgWidth || 300} X ${imgHeight || 300} • ${fileSizeFormatted}`,
+          originalUrl: finalDataUrl,
+          size: fileSizeFormatted,
+          cropData: null,
+          filters: null,
+          opacity: 100,
+          hasUploaded: true
+        }
+      }));
+      updateSlotImage(slotId, finalDataUrl, false, fileName, fileSizeFormatted);
+    } catch (err) {
+      console.error('[ImageFramingProperties] Failed to process slot file:', err);
+    } finally {
+      setCompressingSlots(prev => {
+        const next = { ...prev };
+        delete next[slotId];
+        return next;
+      });
+    }
   };
 
   const handleDeleteSlotImage = (slotId) => {
@@ -761,12 +850,13 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
     setSlotMeta(prev => ({
       ...prev,
       [slotId]: {
-        name: 'Image Name .jpg',
-        meta: '300 X 300 • 24MB',
+        name: '',
+        meta: '',
         originalUrl: DEFAULT_FRAME_IMAGE,
         cropData: null,
         filters: null,
-        opacity: 100
+        opacity: 100,
+        hasUploaded: false
       }
     }));
     setSlotOpacities(prev => ({
@@ -1090,7 +1180,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
     if (!skipSync) syncDomChanges();
   };
 
-  const updateSlotImage = (patternId, dataUrl, skipSync = false) => {
+  const updateSlotImage = (patternId, dataUrl, skipSync = false, fileName = null, fileSize = null) => {
     if (!selectedElement) return;
 
     let svgRoot = selectedElement;
@@ -1114,18 +1204,31 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
       (svgRoot ? svgRoot.querySelector(`[fill="url(#${patternId})"]`) : null);
     if (!shapeEl) return;
 
+    const isDefault = dataUrl === DEFAULT_FRAME_IMAGE || !dataUrl;
+
     const img = new window.Image();
     img.onload = () => {
       const imgW = img.width;
       const imgH = img.height;
 
-      shapeEl.setAttribute('data-mask-enabled', 'true');
-      shapeEl.setAttribute('data-masked-image-url', dataUrl);
-      shapeEl.setAttribute('data-slot-original-url', dataUrl);
-      shapeEl.setAttribute('data-slot-image-meta', `${imgW} X ${imgH}`);
-      shapeEl.setAttribute('data-slot-pan-x', '0');
-      shapeEl.setAttribute('data-slot-pan-y', '0');
-      shapeEl.setAttribute('data-slot-zoom', '1');
+      if (isDefault) {
+        shapeEl.removeAttribute('data-mask-enabled');
+        shapeEl.removeAttribute('data-slot-original-url');
+        shapeEl.removeAttribute('data-slot-image-name');
+        shapeEl.removeAttribute('data-slot-image-size');
+        shapeEl.removeAttribute('data-slot-image-meta');
+        shapeEl.removeAttribute('data-masked-image-url');
+      } else {
+        shapeEl.setAttribute('data-mask-enabled', 'true');
+        shapeEl.setAttribute('data-masked-image-url', dataUrl);
+        shapeEl.setAttribute('data-slot-original-url', dataUrl);
+        if (fileName) shapeEl.setAttribute('data-slot-image-name', fileName);
+        if (fileSize) shapeEl.setAttribute('data-slot-image-size', fileSize);
+        shapeEl.setAttribute('data-slot-image-meta', `${imgW} X ${imgH}`);
+        shapeEl.setAttribute('data-slot-pan-x', '0');
+        shapeEl.setAttribute('data-slot-pan-y', '0');
+        shapeEl.setAttribute('data-slot-zoom', '1');
+      }
 
       allPatterns.forEach(pattern => {
         let bgRect = pattern.querySelector('rect.mask-bg-fill');
@@ -1223,12 +1326,17 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
       {/* ── 2. Images Slots List (exact layout of ShapeProperties) ── */}
       {slots.length > 0 && (
         <div className="flex flex-col gap-[0.6vw]">
-          {slots.map((slot, i) => {
+          {slots.map((slot, idx) => {
             const isSelected = activeSlotId === slot.id;
-            const meta = slotMeta[slot.id] || {
-              name: 'Image Name .jpg',
-              meta: '300 X 300 • 24MB'
-            };
+            const meta = slotMeta[slot.id] || {};
+            const isDefault = !slot.currentImage ||
+              slot.currentImage === DEFAULT_FRAME_IMAGE ||
+              slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD');
+            const hasUploaded = Boolean(
+              meta.hasUploaded ||
+              (meta.name && meta.name !== 'Image Name .jpg') ||
+              (!isDefault && slot.currentImage)
+            );
 
             return (
               <div
@@ -1273,69 +1381,115 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
                 }`}
               >
-                {/* Thumbnail */}
+                {/* Thumbnail - Clicking the image box opens the picker */}
                 <div
-                  className="relative w-[7.6vw] h-[5.6vw] rounded-[0.45vw] overflow-hidden bg-gray-50 border border-gray-200 flex-shrink-0 flex items-center justify-center shadow-2xs group"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!compressingSlots[slot.id]) {
+                      slotReplaceRefs.current[slot.id]?.click();
+                    }
+                  }}
+                  className="relative w-[7.6vw] h-[5.6vw] rounded-[0.45vw] overflow-hidden bg-gray-50 border border-gray-200 flex-shrink-0 flex items-center justify-center shadow-2xs group cursor-pointer hover:border-[#4D47FF] transition-all"
+                  title="Click to select image"
                 >
                   <img
                     src={slot.currentImage || DEFAULT_FRAME_IMAGE}
-                    alt={meta.name}
-                    className="w-full h-full object-cover"
+                    alt={meta.name || `Slot ${idx + 1}`}
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                   />
 
-                  {/* Adjustment Icon Button (Top Right) */}
-                  <button
-                    type="button"
-                    data-adjustment-trigger="true"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAdjustTargetSlotId(slot.id);
-                      setShowAdjustModal(prev => (adjustTargetSlotId === slot.id ? !prev : true));
-                    }}
-                    className={`absolute top-[0.35vw] right-[0.35vw] w-[1.7vw] h-[1.7vw] rounded-[0.35vw] shadow-md border flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer z-10 ${
-                      showAdjustModal && adjustTargetSlotId === slot.id
-                        ? 'bg-gray-100 text-gray-900 border-gray-300'
-                        : 'bg-white text-gray-800 border-gray-100 hover:bg-gray-50'
-                    }`}
-                    title="Image Adjustments"
-                  >
-                    <AdjustmentIcon className="w-[0.95vw] h-[0.95vw]" />
-                  </button>
+                  {/* Circular Spinner while compressing / processing */}
+                  {compressingSlots[slot.id] && (
+                    <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex flex-col items-center justify-center z-20">
+                      <Loader2 className="w-[1.4vw] h-[1.4vw] text-white animate-spin" />
+                      <span className="text-[0.62vw] text-white font-medium mt-[0.2vw]">Compressing...</span>
+                    </div>
+                  )}
+
+                  {/* Adjustment Icon Button (Top Right) - only shown when custom image is uploaded */}
+                  {hasUploaded && (
+                    <button
+                      type="button"
+                      data-adjustment-trigger="true"
+                      disabled={Boolean(compressingSlots[slot.id])}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAdjustTargetSlotId(slot.id);
+                        setShowAdjustModal(prev => (adjustTargetSlotId === slot.id ? !prev : true));
+                      }}
+                      className={`absolute top-[0.35vw] right-[0.35vw] w-[1.7vw] h-[1.7vw] rounded-[0.35vw] shadow-md border flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer z-10 ${
+                        showAdjustModal && adjustTargetSlotId === slot.id
+                          ? 'bg-gray-100 text-gray-900 border-gray-300'
+                          : 'bg-white text-gray-800 border-gray-100 hover:bg-gray-50'
+                      }`}
+                      title="Image Adjustments"
+                    >
+                      <AdjustmentIcon className="w-[0.95vw] h-[0.95vw]" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Info & Actions */}
                 <div className="flex flex-col flex-1 min-w-0 justify-between py-[0.15vw]">
                   <div className="flex flex-col gap-[0.2vw]">
-                    <span className="text-[0.82vw] font-semibold text-gray-900 truncate" title={meta.name}>
-                      {meta.name}
-                    </span>
-                    <span className="text-[0.75vw] text-gray-500 font-medium truncate">
-                      {meta.meta}
-                    </span>
+                    {hasUploaded ? (
+                      <>
+                        <span className="text-[0.82vw] font-semibold text-gray-900 truncate" title={meta.name}>
+                          {meta.name}
+                        </span>
+                        <span className="text-[0.75vw] text-gray-500 font-medium truncate">
+                          {compressingSlots[slot.id] ? 'Optimizing image...' : meta.meta}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[0.82vw] font-semibold text-gray-700">
+                          Slot {idx + 1}
+                        </span>
+                        <span className="text-[0.72vw] text-gray-400 font-normal">
+                          {compressingSlots[slot.id] ? 'Optimizing image...' : 'No image uploaded'}
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-[0.5vw] mt-[0.7vw]">
                     <button
                       type="button"
+                      disabled={Boolean(compressingSlots[slot.id])}
                       onClick={(e) => {
                         e.stopPropagation();
                         slotReplaceRefs.current[slot.id]?.click();
                       }}
-                      className="px-[0.7vw] h-[1.9vw] bg-white hover:bg-gray-50 text-gray-700 text-[0.8vw] font-medium rounded-[0.4vw] border border-gray-300 shadow-2xs hover:border-gray-400 cursor-pointer transition-colors"
+                      className={`px-[0.7vw] h-[1.9vw] text-[0.8vw] font-medium rounded-[0.4vw] border shadow-2xs transition-colors flex items-center gap-[0.3vw] ${
+                        compressingSlots[slot.id]
+                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                          : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 cursor-pointer'
+                      }`}
                     >
-                      Replace image
+                      {compressingSlots[slot.id] && <Loader2 className="w-[0.75vw] h-[0.75vw] animate-spin" />}
+                      <span>
+                        {compressingSlots[slot.id]
+                          ? 'Compressing...'
+                          : hasUploaded
+                            ? 'Replace image'
+                            : 'Upload image'}
+                      </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSlotImage(slot.id);
-                      }}
-                      className="h-[1.9vw] px-[0.5vw] bg-white hover:bg-red-50 text-gray-500 hover:text-red-600 rounded-[0.4vw] border border-gray-300 shadow-2xs hover:border-red-200 cursor-pointer transition-colors"
-                      title="Delete image"
-                    >
-                      <Trash2 className="w-[0.85vw] h-[0.85vw]" />
-                    </button>
+                    {hasUploaded && (
+                      <button
+                        type="button"
+                        disabled={Boolean(compressingSlots[slot.id])}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSlotImage(slot.id);
+                        }}
+                        className="h-[1.9vw] px-[0.5vw] bg-white hover:bg-red-50 text-gray-500 hover:text-red-600 rounded-[0.4vw] border border-gray-300 shadow-2xs hover:border-red-200 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete image"
+                      >
+                        <Trash2 className="w-[0.85vw] h-[0.85vw]" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
