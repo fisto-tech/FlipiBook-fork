@@ -465,7 +465,7 @@ const pageEditorProxy = createProxyMiddleware({
 
 // Proxy Customized Editor routes to Customized Editor Service (port 5005)
 const isCustomizedEditorRoute = (pathname) => {
-  return /^\/api\/flipbook\/(public|update-settings|reset-settings|branding|background|book-appearance|appearance|transparent-sheet|upload-customized-asset|delete-customized-asset|background-assets|copy-theme-asset|submit-lead|get-leads|leads|verify-credential|send-visibility-otp|verify-visibility-otp|customized-settings|customized_settings)(\/|$|\?)/i.test(pathname);
+  return /^\/api\/flipbook\/(public|preview-image|preview-card|update-settings|reset-settings|branding|background|book-appearance|appearance|transparent-sheet|upload-customized-asset|delete-customized-asset|background-assets|copy-theme-asset|submit-lead|get-leads|leads|verify-credential|send-visibility-otp|verify-visibility-otp|customized-settings|customized_settings)(\/|$|\?)/i.test(pathname);
 };
 
 const customizedEditorProxy = createProxyMiddleware({
@@ -504,6 +504,19 @@ const customizedEditorProxy = createProxyMiddleware({
 });
 
 app.use((req, res, next) => {
+  // Crawler / Social Preview interceptor for /share=* or /share/* routes
+  // Catches bots (WhatsApp, Facebook, Twitterbot, LinkedInBot, etc.) and routes them to rich OpenGraph preview card
+  const shareMatch = req.path.match(/^\/share(?:=([^\/]+)|\/([^\/]+))?\/([a-zA-Z0-9_-]+)/i);
+  if (shareMatch) {
+    const shareId = shareMatch[3] || shareMatch[2] || shareMatch[1];
+    const userAgent = String(req.headers['user-agent'] || '').toLowerCase();
+    const isBot = /facebookexternalhit|whatsapp|twitterbot|linkedinbot|telegrambot|slackbot|discordbot|googlebot|bingbot|applebot|embedly|skypeuripreview|quora link preview|pinterest/i.test(userAgent);
+    if (isBot && shareId) {
+      req.url = `/api/customized-editor/preview-card/${shareId}`;
+      return customizedEditorProxy(req, res, next);
+    }
+  }
+
   if (isPdfConversionRoute(req.path) || isPdfConversionRoute(req.originalUrl)) {
     return pdfConversionProxy(req, res, next);
   }

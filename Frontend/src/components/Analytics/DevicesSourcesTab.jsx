@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { getPaginationPages } from './analyticsUtils';
+import { exportProfessionalExcel } from '../../utils/excelExportHelper';
 
 export default function DevicesSourcesTab({ analyticsData = {}, summary = {}, loading = false }) {
   const [tableSort, setTableSort] = useState('Most viewed');
@@ -150,18 +151,52 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {}, lo
 
   // Table rows dynamically from browsers or fallback
   const trafficRows = React.useMemo(() => {
+    // Map of common default platforms for each browser if backend does not supply one
+    const defaultBrowserPlatform = {
+      'Chrome': 'Windows / Mac / Android',
+      'Safari': 'iOS / macOS',
+      'Edge': 'Windows / Mac',
+      'Firefox': 'Windows / Linux',
+      'Opera': 'Windows / Android',
+      'Samsung Internet': 'Android'
+    };
+
+    // If recentSessions has device data, aggregate exact platforms per browser
+    const browserPlatformMap = new Map();
+    (analyticsData?.recentSessions || []).forEach(s => {
+      const bName = s.device?.browser || 'Other';
+      const osName = s.device?.os && s.device.os !== 'Unknown' ? s.device.os : (s.device?.type || '');
+      if (!browserPlatformMap.has(bName)) {
+        browserPlatformMap.set(bName, new Set());
+      }
+      if (osName) browserPlatformMap.get(bName).add(osName);
+    });
+
     if (rawBrowsers.length > 0) {
-      return rawBrowsers.map((b) => ({
-        browser: b.browser || 'Chrome',
-        platform: 'Windows / Mac / Mobile',
-        views: b.views?.toLocaleString() || '1',
-        share: totalViews > 0 ? `${Math.round((b.views / totalViews) * 100)}%` : '100%'
-      }));
+      return rawBrowsers.map((b) => {
+        const bName = b.browser || 'Chrome';
+        let platformStr = b.platform;
+
+        if (!platformStr && browserPlatformMap.has(bName) && browserPlatformMap.get(bName).size > 0) {
+          platformStr = Array.from(browserPlatformMap.get(bName)).join(', ');
+        }
+
+        if (!platformStr) {
+          platformStr = defaultBrowserPlatform[bName] || (summary?.topDevice || 'Desktop');
+        }
+
+        return {
+          browser: bName,
+          platform: platformStr,
+          views: b.views?.toLocaleString() || '1',
+          share: totalViews > 0 ? `${Math.round((b.views / totalViews) * 100)}%` : '100%'
+        };
+      });
     }
     return [
       { browser: 'Chrome', platform: 'Windows', views: `${totalViews || 1}`, share: '100%' }
     ];
-  }, [rawBrowsers, totalViews]);
+  }, [rawBrowsers, totalViews, analyticsData, summary]);
 
   const sortedTrafficRows = React.useMemo(() => {
     const list = [...trafficRows];
@@ -187,23 +222,72 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {}, lo
     ? `Showing ${sortedTrafficRows.length} ${sortedTrafficRows.length === 1 ? 'browser' : 'browsers'}`
     : `Showing ${startCount}–${endCount} of ${sortedTrafficRows.length} browsers`;
 
-  const exportCSV = () => {
-    const headers = ["Browser", "Platform", "Views", "Share"];
-    const rows = sortedTrafficRows.map(r => [
-      `"${r.browser}"`,
-      `"${r.platform}"`,
-      `"${r.views}"`,
-      `"${r.share}"`
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Traffic_Sources_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const exportCSV = async () => {
+    if (sortedTrafficRows.length === 0) return;
+
+    const columns = [
+      { header: 'Browser', key: 'browser', width: 22, bold: true },
+      { header: 'Platform / OS', key: 'platform', width: 20 },
+      { header: 'Views', key: 'views', width: 16, align: 'right', isNumeric: true },
+      { header: 'Traffic Share', key: 'share', width: 16, align: 'center' }
+    ];
+
+    const data = sortedTrafficRows.map(r => ({
+      browser: r.browser,
+      platform: r.platform,
+      views: r.views,
+      share: r.share
+    }));
+
+    const totalViews = sortedTrafficRows.reduce((sum, r) => sum + (Number(r.views) || 0), 0);
+    const totals = {
+      browser: 'TOTAL',
+      platform: 'All Platforms',
+      views: totalViews,
+      share: '100%'
+    };
+
+    // Chart: Device Breakdown Donut Chart
+    const devLabels = ['Desktop', 'Mobile', 'Tablet'];
+    const devValues = [
+      Number(summary.desktopViews || analyticsData?.devices?.find(d => d.type === 'Desktop')?.views || 0),
+      Number(summary.mobileViews || analyticsData?.devices?.find(d => d.type === 'Mobile')?.views || 0),
+      Number(summary.tabletViews || analyticsData?.devices?.find(d => d.type === 'Tablet')?.views || 0)
+    ];
+
+    await exportProfessionalExcel({
+      filename: `Device_Sources_Analytics`,
+      sheetName: 'Browsers & Devices',
+      title: 'Devices & Browsers Analytics Report',
+      subtitle: 'Comprehensive breakdown of reader hardware & software environments',
+      filters: {
+        'Sort Filter': tableSort,
+        'Top Device': summary.topDevice || 'Desktop',
+        'Total Unique Browsers': sortedTrafficRows.length
+      },
+      columns,
+      data,
+      totals,
+      kpiCards: [
+        { label: 'Top Device', value: summary.topDevice || 'Desktop', note: 'Highest reader share' },
+        { label: 'Total Views', value: String(totalViews), note: 'Across all platforms' },
+        { label: 'Desktop Share', value: `${devValues[0]} views`, note: 'PC / Mac / Laptops' },
+        { label: 'Mobile Share', value: `${devValues[1]} views`, note: 'Smartphones' }
+      ],
+      chartConfig: {
+        type: 'donut',
+        title: 'Reader Distribution by Device Category',
+        subtitle: 'Proportional views between Desktop, Mobile and Tablet',
+        labels: devLabels,
+        datasets: [
+          {
+            label: 'Views',
+            data: devValues,
+            colors: ['#F05338', '#0284C7', '#10B981']
+          }
+        ]
+      }
+    });
   };
 
   return (
@@ -315,14 +399,42 @@ export default function DevicesSourcesTab({ analyticsData = {}, summary = {}, lo
                 </g>
               )}
 
-              {/* Tablet (Bottom Left: from center of bottom-left quadrant) */}
-              {deviceData.tablet.pct > 0 && (
-                <g>
-                  <polyline points="156,200 130,238 82,238" fill="none" stroke="#6B7280" strokeWidth="1.2" />
-                  <text x="126" y="228" textAnchor="end" fontSize="15.5" fontWeight="500" fill="#111827">{deviceData.tablet.pct} %</text>
-                  <text x="126" y="253" textAnchor="end" fontSize="12" fontWeight="normal" fill="#111827">{deviceData.tablet.views.toLocaleString()} - Users</text>
-                </g>
-              )}
+              {/* Tablet Segment (#A6CEE3 / Soft Light Blue) */}
+              {deviceData.tablet.pct > 0 && (() => {
+                // Calculate dynamic midpoint angle for tablet segment
+                // Segments start at 12 o'clock (-90 deg) and go clockwise: Desktop -> Tablet -> Mobile
+                const deskAngle = (deviceData.desktop.pct / 100) * 360;
+                const tabAngle = (deviceData.tablet.pct / 100) * 360;
+                const midAngleDeg = -90 + deskAngle + (tabAngle / 2);
+                const midRad = (midAngleDeg * Math.PI) / 180;
+                
+                // Radius in middle of donut ring
+                const rMid = 76;
+                const startX = Math.round(190 + rMid * Math.cos(midRad));
+                const startY = Math.round(135 + rMid * Math.sin(midRad));
+
+                // Anchor label to the left
+                const elbowX = Math.max(50, Math.min(130, startX - 25));
+                const elbowY = Math.max(160, Math.min(235, startY + 28));
+                const endX = 70;
+
+                return (
+                  <g>
+                    <polyline
+                      points={`${startX},${startY} ${elbowX},${elbowY} ${endX},${elbowY}`}
+                      fill="none"
+                      stroke="#6B7280"
+                      strokeWidth="1.2"
+                    />
+                    <text x={elbowX - 4} y={elbowY - 10} textAnchor="end" fontSize="15.5" fontWeight="500" fill="#111827">
+                      {deviceData.tablet.pct} %
+                    </text>
+                    <text x={elbowX - 4} y={elbowY + 15} textAnchor="end" fontSize="12" fontWeight="normal" fill="#111827">
+                      {deviceData.tablet.views.toLocaleString()} - Users
+                    </text>
+                  </g>
+                );
+              })()}
 
               {/* Center Content */}
               <text x="190" y="130" textAnchor="middle" fontSize="16.5" fontWeight="500" fill="#111827">

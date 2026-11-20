@@ -146,7 +146,7 @@ export const buildDynamicTimeline = (preset = '7 Days', customRange = {}, rawDai
     const found = map.get(key);
     const views = found ? (Number(found.views) || Number(found.count) || 0) : 0;
     const readers = found ? (found.readers || Math.max(0, Math.round(views * 0.8))) : 0;
-    const durSec = found ? (found.avgDuration || durationSeconds || 0) : (durationSeconds || 0);
+    const durSec = views > 0 ? (found?.avgDuration || durationSeconds || 0) : 0;
 
     result.push({
       dateKey: key,
@@ -157,7 +157,7 @@ export const buildDynamicTimeline = (preset = '7 Days', customRange = {}, rawDai
       views,
       readers,
       totalDuration: formatDuration(views * durSec),
-      avgDuration: formatDuration(durSec),
+      avgDuration: views > 0 ? formatDuration(durSec) : '0s',
       rawItem: found || null
     });
 

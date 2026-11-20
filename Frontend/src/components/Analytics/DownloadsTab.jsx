@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
 import { formatFullDate, getPaginationPages, buildDynamicTimeline, getSampledXLabels } from './analyticsUtils';
+import { exportProfessionalExcel } from '../../utils/excelExportHelper';
 
 export default function DownloadsTab({ timeline = [], summary = {}, analyticsData = {}, loading = false }) {
   const [detailHoverIdx, setDetailHoverIdx] = useState(null);
@@ -207,23 +208,62 @@ export default function DownloadsTab({ timeline = [], summary = {}, analyticsDat
     };
   }, [downloadData]);
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     if (sortedDownloadData.length === 0) return;
-    const headers = ["Date", "Downloads", "Unique Downloaders"];
-    const rows = sortedDownloadData.map(d => [
-      `"${d.formattedFull}"`,
-      d.downloads,
-      d.uniqueDownloaders
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Downloads_Analytics_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    const columns = [
+      { header: 'Date', key: 'formattedFull', width: 22, bold: true },
+      { header: 'Downloads', key: 'downloads', width: 18, align: 'right', isNumeric: true },
+      { header: 'Unique Downloaders', key: 'uniqueDownloaders', width: 22, align: 'right', isNumeric: true }
+    ];
+
+    const data = sortedDownloadData.map(d => ({
+      formattedFull: d.formattedFull,
+      downloads: d.downloads || 0,
+      uniqueDownloaders: d.uniqueDownloaders || 0
+    }));
+
+    const totals = {
+      formattedFull: 'TOTAL',
+      downloads: totalSummary.totalDownloads || 0,
+      uniqueDownloaders: totalSummary.totalUnique || 0
+    };
+
+    const chartLabels = downloadData.map(d => d.formattedShort || d.formattedFull);
+    const chartDownloads = downloadData.map(d => d.downloads || 0);
+    const chartUnique = downloadData.map(d => d.uniqueDownloaders || 0);
+
+    await exportProfessionalExcel({
+      filename: `Downloads_Analytics`,
+      sheetName: 'Downloads Data',
+      title: 'Flipbook Downloads Performance Report',
+      subtitle: 'Date-wise export of flipbook downloads & unique recipients',
+      filters: {
+        'Date Range': `${formatFullDate(customRange.startDate)} to ${formatFullDate(customRange.endDate)}`,
+        'Preset': datePreset,
+        'Group By': groupBy,
+        'Sort Filter': tableSort
+      },
+      columns,
+      data,
+      totals,
+      kpiCards: [
+        { label: 'Total Downloads', value: String(totalSummary.totalDownloads || 0), note: 'All file types' },
+        { label: 'Unique Downloaders', value: String(totalSummary.totalUnique || 0), note: 'Distinct IPs' },
+        { label: 'Time Window', value: datePreset, note: 'Selected range' },
+        { label: 'Status', value: 'Active', note: 'Export completed' }
+      ],
+      chartConfig: {
+        type: 'bar',
+        title: 'Daily Download Volume',
+        subtitle: 'Total Downloads compared to Unique Downloaders',
+        labels: chartLabels,
+        datasets: [
+          { label: 'Total Downloads', data: chartDownloads, color: '#F05338' },
+          { label: 'Unique Downloaders', data: chartUnique, color: '#0284C7' }
+        ]
+      }
+    });
   };
 
   return (

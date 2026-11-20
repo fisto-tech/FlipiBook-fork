@@ -7,6 +7,7 @@ const {
   recordPageFlip,
   recordDownload,
   recordShare,
+  recordLeadFormEvent,
   getFlipbookAnalytics,
   getUserAnalytics
 } = require("./analyticsController");
@@ -24,6 +25,9 @@ router.post("/record-download", recordDownload);
 
 // When flipbook is shared / link copied
 router.post("/record-share", recordShare);
+
+// When lead form is viewed or skipped
+router.post("/lead-form-event", recordLeadFormEvent);
 
 // Periodic heartbeat every 15-30s while viewer is active
 router.post("/heartbeat", recordHeartbeat);

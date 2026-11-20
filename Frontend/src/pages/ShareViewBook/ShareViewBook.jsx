@@ -530,7 +530,50 @@ const ShareViewBook = () => {
                 if (processedData.viewsCount !== undefined) setViewsCount(processedData.viewsCount);
                 setError(null);
                 setAccessMode(null);
-                setLoading(false); // âœ… Only stop loading on SUCCESS
+                setLoading(false);
+
+                // Dynamically update document title and OpenGraph / Twitter meta tags in client head
+                try {
+                    const bTitle = processedData.flipbookName || processedData.meta?.flipbookName || 'Flipbook';
+                    document.title = `${bTitle} | FlipiBook`;
+
+                    const setMetaTag = (attr, key, content) => {
+                        if (!content) return;
+                        let tag = document.querySelector(`meta[${attr}="${key}"]`);
+                        if (!tag) {
+                            tag = document.createElement('meta');
+                            tag.setAttribute(attr, key);
+                            document.head.appendChild(tag);
+                        }
+                        tag.setAttribute('content', content);
+                    };
+
+                    const bDesc = processedData.FlipbookInfo?.quotes ||
+                        processedData.meta?.quotes ||
+                        processedData.FlipbookInfo?.about ||
+                        processedData.meta?.about ||
+                        'View and interact with this flipbook online on FlipiBook.';
+
+                    let coverImgUrl = processedData.coverPicture?.url ||
+                        processedData.Customized_Settings?.coverPicture?.url ||
+                        processedData.thumbnail ||
+                        '';
+
+                    if (!coverImgUrl) {
+                        const effectiveBackend = (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
+                        coverImgUrl = `${effectiveBackend}/api/customized-editor/preview-image/${shareId}`;
+                    }
+
+                    setMetaTag('property', 'og:title', bTitle);
+                    setMetaTag('property', 'og:description', bDesc);
+                    setMetaTag('property', 'og:image', coverImgUrl);
+                    setMetaTag('property', 'og:url', window.location.href);
+                    setMetaTag('name', 'twitter:title', bTitle);
+                    setMetaTag('name', 'twitter:description', bDesc);
+                    setMetaTag('name', 'twitter:image', coverImgUrl);
+                } catch (metaErr) {
+                    console.warn('[ShareViewBook] Failed to update meta tags:', metaErr);
+                }
             } catch (err) {
                 if (cancelled) return;
                 console.error(`Error fetching public flipbook (attempt ${retryCount + 1}):`, err);
