@@ -35,6 +35,7 @@ export const analyticsApi = {
     recordPageFlip: (payload) => api.post('/api/analytics/page-flip', payload),
     recordDownload: (payload) => api.post('/api/analytics/record-download', payload),
     recordShare: (payload) => api.post('/api/analytics/record-share', payload),
+    recordLeadFormEvent: (payload) => api.post('/api/analytics/lead-form-event', payload),
 };
 
 export default analyticsApi;

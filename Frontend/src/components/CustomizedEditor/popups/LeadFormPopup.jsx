@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
+import { analyticsApi } from '../../../api/analyticsApi';
 
 const hexToRgba = (hex, opacity = 100) => {
     if (!hex || hex === '#' || hex === 'transparent') return 'transparent';
@@ -34,6 +35,32 @@ const LeadFormPopup = ({
     const [viewerIp, setViewerIp] = useState('');
     const [productDropdownOpen, setProductDropdownOpen] = useState({});
     const [productSearchTerm, setProductSearchTerm] = useState({});
+    const hasRecordedView = useRef(false);
+
+    // Track lead form view impression on mount
+    useEffect(() => {
+        if (!hasRecordedView.current && (vId || shareId)) {
+            hasRecordedView.current = true;
+            analyticsApi.recordLeadFormEvent({
+                v_id: vId || shareId,
+                shareId: shareId || '',
+                action: 'view',
+                userEmail: userEmail || ''
+            }).catch(() => {});
+        }
+    }, [vId, shareId, userEmail]);
+
+    const handleSkip = () => {
+        if (vId || shareId) {
+            analyticsApi.recordLeadFormEvent({
+                v_id: vId || shareId,
+                shareId: shareId || '',
+                action: 'skip',
+                userEmail: userEmail || ''
+            }).catch(() => {});
+        }
+        if (onClose) onClose();
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -278,7 +305,7 @@ const LeadFormPopup = ({
                                                         type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            onClose();
+                                                            handleSkip();
                                                         }}
                                                         style={{
                                                             color: skipColor,
@@ -1001,7 +1028,7 @@ const LeadFormPopup = ({
                                     type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        onClose();
+                                        handleSkip();
                                     }}
                                     style={{
                                         color: skipColor,

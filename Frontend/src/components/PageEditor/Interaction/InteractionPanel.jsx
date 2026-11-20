@@ -2202,8 +2202,23 @@ const InteractionPanel = ({
     if (!expandedCardId) return;
 
     const handleOutsideClick = (e) => {
-      // Don't close if clicking inside an interaction card
-      if (e.target.closest("[data-interaction-card-id]")) {
+      // Don't close if clicking inside an interaction card, or the selected element's
+      // "No interaction added / Add Interaction" status card (otherwise pressing the button
+      // deselects the element and the click never reaches it)
+      if (e.target.closest("[data-interaction-card-id]") || e.target.closest("[data-interaction-status-card]")) {
+        return;
+      }
+      // Pressing on the selected element itself (e.g. to drag/move it) or on its selection
+      // outline/handles must not deselect it — otherwise the selection box vanishes after the move.
+      const selectedNode = expandedCardId ? document.getElementById(expandedCardId) : null;
+      if (
+        (selectedNode && selectedNode.contains(e.target)) ||
+        e.target.closest(".selection-overlay-layer") ||
+        e.target.closest('[id^="highlight-overlay"]') ||
+        e.target.closest(".resize-handle") ||
+        e.target.closest('[id^="resize-handle-"]') ||
+        e.target.closest('[id^="rotate-handle-"]')
+      ) {
         return;
       }
       // Don't close if clicking inside open modals, popups, or dropdown menus/triggers
@@ -2877,7 +2892,7 @@ const InteractionPanel = ({
         isRealElementSelected &&
         !isAudioElementSelected &&
         !hasInteraction && (
-          <div className="p-[0.65vw] rounded-[0.6vw] border border-[#EC5137]/25 bg-gradient-to-r from-[#EC5137]/[0.06] via-white to-white hover:border-[#EC5137]/45 shadow-2xs flex items-center justify-between gap-[0.8vw] transition-all">
+          <div data-interaction-status-card="true" className="p-[0.65vw] rounded-[0.6vw] border border-[#EC5137]/25 bg-gradient-to-r from-[#EC5137]/[0.06] via-white to-white hover:border-[#EC5137]/45 shadow-2xs flex items-center justify-between gap-[0.8vw] transition-all">
             <div className="flex items-center gap-[0.65vw] min-w-0 flex-1">
               <div className="w-[2.2vw] h-[2.2vw] rounded-[0.45vw] flex items-center justify-center flex-shrink-0 bg-[#EC5137]/10 text-[#EC5137] border border-[#EC5137]/15">
                 <Icon

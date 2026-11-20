@@ -400,9 +400,8 @@ export const svgGlobalStyles = `
     -webkit-tap-highlight-color: transparent !important;
   }
 
-  /* Hide selection outlines, polygons, corner dots, sides, and rotate handles while moving elements */
-  body.dragging-active .selection-overlay-layer [id^="overlay-poly-"],
-  body.dragging-active .selection-overlay-layer [id^="overlay-path-"],
+  /* While moving elements: keep the selection outline visible (it follows the element),
+     hide only the corner/side resize dots and rotate controls */
   body.dragging-active .resize-handle,
   body.dragging-active .rotate-handle,
   body.dragging-active .rotate-hotspot,
