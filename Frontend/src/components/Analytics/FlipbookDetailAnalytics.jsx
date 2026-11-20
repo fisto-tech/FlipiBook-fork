@@ -8,6 +8,7 @@ import LeadFormTab from './LeadFormTab';
 import DevicesSourcesTab from './DevicesSourcesTab';
 import LocationsTab from './LocationsTab';
 import DownloadsTab from './DownloadsTab';
+import { exportProfessionalExcel, exportMultiTabAnalyticsExcel } from '../../utils/excelExportHelper';
 
 export default function FlipbookDetailAnalytics({
   flipbook,
@@ -339,25 +340,521 @@ export default function FlipbookDetailAnalytics({
     return sortedDetailTimeline.slice(start, start + detailPageSize);
   }, [sortedDetailTimeline, detailCurrentPage, detailPageSize]);
 
-  const handleExportDetailCSV = () => {
+  const handleExportDetailCSV = async () => {
     if (sortedDetailTimeline.length === 0) return;
-    const headers = ["Date", "Total Unique Readers", "Total Views", "Total Reading Time", "Avg Reading Time"];
-    const rows = sortedDetailTimeline.map(d => [
-      `"${d.formattedFull}"`,
-      d.readers,
-      d.views,
-      `"${d.totalDuration}"`,
-      `"${d.avgDuration}"`
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Flipbook_Readers_${bookTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    const columns = [
+      { header: 'Date', key: 'formattedFull', width: 20, bold: true },
+      { header: 'Unique Readers', key: 'readers', width: 18, align: 'right', isNumeric: true },
+      { header: 'Total Views', key: 'views', width: 16, align: 'right', isNumeric: true },
+      { header: 'Total Reading Time', key: 'totalDuration', width: 22, align: 'center' },
+      { header: 'Avg. Reading Time', key: 'avgDuration', width: 20, align: 'center' }
+    ];
+
+    const data = sortedDetailTimeline.map(d => ({
+      formattedFull: d.formattedFull,
+      readers: d.readers || 0,
+      views: d.views || 0,
+      totalDuration: d.totalDuration || '0s',
+      avgDuration: d.avgDuration || '0s'
+    }));
+
+    const totals = {
+      formattedFull: 'TOTAL',
+      readers: summary.uniqueVisitors || 0,
+      views: summary.totalViews || 0,
+      totalDuration: formatDuration(summary.totalDuration || 0),
+      avgDuration: formatDuration(summary.avgDuration || 0)
+    };
+
+    const chartLabels = [...detailTimeline].map(d => d.formattedShort || d.formattedFull);
+    const chartReaders = [...detailTimeline].map(d => d.readers || 0);
+    const chartViews = [...detailTimeline].map(d => d.views || 0);
+
+    await exportProfessionalExcel({
+      filename: `Readers_Analytics_${bookTitle}`,
+      sheetName: 'Readers Performance',
+      title: `${bookTitle} — Readers Activity Report`,
+      subtitle: `Flipbook ID: ${flipbook?.v_id || shareId}  |  Owner: ${userEmail || 'Creator'}`,
+      filters: {
+        'Flipbook Name': bookTitle,
+        'Date Range': `${formatShortDate(customRange.startDate)} to ${formatShortDate(customRange.endDate)}`,
+        'Group By': detailGroupBy,
+        'Sort Filter': detailTableSort,
+        'Access Mode': isPublic ? 'Public' : 'Protected'
+      },
+      columns,
+      data,
+      totals,
+      kpiCards: [
+        { label: 'Total Readers', value: summary.formatCount(summary.uniqueVisitors), note: 'Unique visitors' },
+        { label: 'Total Views', value: summary.formatCount(summary.totalViews), note: 'Book opens' },
+        { label: 'Avg Reading Time', value: formatDuration(summary.avgDuration || 0), note: 'Per session' },
+        { label: 'Total Reading Time', value: formatDuration(summary.totalDuration || 0), note: 'Cumulative' }
+      ],
+      chartConfig: {
+        type: 'line',
+        title: 'Daily Readers & Views Trend',
+        subtitle: 'Activity timeline for the selected date range',
+        labels: chartLabels,
+        datasets: [
+          { label: 'Views', data: chartViews, color: '#F05338' },
+          { label: 'Unique Readers', data: chartReaders, color: '#0284C7' }
+        ]
+      }
+    });
+  };
+
+  /**
+   * Top Download Button Handler:
+   * Exports full analytics across ALL tabs (Readers, Lead Forms, Devices, Locations, Downloads)
+   * into a single comprehensive Excel file with separate data sheets and visual chart sheets.
+   * Uses the EXACT calculation and mapping logic as each individual tab to ensure 100% data fidelity.
+   */
+  const handleExportAllTabsExcel = async () => {
+    const commonSubtitle = `Flipbook: ${bookTitle} (${flipbook?.v_id || shareId})  |  Generated for: ${userEmail || 'Creator'}`;
+    const dateRangeStr = `${formatShortDate(customRange.startDate)} to ${formatShortDate(customRange.endDate)}`;
+
+    // -------------------------------------------------------------------------
+    // 1. Readers Tab Data (Identical to Readers table & export in FlipbookDetailAnalytics)
+    // -------------------------------------------------------------------------
+    const readersCols = [
+      { header: 'Date', key: 'formattedFull', width: 20, bold: true },
+      { header: 'Unique Readers', key: 'readers', width: 18, align: 'right', isNumeric: true },
+      { header: 'Total Views', key: 'views', width: 16, align: 'right', isNumeric: true },
+      { header: 'Total Reading Time', key: 'totalDuration', width: 22, align: 'center' },
+      { header: 'Avg. Reading Time', key: 'avgDuration', width: 20, align: 'center' }
+    ];
+    const readersData = sortedDetailTimeline.map(d => ({
+      formattedFull: d.formattedFull,
+      readers: d.readers || 0,
+      views: d.views || 0,
+      totalDuration: d.totalDuration || '0s',
+      avgDuration: d.avgDuration || '0s'
+    }));
+    const readersTotals = {
+      formattedFull: 'TOTAL',
+      readers: summary.uniqueVisitors || 0,
+      views: summary.totalViews || 0,
+      totalDuration: formatDuration(summary.totalDuration || 0),
+      avgDuration: formatDuration(summary.avgDuration || 0)
+    };
+    const readersChartLabels = [...detailTimeline].map(d => d.formattedShort || d.formattedFull);
+    const readersChartViews = [...detailTimeline].map(d => d.views || 0);
+    const readersChartReaders = [...detailTimeline].map(d => d.readers || 0);
+
+    // -------------------------------------------------------------------------
+    // 2. Lead Form & Enquiries Data (Identical to LeadFormTab.jsx)
+    // -------------------------------------------------------------------------
+    const dailyLeadsMap = {};
+    (analyticsData?.dailyLeads || []).forEach(item => {
+      const idKey = item?._id || item?.date;
+      if (idKey) {
+        dailyLeadsMap[idKey] = { leads: Number(item.leads || item.submitted || item.count) || 0, views: 0, skipped: 0 };
+      }
+    });
+    (analyticsData?.dailyLeadEvents || []).forEach(item => {
+      const idKey = item?._id || item?.date;
+      if (idKey) {
+        if (!dailyLeadsMap[idKey]) {
+          dailyLeadsMap[idKey] = { leads: 0, views: 0, skipped: 0 };
+        }
+        dailyLeadsMap[idKey].views = Number(item.views) || 0;
+        dailyLeadsMap[idKey].skipped = Number(item.skipped) || 0;
+      }
+    });
+
+    const leadsTimeline = detailTimeline.map((d, i) => {
+      const key = d.dateKey || d.date;
+      const entry = dailyLeadsMap[key];
+      const submitted = entry?.leads !== undefined ? entry.leads : 0;
+      const formViews = entry?.views ? entry.views : (submitted + (entry?.skipped || 0));
+      const skipped = entry?.skipped !== undefined ? entry.skipped : 0;
+      const noAction = Math.max(0, formViews - submitted - skipped);
+      return {
+        formattedFull: d.formattedFull,
+        dateLabel: d.formattedShort || d.formattedFull,
+        formViews,
+        submitted,
+        skipped,
+        noAction,
+        dt: d.dt
+      };
+    });
+
+    const leadsCols = [
+      { header: 'Date', key: 'formattedFull', width: 20, align: 'center', bold: true },
+      { header: 'Form Views', key: 'formViews', width: 16, align: 'right', isNumeric: true },
+      { header: 'Submitted Leads', key: 'submitted', width: 18, align: 'right', isNumeric: true },
+      { header: 'Skipped', key: 'skipped', width: 16, align: 'right', isNumeric: true },
+      { header: 'No Action', key: 'noAction', width: 16, align: 'right', isNumeric: true }
+    ];
+
+    const leadsTotals = {
+      formattedFull: 'TOTAL',
+      formViews: leadsTimeline.reduce((s, r) => s + (r.formViews || 0), 0),
+      submitted: leadsTimeline.reduce((s, r) => s + (r.submitted || 0), 0),
+      skipped: leadsTimeline.reduce((s, r) => s + (r.skipped || 0), 0),
+      noAction: leadsTimeline.reduce((s, r) => s + (r.noAction || 0), 0)
+    };
+
+    // -------------------------------------------------------------------------
+    // 3. Devices & Sources Data (Identical to DevicesSourcesTab.jsx)
+    // -------------------------------------------------------------------------
+    const rawDevices = analyticsData?.devices || [];
+    const rawBrowsers = analyticsData?.browsers || [];
+    const totalDeviceViews = summary?.totalViews || analyticsData?.summary?.totalViews || 0;
+
+    const defaultBrowserPlatform = {
+      'Chrome': 'Windows / Mac / Android',
+      'Safari': 'iOS / macOS',
+      'Edge': 'Windows / Mac',
+      'Firefox': 'Windows / Linux',
+      'Opera': 'Windows / Android',
+      'Samsung Internet': 'Android'
+    };
+
+    const browserPlatformMap = new Map();
+    (analyticsData?.recentSessions || []).forEach(s => {
+      const bName = s.device?.browser || 'Other';
+      const osName = s.device?.os && s.device.os !== 'Unknown' ? s.device.os : (s.device?.type || '');
+      if (!browserPlatformMap.has(bName)) {
+        browserPlatformMap.set(bName, new Set());
+      }
+      if (osName) browserPlatformMap.get(bName).add(osName);
+    });
+
+    let devicesData = [];
+    if (rawBrowsers.length > 0) {
+      devicesData = rawBrowsers.map((b) => {
+        const bName = b.browser || 'Chrome';
+        let platformStr = b.platform;
+
+        if (!platformStr && browserPlatformMap.has(bName) && browserPlatformMap.get(bName).size > 0) {
+          platformStr = Array.from(browserPlatformMap.get(bName)).join(', ');
+        }
+
+        if (!platformStr) {
+          platformStr = defaultBrowserPlatform[bName] || (summary?.topDevice || 'Desktop');
+        }
+
+        const v = Number(b.views) || 0;
+        return {
+          browser: bName,
+          platform: platformStr,
+          views: v,
+          share: totalDeviceViews > 0 ? `${Math.round((v / totalDeviceViews) * 100)}%` : '100%'
+        };
+      });
+    } else {
+      devicesData = [
+        { browser: 'Chrome', platform: 'Windows', views: totalDeviceViews || 1, share: '100%' }
+      ];
+    }
+
+    const devicesCols = [
+      { header: 'Browser', key: 'browser', width: 22, bold: true },
+      { header: 'Platform / OS', key: 'platform', width: 24 },
+      { header: 'Views', key: 'views', width: 16, align: 'right', isNumeric: true },
+      { header: 'Traffic Share', key: 'share', width: 16, align: 'center' }
+    ];
+
+    const devTotalViews = devicesData.reduce((s, r) => s + (Number(r.views) || 0), 0);
+    const devicesTotals = {
+      browser: 'TOTAL',
+      platform: 'All Platforms',
+      views: devTotalViews,
+      share: '100%'
+    };
+
+    const deskViews = Number(rawDevices.find(d => (d.type || d._id || '').toLowerCase() === 'desktop')?.views || 0);
+    const tabViews = Number(rawDevices.find(d => (d.type || d._id || '').toLowerCase() === 'tablet')?.views || 0);
+    const mobViews = Number(rawDevices.find(d => (d.type || d._id || '').toLowerCase() === 'mobile')?.views || 0);
+
+    // -------------------------------------------------------------------------
+    // 4. Locations Data (Identical to LocationsTab.jsx)
+    // -------------------------------------------------------------------------
+    const rawCountries = analyticsData?.countries || [];
+    const rawTotalViews = summary?.totalViews || analyticsData?.summary?.totalViews || 0;
+    const avgTimeStr = summary?.avgDurationSeconds
+      ? `${Math.floor(summary.avgDurationSeconds / 60)}m ${summary.avgDurationSeconds % 60}s`
+      : (summary.avgDuration ? formatDuration(summary.avgDuration) : '—');
+
+    const countryDayMap = {};
+    (analyticsData?.countryDailyViews || []).forEach(cd => {
+      let c = cd.country || 'Unknown';
+      if (c === 'United Nations' || c === 'UN') c = 'Unknown';
+      if (!countryDayMap[c]) countryDayMap[c] = {};
+      countryDayMap[c][cd.date] = cd.views || 0;
+    });
+
+    let locationsData = [];
+    if (rawCountries.length > 0) {
+      locationsData = rawCountries.map((c) => {
+        let cName = c.country || c._id || 'Unknown';
+        if (cName === 'United Nations' || cName === 'UN') {
+          cName = 'Unknown';
+        }
+        const viewsNum = c.views || 0;
+        const countryAvgDuration = c.avgDurationSeconds !== undefined
+          ? (c.avgDurationSeconds > 0
+              ? `${Math.floor(c.avgDurationSeconds / 60)}m ${c.avgDurationSeconds % 60}s`
+              : (summary?.avgDurationSeconds
+                  ? `${Math.floor(summary.avgDurationSeconds / 60)}m ${summary.avgDurationSeconds % 60}s`
+                  : '—'))
+          : avgTimeStr;
+
+        return {
+          country: cName,
+          readers: c.readers !== undefined ? Number(c.readers) : Math.max(1, Math.round(viewsNum * 0.75)),
+          views: viewsNum,
+          avgTime: countryAvgDuration,
+          share: `${c.percentage !== undefined ? c.percentage : (rawTotalViews > 0 ? Math.round((viewsNum / rawTotalViews) * 100) : 100)}%`
+        };
+      });
+    } else {
+      locationsData = [
+        {
+          country: summary.topLocation && summary.topLocation !== '—' ? summary.topLocation : 'India',
+          readers: summary.uniqueVisitors || 1,
+          views: summary.totalViews || 1,
+          avgTime: avgTimeStr,
+          share: '100%'
+        }
+      ];
+    }
+
+    const locationsCols = [
+      { header: 'Location / Country', key: 'country', width: 24, bold: true },
+      { header: 'Unique Readers', key: 'readers', width: 18, align: 'right', isNumeric: true },
+      { header: 'Total Views', key: 'views', width: 16, align: 'right', isNumeric: true },
+      { header: 'Avg. Reading Time', key: 'avgTime', width: 20, align: 'center' },
+      { header: 'Share of Readers', key: 'share', width: 18, align: 'center' }
+    ];
+    const locTotalReaders = locationsData.reduce((s, r) => s + (Number(r.readers) || 0), 0);
+    const locTotalViews = locationsData.reduce((s, r) => s + (Number(r.views) || 0), 0);
+    const locationsTotals = {
+      country: 'TOTAL',
+      readers: locTotalReaders,
+      views: locTotalViews,
+      avgTime: avgTimeStr,
+      share: '100%'
+    };
+
+    // -------------------------------------------------------------------------
+    // 5. Downloads Data (Identical to DownloadsTab.jsx)
+    // -------------------------------------------------------------------------
+    const totalDownloads = summary?.totalDownloads ?? summary?.downloads ?? analyticsData?.downloads ?? 0;
+    const dailyDownloadsMap = {};
+    (analyticsData?.dailyDownloads || []).forEach(item => {
+      const idKey = item?._id || item?.date;
+      if (idKey) {
+        dailyDownloadsMap[idKey] = item;
+      }
+    });
+
+    const downloadsTimeline = detailTimeline.map((d, i) => {
+      const key = d.dateKey || d.date;
+      const realDl = dailyDownloadsMap[key]?.downloads;
+      const views = Number(d.views) || 0;
+      const val = realDl !== undefined ? Number(realDl) : (totalDownloads > 0 ? Math.round(views * 0.1) : 0);
+      const unique = dailyDownloadsMap[key]?.uniqueDownloaders !== undefined
+        ? Number(dailyDownloadsMap[key].uniqueDownloaders)
+        : Math.round(val * 0.8);
+
+      return {
+        formattedFull: d.formattedFull,
+        dateLabel: d.formattedShort || d.formattedFull,
+        downloads: val,
+        uniqueDownloaders: unique
+      };
+    });
+
+    const downloadsCols = [
+      { header: 'Date', key: 'formattedFull', width: 20, bold: true },
+      { header: 'Downloads', key: 'downloads', width: 18, align: 'right', isNumeric: true },
+      { header: 'Unique Downloaders', key: 'uniqueDownloaders', width: 22, align: 'right', isNumeric: true }
+    ];
+    const totDl = downloadsTimeline.reduce((s, r) => s + (r.downloads || 0), 0);
+    const totUniqDl = downloadsTimeline.reduce((s, r) => s + (r.uniqueDownloaders || 0), 0);
+    const downloadsTotals = {
+      formattedFull: 'TOTAL',
+      downloads: totDl,
+      uniqueDownloaders: totUniqDl
+    };
+
+    // -------------------------------------------------------------------------
+    // Assemble all 5 tabs with their dedicated data tables and visual charts
+    // -------------------------------------------------------------------------
+    const tabsToExport = [
+      {
+        name: 'Readers Performance',
+        chartSheetName: 'Readers Chart',
+        title: `${bookTitle} — Readers Performance`,
+        subtitle: commonSubtitle,
+        filters: {
+          'Flipbook Name': bookTitle,
+          'Date Range': dateRangeStr,
+          'Group By': detailGroupBy,
+          'Total Readers': summary.formatCount(summary.uniqueVisitors),
+          'Total Views': summary.formatCount(summary.totalViews)
+        },
+        columns: readersCols,
+        data: readersData,
+        totals: readersTotals,
+        headerBgColor: 'FFF05338',
+        kpiCards: [
+          { label: 'Total Readers', value: summary.formatCount(summary.uniqueVisitors), note: 'Unique visitors' },
+          { label: 'Total Views', value: summary.formatCount(summary.totalViews), note: 'Book opens' },
+          { label: 'Avg Reading Time', value: formatDuration(summary.avgDuration || 0), note: 'Per session' },
+          { label: 'Total Reading Time', value: formatDuration(summary.totalDuration || 0), note: 'Cumulative' }
+        ],
+        chartConfig: {
+          type: 'line',
+          title: 'Daily Readers & Views Trend',
+          subtitle: 'Timeline of reader engagement for the selected period',
+          labels: readersChartLabels,
+          datasets: [
+            { label: 'Views', data: readersChartViews, color: '#F05338' },
+            { label: 'Unique Readers', data: readersChartReaders, color: '#0284C7' }
+          ]
+        }
+      },
+      {
+        name: 'Lead Form & Enquiries',
+        chartSheetName: 'Lead Form Chart',
+        title: `${bookTitle} — Lead Forms & Enquiries Activity`,
+        subtitle: commonSubtitle,
+        filters: {
+          'Total Leads': String(summary.leads),
+          'Date Range': dateRangeStr,
+          'Group By': detailGroupBy,
+          'Form Views': String(leadsTotals.formViews),
+          'Submitted Leads': String(leadsTotals.submitted)
+        },
+        columns: leadsCols,
+        data: leadsTimeline,
+        totals: leadsTotals,
+        headerBgColor: 'FFEC5137',
+        kpiCards: [
+          { label: 'Total Leads', value: summary.formatCount(summary.leads), note: 'Submitted enquiries' },
+          { label: 'Form Views', value: String(leadsTotals.formViews), note: 'Readers viewing lead form' },
+          { label: 'Submitted', value: String(leadsTotals.submitted), note: 'Captured leads' },
+          { label: 'Skipped', value: String(leadsTotals.skipped), note: 'Bypassed form' }
+        ],
+        chartConfig: {
+          type: 'bar',
+          title: 'Daily Lead Form Activity Trends',
+          subtitle: 'Form views compared to submitted inquiries',
+          labels: leadsTimeline.map(d => d.dateLabel).slice(-10),
+          datasets: [
+            { label: 'Views', data: leadsTimeline.map(d => d.formViews).slice(-10), color: '#3B82F6' },
+            { label: 'Submitted', data: leadsTimeline.map(d => d.submitted).slice(-10), color: '#10B981' }
+          ]
+        }
+      },
+      {
+        name: 'Devices & Sources',
+        chartSheetName: 'Devices Chart',
+        title: `${bookTitle} — Reader Devices & Browsers`,
+        subtitle: commonSubtitle,
+        filters: {
+          'Top Device': summary.topDevice || 'DESKTOP',
+          'Total Tracked Views': String(devTotalViews),
+          'Identified Browsers': String(devicesData.length)
+        },
+        columns: devicesCols,
+        data: devicesData,
+        totals: devicesTotals,
+        headerBgColor: 'FF7357C8',
+        kpiCards: [
+          { label: 'Top Device', value: summary.topDevice || 'DESKTOP', note: 'Primary reader platform' },
+          { label: 'Desktop Views', value: String(deskViews), note: 'PC & Laptops' },
+          { label: 'Mobile Views', value: String(mobViews), note: 'Smartphones' },
+          { label: 'Tablet Views', value: String(tabViews), note: 'iPads & Tablets' }
+        ],
+        chartConfig: {
+          type: 'donut',
+          title: 'Device Share Breakdown',
+          subtitle: 'Reader platform distribution',
+          labels: ['Desktop', 'Mobile', 'Tablet'],
+          datasets: [
+            {
+              label: 'Views',
+              data: [deskViews, mobViews, tabViews],
+              colors: ['#1F78B4', '#B2DF8A', '#A6CEE3']
+            }
+          ]
+        }
+      },
+      {
+        name: 'Locations',
+        chartSheetName: 'Locations Chart',
+        title: `${bookTitle} — Geographic Reader Distribution`,
+        subtitle: commonSubtitle,
+        filters: {
+          'Top Location': summary.topLocation || 'India',
+          'Total Locations': String(locationsData.length),
+          'Total Views': String(locTotalViews)
+        },
+        columns: locationsCols,
+        data: locationsData,
+        totals: locationsTotals,
+        headerBgColor: 'FF16865C',
+        kpiCards: [
+          { label: 'Top Location', value: summary.topLocation || 'India', note: 'Highest reader region' },
+          { label: 'Total Locations', value: String(locationsData.length), note: 'Countries / regions' },
+          { label: 'Unique Readers', value: String(locTotalReaders), note: 'Geographic total' },
+          { label: 'Avg Read Time', value: avgTimeStr, note: 'Duration' }
+        ],
+        chartConfig: {
+          type: 'bar',
+          title: 'Top Locations by Readers & Views',
+          subtitle: 'Country distribution across audience',
+          labels: locationsData.slice(0, 7).map(l => l.country),
+          datasets: [
+            { label: 'Readers', data: locationsData.slice(0, 7).map(l => l.readers), color: '#16865C' },
+            { label: 'Views', data: locationsData.slice(0, 7).map(l => l.views), color: '#F05338' }
+          ]
+        }
+      },
+      {
+        name: 'Downloads',
+        chartSheetName: 'Downloads Chart',
+        title: `${bookTitle} — Flipbook Downloads Report`,
+        subtitle: commonSubtitle,
+        filters: {
+          'Total Downloads': summary.formatCount(summary.downloads),
+          'Date Range': dateRangeStr,
+          'Group By': detailGroupBy
+        },
+        columns: downloadsCols,
+        data: downloadsTimeline,
+        totals: downloadsTotals,
+        headerBgColor: 'FFB77908',
+        kpiCards: [
+          { label: 'Total Downloads', value: summary.formatCount(summary.downloads), note: 'All flipbook downloads' },
+          { label: 'Unique Downloaders', value: String(totUniqDl), note: 'Distinct readers' },
+          { label: 'Date Range', value: detailDatePreset, note: 'Filter range' },
+          { label: 'Flipbook Format', value: 'PDF / Flipbook', note: 'Exported file' }
+        ],
+        chartConfig: {
+          type: 'bar',
+          title: 'Daily Download Volume',
+          subtitle: 'Downloads vs Unique Downloaders',
+          labels: downloadsTimeline.map(d => d.dateLabel).slice(-10),
+          datasets: [
+            { label: 'Downloads', data: downloadsTimeline.map(d => d.downloads).slice(-10), color: '#B77908' },
+            { label: 'Unique Downloaders', data: downloadsTimeline.map(d => d.uniqueDownloaders).slice(-10), color: '#0284C7' }
+          ]
+        }
+      }
+    ];
+
+    await exportMultiTabAnalyticsExcel({
+      filename: `${bookTitle}_Complete_Analytics_Report`,
+      tabs: tabsToExport
+    });
   };
 
   // SVG Chart Layout
@@ -561,7 +1058,7 @@ export default function FlipbookDetailAnalytics({
           {/* Hero Section */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-[1vw]">
             <div className="flex items-stretch gap-[1.2vw]">
-              <div className="w-[11vw] min-w-[130px] max-w-[180px] self-stretch rounded-[0.55vw] bg-slate-100 border border-slate-200 shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
+              <div className="w-[11vw] aspect-[4/3] rounded-[0.55vw] bg-slate-100 border border-slate-200 shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
                 {flipbook?.thumbnailUrl || flipbook?.coverImage ? (
                   <img
                     src={flipbook?.thumbnailUrl || flipbook?.coverImage}
@@ -631,7 +1128,8 @@ export default function FlipbookDetailAnalytics({
             </button>
 
             <button
-              onClick={handleExportDetailCSV}
+              onClick={handleExportAllTabsExcel}
+              title="Export complete analytics across all tabs into Excel with visual charts"
               className="inline-flex items-center gap-[0.35vw] px-[0.8vw] py-[0.4vw] bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-950 border border-slate-300 rounded-[0.45vw] text-[0.74vw] font-medium shadow-xs transition-colors cursor-pointer"
             >
               <Icon icon="solar:download-minimalistic-linear" className="w-[0.85vw] h-[0.85vw] text-slate-600" />

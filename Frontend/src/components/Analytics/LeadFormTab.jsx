@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { formatFullDate, getPaginationPages, buildDynamicTimeline, getSampledXLabels } from './analyticsUtils';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
+import { exportProfessionalExcel } from '../../utils/excelExportHelper';
 
 export default function LeadFormTab({ timeline = [], summary = {}, analyticsData = {}, loading = false }) {
   const navigate = useNavigate();
@@ -80,39 +81,51 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
     }
   };
 
-  // Map backend dailyLeads if present
+  // Map backend dailyLeads and dailyLeadEvents if present
   const dailyLeadsMap = useMemo(() => {
     const map = {};
     const dList = analyticsData?.dailyLeads || [];
     dList.forEach(item => {
       if (item && item._id) {
-        map[item._id] = item.leads || 0;
+        map[item._id] = { leads: Number(item.leads) || 0, views: 0, skipped: 0 };
       }
     });
+
+    const eList = analyticsData?.dailyLeadEvents || [];
+    eList.forEach(item => {
+      if (item && item._id) {
+        if (!map[item._id]) {
+          map[item._id] = { leads: 0, views: 0, skipped: 0 };
+        }
+        map[item._id].views = Number(item.views) || 0;
+        map[item._id].skipped = Number(item.skipped) || 0;
+      }
+    });
+
     return map;
-  }, [analyticsData?.dailyLeads]);
+  }, [analyticsData?.dailyLeads, analyticsData?.dailyLeadEvents]);
 
   const totalLeadsCount = summary?.totalLeads || analyticsData?.summary?.totalLeads || 0;
 
-  // Real backend leads or proportional to real views
+  // Real backend leads matching actual submissions and form interactions
   const leadData = useMemo(() => {
     return activeTimeline.map((d, i) => {
       const key = d.dateKey || d.date;
-      const views = Number(d.views) || 0;
-      const realLeads = dailyLeadsMap[key];
-      const submitted = realLeads !== undefined ? realLeads : (totalLeadsCount > 0 ? Math.round(views * 0.4) : (views > 0 ? 1 : 0));
-      const skipped = Math.round(views * 0.35);
-      const noAction = Math.max(0, views - submitted - skipped);
+      const entry = dailyLeadsMap[key];
+      const submitted = entry?.leads !== undefined ? entry.leads : 0;
+      const formViews = entry?.views ? entry.views : (submitted + (entry?.skipped || 0));
+      const skipped = entry?.skipped !== undefined ? entry.skipped : 0;
+      const noAction = Math.max(0, formViews - submitted - skipped);
       return {
         ...d,
-        formViews: views,
+        formViews,
         submitted,
         skipped,
         noAction,
         idx: i
       };
     });
-  }, [activeTimeline, dailyLeadsMap, totalLeadsCount]);
+  }, [activeTimeline, dailyLeadsMap]);
 
   // Chart computations matching Readers Trend exact proportions
   const dChartW = 860;
@@ -214,25 +227,81 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
     };
   }, [leadData]);
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     if (sortedLeadData.length === 0) return;
-    const headers = ["Date", "Views", "Submitted", "Skipped", "No Action"];
-    const rows = sortedLeadData.map(d => [
-      `"${d.formattedFull}"`,
-      d.formViews,
-      d.submitted,
-      d.skipped,
-      d.noAction
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Lead_Form_Analytics_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const columns = [
+      { header: 'Date', key: 'formattedFull', width: 22, align: 'center' },
+      { header: 'Form Views', key: 'formViews', width: 18, align: 'right' },
+      { header: 'Submitted Leads', key: 'submitted', width: 20, align: 'right' },
+      { header: 'Skipped', key: 'skipped', width: 16, align: 'right' },
+      { header: 'No Action', key: 'noAction', width: 16, align: 'right' }
+    ];
+
+    const data = sortedLeadData.map(d => ({
+      formattedFull: d.formattedFull,
+      formViews: Number(d.formViews) || 0,
+      submitted: Number(d.submitted) || 0,
+      skipped: Number(d.skipped) || 0,
+      noAction: Number(d.noAction) || 0
+    }));
+
+    const dateStr = datePreset === 'Custom' && customRange.startDate && customRange.endDate
+      ? `${new Date(customRange.startDate).toLocaleDateString()} to ${new Date(customRange.endDate).toLocaleDateString()}`
+      : datePreset;
+
+    const metadata = [
+      { label: 'Date Range', value: dateStr },
+      { label: 'Group By', value: groupBy },
+      { label: 'Sort Order', value: tableSort },
+      { label: 'Total Form Views', value: totalSummary.totalViews },
+      { label: 'Total Submitted', value: totalSummary.totalSubmitted },
+      { label: 'Total Skipped', value: totalSummary.totalSkipped },
+      { label: 'Total No Action', value: totalSummary.totalNoAction },
+      { label: 'Export Date', value: new Date().toLocaleString() }
+    ];
+
+    const chartConfig = {
+      title: 'Lead Form Activity Trends',
+      type: 'bar',
+      labels: sortedLeadData.map(d => d.dateLabel || d.formattedFull).slice(-10),
+      datasets: [
+        {
+          label: 'Views',
+          data: sortedLeadData.map(d => Number(d.formViews) || 0).slice(-10),
+          color: '#3B82F6'
+        },
+        {
+          label: 'Submitted',
+          data: sortedLeadData.map(d => Number(d.submitted) || 0).slice(-10),
+          color: '#10B981'
+        },
+        {
+          label: 'Skipped',
+          data: sortedLeadData.map(d => Number(d.skipped) || 0).slice(-10),
+          color: '#F59E0B'
+        }
+      ]
+    };
+
+    const summaryCards = [
+      { title: 'Form Views', value: totalSummary.totalViews, color: '3B82F6' },
+      { title: 'Submissions', value: totalSummary.totalSubmitted, color: '10B981' },
+      { title: 'Skipped', value: totalSummary.totalSkipped, color: 'F59E0B' },
+      { title: 'No Action', value: totalSummary.totalNoAction, color: '64748B' }
+    ];
+
+    await exportProfessionalExcel({
+      filename: `Lead_Form_Analytics_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      sheetTitle: 'Lead Form Activity',
+      reportName: 'Lead Form & Enquiries Analytics Report',
+      columns,
+      data,
+      metadata,
+      summaryCards,
+      chartConfig,
+      totalRowLabelCol: 'formattedFull',
+      sumCols: ['formViews', 'submitted', 'skipped', 'noAction']
+    });
   };
 
   return (
