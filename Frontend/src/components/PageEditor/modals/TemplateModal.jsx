@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, Upload, AlertCircle, ArrowLeft, Check, ChevronDown, ArrowRight } from 'lucide-react';
+import { Search, X, Upload, AlertCircle, ArrowLeft, Check, ChevronDown, ArrowRight, FileText, FilePlus } from 'lucide-react';
 import axios from 'axios';
 import { getBookPageUrl } from '../utils/templateAssets';
 
@@ -59,13 +59,17 @@ const DEFAULT_BACKEND_BOOKS = [
   }
 ];
 
-const PAPER_SIZES = [
-  { id: 'a4_portrait', label: 'A4 (Portrait)', width: 210, height: 297 },
-  { id: 'a4_landscape', label: 'A4 (Landscape)', width: 297, height: 210 },
-  { id: 'a3_landscape', label: 'A3 (297 × 420 mm)', width: 420, height: 297 },
-  { id: 'square', label: 'Square (210 × 210 mm)', width: 210, height: 210 },
-  { id: 'letter', label: 'Letter (216 × 279 mm)', width: 216, height: 279 }
+const PREVIEW_PAPER_SIZES = [
+  { id: 'corporate', label: 'A4 (210 × 297 mm)', width: 210, height: 297 },
+  { id: 'large_catalogue', label: 'A3 (297 × 420 mm)', width: 297, height: 420 },
+  { id: 'mini', label: 'A5 (148 × 210 mm)', width: 148, height: 210 },
+  { id: 'letter', label: 'Letter (216 × 279 mm)', width: 216, height: 279 },
+  { id: 'legal', label: 'Legal (216 × 356 mm)', width: 216, height: 356 },
+  { id: 'dl', label: 'DL Flyer (99 × 210 mm)', width: 99, height: 210 },
+  { id: 'square', label: 'Square (210 × 210 mm)', width: 210, height: 210 }
 ];
+
+const PAPER_SIZES = PREVIEW_PAPER_SIZES;
 
 const TemplateModal = ({
   showTemplateModal,
@@ -143,17 +147,34 @@ const TemplateModal = ({
   // Page Selection View State (Step 2)
   const [selectedPageIndices, setSelectedPageIndices] = useState(new Set());
   const [activePreviewPageIndex, setActivePreviewPageIndex] = useState(0);
-  const [placement, setPlacement] = useState('start_at');
-  const [targetPageIndex, setTargetPageIndex] = useState(() =>
-    templateTargetIndex !== null ? templateTargetIndex : activePageIndex
-  );
-  const [paperSize, setPaperSize] = useState(existingPaperSizeLabel);
+  
+  // Dropdown refs
+  const placementDropdownRef = useRef(null);
+  const targetPageDropdownRef = useRef(null);
+
+  // Paper Size & Orientation (Labels) and Placement & Target Page (Dropdowns)
+  const [selectedPaperSize, setSelectedPaperSize] = useState('A4 (210 × 297 mm)');
+  const [selectedOrientation, setSelectedOrientation] = useState('Portrait');
+  const [placement, setPlacement] = useState('replace');
+  const [targetPageIndex, setTargetPageIndex] = useState(() => {
+    const editorCount = Math.max(pages?.length || 0, 1);
+    const activeIdx = templateTargetIndex !== null ? templateTargetIndex : (activePageIndex >= 0 ? activePageIndex : 0);
+    return Math.min(Math.max(activeIdx, 0), editorCount - 1);
+  });
+
+  const [isPlacementOpen, setIsPlacementOpen] = useState(false);
+  const [isTargetPageOpen, setIsTargetPageOpen] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
-  // Sync paperSize with existingPaperSizeLabel
+  // Close dropdowns on outside click
   useEffect(() => {
-    setPaperSize(existingPaperSizeLabel);
-  }, [existingPaperSizeLabel]);
+    const handleClickOutside = (e) => {
+      if (placementDropdownRef.current && !placementDropdownRef.current.contains(e.target)) setIsPlacementOpen(false);
+      if (targetPageDropdownRef.current && !targetPageDropdownRef.current.contains(e.target)) setIsTargetPageOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch dynamic books from backend
   useEffect(() => {
@@ -192,21 +213,28 @@ const TemplateModal = ({
     };
   }, [backendUrl]);
 
-  // Keep targetPageIndex in sync when opened from a specific page
+  // Keep targetPageIndex in sync with editor's current page count and active page
   useEffect(() => {
-    const activeIdx = templateTargetIndex !== null ? templateTargetIndex : activePageIndex;
-    setTargetPageIndex(activeIdx >= 0 ? activeIdx : 0);
-  }, [templateTargetIndex, activePageIndex]);
+    const editorCount = Math.max(pages?.length || 0, 1);
+    const activeIdx = templateTargetIndex !== null ? templateTargetIndex : (activePageIndex >= 0 ? activePageIndex : 0);
+    setTargetPageIndex(Math.min(Math.max(activeIdx, 0), editorCount - 1));
+  }, [templateTargetIndex, activePageIndex, pages?.length]);
 
-  // When selectedTemplate changes, initialize page selection state
+  // When selectedTemplate changes, initialize page selection state & sync target page with editor
   useEffect(() => {
     if (selectedTemplate) {
       const pCount = selectedTemplate.pages?.length || selectedTemplate.pagesCount || 1;
       // Default: all pages selected
       setSelectedPageIndices(new Set(Array.from({ length: pCount }, (_, i) => i)));
       setActivePreviewPageIndex(0);
+      setPlacement('replace');
+
+      // Fetch editor's current page index on template selection
+      const editorCount = Math.max(pages?.length || 0, 1);
+      const activeIdx = templateTargetIndex !== null ? templateTargetIndex : (activePageIndex >= 0 ? activePageIndex : 0);
+      setTargetPageIndex(Math.min(Math.max(activeIdx, 0), editorCount - 1));
     }
-  }, [selectedTemplate]);
+  }, [selectedTemplate, pages?.length, templateTargetIndex, activePageIndex]);
 
   // All combined templates
   const allTemplates = useMemo(() => {
@@ -331,10 +359,9 @@ const TemplateModal = ({
     }));
   }, [selectedTemplate]);
 
-  // Toggle single page selection
+  // Toggle single page selection (only toggles selection, does not change preview)
   const togglePageSelection = (idx, e) => {
     if (e) e.stopPropagation();
-    setActivePreviewPageIndex(idx);
     setSelectedPageIndices(prev => {
       const next = new Set(prev);
       if (next.has(idx)) {
@@ -344,6 +371,11 @@ const TemplateModal = ({
       }
       return next;
     });
+  };
+
+  // Preview page when card is clicked
+  const handlePreviewPage = (idx) => {
+    setActivePreviewPageIndex(idx);
   };
 
   // Toggle select all
@@ -369,7 +401,8 @@ const TemplateModal = ({
           selectedPages: chosenPages,
           placement,
           targetIndex: parseInt(targetPageIndex, 10),
-          paperSize
+          paperSize: selectedPaperSize,
+          orientation: selectedOrientation
         });
       } else if (typeof loadTemplate === 'function') {
         // Fallback for direct load
@@ -466,11 +499,10 @@ const TemplateModal = ({
                     className="flex items-center gap-[0.4vw] text-[0.75vw] font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
                   >
                     <div
-                      className={`w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center transition-all ${
-                        selectedPageIndices.size === currentTemplatePages.length && currentTemplatePages.length > 0
-                          ? 'bg-[#ea543a] text-white'
-                          : 'border-2 border-[#ea543a] bg-white'
-                      }`}
+                      className={`w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center transition-all ${selectedPageIndices.size === currentTemplatePages.length && currentTemplatePages.length > 0
+                        ? 'bg-[#ea543a] text-white'
+                        : 'border-2 border-[#ea543a] bg-white'
+                        }`}
                     >
                       {selectedPageIndices.size === currentTemplatePages.length && currentTemplatePages.length > 0 && (
                         <Check size="0.75vw" strokeWidth={3} />
@@ -490,14 +522,13 @@ const TemplateModal = ({
                       return (
                         <div
                           key={idx}
-                          onClick={() => togglePageSelection(idx)}
-                          className={`group aspect-[1/1.3] bg-white rounded-[0.5vw] border overflow-hidden relative cursor-pointer transition-all duration-200 flex flex-col items-center justify-center p-[0.3vw] shadow-sm hover:shadow-md ${
-                            isPreviewed
-                              ? 'border-[#ea543a] ring-2 ring-[#ea543a]/30'
-                              : isSelected
+                          onClick={() => handlePreviewPage(idx)}
+                          className={`group aspect-[1/1.3] bg-white rounded-[0.5vw] border overflow-hidden relative cursor-pointer transition-all duration-200 flex flex-col items-center justify-center p-[0.3vw] shadow-sm hover:shadow-md ${isPreviewed
+                            ? 'border-[#ea543a] ring-2 ring-[#ea543a]/30'
+                            : isSelected
                               ? 'border-[#ea543a]'
                               : 'border-gray-200 hover:border-gray-300'
-                          }`}
+                            }`}
                         >
                           {/* Circular Selection Checkbox (Top-Left) */}
                           <button
@@ -505,11 +536,10 @@ const TemplateModal = ({
                             className="absolute top-[0.4vw] left-[0.4vw] z-20 cursor-pointer"
                           >
                             <div
-                              className={`w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center transition-colors shadow-sm ${
-                                isSelected
-                                  ? 'bg-[#ea543a] text-white'
-                                  : 'border-2 border-[#ea543a] bg-white hover:bg-orange-50'
-                              }`}
+                              className={`w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center transition-colors shadow-sm ${isSelected
+                                ? 'bg-[#ea543a] text-white'
+                                : 'border-2 border-[#ea543a] bg-white hover:bg-orange-50'
+                                }`}
                             >
                               {isSelected && <Check size="0.75vw" strokeWidth={3} />}
                             </div>
@@ -538,13 +568,18 @@ const TemplateModal = ({
 
               {/* Right Column: Preview, Settings & Add Action */}
               <div className="w-[42%] flex flex-col justify-between h-full overflow-y-auto custom-scrollbar pl-[0.5vw]">
-                {/* Large Preview Box */}
-                <div className="w-full bg-[#f8fafc] border border-gray-100 rounded-[0.9vw] p-[1.2vw] flex items-center justify-center max-h-[38vh] min-h-[30vh] overflow-hidden flex-shrink-0 relative">
+                {/* Header Row: Selected Page Preview */}
+                <div className="flex items-center justify-between mb-[0.8vw] flex-shrink-0">
+                  <h3 className="text-[0.9vw] font-bold text-gray-800">Selected Page Preview</h3>
+                </div>
+
+                {/* Large Preview Box - Extended Height */}
+                <div className="w-full flex-1 bg-[#f8fafc] border border-gray-100 rounded-[0.9vw] p-[1.2vw] flex items-center justify-center min-h-[42vh] max-h-[55vh] overflow-hidden relative mb-[0.6vw]">
                   {currentTemplatePages[activePreviewPageIndex] ? (
                     <img
                       src={currentTemplatePages[activePreviewPageIndex].url}
                       alt={`Page ${activePreviewPageIndex + 1} Preview`}
-                      className="max-h-[34vh] max-w-full object-contain rounded-[0.4vw] shadow-lg border border-gray-200 bg-white"
+                      className="h-full w-auto max-h-[50vh] max-w-full object-contain rounded-[0.4vw] shadow-lg border border-gray-200 bg-white transition-all"
                     />
                   ) : (
                     <div className="text-gray-400 text-[0.8vw]">No page selected</div>
@@ -556,51 +591,147 @@ const TemplateModal = ({
                   </div>
                 </div>
 
-                {/* Insertion Controls Form */}
-                <div className="flex flex-col gap-[0.9vw] mt-[1vw]">
-                  {/* Selected Pages Counter */}
-                  <div className="text-[0.85vw] font-bold text-gray-800">
-                    Selected Pages :{' '}
-                    <span className="text-[#ea543a]">
+                {/* Bottom Settings & Controls Form matching attached Image 2 */}
+                <div className="flex flex-col gap-[0.6vw] pt-[0.8vw] border-t border-gray-100 flex-shrink-0">
+                  {/* Row 1: Document Page Count */}
+                  <div className="flex items-center gap-[0.6vw] text-[0.8vw] text-gray-700 font-medium">
+                    <FileText className="w-[1.1vw] h-[1.1vw] text-gray-500 flex-shrink-0" />
+                    <span>
                       {selectedPageIndices.size} {selectedPageIndices.size === 1 ? 'page' : 'pages'}
                     </span>
                   </div>
 
-                  {/* Paper Size Display (Locked to existing flipbook size & orientation) */}
-                  <div className="flex items-center gap-[0.8vw]">
-                    <label className="text-[0.8vw] font-bold text-gray-800 whitespace-nowrap">Paper Size :</label>
-                    <div className="relative flex-1">
-                      <div
-                        className="w-full bg-gray-50 border border-gray-200 rounded-[0.4vw] px-[0.8vw] py-[0.42vw] text-[0.75vw] text-gray-700 font-medium flex items-center justify-between cursor-not-allowed select-none"
-                        title="Paper size and orientation are locked to the current flipbook"
-                      >
-                        <span className="font-semibold text-gray-800 truncate">{existingPaperSizeLabel}</span>
-                        <span className="text-[0.62vw] text-gray-500 bg-gray-200/70 border border-gray-300 px-[0.4vw] py-[0.1vw] rounded-[0.2vw] font-medium tracking-wide flex-shrink-0 ml-[0.3vw]">
-                          Current Flipbook
-                        </span>
+                  {/* Row 2: Paper Size & Orientation Labels */}
+                  <div className="flex items-center gap-[0.6vw]">
+                    <FileText className="w-[1.1vw] h-[1.1vw] text-gray-500 flex-shrink-0" />
+                    <div className="flex items-center gap-[0.4vw] flex-1 min-w-0">
+                      {/* Paper Size Label */}
+                      <div className="flex-1 min-w-0 flex items-center bg-white border border-gray-200/90 rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium text-[#ea543a] shadow-xs select-none">
+                        <span className="truncate">{selectedPaperSize}</span>
+                      </div>
+
+                      <span className="text-gray-300 text-[0.75vw] select-none">-</span>
+
+                      {/* Orientation Label */}
+                      <div className="flex-1 min-w-0 flex items-center bg-white border border-gray-200/90 rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium text-[#ea543a] shadow-xs select-none">
+                        <span className="truncate">{selectedOrientation}</span>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Footer Buttons Row */}
-                <div className="flex items-center gap-[0.8vw] pt-[1.2vw] mt-auto">
-                  <button
-                    onClick={() => setSelectedTemplate(null)}
-                    className="px-[1.4vw] py-[0.6vw] rounded-[0.5vw] bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-[0.8vw] flex items-center justify-center gap-[0.3vw] transition-colors cursor-pointer"
-                  >
-                    CANCEL <X size="0.9vw" />
-                  </button>
+                  {/* Row 3: Add Pages To Placement & Target Page Grid */}
+                  <div className="flex items-center gap-[0.6vw]">
+                    <FilePlus className="w-[1.1vw] h-[1.1vw] text-gray-500 flex-shrink-0" />
+                    <div className="flex items-center gap-[0.4vw] flex-1 min-w-0">
+                      {/* Placement Selector (e.g. After Current Page) */}
+                      <div ref={placementDropdownRef} className="relative flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPlacementOpen(prev => !prev);
+                            setIsSizeOpen(false);
+                            setIsOrientOpen(false);
+                            setIsTargetPageOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-xs cursor-pointer text-[#ea543a] ${
+                            isPlacementOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20' : 'border-gray-200/90 hover:border-gray-300'
+                          }`}
+                        >
+                          <span className="truncate">
+                            {placement === 'after' ? 'After Current Page' : placement === 'before' ? 'Before Current Page' : placement === 'replace' ? 'Current Page' : 'At The End'}
+                          </span>
+                          <ChevronDown className={`w-[0.8vw] h-[0.8vw] flex-shrink-0 ml-[0.2vw] transition-transform text-gray-600 ${isPlacementOpen ? 'rotate-180' : ''}`} />
+                        </button>
 
+                        {isPlacementOpen && (
+                          <div className="absolute bottom-full left-0 right-0 mb-[0.3vw] bg-white border border-gray-200 rounded-[0.5vw] shadow-xl py-[0.3vw] z-50">
+                            {[
+                              { id: 'replace', label: 'Current Page' },
+                              { id: 'after', label: 'After Current Page' },
+                              { id: 'before', label: 'Before Current Page' },
+                              { id: 'end', label: 'At The End' }
+                            ].map(opt => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => {
+                                  setPlacement(opt.id);
+                                  setIsPlacementOpen(false);
+                                }}
+                                className={`w-full px-[0.7vw] py-[0.35vw] text-left text-[0.75vw] flex items-center justify-between cursor-pointer ${
+                                  placement === opt.id ? 'bg-orange-50 text-[#ea543a] font-semibold' : 'text-gray-700 hover:bg-gray-50'
+                                }`}
+                              >
+                                <span className="truncate">{opt.label}</span>
+                                {placement === opt.id && <Check className="w-[0.7vw] h-[0.7vw] text-[#ea543a]" strokeWidth={2.5} />}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <span className="text-gray-300 text-[0.75vw] select-none">-</span>
+
+                      {/* Target Page Selector (e.g. Page 4) */}
+                      <div ref={targetPageDropdownRef} className="relative flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsTargetPageOpen(prev => !prev);
+                            setIsSizeOpen(false);
+                            setIsOrientOpen(false);
+                            setIsPlacementOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between bg-white border rounded-[0.4vw] pl-[0.7vw] pr-[0.5vw] py-[0.38vw] text-[0.75vw] font-medium transition-all shadow-xs cursor-pointer text-[#ea543a] ${
+                            isTargetPageOpen ? 'border-[#ea543a] ring-1 ring-[#ea543a]/20' : 'border-gray-200/90 hover:border-gray-300'
+                          }`}
+                        >
+                          <span className="truncate">Page {targetPageIndex + 1}</span>
+                          <ChevronDown className={`w-[0.8vw] h-[0.8vw] flex-shrink-0 ml-[0.2vw] transition-transform text-gray-600 ${isTargetPageOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isTargetPageOpen && (
+                          <div className="absolute bottom-full left-0 right-0 mb-[0.3vw] bg-white border border-gray-200 rounded-[0.5vw] shadow-xl py-[0.3vw] z-50 max-h-[10vw] overflow-y-auto custom-scrollbar">
+                            {Array.from({ length: Math.max(pages?.length || 0, 1) }, (_, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => {
+                                  setTargetPageIndex(i);
+                                  setIsTargetPageOpen(false);
+                                }}
+                                className={`w-full px-[0.7vw] py-[0.35vw] text-left text-[0.75vw] flex items-center justify-between cursor-pointer ${
+                                  targetPageIndex === i ? 'bg-orange-50 text-[#ea543a] font-semibold' : 'text-gray-700 hover:bg-gray-50'
+                                }`}
+                              >
+                                <span>Page {i + 1}</span>
+                                {targetPageIndex === i && <Check className="w-[0.7vw] h-[0.7vw] text-[#ea543a]" strokeWidth={2.5} />}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 4: Big CTA Button "USE THIS TEMPLATE ->" */}
                   <button
+                    type="button"
                     onClick={handleConfirmAddPages}
-                    disabled={selectedPageIndices.size === 0 || isApplying}
-                    className={`flex-1 py-[0.6vw] rounded-[0.5vw] bg-[#ea543a] hover:bg-[#d9482f] text-white font-bold text-[0.8vw] flex items-center justify-center gap-[0.4vw] shadow-md transition-all cursor-pointer ${
-                      selectedPageIndices.size === 0 || isApplying ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                    disabled={isApplying || selectedPageIndices.size === 0}
+                    className="w-full mt-[0.3vw] py-[0.75vw] bg-[#ea543a] hover:bg-[#d9482f] active:scale-[0.99] text-white font-semibold text-[0.85vw] rounded-[0.5vw] flex items-center justify-center gap-[0.5vw] shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                   >
-                    <span>ADD TO FLIPBOOK</span>
-                    <ArrowRight size="0.9vw" />
+                    {isApplying ? (
+                      <>
+                        <div className="w-[1vw] h-[1vw] border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Applying ({selectedPageIndices.size} pages)...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>USE THIS TEMPLATE</span>
+                        <ArrowRight className="w-[1vw] h-[1vw]" strokeWidth={2.2} />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -672,11 +803,10 @@ const TemplateModal = ({
                 <button
                   key={cat}
                   onClick={() => setActiveTab(cat)}
-                  className={`px-[1vw] py-[0.35vw] rounded-[0.4vw] text-[0.75vw] font-medium whitespace-nowrap transition-all cursor-pointer ${
-                    activeTab === cat
-                      ? 'bg-[#ea543a] text-white shadow-sm'
-                      : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                  className={`px-[1vw] py-[0.35vw] rounded-[0.4vw] text-[0.75vw] font-medium whitespace-nowrap transition-all cursor-pointer ${activeTab === cat
+                    ? 'bg-[#ea543a] text-white shadow-sm'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
                 >
                   {cat} {cat === 'Uploaded' && `(${uploadedTemplates.length})`}
                 </button>

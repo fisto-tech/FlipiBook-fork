@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { formatFullDate, getPaginationPages, buildDynamicTimeline, getSampledXLabels } from './analyticsUtils';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
+import { exportProfessionalExcel } from '../../utils/excelExportHelper';
 
-export default function LeadFormTab({ timeline = [], summary = {}, analyticsData = {}, loading = false }) {
+export default function LeadFormTab({ flipbook = {}, timeline = [], summary = {}, analyticsData = {}, loading = false }) {
   const navigate = useNavigate();
   const [detailHoverIdx, setDetailHoverIdx] = useState(null);
   const [tableSort, setTableSort] = useState('Date (Newest)');
@@ -80,39 +81,51 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
     }
   };
 
-  // Map backend dailyLeads if present
+  // Map backend dailyLeads and dailyLeadEvents if present
   const dailyLeadsMap = useMemo(() => {
     const map = {};
     const dList = analyticsData?.dailyLeads || [];
     dList.forEach(item => {
       if (item && item._id) {
-        map[item._id] = item.leads || 0;
+        map[item._id] = { leads: Number(item.leads) || 0, views: 0, skipped: 0 };
       }
     });
+
+    const eList = analyticsData?.dailyLeadEvents || [];
+    eList.forEach(item => {
+      if (item && item._id) {
+        if (!map[item._id]) {
+          map[item._id] = { leads: 0, views: 0, skipped: 0 };
+        }
+        map[item._id].views = Number(item.views) || 0;
+        map[item._id].skipped = Number(item.skipped) || 0;
+      }
+    });
+
     return map;
-  }, [analyticsData?.dailyLeads]);
+  }, [analyticsData?.dailyLeads, analyticsData?.dailyLeadEvents]);
 
   const totalLeadsCount = summary?.totalLeads || analyticsData?.summary?.totalLeads || 0;
 
-  // Real backend leads or proportional to real views
+  // Real backend leads matching actual submissions and form interactions
   const leadData = useMemo(() => {
     return activeTimeline.map((d, i) => {
       const key = d.dateKey || d.date;
-      const views = Number(d.views) || 0;
-      const realLeads = dailyLeadsMap[key];
-      const submitted = realLeads !== undefined ? realLeads : (totalLeadsCount > 0 ? Math.round(views * 0.4) : (views > 0 ? 1 : 0));
-      const skipped = Math.round(views * 0.35);
-      const noAction = Math.max(0, views - submitted - skipped);
+      const entry = dailyLeadsMap[key];
+      const submitted = entry?.leads !== undefined ? entry.leads : 0;
+      const formViews = entry?.views ? entry.views : (submitted + (entry?.skipped || 0));
+      const skipped = entry?.skipped !== undefined ? entry.skipped : 0;
+      const noAction = Math.max(0, formViews - submitted - skipped);
       return {
         ...d,
-        formViews: views,
+        formViews,
         submitted,
         skipped,
         noAction,
         idx: i
       };
     });
-  }, [activeTimeline, dailyLeadsMap, totalLeadsCount]);
+  }, [activeTimeline, dailyLeadsMap]);
 
   // Chart computations matching Readers Trend exact proportions
   const dChartW = 860;
@@ -214,25 +227,81 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
     };
   }, [leadData]);
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     if (sortedLeadData.length === 0) return;
-    const headers = ["Date", "Views", "Submitted", "Skipped", "No Action"];
-    const rows = sortedLeadData.map(d => [
-      `"${d.formattedFull}"`,
-      d.formViews,
-      d.submitted,
-      d.skipped,
-      d.noAction
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Lead_Form_Analytics_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const columns = [
+      { header: 'Date', key: 'formattedFull', width: 22, align: 'center' },
+      { header: 'Form Views', key: 'formViews', width: 18, align: 'right' },
+      { header: 'Submitted Leads', key: 'submitted', width: 20, align: 'right' },
+      { header: 'Skipped', key: 'skipped', width: 16, align: 'right' },
+      { header: 'No Action', key: 'noAction', width: 16, align: 'right' }
+    ];
+
+    const data = sortedLeadData.map(d => ({
+      formattedFull: d.formattedFull,
+      formViews: Number(d.formViews) || 0,
+      submitted: Number(d.submitted) || 0,
+      skipped: Number(d.skipped) || 0,
+      noAction: Number(d.noAction) || 0
+    }));
+
+    const dateStr = datePreset === 'Custom' && customRange.startDate && customRange.endDate
+      ? `${new Date(customRange.startDate).toLocaleDateString()} to ${new Date(customRange.endDate).toLocaleDateString()}`
+      : datePreset;
+
+    const metadata = [
+      { label: 'Date Range', value: dateStr },
+      { label: 'Group By', value: groupBy },
+      { label: 'Sort Order', value: tableSort },
+      { label: 'Total Form Views', value: totalSummary.totalViews },
+      { label: 'Total Submitted', value: totalSummary.totalSubmitted },
+      { label: 'Total Skipped', value: totalSummary.totalSkipped },
+      { label: 'Total No Action', value: totalSummary.totalNoAction },
+      { label: 'Export Date', value: new Date().toLocaleString() }
+    ];
+
+    const chartConfig = {
+      title: 'Lead Form Activity Trends',
+      type: 'bar',
+      labels: sortedLeadData.map(d => d.dateLabel || d.formattedFull).slice(-10),
+      datasets: [
+        {
+          label: 'Views',
+          data: sortedLeadData.map(d => Number(d.formViews) || 0).slice(-10),
+          color: '#3B82F6'
+        },
+        {
+          label: 'Submitted',
+          data: sortedLeadData.map(d => Number(d.submitted) || 0).slice(-10),
+          color: '#10B981'
+        },
+        {
+          label: 'Skipped',
+          data: sortedLeadData.map(d => Number(d.skipped) || 0).slice(-10),
+          color: '#F59E0B'
+        }
+      ]
+    };
+
+    const summaryCards = [
+      { title: 'Form Views', value: totalSummary.totalViews, color: '3B82F6' },
+      { title: 'Submissions', value: totalSummary.totalSubmitted, color: '10B981' },
+      { title: 'Skipped', value: totalSummary.totalSkipped, color: 'F59E0B' },
+      { title: 'No Action', value: totalSummary.totalNoAction, color: '64748B' }
+    ];
+
+    await exportProfessionalExcel({
+      filename: `Lead_Form_Analytics_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      sheetTitle: 'Lead Form Activity',
+      reportName: 'Lead Form & Enquiries Analytics Report',
+      columns,
+      data,
+      metadata,
+      summaryCards,
+      chartConfig,
+      totalRowLabelCol: 'formattedFull',
+      sumCols: ['formViews', 'submitted', 'skipped', 'noAction']
+    });
   };
 
   return (
@@ -710,18 +779,18 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
                   <Icon icon="carbon:activity" className="w-[1.2vw] h-[1.2vw]" />
                 </div>
                 <div>
-                  <h3 className="text-[1.05vw] font-semibold text-slate-900 leading-tight">
+                  <h3 className="text-[1.05vw] font-bold text-slate-900 leading-tight">
                     Lead Preview
                   </h3>
-                  <p className="text-[0.7vw] text-slate-500 font-normal mt-[0.1vw]">
-                    {analyticsData?.title || analyticsData?.bookName || 'Industrial Pumps Catalogue'} • {selectedPreviewLeadRow.formattedFull || '18 Oct 2026'}
+                  <p className="text-[0.74vw] text-slate-700 font-normal mt-[0.1vw]">
+                    {flipbook?.flipbookName || flipbook?.title || analyticsData?.title || analyticsData?.bookName || 'Flipbook'} • {selectedPreviewLeadRow.formattedFull}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedPreviewLeadRow(null)}
-                className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer p-[0.3vw]"
+                className="text-slate-500 hover:text-slate-800 transition-colors cursor-pointer p-[0.3vw]"
                 title="Close"
               >
                 <Icon icon="solar:close-linear" className="w-[1.25vw] h-[1.25vw]" />
@@ -729,89 +798,102 @@ export default function LeadFormTab({ timeline = [], summary = {}, analyticsData
             </div>
 
             {/* Subtle Divider below header */}
-            <div className="mx-[1.4vw] border-b border-slate-100" />
+            <div className="mx-[1.4vw] border-b border-slate-200" />
 
             {/* Modal Body */}
             <div className="p-[1.4vw] space-y-[1.2vw]">
               {/* Total Submissions Box */}
-              <div className="p-[1.1vw] bg-white rounded-[0.65vw] border border-slate-200/90 shadow-2xs">
-                <span className="block text-[0.72vw] font-medium text-slate-500">
+              <div className="p-[1.1vw] bg-slate-50/70 rounded-[0.65vw] border border-slate-200 shadow-2xs">
+                <span className="block text-[0.74vw] font-semibold text-slate-700">
                   Total Submissions
                 </span>
                 <div className="flex items-baseline gap-[0.5vw] mt-[0.25vw]">
                   <span className="text-[1.9vw] font-bold text-slate-900 leading-none">
                     {selectedPreviewLeadRow.submitted > 0 ? selectedPreviewLeadRow.submitted : 0}
                   </span>
-                  <span className="text-[0.7vw] text-slate-400 font-normal">
+                  <span className="text-[0.74vw] text-slate-600 font-medium">
                     (for {selectedPreviewLeadRow.formattedFull})
                   </span>
                 </div>
               </div>
 
               {/* Recent Leads Section */}
-              <div>
-                <div className="flex items-center justify-between mb-[0.65vw]">
-                  <h4 className="text-[0.82vw] font-bold text-slate-900">
-                    Recent Leads
-                  </h4>
-                  <span className="text-[0.68vw] text-slate-400 font-normal">
-                    Showing {Math.min(3, (analyticsData?.recentLeads || []).length)} of {selectedPreviewLeadRow.submitted > 0 ? selectedPreviewLeadRow.submitted : (analyticsData?.recentLeads || []).length}
-                  </span>
-                </div>
-
-                <div className="space-y-[0.6vw]">
-                  {Array.isArray(analyticsData?.recentLeads) && analyticsData.recentLeads.length > 0 ? (
-                    analyticsData.recentLeads.slice(0, 3).map((lead, lIdx) => {
-                      const name = lead?.leadData?.['Full Name'] || lead?.leadData?.name || lead?.name || lead?.leadData?.fullName || 'Anonymous';
-                      const email = lead?.leadData?.['Email Address'] || lead?.leadData?.email || lead?.email || lead?.userEmail || '—';
-                      const status = lead?.status || 'New';
-                      const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'L';
-                      const timeStr = lead?.createdAt ? new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-
-                      const statusColors = {
-                        New: 'bg-[#FFF0EB] text-[#EC5137]',
-                        Contacted: 'bg-[#FEF9C3] text-[#B45309]',
-                        Qualified: 'bg-[#E0F2FE] text-[#0284C7]',
-                        Converted: 'bg-[#DCFCE7] text-[#16A34A]',
-                        Lost: 'bg-slate-100 text-slate-500'
-                      };
-
-                      return (
-                        <div key={lead._id || lead.leadId || lIdx} className="flex items-center justify-between p-[0.8vw] px-[1vw] rounded-[0.65vw] border border-slate-200/80 bg-white hover:border-slate-300 transition-colors">
-                          <div className="flex items-center gap-[0.75vw]">
-                            <div className="w-[2.2vw] h-[2.2vw] rounded-full bg-[#FCE7F3] text-[#BE185D] font-bold text-[0.72vw] flex items-center justify-center shrink-0">
-                              {initials}
-                            </div>
-                            <div>
-                              <div className="text-[0.78vw] font-semibold text-slate-900 leading-tight">
-                                {name}
-                              </div>
-                              <div className="text-[0.68vw] text-slate-400 mt-[0.1vw]">
-                                {email}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-[0.8vw]">
-                            <span className={`inline-block px-[0.65vw] py-[0.18vw] rounded-full text-[0.68vw] font-medium ${statusColors[status] || statusColors.New}`}>
-                              {status}
-                            </span>
-                            <span className="text-[0.68vw] text-slate-400 font-normal">{timeStr}</span>
-                          </div>
-                        </div>
-                      );
+              {(() => {
+                const targetDateStr = selectedPreviewLeadRow.date; // e.g. "2026-11-20"
+                const submittedCount = Number(selectedPreviewLeadRow.submitted) || 0;
+                // If 0 submissions on this date, show 0 leads
+                const displayLeads = submittedCount > 0
+                  ? (analyticsData?.recentLeads || []).filter(lead => {
+                      if (!lead.createdAt) return false;
+                      const leadDate = new Date(lead.createdAt).toISOString().slice(0, 10);
+                      return leadDate === targetDateStr;
                     })
-                  ) : (
-                    <div className="py-[1.8vw] text-center text-slate-400 text-[0.74vw] border border-dashed border-slate-200 rounded-[0.65vw] bg-slate-50/50">
-                      No leads recorded for this date.
-                    </div>
-                  )}
-                </div>
-              </div>
+                  : [];
+                const showingCount = displayLeads.length;
 
-              {/* Informational Subtext */}
-              <p className="text-[0.68vw] text-slate-400 font-normal">
-                Opens Leads with the selected date and flipbook filters applied.
-              </p>
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-[0.65vw]">
+                      <h4 className="text-[0.84vw] font-bold text-slate-900">
+                        Recent Leads
+                      </h4>
+                      {submittedCount > 0 && (
+                        <span className="text-[0.72vw] text-slate-600 font-normal">
+                          Showing {Math.min(showingCount, submittedCount)} of {submittedCount}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-[0.6vw]">
+                      {displayLeads.length > 0 ? (
+                        displayLeads.slice(0, 3).map((lead, lIdx) => {
+                          const name = lead?.leadData?.['Full Name'] || lead?.leadData?.name || lead?.name || lead?.leadData?.fullName || 'Anonymous';
+                          const email = lead?.leadData?.['Email Address'] || lead?.leadData?.email || lead?.email || lead?.userEmail || '—';
+                          const status = lead?.status || 'New';
+                          const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'L';
+                          const timeStr = lead?.createdAt ? new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+
+                          const statusColors = {
+                            New: 'bg-[#FFF0EB] text-[#C23616] font-normal border border-[#EC5137]/30',
+                            Contacted: 'bg-[#FEF9C3] text-[#854D0E] font-normal border border-yellow-300',
+                            Qualified: 'bg-[#E0F2FE] text-[#0369A1] font-normal border border-sky-300',
+                            Converted: 'bg-[#DCFCE7] text-[#15803D] font-normal border border-green-300',
+                            Lost: 'bg-slate-100 text-slate-700 font-normal border border-slate-300'
+                          };
+
+                          return (
+                            <div key={lead._id || lead.leadId || lIdx} className="flex items-center justify-between p-[0.8vw] px-[1vw] rounded-[0.65vw] border border-slate-200 bg-white hover:border-slate-300 transition-colors shadow-2xs">
+                              <div className="flex items-center gap-[0.75vw]">
+                                <div className="w-[2.2vw] h-[2.2vw] rounded-full bg-[#FCE7F3] text-[#9D174D] font-bold text-[0.74vw] flex items-center justify-center shrink-0">
+                                  {initials}
+                                </div>
+                                <div>
+                                  <div className="text-[0.82vw] font-medium text-slate-900 leading-tight">
+                                    {name}
+                                  </div>
+                                  <div className="text-[0.72vw] text-slate-600 font-normal mt-[0.1vw]">
+                                    {email}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-[0.8vw]">
+                                <span className={`inline-block px-[0.65vw] py-[0.18vw] rounded-full text-[0.7vw] ${statusColors[status] || statusColors.New}`}>
+                                  {status}
+                                </span>
+                                <span className="text-[0.72vw] text-slate-600 font-normal">{timeStr}</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="py-[1.8vw] text-center text-slate-600 font-medium text-[0.76vw] border border-dashed border-slate-300 rounded-[0.65vw] bg-slate-50/70">
+                          No leads recorded for this date.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Modal Footer Actions */}

@@ -169,8 +169,10 @@ class BookInfoService {
       flipbookUpdates.thumbnail = thumbnailUrl;
     }
 
-    if (visibility) {
-      flipbookUpdates.isPublished = (updatedVisibility.access === 'public');
+    // Note: Do not automatically mark the book as published when saving book info or cover picture.
+    // Publication status is explicitly controlled by the Publish / Unpublish actions in the PublishModal.
+    if (params.isPublished !== undefined) {
+      flipbookUpdates.isPublished = Boolean(params.isPublished);
     }
 
     try {
