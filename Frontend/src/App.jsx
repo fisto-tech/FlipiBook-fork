@@ -6,7 +6,9 @@ import {
   Route,
   Navigate,
   useSearchParams,
+  useLocation,
 } from "react-router-dom";
+import { LAUNCH_LOCK, isLaunchAllowedPath, requestComingSoonModal } from "./config/launchLock";
 import { ToastProvider } from "./components/CustomToast";
 import { ModernToastProvider } from "./components/ModernToast";
 import { ConfirmationProvider } from "./context/ConfirmationContext";
@@ -46,6 +48,17 @@ const ConverterFeatures = lazy(() => import("./pages/Features/ConverterFeatures"
 const Help = lazy(() => import("./pages/Help"));
 const Converter = lazy(() => import("./pages/Converter"));
 const Pricing = lazy(() => import("./pages/Pricing"));
+const ComingSoon = lazy(() => import("./pages/ComingSoon"));
+
+// Pre-launch lock: only Home is reachable; everything else redirects to Home + Coming Soon modal
+function LaunchLockGate({ children }) {
+  const location = useLocation();
+  if (LAUNCH_LOCK && !isLaunchAllowedPath(location.pathname)) {
+    requestComingSoonModal();
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
 const Forum = lazy(() => import("./pages/Forum"));
 const Overview = lazy(() => import("./pages/Overview"));
 const LeadFormAnalytics = lazy(() => import("./pages/LeadFormAnalytics"));
@@ -102,6 +115,7 @@ export default function App() {
               <DocumentUploadProvider>
                 <ScrollToTop />
                 <AuthModal />
+                <LaunchLockGate>
                 <Routes>
               {/* Direct visits to auth URLs automatically open the Auth Modal over home */}
               <Route
@@ -189,6 +203,16 @@ export default function App() {
                 element={
                   <Suspense fallback={null}>
                     <ComingSoonBanner />
+                  </Suspense>
+                }
+              />
+
+              {/* Standalone Coming Soon countdown page (no nav/layout) */}
+              <Route
+                path="/coming-soon"
+                element={
+                  <Suspense fallback={null}>
+                    <ComingSoon />
                   </Suspense>
                 }
               />
@@ -693,6 +717,7 @@ export default function App() {
               {/* Catch-all fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+                </LaunchLockGate>
           </DocumentUploadProvider>
           </Router>
           </ConfirmationProvider>

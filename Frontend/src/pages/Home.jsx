@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -6,6 +6,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import CreateFlipbookModal from '../components/CreateFlipbookModal';
 import AlertModal from '../components/AlertModal';
 import Footer from './Footer';
+import ComingSoon from './ComingSoon';
+import { COMING_SOON_FORCE_KEY } from '../config/launchLock';
 import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdf/pdfUtils';
 import { useDocumentUpload } from '../context/DocumentUploadContext';
 
@@ -25,14 +27,82 @@ import FAQSection from './Home/FAQSection';
 import BuildYourDreamCta from './Home/BuildYourDreamCta';
 
 // Assets for Hero Flipbook
-import page1 from '../assets/Home/Home1.png';
-import page2 from '../assets/Home/home2.png';
-import page3 from '../assets/Home/home3.png';
-import page4 from '../assets/Home/home4.png';
-import page5 from '../assets/Home/home5.png';
-import page6 from '../assets/Home/home6.png';
-import page7 from '../assets/Home/home7.png';
-import page8 from '../assets/Home/home8.png';
+import page1 from '../assets/Home/FlipbookPreview/Home1.webp';
+import page2 from '../assets/Home/FlipbookPreview/home2.webp';
+import page3 from '../assets/Home/FlipbookPreview/home3.webp';
+import page4 from '../assets/Home/FlipbookPreview/home4.webp';
+import page5 from '../assets/Home/FlipbookPreview/home5.webp';
+import page6 from '../assets/Home/FlipbookPreview/home6.webp';
+import page7 from '../assets/Home/FlipbookPreview/home7.webp';
+import page8 from '../assets/Home/FlipbookPreview/home8.webp';
+
+// "Coming Soon" popup shown every time the home page opens
+
+function ComingSoonModal() {
+  // Always open when Home loads (including on refresh); nothing is remembered across loads
+  const [open, setOpen] = useState(true);
+
+  const close = () => {
+    setOpen(false);
+    try { sessionStorage.removeItem(COMING_SOON_FORCE_KEY); } catch { /* storage unavailable */ }
+  };
+
+  // Re-open whenever something asks for it (nav click / blocked route while Home is mounted)
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener('show-coming-soon', show);
+    return () => window.removeEventListener('show-coming-soon', show);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="coming-soon-modal"
+          className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={close}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Coming soon"
+        >
+          <motion.div
+            className="relative w-full max-w-[960px] max-h-[92vh] overflow-y-auto bg-white rounded-2xl shadow-2xl"
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Close"
+              title="Close"
+              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center cursor-pointer transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M18 6 6 18" />
+                <path d="M6 6l12 12" />
+              </svg>
+            </button>
+            <ComingSoon embedded />
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 export default function Home() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -444,6 +514,7 @@ export default function Home() {
 
   return (
     <div className="bg-white text-[#1a1a1a] font-poppins overflow-x-hidden scroll-smooth">
+      <ComingSoonModal />
       
       {/* 1. HERO SECTION: IDC & Interactive Catalogue */}
       <HeroSection

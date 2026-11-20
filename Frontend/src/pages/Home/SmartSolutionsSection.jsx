@@ -2,11 +2,11 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import SmartOrbitVisual from './SmartOrbitVisual';
-import CotImage from '../../assets/Home/cot.png';
-import HeartImage from '../../assets/Home/heart.png';
-import HouseImage from '../../assets/Home/house.png';
-import FurnitureImage from '../../assets/Home/furniture.png';
-import MachineImage from '../../assets/Home/machine.png';
+import CotImage from '../../assets/Home/SmartSolutions/cot.webp';
+import HeartImage from '../../assets/Home/SmartSolutions/heart.webp';
+import HouseImage from '../../assets/Home/SmartSolutions/house.webp';
+import FurnitureImage from '../../assets/Home/SmartSolutions/furniture.webp';
+import MachineImage from '../../assets/Home/SmartSolutions/machine.webp';
 
 // 3D Model items in slider sequence starting with Cot
 const MODEL_SLIDES = [
@@ -22,11 +22,11 @@ const SmartSolutionsSection = () => {
   const sectionRef = useRef(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
-  // Automatically switch models every 2 seconds (faster, instant cycle)
+  // Automatically switch models every 2.6 seconds (crossfaded)
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % MODEL_SLIDES.length);
-    }, 2000);
+    }, 2600);
 
     return () => clearInterval(timer);
   }, []);
@@ -35,12 +35,12 @@ const SmartSolutionsSection = () => {
     <section ref={sectionRef} className="relative w-full min-h-fit sm:min-h-0 sm:h-auto lg:h-[100vh] bg-[#FAFAFA] font-sans pt-4 sm:pt-4 lg:pt-[0.6vw] pb-8 sm:pb-6 lg:pb-[1.2vw] px-4 sm:px-8 lg:px-[6vw] flex flex-col justify-between items-center overflow-hidden">
 
       {/* Top FEATURES Tag */}
-      <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-0 lg:pt-0">
-        <div className="flex items-center gap-2 sm:gap-3 lg:gap-[0.6vw] mt-2.5 sm:mt-3.5 lg:mt-[1.1vw]">
-          <span className="text-[10px] sm:text-xs lg:text-[0.68vw] font-bold tracking-[0.16em] sm:tracking-[0.25em] text-[#35363A] uppercase">
+      <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw]">
+          <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
             INTERACTIVE 3D PRODUCT VIEWER
           </span>
-          <div className="w-6 sm:w-8 lg:w-[2.4vw] h-[1.5px] lg:h-[0.1vw] bg-[#35363A]/40"></div>
+          <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
         </div>
       </div>
 
@@ -79,7 +79,7 @@ const SmartSolutionsSection = () => {
         {/* CENTER 3D MODEL & CIRCULAR ORBIT NAVIGATION */}
         <div className="relative w-full lg:w-[50vw] flex items-center justify-center min-h-[190px] sm:min-h-[260px] lg:h-[26vw] py-1 sm:py-2 lg:py-0">
 
-          {/* Center 3D Model Sliding Images (Instant swap feel, no sliding) */}
+          {/* Center 3D Model images — smooth crossfade between models */}
           <motion.div
             initial={{ scale: 0.88, opacity: 0, y: 20 }}
             whileInView={{ scale: 1, opacity: 1, y: 0 }}
@@ -87,12 +87,29 @@ const SmartSolutionsSection = () => {
             transition={{ duration: 1.0, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10 w-[78vw] sm:w-[49vw] md:w-[45vw] lg:w-[38vw] xl:w-[39.5vw] flex flex-col items-center justify-center -mt-2 sm:-mt-4 md:-mt-5 lg:-mt-[7.6vw] xl:-mt-[8vw]"
           >
-            <img
-              key={MODEL_SLIDES[currentSlideIndex].id}
-              src={MODEL_SLIDES[currentSlideIndex].src}
-              alt={MODEL_SLIDES[currentSlideIndex].alt}
-              className="w-full h-auto lg:w-[38vw] xl:w-[39.5vw] object-contain pointer-events-none select-none transition-none"
-            />
+            {/* All models stacked in one grid cell and cross-faded (no layout jump, preloaded) */}
+            <div className="grid w-full place-items-center">
+              {MODEL_SLIDES.map((slide, i) => {
+                const isActive = i === currentSlideIndex;
+                return (
+                  <motion.img
+                    key={slide.id}
+                    src={slide.src}
+                    alt={isActive ? slide.alt : ''}
+                    aria-hidden={!isActive}
+                    initial={false}
+                    animate={{
+                      opacity: isActive ? 1 : 0,
+                      scale: isActive ? 1 : 0.96,
+                      filter: isActive ? 'blur(0px)' : 'blur(4px)',
+                    }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ gridArea: '1 / 1' }}
+                    className="w-full h-auto lg:w-[38vw] xl:w-[39.5vw] object-contain pointer-events-none select-none"
+                  />
+                );
+              })}
+            </div>
           </motion.div>
 
           {/* Whole Orange Arch & Badges - Layered ABOVE the cot image */}

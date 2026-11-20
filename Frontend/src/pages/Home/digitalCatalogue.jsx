@@ -3,10 +3,10 @@ import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import HTMLFlipBook from 'react-pageflip';
 import softCoverAudio from '../../assets/Audios/Soft cover page.mp3';
-import trustedAvatar1 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-1.webp';
-import trustedAvatar2 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-2.webp';
-import trustedAvatar3 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-3.webp';
-import trustedAvatar4 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-4.webp';
+import trustedAvatar1 from '../../assets/Home/TrustedAvatar/trusted-avatar-1.webp';
+import trustedAvatar2 from '../../assets/Home/TrustedAvatar/trusted-avatar-2.webp';
+import trustedAvatar3 from '../../assets/Home/TrustedAvatar/trusted-avatar-3.webp';
+import trustedAvatar4 from '../../assets/Home/TrustedAvatar/trusted-avatar-4.webp';
 
 export default function HeroSection({ navigate, page1, page2, page3, page4, page5, page6, page7, page8 }) {
   const containerRef = useRef(null);
@@ -226,12 +226,12 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.85, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full flex items-center gap-3 mb-1 sm:mb-2 lg:mb-[0.8vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
-        <span className="text-xs sm:text-sm lg:text-[0.95vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
           INTERACTIVE DIGITAL CATALOGUE
         </span>
-        <div className="w-10 lg:w-[2.5vw] h-[1.5px] bg-[#35363A]"></div>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
       </motion.div>
 
       {/* Main Container: Left Rounded Panel & Right Pitch */}
@@ -351,10 +351,10 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
                   aria-label={isPlaying ? "Pause autoplay" : "Play flipbook"}
                 >
                   {isPlaying ? (
-                    <Icon icon="lucide:pause" className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />
+                    <Icon icon="lucide:pause" className="w-5 h-5 sm:w-5.5 sm:h-5.5 fill-current" />
                   ) : (
                     <svg
-                      className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current"
+                      className="w-5 h-5 sm:w-5.5 sm:h-5.5 fill-current"
                       viewBox="0 0 24 24"
                       xmlns="http://www.w3.org/2000/svg"
                     >
@@ -414,7 +414,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.45vw] font-bold uppercase leading-tight tracking-[0.03em] select-none text-[#111111]"
+              className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold uppercase leading-[1.12] tracking-tight select-none text-[#1f2937] font-sans"
             >
               INTERACTIVE
             </motion.h2>
@@ -425,7 +425,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.45vw] font-bold uppercase leading-tight tracking-[0.03em] select-none text-[#111111] mt-0.5"
+              className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold uppercase leading-[1.12] tracking-tight select-none text-[#1f2937] font-sans mt-0.5"
             >
               DIGITAL
             </motion.h2>
@@ -436,7 +436,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.45vw] font-bold uppercase leading-tight tracking-[0.03em] select-none text-[#EC5137] mt-0.5"
+              className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold uppercase leading-[1.12] tracking-tight select-none text-[#E75B3E] font-sans mt-0.5"
             >
               CATALOGUE
             </motion.h2>
@@ -458,7 +458,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ scaleX: 1, opacity: 1 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full h-[1px] bg-[#e5e5e5] my-2 lg:my-[1vh] origin-left"
+              className="w-full h-[1px] bg-[#e5e5e5] my-3.5 sm:my-4 lg:my-[1.8vh] origin-left"
             />
 
             {/* Description Paragraph */}

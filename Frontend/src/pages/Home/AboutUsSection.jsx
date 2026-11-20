@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import aboutUsImg from '../../assets/Home/final-images/about-us/about-us-image.png';
+import aboutUsImg from '../../assets/Home/AboutUs/about-us-image.webp';
 
 export default function AboutUsSection() {
   return (

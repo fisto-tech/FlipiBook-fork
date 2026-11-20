@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import exploreArrowIcon from '../../assets/Home/explore-arrow-icon.png';
+import exploreArrowIcon from '../../assets/Home/WhyChoose/explore-arrow-icon.webp';
 
 // Animated Counter Component that smoothly counts up to target number when in view
 function AnimatedCounter({ end, duration = 2, suffix = '+' }) {
