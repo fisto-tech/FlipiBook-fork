@@ -56,7 +56,7 @@ export default function HeroSection({ navigate }) {
   }, []);
 
   return (
-    <section className="relative w-full bg-[#fdfdfd] min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] lg:h-[calc(100vh-7vh)] flex flex-col justify-start pt-3 sm:pt-4 lg:pt-[1.5vh] pb-6 sm:pb-8 lg:pb-[2vh] px-5 sm:px-8 lg:px-[5.5vw] font-poppins overflow-hidden">
+    <section className="relative w-full bg-[#fdfdfd] min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] lg:h-[calc(100vh-7vh)] flex flex-col justify-start pt-2 sm:pt-3 lg:pt-[1.2vw] pb-6 sm:pb-8 lg:pb-[2vh] px-5 sm:px-8 lg:px-[5.5vw] font-poppins overflow-hidden">
       
       {/* Top Tag: IDC FOR ALL INDUSTRY and line */}
       <motion.div
@@ -64,7 +64,7 @@ export default function HeroSection({ navigate }) {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, amount: 0.3 }}
         transition={{ duration: 0.85, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
         <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
           IDC FOR ALL INDUSTRY
