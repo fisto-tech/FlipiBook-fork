@@ -6,6 +6,7 @@ import { flipbookApi, analyticsApi } from '../api';
 import customizedEditorApi from '../api/customizedEditorApi';
 import LazyPreview from '../components/MyFlipbooks/LazyPreview';
 import { FlipbookDetailAnalytics, AnalyticsDatePicker, formatDuration, formatShortDate, formatFullDate, getCountryFlag, scrollToTop } from '../components/Analytics';
+import { exportProfessionalExcel } from '../utils/excelExportHelper';
 
 export default function Overview() {
   const navigate = useNavigate();
@@ -558,36 +559,90 @@ export default function Overview() {
     return filteredBooks.slice(start, start + pageSize);
   }, [filteredBooks, currentPage, pageSize]);
 
-  // CSV Export for Overall View
-  const handleExportCSV = () => {
+  // Excel Export for Overall View
+  const handleExportCSV = async () => {
     if (filteredBooks.length === 0) return;
-    const headers = ["S.No", "Subject", "Views", "Unique Visitors", "Avg. Reading Time", "Total Reading Time", "Last Update"];
-    const rows = filteredBooks.map(b => [
-      b.sNo,
-      `"${b.flipbookName.replace(/"/g, '""')}"`,
-      b.views,
-      b.uniqueVisitors,
-      `"${b.avgDurationFormatted}"`,
-      `"${b.totalReadingHours}"`,
-      `"${b.lastUpdate}"`
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Flipbook_Analytics_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    const columns = [
+      { header: 'S.No', key: 'sNo', width: 10, align: 'center', isNumeric: true },
+      { header: 'Flipbook Name', key: 'flipbookName', width: 32, bold: true },
+      { header: 'Views', key: 'views', width: 14, align: 'right', isNumeric: true },
+      { header: 'Unique Visitors', key: 'uniqueVisitors', width: 18, align: 'right', isNumeric: true },
+      { header: 'Avg. Reading Time', key: 'avgDurationFormatted', width: 20, align: 'center' },
+      { header: 'Total Reading Time', key: 'totalReadingHours', width: 20, align: 'center' },
+      { header: 'Last Updated', key: 'lastUpdate', width: 18, align: 'center' }
+    ];
+
+    const data = filteredBooks.map(b => ({
+      sNo: b.sNo,
+      flipbookName: b.flipbookName,
+      views: b.views,
+      uniqueVisitors: b.uniqueVisitors,
+      avgDurationFormatted: b.avgDurationFormatted,
+      totalReadingHours: b.totalReadingHours,
+      lastUpdate: b.lastUpdate
+    }));
+
+    const totalViews = filteredBooks.reduce((sum, b) => sum + (Number(b.views) || 0), 0);
+    const totalVisitors = filteredBooks.reduce((sum, b) => sum + (Number(b.uniqueVisitors) || 0), 0);
+
+    const totals = {
+      sNo: '',
+      flipbookName: 'TOTAL',
+      views: totalViews,
+      uniqueVisitors: totalVisitors,
+      avgDurationFormatted: summary.avgDurationFormatted || '—',
+      totalReadingHours: summary.totalReadingHours || '—',
+      lastUpdate: '—'
+    };
+
+    // Prepare visual chart labels & data (Top 8 books by views)
+    const topBooksForChart = [...filteredBooks].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 8);
+    const chartLabels = topBooksForChart.map(b => b.flipbookName || 'Untitled');
+    const chartViews = topBooksForChart.map(b => b.views || 0);
+    const chartVisitors = topBooksForChart.map(b => b.uniqueVisitors || 0);
+
+    await exportProfessionalExcel({
+      filename: `Flipbook_Analytics_Overview`,
+      sheetName: 'All Flipbooks',
+      title: 'Flipbook Overall Analytics Summary',
+      subtitle: `Account: ${userEmail || 'Creator'}`,
+      filters: {
+        'Time Period': selectedDays === 'custom'
+          ? `${formatShortDate(customRange.startDate)} - ${formatShortDate(customRange.endDate)}`
+          : `Last ${selectedDays} Days`,
+        'Search Filter': searchQuery || 'None',
+        'Sort Order': sortBy || 'Default',
+        'Total Flipbooks Evaluated': filteredBooks.length
+      },
+      columns,
+      data,
+      totals,
+      kpiCards: [
+        { label: 'Total Views', value: summary.viewsFormatted || '0', note: 'Cumulative views' },
+        { label: 'Unique Visitors', value: summary.visitorsFormatted || '0', note: 'Distinct readers' },
+        { label: 'Avg Duration', value: summary.avgDurationFormatted || '0m', note: 'Per reader session' },
+        { label: 'Total Books', value: String(filteredBooks.length), note: 'In current view' }
+      ],
+      chartConfig: {
+        type: 'bar',
+        title: 'Top Flipbooks Performance Comparison',
+        subtitle: 'Comparing Total Views vs Unique Visitors across top flipbooks',
+        labels: chartLabels,
+        datasets: [
+          { label: 'Views', data: chartViews, color: '#F05338' },
+          { label: 'Visitors', data: chartVisitors, color: '#0284C7' }
+        ]
+      }
+    });
   };
 
   // OVERALL SVG Chart Computations
   const chartW = 720;
-  const chartH = 200;
+  const chartH = 260;
   const padL = 40;
   const padR = 16;
-  const padT = 16;
+  const padT = 12;
   const padB = 32;
   const innerW = chartW - padL - padR;
   const innerH = chartH - padT - padB;
@@ -826,8 +881,8 @@ export default function Overview() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-[0.8vw]">
 
           {/* Left: Views Over Time (6 cols) */}
-          <div className="lg:col-span-6 bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-[0.6vw] mb-[0.1vw]">
+          <div className="lg:col-span-6 bg-white rounded-[0.75vw] p-[1.1vw] border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-start">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-[0.6vw] mb-[0.6vw]">
               <div className="flex items-center gap-[0.65vw]">
                 <div className="w-[2.4vw] h-[2.4vw] rounded-[0.7vw] bg-[#FFF1EE] text-[#F05338] flex items-center justify-center shrink-0">
                   <Icon icon="lucide:chart-no-axes-combined" className="w-[1.3vw] h-[1.3vw]" />
@@ -878,7 +933,7 @@ export default function Overview() {
             </div>
 
             {/* Area Chart Canvas */}
-            <div className="relative w-full mt-[0.1vw]">
+            <div className="relative w-full flex-1 flex flex-col justify-end">
               {(loading || chartLoading) && (
                 <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] z-20 flex flex-col items-center justify-center rounded-[0.5vw]">
                   <Icon icon="solar:restart-linear" className="w-[1.4vw] h-[1.4vw] text-[#F05338] animate-spin mb-[0.2vw]" />

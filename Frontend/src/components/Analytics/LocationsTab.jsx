@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import AnalyticsDatePicker from './AnalyticsDatePicker';
 import { getPaginationPages, formatDuration, buildDynamicTimeline, getSampledXLabels } from './analyticsUtils';
+import { exportProfessionalExcel } from '../../utils/excelExportHelper';
 import worldMercMapData from './worldMercMapData.json';
 import worldMercBBoxes from './worldMercBBoxes.json';
 import mercCountries from './mercCountries.json';
@@ -188,13 +189,21 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
           }
         }
 
+        const countryAvgDuration = c.avgDurationSeconds !== undefined
+          ? (c.avgDurationSeconds > 0
+              ? `${Math.floor(c.avgDurationSeconds / 60)}m ${c.avgDurationSeconds % 60}s`
+              : (summary?.avgDurationSeconds
+                  ? `${Math.floor(summary.avgDurationSeconds / 60)}m ${summary.avgDurationSeconds % 60}s`
+                  : '—'))
+          : avgTimeStr;
+
         return {
           country: cName,
           code,
-          readers: c.readers || Math.max(1, Math.round(viewsNum * 0.75)),
+          readers: c.readers !== undefined ? c.readers : Math.max(1, Math.round(viewsNum * 0.75)),
           views: viewsNum,
-          avgTime: avgTimeStr,
-          share: `${c.percentage || (rawTotalViews > 0 ? Math.round((viewsNum / rawTotalViews) * 100) : 100)}%`,
+          avgTime: countryAvgDuration,
+          share: `${c.percentage !== undefined ? c.percentage : (rawTotalViews > 0 ? Math.round((viewsNum / rawTotalViews) * 100) : 100)}%`,
           trend: trend.length > 0 ? trend : [0, 0, 0, 0, 0, 0, 0]
         };
       });
@@ -401,25 +410,76 @@ export default function LocationsTab({ timeline = [], analyticsData = {}, summar
     };
   }, [locationList, avgTimeStr]);
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     if (sortedLocationList.length === 0) return;
-    const headers = ['Location', 'Unique readers', 'Views', 'Avg. reading time', 'Share of readers'];
-    const rows = sortedLocationList.map(r => [
-      `"${r.country}"`,
-      r.readers,
-      r.views,
-      `"${r.avgTime}"`,
-      `"${r.share}"`
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Location_Analytics_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const columns = [
+      { header: 'Location / Country', key: 'country', width: 26, align: 'left' },
+      { header: 'Unique Readers', key: 'readers', width: 18, align: 'right' },
+      { header: 'Total Views', key: 'views', width: 18, align: 'right' },
+      { header: 'Avg. Reading Time', key: 'avgTime', width: 22, align: 'center' },
+      { header: 'Share of Readers', key: 'share', width: 18, align: 'right' }
+    ];
+
+    const data = sortedLocationList.map(r => ({
+      country: r.country || 'Unknown',
+      readers: Number(r.readers) || 0,
+      views: Number(r.views) || 0,
+      avgTime: r.avgTime || '0s',
+      share: r.share || '0%'
+    }));
+
+    const dateStr = datePreset === 'Custom' && customRange.startDate && customRange.endDate
+      ? `${new Date(customRange.startDate).toLocaleDateString()} to ${new Date(customRange.endDate).toLocaleDateString()}`
+      : datePreset;
+
+    const metadata = [
+      { label: 'Date Range', value: dateStr },
+      { label: 'Sort Order', value: tableSort },
+      { label: 'Total Countries Tracked', value: locationList.length },
+      { label: 'Total Readers', value: totals.readers },
+      { label: 'Total Views', value: totals.views },
+      { label: 'Export Date', value: new Date().toLocaleString() }
+    ];
+
+    // Chart: Top Countries by Readers
+    const topLocations = [...sortedLocationList].slice(0, 7);
+    const chartConfig = topLocations.length > 0 ? {
+      title: 'Top Locations by Readers',
+      type: 'bar',
+      labels: topLocations.map(l => l.country),
+      datasets: [
+        {
+          label: 'Readers',
+          data: topLocations.map(l => Number(l.readers) || 0),
+          color: '#16865C'
+        },
+        {
+          label: 'Views',
+          data: topLocations.map(l => Number(l.views) || 0),
+          color: '#F05338'
+        }
+      ]
+    } : null;
+
+    const summaryCards = [
+      { title: 'Total Readers', value: totals.readers, color: '16865C' },
+      { title: 'Total Views', value: totals.views, color: 'F05338' },
+      { title: 'Countries Tracked', value: locationList.length, color: '3B82F6' },
+      { title: 'Avg. Read Time', value: totals.avgTime, color: '8B5CF6' }
+    ];
+
+    await exportProfessionalExcel({
+      filename: `Location_Analytics_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      sheetTitle: 'Location Analytics',
+      reportName: 'Geographical Distribution Report',
+      columns,
+      data,
+      metadata,
+      summaryCards,
+      chartConfig,
+      totalRowLabelCol: 'country',
+      sumCols: ['readers', 'views']
+    });
   };
 
   return (

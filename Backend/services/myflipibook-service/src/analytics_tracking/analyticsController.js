@@ -1,5 +1,5 @@
 // Backend/services/myflipibook-service/src/analytics_tracking/analyticsController.js
-const { FlipbookSessionAnalytics, FlipbookDownloadEvent, FlipbookShareEvent } = require("./analyticsModel");
+const { FlipbookSessionAnalytics, FlipbookDownloadEvent, FlipbookShareEvent, FlipbookLeadFormEvent } = require("./analyticsModel");
 const { extractClientIp, resolveIpLocation } = require("./geoIpService");
 const { parseUserAgent } = require("./deviceService");
 const Flipbook = require("../../../../shared/models/Flipbook");
@@ -330,6 +330,32 @@ const recordShare = async (req, res) => {
 };
 
 /**
+ * 4c. Record Lead Form interaction event (view, skip, dismiss)
+ */
+const recordLeadFormEvent = async (req, res) => {
+  try {
+    const { v_id, shareId, sessionId, action = "skip", userEmail = "" } = req.body;
+    if (!v_id && !shareId) {
+      return res.status(400).json({ success: false, message: "v_id or shareId is required" });
+    }
+
+    const event = await FlipbookLeadFormEvent.create({
+      v_id: v_id || shareId,
+      shareId: shareId || "",
+      sessionId: sessionId || "",
+      action: ["view", "skip", "dismiss"].includes(action) ? action : "skip",
+      userEmail: (userEmail || "").toLowerCase(),
+      createdAt: new Date()
+    });
+
+    return res.status(200).json({ success: true, eventId: event._id });
+  } catch (err) {
+    console.error("[Analytics recordLeadFormEvent Error]:", err);
+    return res.status(500).json({ success: false, message: "Failed to record lead form event" });
+  }
+};
+
+/**
  * 5. Get comprehensive analytics for a single flipbook
  */
 const getFlipbookAnalytics = async (req, res) => {
@@ -377,24 +403,28 @@ const getFlipbookAnalytics = async (req, res) => {
     const totalDuration = Math.round(durationStats[0]?.totalDuration || 0);
     const avgPagesRead = Math.round((durationStats[0]?.avgPagesRead || 1) * 10) / 10;
 
-    // 4. Country Breakdown
+    // 4. Country Breakdown with true unique readers and average reading duration
     const countryStats = await FlipbookSessionAnalytics.aggregate([
       { $match: baseFilter },
       {
         $group: {
           _id: "$location.country",
           code: { $first: "$location.countryCode" },
-          count: { $sum: 1 }
+          count: { $sum: 1 },
+          uniqueIps: { $addToSet: "$location.ip" },
+          avgDuration: { $avg: "$durationSeconds" }
         }
       },
       { $sort: { count: -1 } },
-      { $limit: 10 }
+      { $limit: 15 }
     ]);
 
     const countries = countryStats.map(c => ({
       country: c._id || "Unknown",
       code: c.code || "",
       views: c.count,
+      readers: (c.uniqueIps && c.uniqueIps.length > 0) ? c.uniqueIps.length : c.count,
+      avgDurationSeconds: Math.round(c.avgDuration || 0),
       percentage: totalViews > 0 ? Math.round((c.count / totalViews) * 100) : 0
     }));
 
@@ -456,22 +486,39 @@ const getFlipbookAnalytics = async (req, res) => {
       percentage: totalViews > 0 ? Math.round((d.count / totalViews) * 100) : 0
     }));
 
-    // 7. Browser Breakdown
+    // 7. Browser Breakdown with OS / Platform Breakdown
     const browserStats = await FlipbookSessionAnalytics.aggregate([
       { $match: baseFilter },
       {
         $group: {
-          _id: "$device.browser",
+          _id: {
+            browser: "$device.browser",
+            os: "$device.os"
+          },
           count: { $sum: 1 }
         }
       },
       { $sort: { count: -1 } },
-      { $limit: 5 }
+      { $limit: 10 }
     ]);
 
-    const browsers = browserStats.map(b => ({
-      browser: b._id || "Other",
-      views: b.count
+    // Consolidate platforms per browser while keeping individual counts
+    const browserMap = new Map();
+    browserStats.forEach(b => {
+      const bName = b._id?.browser || "Other";
+      const osName = b._id?.os && b._id.os !== "Unknown" ? b._id.os : "";
+      if (!browserMap.has(bName)) {
+        browserMap.set(bName, { browser: bName, views: 0, platforms: new Set() });
+      }
+      const entry = browserMap.get(bName);
+      entry.views += b.count;
+      if (osName) entry.platforms.add(osName);
+    });
+
+    const browsers = Array.from(browserMap.values()).map(b => ({
+      browser: b.browser,
+      views: b.views,
+      platform: b.platforms.size > 0 ? Array.from(b.platforms).join(", ") : "Desktop"
     }));
 
     // 7b. Referrer / Source Breakdown
@@ -595,6 +642,24 @@ const getFlipbookAnalytics = async (req, res) => {
       console.warn("[Analytics lead query warning]:", leadErr.message);
     }
 
+    // 8c2. Lead Form Events (views and skips)
+    let dailyLeadEvents = [];
+    try {
+      dailyLeadEvents = await FlipbookLeadFormEvent.aggregate([
+        { $match: { v_id, createdAt: { $gte: sinceDate } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            views: { $sum: { $cond: [{ $eq: ["$action", "view"] }, 1, 0] } },
+            skipped: { $sum: { $cond: [{ $in: ["$action", ["skip", "dismiss"]] }, 1, 0] } }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+    } catch (leadEventErr) {
+      console.warn("[Analytics lead events query warning]:", leadEventErr.message);
+    }
+
     // 9. Recent Visitor Sessions
     const recentSessions = await FlipbookSessionAnalytics.find(baseFilter)
       .sort({ startedAt: -1 })
@@ -629,6 +694,7 @@ const getFlipbookAnalytics = async (req, res) => {
       countryDailyViews,
       dailyDownloads,
       dailyLeads,
+      dailyLeadEvents,
       recentLeads,
       recentSessions
     });
@@ -801,11 +867,13 @@ const getUserAnalytics = async (req, res) => {
           $group: {
             _id: "$location.country",
             code: { $first: "$location.countryCode" },
-            views: { $sum: 1 }
+            views: { $sum: 1 },
+            uniqueIps: { $addToSet: "$location.ip" },
+            avgDuration: { $avg: "$durationSeconds" }
           }
         },
         { $sort: { views: -1 } },
-        { $limit: 6 }
+        { $limit: 15 }
       ]).toArray().catch(() => []),
       sessionColl.aggregate([
         { $match: { ...filter, "location.state": { $nin: ["", "Unknown"] } } },
@@ -1077,7 +1145,9 @@ const getUserAnalytics = async (req, res) => {
       topCountries: topCountries.map(c => ({
         country: c._id || "Unknown",
         code: c.code || "",
-        views: c.views
+        views: c.views,
+        readers: (c.uniqueIps && c.uniqueIps.length > 0) ? c.uniqueIps.length : c.views,
+        avgDurationSeconds: Math.round(c.avgDuration || 0)
       })),
       topStates: topStates.map(s => ({
         state: s._id || "Unknown",
@@ -1107,6 +1177,7 @@ module.exports = {
   recordPageFlip,
   recordDownload,
   recordShare,
+  recordLeadFormEvent,
   getFlipbookAnalytics,
   getUserAnalytics
 };
