@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ReactDOM, { createPortal } from 'react-dom';
 import TypographyPanel from './TypographyPanel';
-import { X, ChevronDown, ChevronUp, Info, Check, Plus, Upload, Edit2, Sliders, MoreVertical, Trash2 } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Info, Check, Plus, Upload, Edit2, Sliders, MoreVertical, Trash2, Download, Loader } from 'lucide-react';
 import axios from 'axios';
+import { saveAs } from 'file-saver';
+import html2canvas from 'html2canvas';
 import { useToast } from './CustomToast';
 import { useAuth } from '../context/AuthContext';
 import { Icon } from '@iconify/react';
@@ -173,6 +175,12 @@ export const getPageAspectRatio = (page) => {
 
 export const normalizePageHtml = (htmlStr, fit = 'Fit') => {
   if (!htmlStr) return '';
+  const trimmed = htmlStr.trim();
+  // If it's an image tag, ensure it fits properly
+  if (trimmed.startsWith('<img') || trimmed.startsWith('<picture')) {
+    const objectFit = (fit || 'Fit').toLowerCase() === 'stretch' ? 'fill' : ((fit || 'Fit').toLowerCase() === 'fill' ? 'cover' : 'contain');
+    return `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden;"><img style="width: 100%; height: 100%; object-fit: ${objectFit}; display: block;" src="${trimmed.match(/src=["']([^"']+)["']/i)?.[1] || ''}" alt="Cover Page" /></div>`;
+  }
   try {
     return htmlStr.replace(/<svg\b([^>]*)>/i, (match, attrs) => {
       let newAttrs = attrs;
@@ -235,24 +243,35 @@ export const normalizePageHtml = (htmlStr, fit = 'Fit') => {
 
 export const renderTemplateBooks = (templateId, selectedPages = [], pages = [], scaleClass = "scale-[1.05]", customTitle = null, customSubtitle = null, fit = 'Fit') => {
   // Respect individual slot selection: if a slot is explicitly set to a page number, use that page;
-  // if a slot is set to null (or "None"), it remains null so that the slot displays its default template design.
+  // if selectedPages is empty/not provided, default to [1, 2, 3] so pages are shown by default;
+  // if a slot is explicitly set to null (or "None"), it remains null so that the slot displays its default template design.
   const hasPages = Array.isArray(pages) && pages.length > 0;
+  const effectiveSelected = (Array.isArray(selectedPages) && selectedPages.length > 0)
+    ? selectedPages
+    : [1, 2, 3];
 
-  const page1 = (selectedPages && selectedPages[0] && hasPages && pages[Number(selectedPages[0]) - 1])
-    ? pages[Number(selectedPages[0]) - 1]
+  const page1 = (effectiveSelected && effectiveSelected[0] && hasPages && pages[Number(effectiveSelected[0]) - 1])
+    ? pages[Number(effectiveSelected[0]) - 1]
     : null;
 
-  const page2 = (selectedPages && selectedPages[1] && hasPages && pages[Number(selectedPages[1]) - 1])
-    ? pages[Number(selectedPages[1]) - 1]
+  const page2 = (effectiveSelected && effectiveSelected[1] && hasPages && pages[Number(effectiveSelected[1]) - 1])
+    ? pages[Number(effectiveSelected[1]) - 1]
     : null;
 
-  const page3 = (selectedPages && selectedPages[2] && hasPages && pages[Number(selectedPages[2]) - 1])
-    ? pages[Number(selectedPages[2]) - 1]
+  const page3 = (effectiveSelected && effectiveSelected[2] && hasPages && pages[Number(effectiveSelected[2]) - 1])
+    ? pages[Number(effectiveSelected[2]) - 1]
     : null;
 
   const getPageContent = (page) => {
     if (!page) return '';
-    return page.html || page.content || page.svgString || '';
+    if (page.html) return page.html;
+    if (page.content) return page.content;
+    if (page.svgString) return page.svgString;
+    const imgUrl = page.imageUrl || page.url || page.src || page.image || page.thumbnail;
+    if (imgUrl && typeof imgUrl === 'string') {
+      return `<img src="${imgUrl}" alt="page" />`;
+    }
+    return '';
   };
 
   const page1Html = page1 ? normalizePageHtml(getPageContent(page1), fit) : '';
@@ -2329,6 +2348,8 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [originalImage, setOriginalImage] = useState(settings.coverPicture?.type === 'upload' ? settings.coverPicture.url : null);
   const [isCropping, setIsCropping] = useState(false);
   const previewImgRef = React.useRef(null);
+  const templatePreviewContainerRef = React.useRef(null);
+  const [isDownloadingCover, setIsDownloadingCover] = useState(false);
   const [rawFile, setRawFile] = useState(null);
   const [imageFixType, setImageFixType] = useState(settings.coverPicture?.fit || 'Fit');
   const [templateFit, setTemplateFit] = useState(settings.coverPicture?.templateFit || settings.coverPicture?.fit || 'Fit');
@@ -2392,6 +2413,115 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [showShadowColorPicker, setShowShadowColorPicker] = useState(false);
 
   const [openSlotDropdown, setOpenSlotDropdown] = useState(null); // index of currently open slot dropdown (0, 1, or 2)
+
+  // Direct download cover image at standard 4:3 high-resolution (1200x900)
+  const handleDownloadCoverImage = async () => {
+    if (isDownloadingCover) return;
+    setIsDownloadingCover(true);
+    try {
+      const bookName = (currentBook?.flipbookName || currentBook?.title || 'flipbook')
+        .replace(/[^a-z0-9_-]/gi, '_');
+
+      if (option === 'upload' && uploadedImage) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const cvs = document.createElement('canvas');
+          cvs.width = 1200;
+          cvs.height = 900;
+          const ctx = cvs.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, 1200, 900);
+
+          const srcW = img.naturalWidth || img.width || 1200;
+          const srcH = img.naturalHeight || img.height || 900;
+          let renderW = 1200;
+          let renderH = 900;
+          let offsetX = 0;
+          let offsetY = 0;
+
+          if (imageFixType === 'Stretch') {
+            renderW = 1200;
+            renderH = 900;
+          } else if (imageFixType === 'Fill') {
+            const scale = Math.max(1200 / srcW, 900 / srcH);
+            renderW = Math.round(srcW * scale);
+            renderH = Math.round(srcH * scale);
+            offsetX = Math.round((1200 - renderW) / 2);
+            offsetY = Math.round((900 - renderH) / 2);
+          } else {
+            // Fit / Contain
+            const scale = Math.min(1200 / srcW, 900 / srcH);
+            renderW = Math.round(srcW * scale);
+            renderH = Math.round(srcH * scale);
+            offsetX = Math.round((1200 - renderW) / 2);
+            offsetY = Math.round((900 - renderH) / 2);
+          }
+
+          ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
+          cvs.toBlob((blob) => {
+            if (blob) saveAs(blob, `${bookName}_Cover_Picture.png`);
+            setIsDownloadingCover(false);
+          }, 'image/png');
+        };
+        img.onerror = () => {
+          setIsDownloadingCover(false);
+          alert('Could not download image. Please try again.');
+        };
+        img.src = uploadedImage;
+        return;
+      }
+
+      if (option === 'template') {
+        const el = templatePreviewContainerRef.current;
+        if (!el) {
+          setIsDownloadingCover(false);
+          return;
+        }
+
+        const rect = el.getBoundingClientRect();
+        const longestSide = Math.max(rect.width, rect.height) || 800;
+        const scale = Math.max(1.5, 1200 / longestSide);
+
+        const rawCanvas = await html2canvas(el, {
+          scale: scale,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: null
+        });
+
+        if (rawCanvas) {
+          const out = document.createElement('canvas');
+          out.width = 1200;
+          out.height = 900;
+          const ctx = out.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, 1200, 900);
+
+          const srcW = rawCanvas.width;
+          const srcH = rawCanvas.height;
+          const scaleFactor = Math.min(1200 / srcW, 900 / srcH);
+          const rW = Math.round(srcW * scaleFactor);
+          const rH = Math.round(srcH * scaleFactor);
+          const offX = Math.round((1200 - rW) / 2);
+          const offY = Math.round((900 - rH) / 2);
+
+          ctx.drawImage(rawCanvas, 0, 0, srcW, srcH, offX, offY, rW, rH);
+          out.toBlob((blob) => {
+            if (blob) saveAs(blob, `${bookName}_Cover_Picture.png`);
+            setIsDownloadingCover(false);
+          }, 'image/png');
+        } else {
+          setIsDownloadingCover(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error downloading cover:', err);
+      setIsDownloadingCover(false);
+      alert('Failed to generate cover download.');
+    }
+  };
 
   // Automatically scroll container when slot dropdown opens
   useEffect(() => {
@@ -2652,6 +2782,17 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
               >
                 <X size="1vw" strokeWidth={2.5} /> Cancel
               </button>
+              {uploadedImage && (
+                <button
+                  onClick={handleDownloadCoverImage}
+                  disabled={isDownloadingCover}
+                  className="px-[1.2vw] py-[0.6vw] border border-gray-300 bg-white rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-[0.4vw] shadow-sm disabled:opacity-50"
+                  title="Download Cover Image (1200x900)"
+                >
+                  {isDownloadingCover ? <Loader size="1vw" className="animate-spin" /> : <Download size="1vw" />}
+                  Download Cover
+                </button>
+              )}
               <button
                 onClick={() => {
                   onSave({
@@ -2676,7 +2817,7 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
             <div className="w-[45%] flex items-start justify-center pt-[0.5vw] relative">
               <div className="relative group rounded-[0.9vw] bg-[#F8FAFC] w-full aspect-[4/3] max-w-[24vw] flex items-center justify-center shadow-inner overflow-hidden border border-gray-200/50">
                 {option === 'template' && selectedTemplate ? (
-                  <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
+                  <div ref={templatePreviewContainerRef} className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
                     <TemplatePreview
                       selectedTemplate={selectedTemplate}
                       bgColor={bgColor} bgOpacity={bgOpacity}
@@ -3231,6 +3372,15 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                 className="px-[2vw] py-[0.6vw] border border-gray-400 rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-[0.4vw] shadow-sm"
               >
                 <X size="1vw" strokeWidth={2.5} /> Cancel
+              </button>
+              <button
+                onClick={handleDownloadCoverImage}
+                disabled={isDownloadingCover}
+                className="px-[1.5vw] py-[0.6vw] border border-gray-300 bg-white rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-[0.4vw] shadow-sm disabled:opacity-50"
+                title="Download Cover Image (1200x900)"
+              >
+                {isDownloadingCover ? <Loader size="1vw" className="animate-spin" /> : <Download size="1vw" />}
+                Download Cover
               </button>
               <button
                 onClick={() => {
