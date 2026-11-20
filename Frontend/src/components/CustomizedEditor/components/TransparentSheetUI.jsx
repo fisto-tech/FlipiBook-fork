@@ -4,6 +4,7 @@ import axios from 'axios';
 import PremiumDropdown from './PremiumDropdown';
 import ReplaceMediaModal from '../../PageEditor/modals/ReplaceMediaModal';
 import { useAuth } from '../../../context/AuthContext';
+import { SHEET_STYLE_DEFAULTS } from '../FlipBookEngine/utils/flipBookHelpers';
 
 const SectionHeader = ({ label }) => (
   <div className="flex items-center gap-[1vw] mb-[0.5vw]">
@@ -317,6 +318,56 @@ const SheetCard = ({ sheet, onUpdate, onDelete, pages = [], folder, flipbookName
                    <PositionPad onMove={handleMove} onMoveStart={startMove} onMoveEnd={stopMove} />
                 </div>
              </div>
+           </div>
+
+           {/* Sheet Texture — look of the transparent sheet itself */}
+           <div>
+             <SectionHeader label="Sheet Texture" />
+             {(() => {
+               const v = (key) => (sheet[key] !== undefined && sheet[key] !== null && sheet[key] !== '' ? sheet[key] : SHEET_STYLE_DEFAULTS[key]);
+               // Plain render helper (not a component): keeps sliders mounted while dragging
+               const row = (label, valueText, children) => (
+                 <div>
+                   <div className="flex items-center justify-between mb-[0.2vw]">
+                     <span className="text-[0.65vw] text-gray-700">{label} :</span>
+                     <span className="text-[0.65vw] text-gray-700">{valueText}</span>
+                   </div>
+                   {children}
+                 </div>
+               );
+               return (
+                 <div className="mt-[0.8vw] space-y-[0.8vw]">
+                   <div className="grid grid-cols-2 gap-x-[1.2vw] gap-y-[0.8vw]">
+                     {row("Blur", `${v('blur')}px`, <CustomSlider value={Number(v('blur'))} onChange={(val) => onUpdate({ ...sheet, blur: val })} max={20} />)}
+                     {row("Haze", `${v('haze')}%`, <CustomSlider value={Number(v('haze'))} onChange={(val) => onUpdate({ ...sheet, haze: val })} />)}
+                     {row("Texture Intensity", `${v('textureIntensity')}%`, <CustomSlider value={Number(v('textureIntensity'))} onChange={(val) => onUpdate({ ...sheet, textureIntensity: val })} />)}
+                     {row("Texture Size", `${v('textureSize')}%`, <CustomSlider value={Number(v('textureSize'))} onChange={(val) => onUpdate({ ...sheet, textureSize: val })} min={50} max={300} />)}
+                   </div>
+
+                   {/* Tint colour */}
+                   <div className="flex items-center justify-between">
+                     <span className="text-[0.65vw] text-gray-700">Tint Color :</span>
+                     <div className="flex items-center gap-[0.5vw]">
+                       <input
+                         type="color"
+                         value={v('tint')}
+                         onChange={(e) => onUpdate({ ...sheet, tint: e.target.value })}
+                         className="w-[1.6vw] h-[1.6vw] rounded-[0.3vw] border border-gray-200 cursor-pointer p-0 bg-transparent"
+                       />
+                       <span className="text-[0.6vw] text-gray-500 font-mono uppercase">{v('tint')}</span>
+                       <button
+                         type="button"
+                         title="Reset texture settings"
+                         onClick={() => onUpdate({ ...sheet, blur: undefined, haze: undefined, tint: undefined, textureIntensity: undefined, textureSize: undefined })}
+                         className="ml-[0.3vw] text-gray-400 hover:text-[#4D47FF] transition-colors"
+                       >
+                         <Icon icon="mdi:restore" className="w-[0.9vw] h-[0.9vw]" />
+                       </button>
+                     </div>
+                   </div>
+                 </div>
+               );
+             })()}
            </div>
         </div>
       )}

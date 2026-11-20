@@ -9,8 +9,8 @@ import ImageCropModal from '../ImageCropModal';
 import EditProfile from './EditProfile';
 import Activity from '../Activity';
 import { useAuth } from '../../../context/AuthContext';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
-import { getInitialUser } from '../../../utils/authUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
+import { getInitialUser } from '../../../utils/auth/authUtils';
 
 const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl = '', title, imageUrl }) => {
   const containerRef = useRef(null);
@@ -106,11 +106,18 @@ const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl = '', title, ima
             .replace(/(?:href|xlink:href)=["'](?:\.\.\/|\.\/)?assets\/([^"']+)["']/gi, `href="${assetsBaseUrl}$1" xlink:href="${assetsBaseUrl}$1"`)
             .replace(/src=["'](?:\.\.\/|\.\/)?assets\/([^"']+)["']/gi, `src="${assetsBaseUrl}$1"`);
         }
+
+        // Normalize vector-effect so strokes scale down proportionally with the thumbnail viewBox
+        processedContent = processedContent
+          .replace(/\bvector-effect\s*=\s*["']non-scaling-stroke["']/gi, 'vector-effect="none"')
+          .replace(/\bvectorEffect\s*=\s*["']non-scaling-stroke["']/gi, 'vectorEffect="none"')
+          .replace(/vector-effect\s*:\s*non-scaling-stroke\s*;?/gi, 'vector-effect: none;');
+
         return (
           <iframe
             title={`Preview of ${title}`}
             className="w-full h-full border-none pointer-events-none"
-            srcDoc={`<!DOCTYPE html><html><head>${html.fontImports}<base href="${effectiveBaseHref}"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:transparent;}svg{width:100%;height:100%;max-width:100%;max-height:100%;}[data-name="Free Frame"]{stroke:transparent !important;fill:transparent !important;}</style></head><body>${processedContent.replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet"')}</body></html>`}
+            srcDoc={`<!DOCTYPE html><html><head>${html.fontImports}<base href="${effectiveBaseHref}"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:transparent;}svg{width:100%;height:100%;max-width:100%;max-height:100%;}svg,svg *{vector-effect:none !important;}[data-name="Free Frame"]{stroke:transparent !important;fill:transparent !important;}</style></head><body>${processedContent.replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet"')}</body></html>`}
           />
         );
       })() : loaded && imageUrl ? (
@@ -159,7 +166,7 @@ const defaultProfile = {
   contact3CountryCode: '+91',
   contact3Label: 'Contact 3',
   contactCount: 2,
-  profileType: 'Individual',
+  profileType: '',
   professionalTitle: '',
   companyName: '',
   industryType: '',
@@ -333,6 +340,7 @@ const Profile = () => {
     const fetchUserProfile = async () => {
       try {
         const res = await axios.get(`${backendUrl}/api/profile`, {
+          params: effectiveEmail ? { emailId: effectiveEmail } : undefined,
           withCredentials: true
         });
         const p = res.data?.profile || (res.data?.emailId ? res.data : null);
@@ -355,7 +363,7 @@ const Profile = () => {
             contact3Label: p.contact3Label !== undefined ? p.contact3Label : (user.contact3Label || 'Contact 3'),
             contactCount: p.contactCount !== undefined ? p.contactCount : (user.contactCount || 2),
             displayName: p.displayName || p.name || user.displayName || '',
-            profileType: p.profileType || user.profileType || 'Individual',
+            profileType: p.profileType || user.profileType || '',
             professionalTitle: p.professionalTitle || p.title || user.professionalTitle || user.title || '',
             address1: p.address1 !== undefined ? p.address1 : (user.address1 || ''),
             address2: p.address2 !== undefined ? p.address2 : (user.address2 || ''),
@@ -418,7 +426,8 @@ const Profile = () => {
         formData.append('emailId', effectiveEmail);
         formData.append('banner', newBanner.file);
         const res = await axios.post(`${backendUrl}/api/profile/banner`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true
         });
         if (res.data?.success && res.data?.bannerBg) {
           setBannerBg(res.data.bannerBg);
@@ -430,10 +439,14 @@ const Profile = () => {
       setBannerBg(newBanner);
       if (!effectiveEmail) return;
       try {
-        const res = await axios.post(`${backendUrl}/api/profile/banner`, {
-          emailId: effectiveEmail,
-          bannerBg: newBanner
-        });
+        const res = await axios.post(
+          `${backendUrl}/api/profile/banner`,
+          {
+            emailId: effectiveEmail,
+            bannerBg: newBanner
+          },
+          { withCredentials: true }
+        );
         if (res.data?.success && res.data?.bannerBg) {
           setBannerBg(res.data.bannerBg);
         }
@@ -458,7 +471,8 @@ const Profile = () => {
         formData.append('emailId', effectiveEmail);
         formData.append('avatar', avatarOrFile);
         const res = await axios.post(`${backendUrl}/api/profile/avatar`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true
         });
         if (res.data?.success) {
           const newPic = res.data.picture || null;
@@ -482,11 +496,15 @@ const Profile = () => {
       });
       if (!effectiveEmail) return;
       try {
-        const res = await axios.post(`${backendUrl}/api/profile/avatar`, {
-          emailId: effectiveEmail,
-          picture: isDeleting ? null : avatarOrFile,
-          avatarBgColor: targetColor
-        });
+        const res = await axios.post(
+          `${backendUrl}/api/profile/avatar`,
+          {
+            emailId: effectiveEmail,
+            picture: isDeleting ? null : avatarOrFile,
+            avatarBgColor: targetColor
+          },
+          { withCredentials: true }
+        );
         if (res.data?.success) {
           const newPic = isDeleting ? null : (res.data.picture || null);
           const newColor = res.data.avatarBgColor || targetColor;
@@ -508,11 +526,15 @@ const Profile = () => {
     });
     if (!effectiveEmail) return;
     try {
-      await axios.post(`${backendUrl}/api/profile/avatar`, {
-        emailId: effectiveEmail,
-        picture: 'color_only',
-        avatarBgColor: color
-      });
+      await axios.post(
+        `${backendUrl}/api/profile/avatar`,
+        {
+          emailId: effectiveEmail,
+          picture: 'color_only',
+          avatarBgColor: color
+        },
+        { withCredentials: true }
+      );
     } catch (err) {
       console.error("Error saving avatar color in backend:", err);
     }
@@ -669,42 +691,33 @@ const Profile = () => {
           <div className="w-[22vw] flex-shrink-0 border-r-2 border-gray-200 relative flex flex-col min-h-0">
             <div className="flex flex-col items-center flex-1 min-h-0 z-[70] w-full">
 
-              {/* Top border eraser for container */}
+              {/* Top border eraser across notch */}
               <div
-                className="absolute top-[-0.2vw] left-[calc(50%-7.5vw)] w-[15vw] h-[0.4vw] bg-white z-10 pointer-events-none"
+                className="absolute top-[-0.2vw] left-[calc(50%-5.76vw)] w-[11.52vw] h-[0.4vw] bg-white z-10 pointer-events-none"
               ></div>
+
+              {/* Seamless Continuous Notch Line around Avatar Bottom */}
+              <svg
+                className="absolute top-[-1px] left-0 w-full h-[5vw] pointer-events-none z-[75] overflow-visible"
+                viewBox="0 0 220 50"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M 52.398 0 A 8 8 0 0 1 60.015 5.554 A 52.5 52.5 0 0 0 159.985 5.554 A 8 8 0 0 1 167.602 0"
+                  fill="none"
+                  stroke="#e5e7eb"
+                  strokeWidth="2"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
 
               {/* Avatar Wrapper (Fixed default size, no scroll scaling) */}
               <div
-                className="relative flex justify-center items-center z-[70] w-[12vw] h-[12vw] mt-[-6vw]"
+                className="relative flex justify-center items-center z-[70] w-[10.5vw] h-[10.5vw] mt-[-6.3vw]"
               >
-                {/* Left Smooth Corner */}
-                <svg className="absolute top-[3.19vw] -left-[1vw] w-[1.5vw] h-[2vw] z-10 pointer-events-none" viewBox="0 0 10 10">
-                  <path d="M0,10 L10,10 L10,0 A10,10 0 0,1 0,10 Z" fill="white" />
-                </svg>
-                {/* Right Smooth Corner */}
-                <svg className="absolute top-[3.19vw] -right-[1vw] w-[1.5vw] h-[2vw] z-10 pointer-events-none" viewBox="0 0 10 10">
-                  <path d="M10,10 L0,10 L0,0 A10,10 0 0,0 10,10 Z" fill="white" />
-                </svg>
-
                 <div className="w-full h-full rounded-full bg-white p-[0.8vw] relative flex items-center justify-center">
-
-                  {/* Semi-circle black border for the bottom half */}
                   <div
-                    className="absolute bottom-0 left-0 w-full h-[50%] border-b-2 border-l-2 border-r-2 border-gray-200 rounded-b-full pointer-events-none z-20"
-                    style={{ clipPath: 'polygon(0 16%, 100% 16%, 100% 100%, 0 100%)' }}
-                  ></div>
-
-                  <svg className="absolute bottom-[41.5%] -left-[1.1vw] w-[1.4vw] h-[1.1vw] z-10 pointer-events-none overflow-visible" viewBox="0 0 10 10">
-                    <path d="M -7 0 L 0 0 A 10 10 0 0 1 10 10" fill="none" stroke="#e6e8ec" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
-                  </svg>
-                  {/* Right Smooth Corner */}
-                  <svg className="absolute bottom-[41.5%] -right-[1.15vw] w-[1.4vw] h-[1.1vw] z-10 pointer-events-none overflow-visible" viewBox="0 0 10 10">
-                    <path d="M 17 0 L 10 0 A 10 10 0 0 0 0 10" fill="none" stroke="#e6e8ec" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
-                  </svg>
-
-                  <div
-                    className="w-[10.7vw] h-[10.7vw] rounded-full overflow-hidden relative shadow-inner z-10 bg-white transition-colors duration-300 flex items-center justify-center"
+                    className="w-[9.3vw] h-[9.3vw] rounded-full overflow-hidden relative shadow-inner z-10 bg-white transition-colors duration-300 flex items-center justify-center"
                     style={{ backgroundColor: (displayUser.picture && displayUser.picture !== 'color_only') ? '#ffffff' : ((displayUser.avatarBgColor && displayUser.avatarBgColor !== '#E8D4C8' && displayUser.avatarBgColor !== '#ffffff') ? displayUser.avatarBgColor : getAvatarColor(displayUser.name || displayUser.email || 'User')) }}
                   >
                     {displayUser.picture && displayUser.picture !== 'color_only' ? (
@@ -718,7 +731,7 @@ const Profile = () => {
                         }}
                       />
                     ) : (
-                      <span className="text-white text-[4.5vw] font-semibold drop-shadow-md">
+                      <span className="text-white text-[3.9vw] font-semibold drop-shadow-md">
                         {(() => {
                           const activeName = (displayUser.displayName && displayUser.displayName.trim() !== '') ? displayUser.displayName.trim() : (displayUser.name || displayUser.email || 'U');
                           return activeName.charAt(0).toUpperCase();
@@ -729,15 +742,15 @@ const Profile = () => {
                 </div>
 
                 {/* Camera Edit Icon badge matching screenshot */}
-                <div ref={avatarPopupRef} className="absolute top-[1.5vw] right-[0.8vw] z-20">
+                <div ref={avatarPopupRef} className="absolute top-[1.1vw] right-[0.5vw] z-20">
                   <button
                     onClick={() => {
                       setIsAvatarPopupOpen(!isAvatarPopupOpen);
                       if (!isAvatarPopupOpen) setIsColorPickerOpen(false);
                     }}
-                    className="w-[2.2vw] h-[2.2vw] bg-white rounded-full border border-gray-100 shadow-md hover:bg-gray-50 text-gray-700 flex items-center justify-center transition-transform hover:scale-105 cursor-pointer"
+                    className="w-[1.95vw] h-[1.95vw] bg-white rounded-full border border-gray-100 shadow-md hover:bg-gray-50 text-gray-700 flex items-center justify-center transition-transform hover:scale-105 cursor-pointer"
                   >
-                    <Icon icon="solar:camera-bold" className="w-[1.1vw] h-[1.1vw] text-gray-700" />
+                    <Icon icon="solar:camera-bold" className="w-[0.95vw] h-[0.95vw] text-gray-700" />
                   </button>
                   <div className="absolute top-0 left-0">
                     <AvatarPopup
@@ -811,16 +824,16 @@ const Profile = () => {
               {/* Info Cards Container */}
               <div 
                 id="left-scroll-container" 
-                className="w-full px-[1.5vw] py-[1.2vw] flex flex-col gap-[1.3vw] flex-1 min-h-0 overflow-y-auto hide-scrollbar rounded-b-[1vw]"
+                className="w-full px-[1.5vw] py-[1.2vw] flex flex-col gap-[1.6vw] flex-1 min-h-0 overflow-y-auto hide-scrollbar rounded-b-[1vw]"
               >
                 {/* 1. Profile Details Section */}
-                <div className="flex flex-col gap-[0.7vw]">
+                <div className="flex flex-col gap-[0.9vw]">
                   <div className="flex items-center gap-[0.45vw] text-[#ec5137]">
                     <Icon icon="solar:user-bold" className="w-[1.05vw] h-[1.05vw] flex-shrink-0" />
                     <h3 className="text-[0.88vw] font-bold text-gray-900 tracking-tight leading-none">Profile Details</h3>
                   </div>
 
-                  <div className="flex flex-col gap-[0.7vw] pl-[0.1vw]">
+                  <div className="flex flex-col gap-[1.1vw] pl-[0.1vw]">
                     {/* Full Name */}
                     {displayUser.name || displayUser.displayName ? (
                       <div>
@@ -837,34 +850,41 @@ const Profile = () => {
                     )}
 
                     {/* Profile Type */}
-                    <div>
-                      <p className="text-[0.70vw] text-gray-400 font-normal leading-none">Profile Type</p>
-                      <p className="text-[0.78vw] text-gray-800 font-medium leading-snug mt-[0.15vw]">
-                        {displayUser.profileType || 'Individual'}
-                      </p>
-                    </div>
+                    {displayUser.profileType ? (
+                      <div>
+                        <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Profile Type</p>
+                        <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
+                          {displayUser.profileType}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-[0.35vw]">
+                        <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Profile Type</p>
+                        <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
+                      </div>
+                    )}
 
                     {/* Conditional Fields based on Profile Type */}
                     {(!displayUser.profileType || displayUser.profileType === 'Individual') ? (
                       (displayUser.professionalTitle || displayUser.title) ? (
                         <div>
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Professional Title</p>
-                          <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Professional Title</p>
+                          <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                             {displayUser.professionalTitle || displayUser.title}
                           </p>
                         </div>
                       ) : (
                         <div className="flex items-center gap-[0.35vw]">
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Professional Title</p>
-                          <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Professional Title</p>
+                          <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                         </div>
                       )
                     ) : displayUser.profileType === 'Company' ? (
                       <>
                         {/* Industry Type */}
                         <div>
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Industry Type</p>
-                          <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Industry Type</p>
+                          <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                             {displayUser.industryType || displayUser.industry || 'Software Development'}
                           </p>
                         </div>
@@ -872,45 +892,45 @@ const Profile = () => {
                         {/* Company / Organization */}
                         {(displayUser.companyName || displayUser.businessName) ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Company / Organization</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Company / Organization</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.companyName || displayUser.businessName}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Company / Organization</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Company / Organization</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
 
                         {/* Company Size */}
                         {displayUser.companySize ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Company Size</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Company Size</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.companySize}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Company Size</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Company Size</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
 
                         {/* Business / Company Gmail */}
                         {(displayUser.businessEmail || displayUser.companyEmail) ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Company Gmail</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Company Gmail</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.businessEmail || displayUser.companyEmail}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Company Gmail</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Company Gmail</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
                       </>
@@ -918,8 +938,8 @@ const Profile = () => {
                       <>
                         {/* Industry Type */}
                         <div>
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Industry Type</p>
-                          <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Industry Type</p>
+                          <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                             {displayUser.industryType || displayUser.industry || 'Software Development'}
                           </p>
                         </div>
@@ -927,45 +947,45 @@ const Profile = () => {
                         {/* Agency Name */}
                         {(displayUser.agencyName || displayUser.companyName || displayUser.businessName) ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Agency Name</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Agency Name</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.agencyName || displayUser.companyName || displayUser.businessName}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Agency Name</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Agency Name</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
 
                         {/* Team Size */}
                         {displayUser.teamSize ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Team Size</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Team Size</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.teamSize}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Team Size</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Team Size</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
 
                         {/* Business Gmail */}
                         {(displayUser.businessEmail || displayUser.companyEmail) ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Business Gmail</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Business Gmail</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.businessEmail || displayUser.companyEmail}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Business Gmail</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Business Gmail</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
                       </>
@@ -974,8 +994,8 @@ const Profile = () => {
                       <>
                         {/* Industry Type */}
                         <div>
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Industry Type</p>
-                          <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Industry Type</p>
+                          <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                             {displayUser.industryType || displayUser.industry || 'Software Development'}
                           </p>
                         </div>
@@ -983,45 +1003,45 @@ const Profile = () => {
                         {/* Business / Brand Name */}
                         {(displayUser.businessName || displayUser.companyName) ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Business / Brand Name</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Business / Brand Name</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.businessName || displayUser.companyName}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Business / Brand Name</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Business / Brand Name</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
 
                         {/* Experience */}
                         {displayUser.experience ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Experience</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Experience</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.experience}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Experience</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Experience</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
 
                         {/* Business Gmail */}
                         {(displayUser.businessEmail || displayUser.companyEmail) ? (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Business Gmail</p>
-                            <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Business Gmail</p>
+                            <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                               {displayUser.businessEmail || displayUser.companyEmail}
                             </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-[0.35vw]">
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Business Gmail</p>
-                            <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Business Gmail</p>
+                            <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                           </div>
                         )}
                       </>
@@ -1034,15 +1054,15 @@ const Profile = () => {
                         : (Array.isArray(displayUser.skills) && displayUser.skills.length > 0 ? displayUser.skills : []);
                       return skillsList.length > 0 ? (
                         <div>
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Skills / Expertise</p>
-                          <p className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw]">
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Skills / Expertise</p>
+                          <p className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw]">
                             {skillsList.join(', ')}
                           </p>
                         </div>
                       ) : (
                         <div className="flex items-center gap-[0.35vw]">
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Skills / Expertise</p>
-                          <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Skills / Expertise</p>
+                          <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                         </div>
                       );
                     })()}
@@ -1050,15 +1070,15 @@ const Profile = () => {
                     {/* About */}
                     {displayUser.about ? (
                       <div>
-                        <p className="text-[0.68vw] text-gray-400 font-normal leading-none">About</p>
-                        <p className="text-[0.72vw] text-gray-700 font-normal leading-[1.5] mt-[0.15vw] whitespace-pre-wrap">
+                        <p className="text-[0.82vw] text-gray-400 font-normal leading-none">About</p>
+                        <p className="text-[0.82vw] text-gray-700 font-normal leading-relaxed mt-[0.35vw] whitespace-pre-wrap">
                           {displayUser.about}
                         </p>
                       </div>
                     ) : (
                       <div className="flex items-center gap-[0.35vw]">
-                        <p className="text-[0.68vw] text-gray-400 font-normal leading-none">About</p>
-                        <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                        <p className="text-[0.82vw] text-gray-400 font-normal leading-none">About</p>
+                        <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                       </div>
                     )}
                   </div>
@@ -1066,18 +1086,18 @@ const Profile = () => {
 
                 {/* 2. Contact & Location Section */}
                 {displayUser.visibilitySettings?.showContact !== false && (
-                  <div className="flex flex-col gap-[0.7vw]">
+                  <div className="flex flex-col gap-[0.9vw]">
                     <div className="flex items-center gap-[0.45vw] text-[#ec5137]">
                       <Icon icon="solar:map-point-bold" className="w-[1.05vw] h-[1.05vw] flex-shrink-0" />
                       <h3 className="text-[0.88vw] font-bold text-gray-900 tracking-tight leading-none">Contact & Location</h3>
                     </div>
 
-                    <div className="flex flex-col gap-[0.7vw] pl-[0.1vw]">
+                    <div className="flex flex-col gap-[1.1vw] pl-[0.1vw]">
                       {/* Number */}
                       {displayUser.mobile || displayUser.contact1 ? (
                         <div>
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Number</p>
-                          <div className="text-[0.76vw] text-gray-900 font-medium leading-snug mt-[0.15vw] flex flex-col gap-[0.15vw]">
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Number</p>
+                          <div className="text-[0.82vw] text-gray-700 font-normal leading-snug mt-[0.35vw] flex flex-col gap-[0.15vw]">
                             <div>
                               {displayUser.contact1Label && displayUser.contact1Label !== 'Contact 1' && (
                                 <span className="font-normal text-gray-500 mr-[0.25vw]">{displayUser.contact1Label}:</span>
@@ -1104,8 +1124,8 @@ const Profile = () => {
                         </div>
                       ) : (
                         <div className="flex items-center gap-[0.35vw]">
-                          <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Number</p>
-                          <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                          <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Number</p>
+                          <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                         </div>
                       )}
 
@@ -1130,16 +1150,16 @@ const Profile = () => {
                         if (lines.length === 0) {
                           return (
                             <div className="flex items-center gap-[0.35vw]">
-                              <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Address</p>
-                              <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                              <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Address</p>
+                              <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                             </div>
                           );
                         }
 
                         return (
                           <div>
-                            <p className="text-[0.68vw] text-gray-400 font-normal leading-none">Address</p>
-                            <div className="text-[0.72vw] text-gray-700 font-normal leading-[1.45] mt-[0.15vw]">
+                            <p className="text-[0.82vw] text-gray-400 font-normal leading-none">Address</p>
+                            <div className="text-[0.82vw] text-gray-700 font-normal leading-relaxed mt-[0.35vw]">
                               <div className="flex flex-col">
                                 {lines.map((l, i) => (
                                   <span key={i}>{l}</span>
@@ -1170,13 +1190,13 @@ const Profile = () => {
                           <Icon icon="solar:share-bold" className="w-[1.05vw] h-[1.05vw] flex-shrink-0" />
                           <h3 className="text-[0.88vw] font-bold text-gray-900 tracking-tight leading-none">Social Media & Links</h3>
                         </div>
-                        <span className="text-[0.72vw] text-gray-400 font-medium leading-none">-</span>
+                        <span className="text-[0.74vw] text-gray-400 font-normal leading-none">-</span>
                       </div>
                     );
                   }
 
                   return (
-                    <div className="flex flex-col gap-[0.7vw]">
+                    <div className="flex flex-col gap-[0.9vw]">
                       <div className="flex items-center gap-[0.45vw] text-[#ec5137]">
                         <Icon icon="solar:share-bold" className="w-[1.05vw] h-[1.05vw] flex-shrink-0" />
                         <h3 className="text-[0.88vw] font-bold text-gray-900 tracking-tight leading-none">Social Media & Links</h3>

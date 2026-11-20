@@ -5,14 +5,118 @@ import { Icon } from '@iconify/react';
 import ColorPicker from '../../../properties/ColorPicker';
 import { DEFAULT_MAP_DATA, MAP_TEMPLATES, generateOverlayHtml, escapeXml } from '../utils/mapElementUtils';
 import { ElementToggle, ElementDropdown, ElementSlider } from './ElementUIControls';
+import { handleScrubHelper } from '../../../properties/propertiesShared';
 
 // Section header matching editor design standards
-const SectionHeader = ({ title }) => (
-  <div className="flex items-center gap-[0.4vw]">
-    <span className="text-[0.88vw] font-semibold text-black whitespace-nowrap">{title}</span>
-    <div className="h-[0.06vw] bg-gray-200 flex-1 ml-[0.3vw]" />
+const SectionHeader = ({ title, rightElement }) => (
+  <div className="flex items-center gap-[0.8vw]">
+    <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">{title}</span>
+    {rightElement}
+    <div className="flex-1 h-[1px] bg-gray-200" />
   </div>
 );
+
+// Exact ColorBox matching user screenshot and Color.jsx
+const ColorBoxRow = ({
+  title,
+  color,
+  opacity = 100,
+  onOpenPicker,
+  onChange,
+  onOpacityChange,
+  isActive = false,
+  titleRight,
+}) => {
+  const isTransparent = !color || color === 'none' || color === 'transparent';
+  const displayColor = (() => {
+    if (isTransparent) return '#';
+    if (typeof color === 'string' && color.includes('gradient')) return 'Gradient';
+    return typeof color === 'string' ? (color.startsWith('#') ? color.toUpperCase() : '#' + color.toUpperCase()) : '#000000';
+  })();
+
+  return (
+    <div className="flex flex-col gap-[0.5vw]">
+      {title && (
+        <div className="flex items-center gap-[0.8vw] mb-[0.1vw]">
+          <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">{title}</span>
+          {titleRight}
+          <div className="flex-1 h-[1px] bg-gray-200" />
+        </div>
+      )}
+      <div className="flex items-center gap-[0.6vw]">
+        {/* Swatch (3.6vw x 2.1vw rounded rectangle matching user screenshot) */}
+        <div
+          onClick={onOpenPicker}
+          className={`w-[3.6vw] h-[2.1vw] rounded-[0.45vw] border border-gray-300 shadow-2xs cursor-pointer flex-shrink-0 relative overflow-hidden transition-transform hover:scale-105 ${
+            isActive ? 'border-indigo-500 ring-2 ring-indigo-500/20' : ''
+          }`}
+          title={`Change ${title || 'color'}`}
+        >
+          <div
+            className="w-full h-full"
+            style={{ background: isTransparent ? '#ffffff' : color }}
+          />
+          {isTransparent && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[1.5px] bg-red-500 rotate-45 pointer-events-none" />
+          )}
+        </div>
+
+        {/* Input box */}
+        <div className="flex-1 h-[2.1vw] rounded-[0.45vw] border border-gray-300 bg-white flex items-center justify-between px-[0.75vw] hover:border-gray-400 focus-within:border-indigo-400 transition-colors shadow-2xs">
+          <input
+            type="text"
+            value={displayColor}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '' || val === '#') {
+                onChange('none');
+              } else {
+                const finalVal = val.startsWith('#') ? val : '#' + val;
+                onChange(finalVal);
+              }
+            }}
+            className="text-[0.8vw] font-mono font-medium text-gray-800 outline-none bg-transparent flex-1 uppercase"
+            maxLength={9}
+          />
+          <div
+            className="flex items-center cursor-ew-resize select-none px-[0.2vw] hover:bg-gray-50 rounded"
+            onPointerDown={(e) => {
+              const currentPct = Math.round(parseFloat(opacity !== undefined ? opacity : 100));
+              handleScrubHelper(e, currentPct, (val) => {
+                const num = parseInt(val);
+                const clamped = Math.min(Math.max(num, 0), 100);
+                onOpacityChange(clamped);
+              });
+            }}
+            title="Drag horizontally to adjust opacity"
+          >
+            <span className="text-[0.8vw] font-medium text-gray-700">
+              {Math.round(parseFloat(opacity !== undefined ? opacity : 100))}%
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper: update or inject map type parameter into Google Maps URL (m=Roadmap, k=Satellite, h=Hybrid, p=Terrain)
+const updateUrlMapType = (url, type = 'm') => {
+  if (!url) return url;
+  if (/([?&]t=)[^&]*/i.test(url)) {
+    return url.replace(/([?&]t=)[^&]*/i, `$1${type}`);
+  }
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}t=${type}`;
+};
+
+// Helper: extract map type parameter from a URL
+const extractUrlMapType = (url, fallback = 'm') => {
+  if (!url) return fallback;
+  const match = url.match(/[?&]t=([khpm]?)(?:&|$)/i);
+  if (match && match[1]) return match[1].toLowerCase() || 'm';
+  return fallback;
+};
 
 // Helper: update or inject zoom parameter into a Google Maps URL
 const updateUrlZoom = (url, zoomLevel) => {
@@ -35,20 +139,18 @@ const extractUrlZoom = (url, fallback = 11) => {
   return fallback;
 };
 
-// RadioButton component with signature accent
-const RadioButton = ({ label, checked, onChange }) => (
-  <label className="flex items-center gap-[0.35vw] cursor-pointer select-none">
-    <div
-      onClick={onChange}
-      className={`w-[1.05vw] h-[1.05vw] rounded-full border-2 flex items-center justify-center transition-all ${
-        checked ? 'border-[#E05638]' : 'border-gray-700 hover:border-black'
-      }`}
-    >
-      {checked && <div className="w-[0.5vw] h-[0.5vw] rounded-full bg-[#E05638]" />}
-    </div>
-    <span className="text-[0.78vw] text-gray-600 font-semibold">{label}</span>
-  </label>
-);
+// Helper: extract coordinates [lat, lng] from URL or query
+const extractCoordsFromUrl = (url) => {
+  if (!url) return null;
+  const qMatch = url.match(/[?&]q=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  if (qMatch) return [parseFloat(qMatch[1]), parseFloat(qMatch[2])];
+  const atMatch = url.match(/@(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  if (atMatch) return [parseFloat(atMatch[1]), parseFloat(atMatch[2])];
+  const pbLat = url.match(/!3d(-?\d+\.\d+)/);
+  const pbLng = url.match(/!2d(-?\d+\.\d+)/);
+  if (pbLat && pbLng) return [parseFloat(pbLat[1]), parseFloat(pbLng[1])];
+  return null;
+};
 
 // Toggle Switch matching exact reference design
 const Toggle = ElementToggle;
@@ -64,12 +166,14 @@ const THEME_OPTIONS = [
 const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribute, activePageIndex, selectedLayerId }) => {
   // --- 1. Map Source Settings ---
   const [sourceType, setSourceType] = useState('Location'); // 'Location' | 'URL' | 'Embed Code'
-  const [location, setLocation] = useState('Gandhipuram, Coimbatore, Tamil Nadu');
-  const [locationInput, setLocationInput] = useState('Gandhipuram, Coimbatore, Tamil Nadu');
+  const [location, setLocation] = useState('Harur');
+  const [locationInput, setLocationInput] = useState('Harur');
+  const [coords, setCoords] = useState([12.0625, 78.4981]); // Default to Harur coords
   const [urlInput, setUrlInput] = useState('');
   const [embedCode, setEmbedCode] = useState('');
   const [iframeUrl, setIframeUrl] = useState('');
-  const [zoom, setZoom] = useState(11);
+  const [zoom, setZoom] = useState(14);
+  const [mapType, setMapType] = useState('m'); // 'm' (Roadmap) | 'k' (Satellite) | 'h' (Hybrid) | 'p' (Terrain)
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -100,6 +204,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef(null);
   const iframeRef = useRef(null);
+  const debounceTimerRef = useRef(null);
 
   const isDarkTheme = String(theme).toLowerCase().includes('dark');
 
@@ -186,9 +291,13 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
   const updateMapData = (updatedFields = {}) => {
     const nextStyle = updatedFields.style !== undefined ? updatedFields.style : layoutStyle;
     const nextZoom = updatedFields.zoom !== undefined ? updatedFields.zoom : zoom;
+    const nextMapType = updatedFields.mapType !== undefined ? updatedFields.mapType : mapType;
     let nextUrl = updatedFields.url !== undefined ? updatedFields.url : iframeUrl;
     if (nextUrl) {
       nextUrl = updateUrlZoom(nextUrl, nextZoom);
+      if (nextMapType) {
+        nextUrl = updateUrlMapType(nextUrl, nextMapType);
+      }
     }
     const nextSourceType = updatedFields.sourceType !== undefined ? updatedFields.sourceType : sourceType;
     const nextLocation = updatedFields.location !== undefined ? updatedFields.location : location;
@@ -205,27 +314,41 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
 
     if (nextUrl) setIframeUrl(nextUrl);
 
-    if (selectedElement) {
-      selectedElement.setAttribute('data-map-style', nextStyle);
-      selectedElement.setAttribute('data-zoom', String(nextZoom));
-      selectedElement.setAttribute('data-url', nextUrl);
-      selectedElement.setAttribute('data-source-type', nextSourceType);
-      selectedElement.setAttribute('data-location', nextLocation);
-      selectedElement.setAttribute('data-business-name', nextName);
-      selectedElement.setAttribute('data-business-address', nextAddress);
-      selectedElement.setAttribute('data-business-rating', nextRating);
-      selectedElement.setAttribute('data-business-reviews', nextReviews);
-      selectedElement.setAttribute('data-business-category', nextCategory);
-      selectedElement.setAttribute('data-business-phone', nextPhone);
-      selectedElement.setAttribute('data-business-image', nextImage);
-      selectedElement.setAttribute('data-theme', nextTheme);
-      selectedElement.setAttribute('data-button-color', nextButtonColor);
-      selectedElement.setAttribute('data-show-open-map-btn', nextShowOpenMapBtn ? 'true' : 'false');
+    const doc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
+    let liveEl = selectedLayerId ? (doc.getElementById(selectedLayerId) || document.getElementById(selectedLayerId)) : null;
+    if (!liveEl && selectedElement) liveEl = selectedElement;
+    let targetElement = liveEl?.closest?.('g[id^="map-"], g[data-type="map"]') || liveEl?.closest?.('[data-type="map"]') || liveEl;
+    if (!targetElement) {
+      targetElement = doc.querySelector?.('.page-svg-container [data-type="map"], .page-svg-container g[id^="map-"]') || document.querySelector?.('.page-svg-container [data-type="map"], .page-svg-container g[id^="map-"]');
+    }
 
-      if (updatedFields.rawUrl !== undefined) selectedElement.setAttribute('data-raw-url', updatedFields.rawUrl);
-      if (updatedFields.embedCode !== undefined) selectedElement.setAttribute('data-embed-code', updatedFields.embedCode);
+    if (targetElement) {
+      targetElement.setAttribute('data-map-style', nextStyle);
+      targetElement.setAttribute('data-zoom', String(nextZoom));
+      targetElement.setAttribute('data-map-type', nextMapType);
+      if (coords && Array.isArray(coords)) {
+        targetElement.setAttribute('data-coords', `${coords[0]},${coords[1]}`);
+      }
+      targetElement.setAttribute('data-url', nextUrl);
+      targetElement.setAttribute('data-source-type', nextSourceType);
+      targetElement.setAttribute('data-location', nextLocation);
+      targetElement.setAttribute('data-business-name', nextName);
+      targetElement.setAttribute('data-business-address', nextAddress);
+      targetElement.setAttribute('data-business-rating', nextRating);
+      targetElement.setAttribute('data-business-reviews', nextReviews);
+      targetElement.setAttribute('data-business-category', nextCategory);
+      targetElement.setAttribute('data-business-phone', nextPhone);
+      targetElement.setAttribute('data-business-image', nextImage);
+      targetElement.setAttribute('data-theme', nextTheme);
+      targetElement.setAttribute('data-button-color', nextButtonColor);
+      targetElement.setAttribute('data-show-open-map-btn', nextShowOpenMapBtn ? 'true' : 'false');
 
-      const fo = selectedElement.querySelector('foreignObject');
+      if (updatedFields.rawUrl !== undefined) targetElement.setAttribute('data-raw-url', updatedFields.rawUrl);
+      if (updatedFields.embedCode !== undefined) targetElement.setAttribute('data-embed-code', updatedFields.embedCode);
+
+      const fo = targetElement.tagName?.toLowerCase() === 'foreignobject'
+        ? targetElement
+        : (targetElement.querySelector('foreignObject') || targetElement.querySelector('[data-type="map"]'));
 
       // Rebuild inner foreignObject container with fresh overlay & theme
       const overlayHtml = generateOverlayHtml(nextStyle, {
@@ -254,23 +377,48 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
 
         fo.setAttribute('data-type', 'map');
         fo.setAttribute('style', 'overflow: hidden; border-radius: 0px;');
-        fo.innerHTML = `
-          <div xmlns="http://www.w3.org/1999/xhtml" class="map-root-container" style="position: relative; width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; border-radius: 0px; box-shadow: 0 4px 20px rgba(0,0,0,0.12);">
-            <div class="map-stage" style="position: absolute; top: 0; left: 0; width: ${innerW}px; height: ${innerH}px; transform: scale(${scale}); transform-origin: 0 0; overflow: hidden;">
-              <iframe src="${nextUrl.replace(/&/g, '&amp;')}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; pointer-events: none; margin: 0; padding: 0; display: block; ${filterStyle}" allowfullscreen="" loading="lazy"></iframe>
-              <div class="map-overlay-wrapper" style="position: absolute; inset: 0; pointer-events: none;">
-                ${overlayHtml}
+
+        const existingStage = fo.querySelector('.map-stage');
+        const existingIframe = fo.querySelector('iframe');
+        const existingOverlay = fo.querySelector('.map-overlay-wrapper');
+
+        if (existingStage && existingIframe && existingOverlay) {
+          const targetSrc = nextUrl.replace(/&amp;/g, '&');
+          const currentSrc = (existingIframe.getAttribute('src') || '').replace(/&amp;/g, '&');
+          let activeIframe = existingIframe;
+          if (currentSrc !== targetSrc) {
+            existingIframe.setAttribute('src', nextUrl.replace(/&/g, '&amp;'));
+            try { existingIframe.src = targetSrc; } catch (e) {}
+            const newIframe = existingIframe.cloneNode(true);
+            newIframe.setAttribute('src', nextUrl.replace(/&/g, '&amp;'));
+            newIframe.src = targetSrc;
+            existingIframe.parentNode.replaceChild(newIframe, existingIframe);
+            activeIframe = newIframe;
+          }
+          if (activeIframe) {
+            activeIframe.setAttribute('style', `position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; pointer-events: none; margin: 0; padding: 0; display: block; ${filterStyle}`);
+            activeIframe.style.filter = isDark ? 'invert(90%) hue-rotate(180deg) contrast(95%)' : 'none';
+          }
+          existingOverlay.innerHTML = overlayHtml;
+        } else {
+          fo.innerHTML = `
+            <div xmlns="http://www.w3.org/1999/xhtml" class="map-root-container" style="position: relative; width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; border-radius: 0px; box-shadow: 0 4px 20px rgba(0,0,0,0.12);">
+              <div class="map-stage" style="position: absolute; top: 0; left: 0; width: ${innerW}px; height: ${innerH}px; transform: scale(${scale}); transform-origin: 0 0; overflow: hidden;">
+                <iframe src="${nextUrl.replace(/&/g, '&amp;')}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; pointer-events: none; margin: 0; padding: 0; display: block; ${filterStyle}" allowfullscreen="" loading="lazy"></iframe>
+                <div class="map-overlay-wrapper" style="position: absolute; inset: 0; pointer-events: none;">
+                  ${overlayHtml}
+                </div>
               </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       }
 
       if (onUpdate) {
-        onUpdate(selectedElement.outerHTML);
-      }
-      if (updateElementAttribute && selectedLayerId !== undefined) {
-        let node = selectedElement;
+        onUpdate(targetElement.outerHTML);
+      } else if (updateElementAttribute && (targetElement.id || selectedLayerId)) {
+        window.__skipCanvasUpdateForPage = activePageIndex;
+        let node = targetElement;
         let lastSvg = null;
         while (node) {
           if (node.tagName?.toLowerCase() === 'svg') lastSvg = node;
@@ -281,7 +429,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
           cloneSvg.querySelectorAll('[data-highlight-id], .frame-boundary').forEach(el => el.remove());
           const serializer = new XMLSerializer();
           const html = serializer.serializeToString(cloneSvg);
-          updateElementAttribute(activePageIndex, selectedLayerId, '__dom_sync__', html);
+          updateElementAttribute(activePageIndex, targetElement.id || selectedLayerId, '__dom_sync__', html);
         }
       }
     }
@@ -410,7 +558,17 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
       }
       setZoom(parsedZoom);
 
-      const effectiveUrl = updateUrlZoom(url, parsedZoom);
+      const savedMapType = selectedElement.getAttribute('data-map-type') || extractUrlMapType(url, 'm');
+      setMapType(savedMapType);
+
+      const extCoords = extractCoordsFromUrl(url);
+      if (extCoords) {
+        setCoords(extCoords);
+      } else if (savedLocation && savedLocation.toLowerCase().includes('harur')) {
+        setCoords([12.0625, 78.4981]);
+      }
+
+      const effectiveUrl = updateUrlMapType(updateUrlZoom(url, parsedZoom), savedMapType);
       setIframeUrl(effectiveUrl);
 
       if (savedStyle) {
@@ -475,7 +633,8 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
       const isDark = String(savedTheme).toLowerCase().includes('dark');
       const filterStyle = isDark ? 'filter: invert(90%) hue-rotate(180deg) contrast(95%);' : '';
 
-      if (fo) {
+      // Only auto-heal foreignObject if missing the map structure completely
+      if (fo && !fo.querySelector('.map-root-container')) {
         const foW = parseFloat(fo.getAttribute('width')) || 180;
         const foH = parseFloat(fo.getAttribute('height')) || 135;
         const baseW = 360;
@@ -513,25 +672,6 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
             </div>
           </div>
         `;
-
-        if (onUpdate) {
-          onUpdate(selectedElement.outerHTML);
-        }
-        if (updateElementAttribute && selectedLayerId !== undefined) {
-          let node = selectedElement;
-          let lastSvg = null;
-          while (node) {
-            if (node.tagName?.toLowerCase() === 'svg') lastSvg = node;
-            node = node.parentElement;
-          }
-          if (lastSvg) {
-            const cloneSvg = lastSvg.cloneNode(true);
-            cloneSvg.querySelectorAll('[data-highlight-id], .frame-boundary').forEach(el => el.remove());
-            const serializer = new XMLSerializer();
-            const html = serializer.serializeToString(cloneSvg);
-            updateElementAttribute(activePageIndex, selectedLayerId, '__dom_sync__', html);
-          }
-        }
       }
     } else {
       setIframeUrl(defaultUrl);
@@ -554,6 +694,15 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     const value = e.target.value;
     setLocationInput(value);
     setErrorMessage('');
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (value.trim().length >= 3 && value.trim() !== location) {
+      debounceTimerRef.current = setTimeout(() => {
+        handleSearchSubmit(value.trim());
+      }, 700);
+    }
 
     // Check if coordinates
     const isCoordinateRegex = /^[-+]?\d{1,2}(\.\d+)?\s*,\s*[-+]?\d{1,3}(\.\d+)?$/;
@@ -620,7 +769,12 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     setShowSuggestions(false);
     setErrorMessage('');
 
-    const newUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mainTitle)}&t=&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
+    if (suggestion.lat && suggestion.lon) {
+      const newC = [parseFloat(suggestion.lat), parseFloat(suggestion.lon)];
+      setCoords(newC);
+    }
+
+    const newUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mainTitle)}&t=${mapType || 'm'}&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
     setIframeUrl(newUrl);
     updateMapData({
       url: newUrl,
@@ -634,13 +788,23 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     fetchPlaceDetails(mainTitle, 'Location');
   };
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = (queryArg) => {
     setShowSuggestions(false);
     setErrorMessage('');
-    const query = locationInput.trim();
+    const query = (typeof queryArg === 'string' ? queryArg : locationInput).trim();
     if (!query) return;
 
-    const newUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
+    const coordMatch = query.match(/^[-+]?\d{1,2}(\.\d+)?\s*,\s*[-+]?\d{1,3}(\.\d+)?$/);
+    if (coordMatch) {
+      const parts = query.split(',').map(s => parseFloat(s.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        setCoords(parts);
+      }
+    } else if (query.toLowerCase().includes('harur')) {
+      setCoords([12.0625, 78.4981]);
+    }
+
+    const newUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=${mapType || 'm'}&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
     setBusinessName(query);
     setLocation(query);
     setBusinessAddress(query);
@@ -764,6 +928,14 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     updateMapData({ url: updatedUrl, zoom: val });
   };
 
+  // Handle Map View Type Change (Roadmap / Satellite / Hybrid / Terrain)
+  const handleMapTypeChange = (newType) => {
+    setMapType(newType);
+    const updatedUrl = updateUrlMapType(iframeUrl, newType);
+    setIframeUrl(updatedUrl);
+    updateMapData({ url: updatedUrl, mapType: newType });
+  };
+
   // Handle Open in Map Button Toggle
   const handleToggleOpenMapBtn = (newVal) => {
     setShowOpenMapBtn(newVal);
@@ -771,201 +943,239 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
   };
 
   return (
-    <div className="w-full flex flex-col gap-[0.8vw] font-sans text-gray-800">
-      {/* ─── 1. MAP SOURCE ─── */}
-      <SectionHeader title="Map Property" />
-
-      {/* Radio Buttons for Source Type */}
-      <div className="flex items-center justify-between w-full px-[0.1vw] py-[0.1vw]">
-        {['Location', 'URL', 'Embed Code'].map((type) => (
-          <RadioButton
-            key={type}
-            label={type}
-            checked={sourceType === type}
-            onChange={() => {
-              setSourceType(type);
-              setErrorMessage('');
-            }}
-          />
-        ))}
+    <div className="relative flex flex-col gap-[1.7vw] w-full max-w-[25vw] pb-[2vw] font-sans select-none">
+      {/* ===================== HEADER ===================== */}
+      <div className="flex items-center gap-[0.8vw]">
+        <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-wider">Map Properties</span>
+        <div className="flex-1 h-[1px] bg-gray-200" />
       </div>
 
-      {/* 1.1 Location Search Input */}
-      {sourceType === 'Location' && (
-        <div className="relative w-full" ref={wrapperRef}>
-          <div className="w-full h-[2.5vw] flex items-center border border-gray-200 rounded-[0.5vw] bg-white px-[0.6vw] shadow-2xs hover:border-gray-300 focus-within:border-[#E05638] transition-colors">
-            <Search size="0.95vw" className="text-gray-400 flex-shrink-0 mr-[0.4vw]" />
-            <input
-              type="text"
-              value={locationInput}
-              onChange={handleLocationInputChange}
-              onKeyDown={handleKeyDown}
-              onBlur={() => {
-                if (locationInput.trim() && locationInput.trim() !== location) {
-                  handleSearchSubmit();
-                }
-              }}
-              onFocus={() => {
-                if (suggestions.length > 0) setShowSuggestions(true);
-              }}
-              placeholder="Search Location..."
-              className="flex-1 h-full text-[0.78vw] font-semibold text-gray-700 bg-transparent outline-none placeholder:text-gray-400"
-            />
-          </div>
+      {/* ===================== 1. MAP SOURCE ===================== */}
+      <div className="flex flex-col gap-[0.6vw]">
+        <SectionHeader title="Map Source" />
 
-          {/* Suggestions Dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-[0.6vw] shadow-2xl max-h-[14vw] overflow-y-auto custom-scrollbar">
-              {suggestions.map((suggestion, index) => {
-                const isDirect = suggestion.isCoordinate || suggestion.isCustomQuery;
-                const parts = suggestion.display_name.split(',');
-                const mainText = isDirect ? suggestion.display_name : parts[0];
-                const secondaryText = isDirect ? (suggestion.isCoordinate ? 'Coordinates' : 'Search on Google Maps') : parts.slice(1, 4).join(',').trim();
-
-                return (
-                  <div
-                    key={index}
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    className="flex flex-col px-3 py-1.5 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
-                  >
-                    <span className="text-[0.76vw] font-semibold text-gray-900 truncate">{mainText}</span>
-                    {secondaryText && (
-                      <span className="text-[0.68vw] text-gray-500 truncate">{secondaryText}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        {/* Source Switcher Tabs */}
+        <div className="grid grid-cols-3 gap-[0.4vw] p-[0.2vw] bg-gray-100 rounded-[0.45vw]">
+          {['Location', 'URL', 'Embed Code'].map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => {
+                setSourceType(type);
+                setErrorMessage('');
+              }}
+              className={`h-[1.9vw] rounded-[0.35vw] text-[0.8vw] font-medium transition-all ${
+                sourceType === type ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
         </div>
-      )}
 
-      {/* 1.2 URL Input */}
-      {sourceType === 'URL' && (
-        <div className="w-full flex flex-col gap-[0.25vw]">
-          <span className="text-[0.7vw] text-gray-500 font-semibold">Source URL</span>
-          <div className={`flex border ${errorMessage ? 'border-red-500' : 'border-gray-200'} rounded-[0.5vw] overflow-hidden focus-within:border-[#E05638] focus-within:ring-1 focus-within:ring-[#E05638] transition-all bg-white shadow-2xs`}>
-            <input
-              type="text"
-              value={urlInput}
+        {/* 1.1 Location Search Input */}
+        {sourceType === 'Location' && (
+          <div className="relative w-full mt-[0.1vw]" ref={wrapperRef}>
+            <div className="w-full h-[2.1vw] flex items-center border border-gray-300 rounded-[0.45vw] bg-white px-[0.6vw] shadow-2xs hover:border-gray-400 focus-within:border-indigo-400 transition-colors">
+              <button
+                type="button"
+                onClick={handleSearchSubmit}
+                className="flex items-center justify-center p-0 mr-[0.4vw] hover:text-indigo-600 transition-colors cursor-pointer"
+                title="Search Location"
+              >
+                <Search size="0.85vw" className="text-gray-400 hover:text-indigo-600 flex-shrink-0" />
+              </button>
+              <input
+                type="text"
+                value={locationInput}
+                onChange={handleLocationInputChange}
+                onKeyDown={handleKeyDown}
+                onBlur={() => {
+                  if (locationInput.trim() && locationInput.trim() !== location) {
+                    handleSearchSubmit();
+                  }
+                }}
+                onFocus={() => {
+                  if (suggestions.length > 0) setShowSuggestions(true);
+                }}
+                placeholder="Search Location..."
+                className="flex-1 h-full text-[0.8vw] font-medium text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
+              />
+            </div>
+
+            {/* Suggestions Dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-[0.5vw] shadow-xl max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150">
+                {suggestions.map((suggestion, index) => {
+                  const isDirect = suggestion.isCoordinate || suggestion.isCustomQuery;
+                  const parts = suggestion.display_name.split(',');
+                  const mainText = isDirect ? suggestion.display_name : parts[0];
+                  const secondaryText = isDirect ? (suggestion.isCoordinate ? 'Coordinates' : 'Search on Google Maps') : parts.slice(1, 4).join(',').trim();
+
+                  return (
+                    <div
+                      key={index}
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="flex flex-col px-3 py-1.5 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
+                    >
+                      <span className="text-[0.78vw] font-semibold text-gray-900 truncate">{mainText}</span>
+                      {secondaryText && (
+                        <span className="text-[0.68vw] text-gray-500 truncate">{secondaryText}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 1.2 URL Input */}
+        {sourceType === 'URL' && (
+          <div className="w-full flex flex-col gap-[0.3vw] mt-[0.1vw]">
+            <span className="text-[0.72vw] text-gray-500 font-medium">Source URL</span>
+            <div className={`flex h-[2.1vw] border ${errorMessage ? 'border-red-400' : 'border-gray-300'} rounded-[0.45vw] overflow-hidden focus-within:border-indigo-400 transition-colors bg-white shadow-2xs`}>
+              <input
+                type="text"
+                value={urlInput}
+                onChange={(e) => {
+                  setUrlInput(e.target.value);
+                  setErrorMessage('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleApplyUrl();
+                }}
+                onBlur={handleApplyUrl}
+                placeholder="e.g. https://maps.app.goo.gl/..."
+                className="flex-1 px-[0.75vw] text-[0.8vw] font-medium outline-none text-gray-800 placeholder-gray-400 bg-transparent"
+                disabled={isLoadingUrl}
+              />
+              {isLoadingUrl && (
+                <div className="flex items-center pr-[0.4vw]">
+                  <Loader2 size="0.85vw" className="animate-spin text-indigo-600" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (urlInput) {
+                    navigator.clipboard.writeText(urlInput.startsWith('http') ? urlInput : 'https://' + urlInput);
+                    setCopiedUrl(true);
+                    setTimeout(() => setCopiedUrl(false), 1500);
+                  }
+                }}
+                className="px-[0.6vw] flex items-center justify-center text-gray-500 hover:text-indigo-600 transition-colors bg-gray-50 border-l border-gray-200 cursor-pointer"
+                title={copiedUrl ? 'Copied!' : 'Copy Link'}
+              >
+                {copiedUrl ? (
+                  <Check className="w-[0.85vw] h-[0.85vw] text-green-600" />
+                ) : (
+                  <Copy className="w-[0.85vw] h-[0.85vw]" />
+                )}
+              </button>
+            </div>
+            {errorMessage && (
+              <div className="p-[0.35vw] bg-red-50 border border-red-200 rounded-[0.4vw] text-[0.7vw] text-red-600 flex items-start gap-[0.25vw] mt-[0.1vw]">
+                <AlertCircle size="0.75vw" className="text-red-500 flex-shrink-0 mt-[0.05vw]" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 1.3 Embed Code Textarea */}
+        {sourceType === 'Embed Code' && (
+          <div className="w-full flex flex-col gap-[0.3vw] mt-[0.1vw]">
+            <span className="text-[0.72vw] text-gray-500 font-medium">HTML Embed Code</span>
+            <textarea
+              value={embedCode}
               onChange={(e) => {
-                setUrlInput(e.target.value);
+                setEmbedCode(e.target.value);
                 setErrorMessage('');
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleApplyUrl();
-              }}
-              onBlur={handleApplyUrl}
-              placeholder="e.g. https://maps.app.goo.gl/"
-              className="flex-1 px-[0.6vw] py-[0.5vw] text-[0.78vw] font-semibold outline-none text-gray-800 placeholder-gray-400 bg-transparent"
-              disabled={isLoadingUrl}
-            />
-            {isLoadingUrl && (
-              <div className="flex items-center pr-[0.4vw]">
-                <Loader2 size="0.85vw" className="animate-spin text-gray-400" />
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                if (urlInput) {
-                  navigator.clipboard.writeText(urlInput.startsWith('http') ? urlInput : 'https://' + urlInput);
-                  setCopiedUrl(true);
-                  setTimeout(() => setCopiedUrl(false), 1500);
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleApplyEmbedCode();
                 }
               }}
-              className="px-[0.6vw] flex items-center justify-center text-gray-500 hover:text-[#E05638] transition-colors bg-gray-50 border-l border-gray-200 cursor-pointer"
-              title={copiedUrl ? 'Copied!' : 'Copy Link'}
-            >
-              {copiedUrl ? (
-                <Check className="w-[0.85vw] h-[0.85vw] text-green-600" />
-              ) : (
-                <Copy className="w-[0.85vw] h-[0.85vw]" />
-              )}
-            </button>
+              onBlur={handleApplyEmbedCode}
+              placeholder="Paste HTML code here"
+              rows={3}
+              className={`w-full border ${errorMessage ? 'border-red-400' : 'border-gray-300'} rounded-[0.45vw] p-[0.6vw] text-[0.8vw] font-mono text-gray-800 placeholder-gray-400 outline-none focus:border-indigo-400 bg-white h-[5.5vw] resize-none shadow-2xs transition-colors`}
+              disabled={isLoadingUrl}
+            />
+            {errorMessage && (
+              <div className="p-[0.35vw] bg-red-50 border border-red-200 rounded-[0.4vw] text-[0.7vw] text-red-600 flex items-start gap-[0.25vw] mt-[0.1vw]">
+                <AlertCircle size="0.75vw" className="text-red-500 flex-shrink-0 mt-[0.05vw]" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
           </div>
-          {errorMessage && (
-            <div className="p-[0.35vw] bg-red-50 border border-red-200 rounded-[0.4vw] text-[0.68vw] text-red-600 flex items-start gap-[0.25vw] mt-[0.1vw]">
-              <AlertCircle size="0.75vw" className="text-red-500 flex-shrink-0 mt-[0.05vw]" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* 1.3 Embed Code Textarea */}
-      {sourceType === 'Embed Code' && (
-        <div className="w-full flex flex-col gap-[0.25vw]">
-          <span className="text-[0.7vw] text-gray-500 font-semibold">Code</span>
-          <textarea
-            value={embedCode}
-            onChange={(e) => {
-              setEmbedCode(e.target.value);
-              setErrorMessage('');
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleApplyEmbedCode();
-              }
-            }}
-            onBlur={handleApplyEmbedCode}
-            placeholder="Paste HTML code here"
-            rows={3}
-            className={`w-full border ${errorMessage ? 'border-red-500' : 'border-gray-200'} rounded-[0.5vw] p-[0.6vw] text-[0.78vw] font-semibold text-gray-800 placeholder-gray-400 outline-none focus:border-[#E05638] focus:ring-1 focus:ring-[#E05638] bg-white h-[5.5vw] resize-none shadow-2xs font-mono`}
-            disabled={isLoadingUrl}
-          />
-          {errorMessage && (
-            <div className="p-[0.35vw] bg-red-50 border border-red-200 rounded-[0.4vw] text-[0.68vw] text-red-600 flex items-start gap-[0.25vw] mt-[0.1vw]">
-              <AlertCircle size="0.75vw" className="text-red-500 flex-shrink-0 mt-[0.05vw]" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── 2. ZOOM LEVEL ─── */}
-      <SectionHeader title="Zoom Level" />
-      <div className="flex flex-col gap-[0.4vw] w-full">
-        <div className="flex items-center justify-between px-[0.1vw]">
-          <span className="text-[0.7vw] text-gray-500 font-semibold">Map Zoom</span>
-          <div className="flex items-center gap-[0.3vw]">
+      {/* ===================== 2. ZOOM LEVEL ===================== */}
+      <div className="flex flex-col gap-[0.6vw]">
+        <SectionHeader title="Zoom Level" />
+        <div className="flex items-center gap-[0.8vw]">
+          <div className="flex-1">
+            <ElementSlider
+              value={zoom}
+              onChange={handleZoomChange}
+              min={1}
+              max={20}
+              step={1}
+            />
+          </div>
+          <div className="flex items-center gap-[0.25vw] h-[2.1vw]">
             <button
               type="button"
               onClick={() => handleZoomChange(zoom - 1)}
               disabled={zoom <= 1}
-              className="w-[1.2vw] h-[1.2vw] min-w-[18px] min-h-[18px] flex items-center justify-center rounded-[0.3vw] border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-gray-600 font-bold text-[0.8vw] cursor-pointer transition-colors shadow-2xs"
-              title="Zoom out"
+              className="w-[1.8vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
-              -
+              <span className="text-[1vw] leading-none mb-[0.1vw]">-</span>
             </button>
-            <span className="text-[0.75vw] font-mono font-semibold text-gray-700 min-w-[2vw] text-center">
+            <span className="w-[2.2vw] text-center font-mono font-medium text-[0.8vw] text-gray-800">
               {zoom}
             </span>
             <button
               type="button"
               onClick={() => handleZoomChange(zoom + 1)}
               disabled={zoom >= 20}
-              className="w-[1.2vw] h-[1.2vw] min-w-[18px] min-h-[18px] flex items-center justify-center rounded-[0.3vw] border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-gray-600 font-bold text-[0.8vw] cursor-pointer transition-colors shadow-2xs"
-              title="Zoom in"
+              className="w-[1.8vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
-              +
+              <span className="text-[0.9vw] leading-none mb-[0.1vw]">+</span>
             </button>
           </div>
         </div>
-        <div className="px-[0.2vw] py-[0.1vw]">
-          <ElementSlider
-            value={zoom}
-            onChange={handleZoomChange}
-            min={1}
-            max={20}
-            step={1}
-          />
+      </div>
+
+      {/* ===================== MAP VIEW (ROADMAP / SATELLITE) ===================== */}
+      <div className="flex flex-col gap-[0.6vw]">
+        <SectionHeader title="Map View" />
+        <div className="grid grid-cols-2 gap-[0.3vw] p-[0.2vw] bg-gray-100 rounded-[0.45vw]">
+          {[
+            { id: 'm', label: 'Roadmap' },
+            { id: 'k', label: 'Satellite' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => handleMapTypeChange(item.id)}
+              className={`h-[1.9vw] rounded-[0.35vw] text-[0.75vw] font-medium transition-all ${
+                mapType === item.id ? 'bg-white text-gray-900 shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ─── 3. LIVE MAP & OVERLAY PREVIEW CARD ─── */}
-      <div className="relative w-full aspect-[4/3] rounded-[0.8vw] border border-gray-200 overflow-hidden shadow-2xs bg-slate-100 select-none group">
+      {/* ===================== 3. LIVE MAP PREVIEW ===================== */}
+      <div className="relative w-full aspect-[4/3] rounded-[0.6vw] border border-gray-300 overflow-hidden shadow-2xs bg-slate-100 group">
         {iframeUrl ? (
           <div className="relative w-full h-full overflow-hidden">
             <iframe
@@ -978,7 +1188,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
                 width: '100%',
                 height: '100%',
                 border: 0,
-                pointerEvents: 'none',
+                pointerEvents: 'auto',
                 filter: isDarkTheme ? 'invert(90%) hue-rotate(180deg) contrast(95%)' : 'none'
               }}
               allowFullScreen=""
@@ -1013,58 +1223,32 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
         )}
       </div>
 
-      {/* ─── 4. BUTTON COLOR (Only for templates with action buttons/cards) ─── */}
+      {/* ===================== 4. BUTTON COLOR ===================== */}
       {layoutStyle && layoutStyle !== 'none' && layoutStyle !== 'plain' && (
-        <>
-          <SectionHeader title="Button Color" />
-
-          <div className="flex items-center gap-[0.4vw] w-full">
-            {/* Color box trigger */}
-            <div
-              onClick={() => setActiveColorPicker(activeColorPicker === 'buttonColor' ? null : 'buttonColor')}
-              className={`color-box color-box-trigger w-[2vw] h-[2vw] rounded-[0.5vw] border flex-shrink-0 relative overflow-hidden flex items-center justify-center cursor-pointer shadow-2xs hover:scale-105 transition-all ${
-                activeColorPicker === 'buttonColor' ? 'border-[#E05638] ring-2 ring-[#E05638]/40 scale-105 shadow-xs' : 'border-gray-200 hover:border-gray-300'
-              }`}
-              style={{ backgroundColor: buttonColor === 'none' || buttonColor === 'transparent' ? '#ffffff' : buttonColor }}
-              title="Click to open color palette"
-            >
-              {(buttonColor === 'none' || buttonColor === 'transparent') && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[1.5px] bg-red-500 rotate-45" />
-              )}
-            </div>
-
-            {/* Input for hex and opacity */}
-            <div className="flex-1 h-[2.5vw] flex items-center justify-between border border-gray-200 rounded-[0.5vw] bg-white px-[0.6vw] text-[0.8vw] text-gray-800 focus-within:border-[#E05638] shadow-2xs">
-              <input
-                type="text"
-                value={buttonColor && buttonColor.includes('gradient') ? 'GRADIENT' : (buttonColor?.toUpperCase() || '#000000')}
-                onChange={(e) => {
-                  let val = e.target.value;
-                  if (!val.startsWith('#') && val.length > 0 && !val.includes('gradient')) val = '#' + val;
-                  handleButtonColorChange(val);
-                }}
-                className="w-[5.2vw] font-mono text-[0.8vw] text-gray-500 bg-transparent focus:outline-none uppercase font-normal"
-                maxLength={7}
-              />
-              <span className="text-gray-400 text-[0.75vw] font-semibold">{buttonOpacity}%</span>
-            </div>
-          </div>
-        </>
+        <ColorBoxRow
+          title="Button Color"
+          color={buttonColor}
+          opacity={buttonOpacity}
+          onOpenPicker={() => setActiveColorPicker(activeColorPicker === 'buttonColor' ? null : 'buttonColor')}
+          onChange={handleButtonColorChange}
+          onOpacityChange={handleButtonOpacityChange}
+          isActive={activeColorPicker === 'buttonColor'}
+        />
       )}
 
-      {/* ─── 5. THEME ─── */}
-      <SectionHeader title="Theme" />
-
-      <div className="pb-[4vw]">
-        <CustomSelect
-          value={theme}
-          onChange={handleThemeChange}
-          options={THEME_OPTIONS}
-        />
+      {/* ===================== 5. THEME ===================== */}
+      <div className="flex flex-col gap-[0.6vw]">
+        <SectionHeader title="Theme" />
+        <div className="relative w-full">
+          <CustomSelect
+            value={theme}
+            onChange={handleThemeChange}
+            options={THEME_OPTIONS}
+          />
+        </div>
       </div>
 
-      {/* ─── PORTALS ─── */}
-      {/* Official ColorPicker Portal Popup */}
+      {/* ===================== COLOR PICKER PORTAL ===================== */}
       {activeColorPicker === 'buttonColor' && layoutStyle && layoutStyle !== 'none' && layoutStyle !== 'plain' && createPortal(
         <div
           className="fixed z-[5000]"
@@ -1089,6 +1273,34 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
         </div>,
         document.body
       )}
+
+      {/* CUSTOM CSS matching ShapeProperties */}
+      <style>{`
+        .no-spin::-webkit-inner-spin-button, .no-spin::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        body.is-scrubbing, body.is-scrubbing * {
+          cursor: none !important;
+          user-select: none !important;
+        }
+        .hide-cursor, .hide-cursor * {
+          cursor: none !important;
+        }
+        .virtual-scrub-cursor {
+          position: fixed;
+          pointer-events: none;
+          z-index: 100000;
+          width: 2vw;
+          height: 2vw;
+          margin-left: -1vw;
+          margin-top: -1vw;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          filter: drop-shadow(0 0.1vw 0.2vw rgba(0,0,0,0.3));
+        }
+      `}</style>
     </div>
   );
 };

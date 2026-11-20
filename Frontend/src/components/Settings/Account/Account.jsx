@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 import { useAuth } from '../../../context/AuthContext';
-import { getInitialUser } from '../../../utils/authUtils';
+import { getInitialUser } from '../../../utils/auth/authUtils';
 
 import AccountOverview from './AccountOverview';
 import AddPassword from './AddPassword';
@@ -138,7 +138,7 @@ const Account = () => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-white rounded-[1.2vw] p-[1.8vw] overflow-y-auto custom-scrollbar relative font-sans">
+    <div className="w-full h-full flex flex-col bg-white p-[1.5vw] overflow-y-auto custom-scrollbar relative font-sans">
       {/* Toast Notification matching Notifications.jsx */}
       {notification.show && (
         <div className="fixed top-[1.5vw] right-[2vw] z-50 bg-gray-900 text-white text-[0.78vw] px-[1.2vw] py-[0.6vw] rounded-[0.5vw] shadow-lg flex items-center gap-[0.5vw] animate-in fade-in slide-in-from-top-2">

@@ -5,30 +5,34 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import CreateFlipbookModal from '../components/CreateFlipbookModal';
 import AlertModal from '../components/AlertModal';
-import PdfProcessingLoader from '../components/PdfProcessingLoader';
 import Footer from './Footer';
-import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdfUtils';
+import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdf/pdfUtils';
+import { useDocumentUpload } from '../context/DocumentUploadContext';
 
 // Modular Sections
 import HeroSection from './Home/HeroSection';
+import ThreeDInteractiveDetails from './Home/3dinteractivedetails';
 import InteractiveDemo from './Home/InteractiveDemo';
 import AboutUsSection from './Home/AboutUsSection';
 import WhyChooseFlipibook from './Home/WhyChooseFlipibook';
 import ExploreShowcase from './Home/ExploreShowcase';
 import SmartSolutionsSection from './Home/SmartSolutionsSection';
 import ArIntegrationSection from './Home/ArIntegrationSection';
+import DigitalCatalogue from './Home/digitalCatalogue';
 import ReadingExperienceDark from './Home/ReadingExperienceDark';
 import HowItWorksSection from './Home/HowItWorksSection';
 import FAQSection from './Home/FAQSection';
 import BuildYourDreamCta from './Home/BuildYourDreamCta';
 
 // Assets for Hero Flipbook
-import page1 from '../assets/Home/A4_1.png';
-import page2 from '../assets/Home/A4_2.png';
-import page3 from '../assets/Home/A4_3.png';
-import page4 from '../assets/Home/A4_4.png';
-import page5 from '../assets/Home/A4_5.png';
-import page6 from '../assets/Home/A4_6.png';
+import page1 from '../assets/Home/Home1.png';
+import page2 from '../assets/Home/home2.png';
+import page3 from '../assets/Home/home3.png';
+import page4 from '../assets/Home/home4.png';
+import page5 from '../assets/Home/home5.png';
+import page6 from '../assets/Home/home6.png';
+import page7 from '../assets/Home/home7.png';
+import page8 from '../assets/Home/home8.png';
 
 export default function Home() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -41,7 +45,13 @@ export default function Home() {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
 
   const [isLoading, setIsLoading] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState(null);
+  const {
+    processingProgress,
+    setProcessingProgress,
+    registerUploadSession,
+    cancelUpload: cancelGlobalUpload,
+    notifyUploadComplete
+  } = useDocumentUpload();
   const isUploadCancelledRef = useRef(false);
   const createdFlipbookVIdRef = useRef(null);
   const [alertState, setAlertState] = useState({
@@ -82,22 +92,26 @@ export default function Home() {
     isUploadCancelledRef.current = false;
     createdFlipbookVIdRef.current = null;
 
+    registerUploadSession({
+      onCancel: handleCancelUploadPDF
+    });
+
     const firstFile = files[0];
     const initialDocType = firstFile._docType || getOfficeDocType(firstFile.name);
     const initialDocLabel = initialDocType === 'word' ? 'Word document' : initialDocType === 'powerpoint' ? 'PowerPoint presentation' : 'file';
     const initialPageCount = firstFile._pageCount || 1;
 
     setProcessingProgress({
-      current: 1,
+      current: 0,
       total: initialPageCount,
       fileIndex: 0,
       totalFiles: files.length,
       pageCount: initialPageCount,
       message: files.length > 1
-        ? `Converting queued ${initialDocLabel} 1 of ${files.length} (${firstFile.name})...`
-        : `Converting ${initialDocLabel}: ${firstFile.name}...`,
+        ? `Uploading queued ${initialDocLabel} 1 of ${files.length} (${firstFile.name})...`
+        : `Uploading ${initialDocLabel}: ${firstFile.name}...`,
       fileName: firstFile.name,
-      stage: 'converting'
+      stage: 'uploading'
     });
 
     try {
@@ -107,6 +121,18 @@ export default function Home() {
         totalPdfSize += file.size || 0;
       }
       let allImages = [];
+
+      const now = new Date();
+      const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+      const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
+      let uniqueName = customName;
+      if (!uniqueName || (uniqueName.startsWith('PDF_Flipbook_') && initialDocType !== 'pdf')) {
+        uniqueName = customName ? customName.replace(/^PDF_Flipbook_/, defaultPrefix) : `${defaultPrefix}${timeString}`;
+      }
+      const assignedBookId = ((typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+        : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
+      const resolvedUserId = user?.userID || user?.userId || 'FLIPI0001';
 
       for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
         if (isUploadCancelledRef.current) return;
@@ -119,17 +145,18 @@ export default function Home() {
         const detectedCount = file._pageCount || 1;
 
         setProcessingProgress({
-          current: 1,
+          current: 0,
           total: detectedCount,
           fileIndex,
           totalFiles: files.length,
           pageCount: detectedCount,
           message: files.length > 1
-            ? `Converting queued ${docLabel} ${fileIndex + 1} of ${files.length} (${file.name})...`
-            : `Converting ${docLabel}: ${file.name}...`,
+            ? `Uploading queued ${docLabel} ${fileIndex + 1} of ${files.length} (${file.name})...`
+            : `Uploading ${docLabel}: ${file.name}...`,
           fileName: file.name,
-          stage: 'converting'
+          stage: 'uploading'
         });
+        const startPageForFile = allImages.length + 1;
         const images = await convertPdfWithInkscape(file, remainingPages, backendUrl, (currOrObj, total, pct, stage, msg) => {
           let current, pageCount, percent, message, currentStage;
           if (typeof currOrObj === 'object' && currOrObj !== null) {
@@ -146,10 +173,14 @@ export default function Home() {
             message = msg || (pageCount ? `Extracting page ${currOrObj} of ${pageCount} (${pct}%)...` : `Converting ${docLabel} (${pct}%)...`);
           }
           setProcessingProgress(prev => {
+            // Guard: Once reached 'saving' or 'done', never regress back to earlier stages
+            if (prev?.stage === 'saving' || prev?.stage === 'done') {
+              return prev;
+            }
             const resolvedPageCount = (pageCount && pageCount > 0)
               ? Math.max(pageCount, prev?.pageCount || 0, file._pageCount || 0)
               : (prev?.pageCount || file._pageCount || 1);
-            const resolvedCurrent = (current && current > 0) ? current : (prev?.current || 1);
+            const resolvedCurrent = (current !== undefined && current !== null) ? Number(current) : (prev?.current || 0);
             return {
               ...(prev || {}),
               current: Math.min(resolvedPageCount, resolvedCurrent),
@@ -161,7 +192,7 @@ export default function Home() {
               stage: currentStage || prev?.stage || 'converting'
             };
           });
-        });
+        }, null, assignedBookId, resolvedUserId, startPageForFile, 'default', uniqueName);
         if (isUploadCancelledRef.current) return;
         allImages = [...allImages, ...images];
       }
@@ -186,13 +217,6 @@ export default function Home() {
       const maxWidth = firstW;
       const maxHeight = firstH;
 
-      const now = new Date();
-      const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-      const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
-      let uniqueName = customName;
-      if (!uniqueName || (uniqueName.startsWith('PDF_Flipbook_') && initialDocType !== 'pdf')) {
-        uniqueName = customName ? customName.replace(/^PDF_Flipbook_/, defaultPrefix) : `${defaultPrefix}${timeString}`;
-      }
       const targetFolder = 'My_Flipbooks';
 
       const totalDocPages = (allImages.totalPages && allImages.totalPages > allImages.length)
@@ -335,6 +359,7 @@ export default function Home() {
       const folderVId = (isFolId(createRes?.data?.folder_v_id) ? createRes.data.folder_v_id : null) ||
         (isFolId(createRes?.data?.folder_id) ? createRes.data.folder_id : null) ||
         'default';
+      await new Promise(res => setTimeout(res, 700));
       navigate(`/editor/${encodeURIComponent(folderVId)}/${v_id}`);
 
     } catch (error) {
@@ -358,7 +383,7 @@ export default function Home() {
   const handleCancelUploadPDF = () => {
     isUploadCancelledRef.current = true;
     setIsLoading(false);
-    setProcessingProgress(null);
+    cancelGlobalUpload();
     if (createdFlipbookVIdRef.current) {
       axios.delete(`${backendUrl}/api/flipbook/delete/${createdFlipbookVIdRef.current}`, { withCredentials: true }).catch(() => { });
       createdFlipbookVIdRef.current = null;
@@ -431,29 +456,49 @@ export default function Home() {
         page6={page6}
       />
 
-      {/* 2. INTERACTIVE DEMO: Experience Flipbooks in Action (5 Books shelf) */}
-      <InteractiveDemo />
+      {/* 2. 3D INTERACTIVE DETAILS: Give Customers a Closer Look at Your Products */}
+      <ThreeDInteractiveDetails navigate={navigate} />
 
-      {/* 3. ABOUT US: We Transform Digital Ideas (Multi-device display) */}
-      <AboutUsSection />
-
-      {/* 4. WHY CHOOSE FLIPBOOK? (Dark Theme with Milestones & Paper Plane curve) */}
-      <WhyChooseFlipibook />
-
-      {/* 5. EXPLORE: Discover. Read. Get Inspired (5 Community Cards Slider) */}
-      <ExploreShowcase
-        navigate={navigate}
-        onOpenCreateModal={handleOpenCreateModal}
-      />
-
-      {/* 6. FEATURES: IT STARTS WITH A CLICK (3D Model Viewer & Smart Solutions) */}
+      {/* 3. FEATURES: IT STARTS WITH A CLICK (3D Model Viewer & Smart Solutions - Explore Every Angle) */}
       <SmartSolutionsSection />
 
-      {/* 7. AR INTEGRATION: See Products in Real Space */}
+      {/* 4. AR INTEGRATION: See Products in Your Space */}
       <ArIntegrationSection />
 
-      {/* 8. FEATURES: Not Just Pages. A 3D Reading Experience (Dark Living Room 3D model) */}
-      <ReadingExperienceDark
+      {/* 5. DIGITAL CATALOGUE */}
+      <DigitalCatalogue
+        navigate={navigate}
+        page1={page1}
+        page2={page2}
+        page3={page3}
+        page4={page4}
+        page5={page5}
+        page6={page6}
+        page7={page7}
+        page8={page8}
+      />
+
+      {/* 6. INTERACTIVE DEMO: Experience Flipbooks in Action (5 Books shelf) */}
+      <InteractiveDemo
+        page1={page1}
+        page2={page2}
+        page3={page3}
+        page4={page4}
+        page5={page5}
+        page6={page6}
+        page7={page7}
+        page8={page8}
+      />
+
+      {/* 6. ABOUT US: We Transform Digital Ideas (Multi-device display) */}
+      <AboutUsSection />
+
+      {/* 7. WHY CHOOSE FLIPBOOK? (Dark Theme with Milestones & Paper Plane curve) */}
+      <WhyChooseFlipibook />
+
+      {/* 8. EXPLORE: Discover. Read. Get Inspired (5 Community Cards Slider) */}
+      <ExploreShowcase
+        navigate={navigate}
         onOpenCreateModal={handleOpenCreateModal}
       />
 
@@ -478,8 +523,6 @@ export default function Home() {
         onUpload={handleUploadPDF}
         onTemplate={handleUseTemplate}
       />
-
-      <PdfProcessingLoader progress={processingProgress} onCancel={handleCancelUploadPDF} />
 
       <AnimatePresence>
         {isLoading && !processingProgress && (

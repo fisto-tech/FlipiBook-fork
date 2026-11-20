@@ -1,6 +1,6 @@
 import sanitizeHtmlForPreview from './sanitizeHtml';
-import { rewriteHtmlUploads } from '../../../../utils/assetUtils';
-import { getCachedRaster } from '../../../../utils/pageRasterCache';
+import { rewriteHtmlUploads } from '../../../../utils/assets/assetUtils';
+import { getCachedRaster } from '../../../../utils/customizedEditor/pageRasterCache';
 import getSlideshowScript from './slideshowScript';
 import getAnimationScript from './animationScript';
 import getInteractionScript from './interactionScript';
@@ -51,8 +51,14 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
 
     let fontImports = '';
     if (fontsToLoad.size > 0) {
-        const fontList = Array.from(fontsToLoad).map(f => f.replace(/\s+/g, '+')).join('|');
-        fontImports = `<link href="https://fonts.googleapis.com/css?family=${fontList}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
+        const fontArray = Array.from(fontsToLoad).map(f => f.replace(/['"]/g, '').trim()).filter(Boolean);
+        const css2Params = fontArray.map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}`).join('&');
+        const css1Params = fontArray.map(f => encodeURIComponent(f).replace(/%20/g, '+')).join('|');
+        fontImports = `
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?${css2Params}&display=swap" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css?family=${css1Params}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
     }
 
     // Inject scripts
@@ -64,8 +70,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                 <style>
                     html, body { cursor: default !important; -webkit-user-select: none; user-select: none; }
                     body { margin: 0; padding: 0; overflow: hidden; background: transparent; width: 100%; height: 100%; }
-                    body > svg,
-                    svg:not(foreignObject svg):not([data-type="icon"]):not([data-type="button"] svg) {
+                    body > svg {
                         width: 100% !important;
                         height: 100% !important;
                         display: block !important;
@@ -119,7 +124,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     .text-edit-box,
                     [contenteditable="true"],
                     [data-scrollable="true"],
-                    foreignObject:not([data-type="map"]) div:not(.map-root-container):not(.map-card-overlay):not(.map-card-overlay *) {
+                    foreignObject:not([data-type="map"]):not([data-type="slideshow"]):not(.slideshow-foreign-object) div:not(.map-root-container):not(.map-card-overlay):not(.map-card-overlay *):not(.flipibook-swiper-container):not(.flipibook-swiper-container *) {
                         white-space: pre-wrap !important;
                         word-wrap: break-word !important;
                         word-break: normal !important;
@@ -180,6 +185,11 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                         pointer-events: auto !important;
                     }
 
+                    .flipbook-text-scrollbar {
+                        scrollbar-color: var(--scrollbar-color, #4B5563) transparent !important;
+                        scrollbar-width: thin !important;
+                    }
+
                     .flipbook-text-scrollbar::-webkit-scrollbar,
                     [data-scrollable="true"]::-webkit-scrollbar,
                     [data-scrollable="true"] *::-webkit-scrollbar {
@@ -193,14 +203,14 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     .flipbook-text-scrollbar::-webkit-scrollbar-track,
                     [data-scrollable="true"]::-webkit-scrollbar-track,
                     [data-scrollable="true"] *::-webkit-scrollbar-track {
-                        background: #E5E7EB !important;
+                        background: transparent !important;
                         border-radius: 10px !important;
                     }
 
                     .flipbook-text-scrollbar::-webkit-scrollbar-thumb,
                     [data-scrollable="true"]::-webkit-scrollbar-thumb,
                     [data-scrollable="true"] *::-webkit-scrollbar-thumb {
-                        background: #4B5563 !important;
+                        background: var(--scrollbar-color, #4B5563) !important;
                         border-radius: 10px !important;
                         border: none !important;
                     }
@@ -208,18 +218,13 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     .flipbook-text-scrollbar::-webkit-scrollbar-thumb:hover,
                     [data-scrollable="true"]::-webkit-scrollbar-thumb:hover,
                     [data-scrollable="true"] *::-webkit-scrollbar-thumb:hover {
-                        background: #374151 !important;
+                        background: var(--scrollbar-color, #4B5563) !important;
                     }
 
                     .flipbook-text-scrollbar::-webkit-scrollbar-thumb:active,
                     [data-scrollable="true"]::-webkit-scrollbar-thumb:active,
                     [data-scrollable="true"] *::-webkit-scrollbar-thumb:active {
-                        background: #1F2937 !important;
-                    }
-
-                    foreignObject:not([data-scrollable="true"]):not([data-editing="true"])>div:not(.map-root-container):not(.embed-root-container):not(.table-card-wrapper):not(.table-container) {
-                        width: 100% !important;
-                        height: auto !important;
+                        background: var(--scrollbar-color, #4B5563) !important;
                     }
 
                     .map-root-container,
@@ -270,7 +275,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                         margin: 0 !important;
                         padding: 0 !important;
                         display: block !important;
-                        pointer-events: none !important;
+                        pointer-events: auto !important; /* interactive map (see sanitizeHtml) */
                     }
 
                     /* Enable pointer events only on interactive action buttons and overlay cards */
@@ -345,7 +350,6 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     foreignObject[data-scrollable="true"]>div {
                         width: 100% !important;
                         height: 100% !important;
-                        padding: 0 !important;
                         margin: 0 !important;
                         display: block !important;
                         box-sizing: border-box !important;
@@ -360,7 +364,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                         height: 100% !important;
                         display: block !important;
                         box-sizing: border-box !important;
-                        padding: 24px 6px 24px 16px !important;
+                        padding: 0 !important; /* match editor layout */
                         background-color: var(--bg-fill, transparent) !important;
                         border: calc(var(--bg-stroke-width, 0) * 1px) solid var(--bg-stroke, transparent) !important;
                         border-radius: var(--bg-rx, 0px) !important;
@@ -376,6 +380,7 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                     }
                     
                     .flipbook-text-viewport::after {
+                        display: none; /* no dark fade over the text (editor has none) */
                         content: "";
                         position: absolute;
                         bottom: 0;
@@ -398,6 +403,20 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                         box-sizing: border-box !important;
                     }
 
+
+                    /* Scrollable text must clip to its box (generic rule above forces overflow: visible) */
+                    foreignObject[data-scrollable="true"]:not([data-type="map"]):not([data-type="embed-frame"]) {
+                        overflow: hidden !important;
+                    }
+                    foreignObject[data-scrollable="true"] .flipbook-text-viewport,
+                    foreignObject[data-scrollable="true"] .flipbook-text-scrollbar {
+                        max-height: 100% !important;
+                    }
+                    foreignObject[data-scrollable="true"] > div.flipbook-text-scrollbar {
+                        overflow-y: auto !important;
+                        overflow-x: hidden !important;
+                    }
+
                     foreignObject[data-scrollable="true"] * {
                         -webkit-user-select: text !important;
                         user-select: text !important;
@@ -412,6 +431,17 @@ export const getIframeContent = (html, pageNumber, watermarkSettings = null, pag
                 ${getAudioControlsScript()}
                 ${getEmbedScript()}
                 <script>
+                    (function() {
+                        // Per-box scrollbar color -> CSS variable (runs after the page content is parsed)
+                        var applySbColors = function() {
+                            document.querySelectorAll('[data-scrollbar-color]').forEach(function(el) {
+                                var c = el.getAttribute('data-scrollbar-color');
+                                if (c) el.style.setProperty('--scrollbar-color', c);
+                            });
+                        };
+                        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applySbColors);
+                        else applySbColors();
+                    })();
                     (function() {
                         const isRightPage = ${pageNumber} % 2 !== 0;
                         const handleMove = (e) => {

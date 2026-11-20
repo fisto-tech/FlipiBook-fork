@@ -1,8 +1,9 @@
 import { useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../../context/AuthContext';
-import { getSupabaseBaseUrl, resolveUploadsPath } from '../../../../utils/assetUtils';
+import { getSupabaseBaseUrl, resolveUploadsPath } from '../../../../utils/assets/assetUtils';
 import { getTopLevelFrames } from '../utils/frameHierarchyUtils';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../utils/imageOptimizer';
 
 const VIRTUAL_FOLDERS = new Set(['recent book', 'recent', 'all books', 'all flipbooks', 'favorites', 'trash']);
 
@@ -113,13 +114,39 @@ export const useCanvasAssetInsertion = ({
       const uploadAssetInBackground = async (imgNode, groupNode, fileObj, sourceBlobUrl) => {
         try {
           let uploadFile = fileObj;
-          if (!uploadFile && sourceBlobUrl && typeof sourceBlobUrl === 'string' && sourceBlobUrl.startsWith('blob:')) {
-            const res = await fetch(sourceBlobUrl);
-            const blob = await res.blob();
-            const ext = dataType === 'gif' ? '.gif' : (blob.type?.includes('png') ? '.png' : '.jpg');
-            uploadFile = new File([blob], `asset_${Date.now()}${ext}`, { type: blob.type || 'image/png' });
+          if (!uploadFile && sourceBlobUrl && typeof sourceBlobUrl === 'string') {
+            if (sourceBlobUrl.startsWith('blob:') || sourceBlobUrl.startsWith('data:image/')) {
+              try {
+                const res = await fetch(sourceBlobUrl);
+                const blob = await res.blob();
+                const ext = dataType === 'gif' ? '.gif' : (blob.type?.includes('png') ? '.png' : '.jpg');
+                uploadFile = new File([blob], `asset_${Date.now()}${ext}`, { type: blob.type || 'image/png' });
+              } catch (fetchErr) {
+                console.warn('[useCanvasAssetInsertion] Failed to fetch source blob:', fetchErr);
+              }
+            }
           }
           if (!uploadFile) return;
+
+          // Smart optimization gate: shrink heavy images (> 300KB) off-thread to WebP
+          if (dataType === 'image' && shouldOptimizeImage(uploadFile)) {
+            try {
+              const opt = await optimizeImageForWeb(uploadFile, { maxDimension: 2048, quality: 0.82 });
+              if (opt?.file) {
+                uploadFile = opt.file;
+                if (opt.dataUrl && imgNode) {
+                  // Swap in-memory DOM reference so SVG DOM doesn't hold massive base64
+                  const curHref = imgNode.getAttribute('href');
+                  if (curHref && curHref.startsWith('data:')) {
+                    imgNode.setAttribute('href', opt.dataUrl);
+                    try { imgNode.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', opt.dataUrl); } catch {}
+                  }
+                }
+              }
+            } catch (optErr) {
+              console.warn('[useCanvasAssetInsertion] Optimization fallback:', optErr);
+            }
+          }
 
           const emailId = user?.emailId || user?.email;
           if (!emailId) return;
@@ -406,7 +433,7 @@ export const useCanvasAssetInsertion = ({
   // Handle external asset insertion events
   useEffect(() => {
     const handleAddIcon = (e) => {
-      const { icon, pageIndex, dropPoint } = e.detail || {};
+      const { icon, pageIndex, dropPoint, dropSize } = e.detail || {};
       if (!icon) return;
       const targetPageIndex = pageIndex !== undefined ? pageIndex : activePageIndex;
       const page = pages[targetPageIndex];
@@ -445,7 +472,7 @@ export const useCanvasAssetInsertion = ({
         if (!isNaN(hAttr) && hAttr > 0) svgH = hAttr;
       }
 
-      const size = 42;
+      const size = (dropSize && dropSize.width) ? Math.round(dropSize.width) : 42;
       let cx = dropPoint ? dropPoint.x : (vbMinX + svgW / 2);
       let cy = dropPoint ? dropPoint.y : (vbMinY + svgH / 2);
 
@@ -964,8 +991,9 @@ export const useCanvasAssetInsertion = ({
     };
 
     const handleUploadImageEvent = (e) => {
-      const { pageIndex, dataUrl, dataType } = e.detail;
-      insertImageIntoPage(pageIndex, dataUrl, dataType);
+      const { pageIndex, dataUrl, dataType, file, dropPoint, targetShapeId } = e.detail || {};
+      const targetPageIndex = pageIndex !== undefined ? pageIndex : activePageIndex;
+      insertImageIntoPage(targetPageIndex, dataUrl, dataType, dropPoint || null, targetShapeId || null, file || null);
     };
 
     window.addEventListener('add-icon-to-editor', handleAddIcon);

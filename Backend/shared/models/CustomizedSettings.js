@@ -43,8 +43,10 @@ const customizedSettingsSchema = new mongoose.Schema(
       width: { type: Number, default: null },
       height: { type: Number, default: null },
       templateId: { type: String, default: '' },
-      orientation: { type: String, default: 'horizontal' }
+      orientation: { type: String, default: 'horizontal' },
+      coverPicture: { type: mongoose.Schema.Types.Mixed, default: null }
     },
+    coverPicture: { type: mongoose.Schema.Types.Mixed, default: null },
 
     // 2. Branding (Logo, Watermark, Preloader)
     Branding: {
@@ -238,21 +240,24 @@ const customizedSettingsSchema = new mongoose.Schema(
       selectCustomHardPages: { type: Boolean, default: false },
       hardCover: { type: Boolean, default: false },
       customHardPages: [{ type: mongoose.Schema.Types.Mixed }],
-      transparentSheets: [
-        {
-          id: { type: mongoose.Schema.Types.Mixed },
-          page: { type: String, default: 'Page 1' },
-          image: { type: String, default: null },
-          imageName: { type: String, default: null },
-          imageSize: { type: String, default: null },
-          scale: { type: Number, default: 100 },
-          rotate: { type: Number, default: 0 },
-          opacity: { type: Number, default: 100 },
-          offsetX: { type: Number, default: 0 },
-          offsetY: { type: Number, default: 0 },
-          isExpanded: { type: Boolean, default: true }
-        }
-      ],
+      transparentSheets: {
+        type: [
+          {
+            id: { type: mongoose.Schema.Types.Mixed },
+            page: { type: String, default: 'Page 1' },
+            image: { type: String, default: null },
+            imageName: { type: String, default: null },
+            imageSize: { type: String, default: null },
+            scale: { type: Number, default: 100 },
+            rotate: { type: Number, default: 0 },
+            opacity: { type: Number, default: 100 },
+            offsetX: { type: Number, default: 0 },
+            offsetY: { type: Number, default: 0 },
+            isExpanded: { type: Boolean, default: true }
+          }
+        ],
+        default: []
+      },
       flipStyle: { type: String, default: 'Classic Flip' },
       flipSpeed: { type: String, default: 'Slow' },
       corner: { type: String, default: 'Sharp' },
@@ -288,6 +293,19 @@ const customizedSettingsSchema = new mongoose.Schema(
         btnFill: { type: String, default: '#4A3AFF' },
         btnStroke: { type: String, default: '#' },
         btnText: { type: String, default: '#FFFFFF' }
+      },
+      enquiryButton: {
+        enabled: { type: Boolean, default: true },
+        showText: { type: Boolean, default: true },
+        text: { type: String, default: 'Enquiry Now' },
+        icon: { type: String, default: 'lucide:message-square' },
+        bgFill: { type: String, default: '#E05638' },
+        bgOpacity: { type: Number, default: 100 },
+        textColor: { type: String, default: '#FFFFFF' },
+        textOpacity: { type: Number, default: 100 },
+        iconColor: { type: String, default: '#FFFFFF' },
+        iconOpacity: { type: Number, default: 100 },
+        position: { type: String, default: 'bottom-right' }
       }
     },
 

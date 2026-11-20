@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence } from 'framer-motion';
-import FlipBookEngine from '../../FlipBookEngine';
+import FlipBookEngine from '../../FlipBookEngine/index';
 import BookmarkTab from './BookmarkTab';
 import TooltipOverlay from './TooltipOverlay';
 
@@ -54,7 +54,7 @@ const TurnJsBookRenderer = React.memo(({
 
     const zoomStyle = useMemo(() => {
         if (!interactionZoom) {
-            return { transition: 'transform 0.3s ease' };
+            return {};
         }
 
         const { rect, pageNumber, scale } = interactionZoom;
@@ -73,6 +73,12 @@ const TurnJsBookRenderer = React.memo(({
 
     const isZoomedIn = interactionZoom && interactionZoom.scale > 1;
 
+    const computedShadow = useMemo(() => {
+        if (!shadowActive) return 'none';
+        if (!shadowFilter || shadowFilter === 'none') return 'none';
+        return shadowFilter;
+    }, [shadowActive, shadowFilter]);
+
     return (
         <div
             className="relative"
@@ -81,9 +87,13 @@ const TurnJsBookRenderer = React.memo(({
                 height: HEIGHT,
                 opacity: pageOpacity ?? 1,
                 ...zoomStyle,
+                transform: zoomStyle?.transform ? `${zoomStyle.transform} translateZ(0)` : 'translateZ(0)',
+                willChange: 'transform, filter',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
                 zIndex: isZoomedIn ? 50 : 1,
-                filter: shadowActive && shadowFilter ? shadowFilter : 'none',
-                transition: 'filter 0.5s ease, transform 0.3s ease'
+                filter: computedShadow,
+                transition: isZoomedIn ? 'filter 0.5s ease, transform 0.3s ease' : 'filter 0.5s ease'
             }}
         >
             <FlipBookEngine

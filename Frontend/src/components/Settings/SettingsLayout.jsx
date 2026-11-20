@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { ArrowRight } from "lucide-react";
 import axios from "axios";
-import { clearSession, getInitialUser } from "../../utils/authUtils";
+import { clearSession, getInitialUser } from "../../utils/auth/authUtils";
 import { useAuth } from "../../context/AuthContext";
 
 const defaultColors = [
@@ -249,13 +249,6 @@ const SettingsLayout = () => {
     {
       title: "System & Billing",
       items: [
-        {
-          path: "virtual-stall",
-          to: "#",
-          id: "virtual-stall",
-          label: "Virtual Stall",
-          icon: "icon-park-outline:booth",
-        },
         {
           path: "billing",
           id: "billing",

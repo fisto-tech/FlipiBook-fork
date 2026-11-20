@@ -2,8 +2,9 @@ import React, { useRef, useState, useEffect, memo } from 'react';
 import axios from 'axios';
 import { BookOpen } from 'lucide-react';
 import { flipbookApi } from '../../api/flipbookApi';
-import { resolveUploadsPath } from '../../utils/assetUtils';
-import { sanitizeSvgXml } from '../../utils/editorUtils';
+import { resolveUploadsPath, getAssetBaseUrl } from '../../utils/assets/assetUtils';
+import { sanitizeSvgXml } from '../../utils/pageEditor/editorUtils';
+import { TemplatePreview, COVER_TEMPLATES } from '../FlipbookInfoModal';
 
 // Global font cache across all preview cards to prevent duplicate Google Fonts requests
 const globallyRequestedFonts = new Set();
@@ -15,18 +16,47 @@ function LazyPreviewComponent({
     iframeBaseUrl,
     title,
     imageUrl,
+    coverPicture = null,
+    pages = [],
     firstPageFileName = 'Page 1.svg',
     firstPageContent = null,
 }) {
     const containerRef = useRef(null);
+    const [containerWidth, setContainerWidth] = useState(0);
     const [html, setHtml] = useState(() => {
         if (firstPageContent && typeof firstPageContent === 'string' && firstPageContent.includes('<svg')) {
             return { content: firstPageContent, fontImports: '' };
         }
         return null;
     });
+    const [templatePagesMap, setTemplatePagesMap] = useState({});
+    const [fetchedBaseUrl, setFetchedBaseUrl] = useState('');
     const [loaded, setLoaded] = useState(Boolean(firstPageContent));
     const [fetching, setFetching] = useState(false);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const updateWidth = () => {
+            if (containerRef.current) {
+                setContainerWidth(containerRef.current.clientWidth);
+            }
+        };
+        updateWidth();
+        const ro = new ResizeObserver(() => updateWidth());
+        ro.observe(containerRef.current);
+        return () => ro.disconnect();
+    }, []);
+
+    const resolvedCoverTemplate = coverPicture?.type === 'template'
+        ? (typeof coverPicture.selectedTemplate === 'object' && coverPicture.selectedTemplate
+            ? coverPicture.selectedTemplate
+            : COVER_TEMPLATES.find(t => t.id === Number(coverPicture.selectedTemplate || coverPicture.templateId)) || COVER_TEMPLATES[0])
+        : null;
+
+    const mergedCoverPicture = coverPicture?.type === 'template' ? {
+        ...coverPicture,
+        selectedTemplate: resolvedCoverTemplate
+    } : coverPicture;
 
     useEffect(() => {
         if (firstPageContent && typeof firstPageContent === 'string' && firstPageContent.includes('<svg')) {
@@ -50,22 +80,59 @@ function LazyPreviewComponent({
 
             try {
                 // 1. Primary: fetch preview HTML/SVG from flipbookApi
-                const res = await flipbookApi.getPreview(v_id, emailId, abortController.signal);
+                const targetPages = coverPicture?.type === 'template' && Array.isArray(coverPicture.selectedPages) && coverPicture.selectedPages.length > 0
+                    ? coverPicture.selectedPages.filter(Boolean)
+                    : [coverPicture?.selectedPages?.[0] || 1];
+
+                const pageFetchPromises = targetPages.map(p =>
+                    flipbookApi.getPreview(v_id, emailId, p, abortController.signal)
+                        .then(res => ({ pageNum: p, res }))
+                        .catch(() => null)
+                );
+
+                const results = await Promise.all(pageFetchPromises);
                 if (!isMounted) return;
 
-                if (res.data?.html && typeof res.data.html === 'string' && res.data.html.trim().length > 0) {
+                const newPagesMap = {};
+                let primaryHtml = null;
+
+                for (const item of results) {
+                    if (!item || !item.res) continue;
+                    const res = item.res;
+                    if (res.data?.book && !fetchedBaseUrl) {
+                        const b = res.data.book;
+                        const uFolder = b.userID || b.userFolder || b.userId || emailId?.replace(/[@.]/g, '_');
+                        const fName = b.folderName || 'default';
+                        const bName = b.realName || b.flipbookName || b.title || title;
+                        if (uFolder && bName) {
+                            setFetchedBaseUrl(getAssetBaseUrl(uFolder, fName, bName));
+                        }
+                    }
+                    if (res.data?.html && typeof res.data.html === 'string' && res.data.html.trim().length > 0) {
+                        newPagesMap[item.pageNum] = res.data.html;
+                        if (!primaryHtml) {
+                            primaryHtml = res.data.html;
+                        }
+                    }
+                }
+
+                if (Object.keys(newPagesMap).length > 0) {
+                    setTemplatePagesMap(prev => ({ ...prev, ...newPagesMap }));
+                }
+
+                if (primaryHtml) {
                     const fontsToLoad = new Set();
                     const cssRegex = /font-family\s*:\s*(?:['"]([^'"]+)['"]|([^;}'"\s]+))/g;
                     const attrRegex = /font-family\s*=\s*['"]([^'"]+)['"]/g;
                     let match;
-                    while ((match = cssRegex.exec(res.data.html)) !== null) {
+                    while ((match = cssRegex.exec(primaryHtml)) !== null) {
                         let f = match[1] || match[2];
                         if (f) f = f.split(',')[0].replace(/['"]/g, '').trim();
                         if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) {
                             fontsToLoad.add(f);
                         }
                     }
-                    while ((match = attrRegex.exec(res.data.html)) !== null) {
+                    while ((match = attrRegex.exec(primaryHtml)) !== null) {
                         let f = match[1].split(',')[0].replace(/['"]/g, '').trim();
                         if (f && !['sans-serif', 'serif', 'monospace', 'inherit'].includes(f.toLowerCase())) {
                             fontsToLoad.add(f);
@@ -81,7 +148,7 @@ function LazyPreviewComponent({
                         fontImports = `<link href="https://fonts.googleapis.com/css?family=${fontList}:300,400,500,600,700,800,900&display=swap" rel="stylesheet">`;
                     }
 
-                    setHtml({ content: res.data.html, fontImports });
+                    setHtml({ content: primaryHtml, fontImports });
                     setLoaded(true);
                     return;
                 }
@@ -155,21 +222,102 @@ function LazyPreviewComponent({
                 </div>
             )}
 
-            {/* Actual preview — rendered on top once ready */}
-            {html ? (() => {
+            {/* Custom Cover Picture (Template or Uploaded Image) */}
+            {coverPicture ? (
+                coverPicture.type === 'template' ? (() => {
+                    const baseWidthPx = (typeof window !== 'undefined' ? window.innerWidth : 1200) * 0.24;
+                    const scaleFactor = containerWidth && baseWidthPx ? containerWidth / baseWidthPx : 1;
+                    // Build effective pages list matching requested slots
+                    let resolvedTemplatePages = pages && pages.length > 0 && pages[0]?.html ? [...pages] : [];
+                    if (resolvedTemplatePages.length === 0 && Object.keys(templatePagesMap).length > 0) {
+                        const maxPageNum = Math.max(...Object.keys(templatePagesMap).map(Number), 1);
+                        resolvedTemplatePages = Array.from({ length: maxPageNum }, (_, idx) => {
+                            const pNum = idx + 1;
+                            const pageSvg = templatePagesMap[pNum] || (pNum === 1 ? html?.content : null) || '';
+                            return {
+                                pageNumber: pNum,
+                                html: pageSvg,
+                                content: pageSvg
+                            };
+                        });
+                    } else if (resolvedTemplatePages.length === 0 && html?.content) {
+                        const targetPageNum = Number(coverPicture?.selectedPages?.[0] || 1);
+                        resolvedTemplatePages = Array.from({ length: Math.max(targetPageNum, 1) }, (_, idx) => {
+                            const pNum = idx + 1;
+                            const isMatch = pNum === targetPageNum;
+                            return {
+                                pageNumber: pNum,
+                                html: isMatch ? html.content : '',
+                                content: isMatch ? html.content : ''
+                            };
+                        });
+                    }
+
+                    return (
+                        <div className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden pointer-events-none select-none">
+                            <div
+                                style={{
+                                    width: '24vw',
+                                    height: '18vw',
+                                    transform: `scale(${scaleFactor})`,
+                                    transformOrigin: 'center center',
+                                    flexShrink: 0
+                                }}
+                            >
+                                <TemplatePreview
+                                    {...mergedCoverPicture}
+                                    pages={resolvedTemplatePages}
+                                />
+                            </div>
+                        </div>
+                    );
+                })() : (coverPicture.url || coverPicture.type === 'upload') ? (
+                    <img
+                        src={coverPicture.url}
+                        alt={title}
+                        className="w-full h-full object-cover"
+                    />
+                ) : null
+            ) : html ? (() => {
                 let processedContent = sanitizeSvgXml(html.content || '');
-                const cleanBaseUrl = (iframeBaseUrl || '').trim();
+                const cleanBaseUrl = (iframeBaseUrl || fetchedBaseUrl || '').trim();
                 let effectiveBaseHref = cleanBaseUrl;
                 if (cleanBaseUrl) {
                     const bookBaseUrl = cleanBaseUrl.endsWith('/') ? cleanBaseUrl : `${cleanBaseUrl}/`;
                     effectiveBaseHref = `${bookBaseUrl}pages/`;
                     const assetsBaseUrl = `${bookBaseUrl}assets/`;
-                    processedContent = processedContent
-                        .replace(/(?:href|xlink:href)=["'](?:\.\.\/|\.\/)?assets\/([^"']+)["']/gi, `href="${assetsBaseUrl}$1" xlink:href="${assetsBaseUrl}$1"`)
-                        .replace(/src=["'](?:\.\.\/|\.\/)?assets\/([^"']+)["']/gi, `src="${assetsBaseUrl}$1"`);
+                    processedContent = processedContent.replace(
+                        /(\b(?:href|xlink:href|src)=["'])(?:\.\.\/|\.\/)*assets\/([^"']+)["']/gi,
+                        (match, prefix, path) => `${prefix}${assetsBaseUrl}${path}"`
+                    );
                 }
 
-                if (!processedContent.includes('preserveAspectRatio')) {
+                const backend = (backendUrl || (typeof import.meta !== 'undefined' ? import.meta.env?.VITE_BACKEND_URL : '') || '').trim().replace(/\/+$/, '');
+                if (backend) {
+                    processedContent = processedContent.replace(
+                        /(\b(?:href|xlink:href|src)=["'])\/(storage|uploads)\/([^"']+)["']/gi,
+                        `$1${backend}/$2/$3"`
+                    );
+                }
+
+                // Self-healing: if SVG contains an expired/unreachable blob: URL from an older session, replace with server-side page asset
+                if (processedContent.includes('href="blob:') || processedContent.includes("href='blob:") || processedContent.includes('src="blob:') || processedContent.includes("src='blob:")) {
+                    const fallbackPageAsset = `${effectiveBaseHref}1.webp`;
+                    processedContent = processedContent.replace(
+                        /(\b(?:href|xlink:href|src)=["'])blob:[^"']+["']/gi,
+                        `$1${fallbackPageAsset}"`
+                    );
+                }
+
+                // Normalize vector-effect so strokes scale down proportionally with the thumbnail viewBox
+                processedContent = processedContent
+                    .replace(/\bvector-effect\s*=\s*["']non-scaling-stroke["']/gi, 'vector-effect="none"')
+                    .replace(/\bvectorEffect\s*=\s*["']non-scaling-stroke["']/gi, 'vectorEffect="none"')
+                    .replace(/vector-effect\s*:\s*non-scaling-stroke\s*;?/gi, 'vector-effect: none;');
+
+                if (processedContent.includes('preserveAspectRatio')) {
+                    processedContent = processedContent.replace(/preserveAspectRatio=["'][^"']*["']/i, 'preserveAspectRatio="xMidYMid meet"');
+                } else {
                     processedContent = processedContent.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid meet" ');
                 }
                 if (!processedContent.includes('viewBox')) {
@@ -185,7 +333,7 @@ function LazyPreviewComponent({
                         title={`Preview of ${title}`}
                         className="w-full h-full border-none pointer-events-none select-none"
                         sandbox="allow-same-origin allow-scripts"
-                        srcDoc={`<!DOCTYPE html><html><head>${html.fontImports || ''}<base href="${effectiveBaseHref}"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f3f4f6;}svg{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.12));}[data-name="Free Frame"]{stroke:transparent !important;fill:transparent !important;}</style></head><body>${processedContent}</body></html>`}
+                        srcDoc={`<!DOCTYPE html><html><head>${html.fontImports || ''}<base href="${effectiveBaseHref}"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f3f4f6;}svg{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.12));}svg,svg *{vector-effect:none !important;}[data-name="Free Frame"]{stroke:transparent !important;fill:transparent !important;}</style></head><body>${processedContent}</body></html>`}
                     />
                 );
             })() : loaded && imageUrl ? (

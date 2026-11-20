@@ -90,6 +90,12 @@ const sessionAnalyticsSchema = new mongoose.Schema(
       default: "Direct"
     },
 
+    // Downloads counter for this session
+    downloads: {
+      type: Number,
+      default: 0
+    },
+
     // Timestamps
     startedAt: {
       type: Date,
@@ -124,5 +130,78 @@ const FlipbookSessionAnalytics = mongoose.models.FlipbookSessionAnalytics || mon
   sessionAnalyticsSchema
 );
 
-module.exports = FlipbookSessionAnalytics;
+// Flipbook Download Event schema for granular download tracking
+const downloadEventSchema = new mongoose.Schema(
+  {
+    v_id: { type: String, required: true, index: true },
+    shareId: { type: String, default: "", index: true },
+    userEmail: { type: String, default: "", index: true },
+    flipbookName: { type: String, default: "" },
+    sessionId: { type: String, default: "" },
+    format: { type: String, default: "PDF" }, // PDF, PNG, JPG, ZIP, etc.
+    pagesCount: { type: Number, default: 1 },
+    location: { type: locationSchema, default: () => ({}) },
+    device: { type: deviceSchema, default: () => ({}) },
+    downloadedAt: { type: Date, default: Date.now, index: true }
+  },
+  { timestamps: true }
+);
+
+downloadEventSchema.index({ v_id: 1, downloadedAt: -1 });
+downloadEventSchema.index({ userEmail: 1, downloadedAt: -1 });
+
+const FlipbookDownloadEvent = mongoose.models.FlipbookDownloadEvent || mongoose.model(
+  "FlipbookDownloadEvent",
+  downloadEventSchema
+);
+
+// Flipbook Share Event schema for granular share tracking
+const shareEventSchema = new mongoose.Schema(
+  {
+    v_id: { type: String, required: true, index: true },
+    shareId: { type: String, default: "", index: true },
+    userEmail: { type: String, default: "", index: true },
+    flipbookName: { type: String, default: "" },
+    platform: { type: String, default: "copy-link" }, // copy-link, whatsapp, facebook, x, linkedin, native, etc.
+    location: { type: locationSchema, default: () => ({}) },
+    device: { type: deviceSchema, default: () => ({}) },
+    sharedAt: { type: Date, default: Date.now, index: true }
+  },
+  { timestamps: true }
+);
+
+shareEventSchema.index({ v_id: 1, sharedAt: -1 });
+shareEventSchema.index({ userEmail: 1, sharedAt: -1 });
+
+const FlipbookShareEvent = mongoose.models.FlipbookShareEvent || mongoose.model(
+  "FlipbookShareEvent",
+  shareEventSchema
+);
+
+// Flipbook Lead Form Event schema for tracking impressions, skips, and views
+const leadFormEventSchema = new mongoose.Schema(
+  {
+    v_id: { type: String, required: true, index: true },
+    shareId: { type: String, default: "", index: true },
+    userEmail: { type: String, default: "", index: true },
+    sessionId: { type: String, default: "" },
+    action: { type: String, enum: ["view", "skip", "dismiss"], default: "view", index: true },
+    createdAt: { type: Date, default: Date.now, index: true }
+  },
+  { timestamps: true }
+);
+
+leadFormEventSchema.index({ v_id: 1, createdAt: -1 });
+
+const FlipbookLeadFormEvent = mongoose.models.FlipbookLeadFormEvent || mongoose.model(
+  "FlipbookLeadFormEvent",
+  leadFormEventSchema
+);
+
+module.exports = {
+  FlipbookSessionAnalytics,
+  FlipbookDownloadEvent,
+  FlipbookShareEvent,
+  FlipbookLeadFormEvent
+};
 

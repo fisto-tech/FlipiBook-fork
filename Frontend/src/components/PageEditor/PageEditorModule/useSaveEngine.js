@@ -9,11 +9,12 @@ import axios from "axios";
 import {
   getSupabaseBaseUrl,
   resolveUploadsPath,
-} from "../../../utils/assetUtils";
-import { validateInteractions } from "./interactionValidation";
+} from "../../../utils/assets/assetUtils";
+import { validateInteractions } from "../Interaction/interactionValidation";
 import { useAuth } from "../../../context/AuthContext";
 import { normalizeForeignObjectNamespaces } from "../LeftActionMenu/Elements/utils/tableElementUtils";
 import { sanitizeSvgXml, safeSerializeSvg } from "../utils/editorUtils";
+import { optimizeImageForWeb, shouldOptimizeImage } from "../../../utils/imageOptimizer";
 
 const VIRTUAL_FOLDERS = new Set([
   "recent book",
@@ -85,7 +86,7 @@ export const useSaveEngine = ({
         const liveSvg = container?.querySelector('[id^="canvas-content-"] svg') || container?.querySelector('svg:not([id^="highlight-overlay-"]):not(#marquee-selection-overlay)');
         if (liveSvg) {
           const clone = liveSvg.cloneNode(true);
-          clone.querySelectorAll('[data-highlight-id], .frame-boundary, #ghost-layer, .selection-overlay-layer, #vectra-overlay-group, #node-edit-overlay-group, [id="multi-selection-bounds"], .video-damage-rect, [class*="damage-rect"], [data-is-dummy="true"]').forEach(e => e.remove());
+          clone.querySelectorAll('[data-highlight-id], .frame-boundary, #ghost-layer, .selection-overlay-layer, #vectra-overlay-group, #node-edit-overlay-group, [id="multi-selection-bounds"], .video-damage-rect, [class*="damage-rect"], [data-is-dummy="true"], #temp-blink-clone, [id^="temp-blink-"]').forEach(e => e.remove());
           const serialized = safeSerializeSvg(clone);
           if (serialized && serialized.length > 50 && serialized.includes('<svg')) {
             pagesToSave[activePageIndex] = {
@@ -721,9 +722,23 @@ export const useSaveEngine = ({
               if (currentVId || v_id) {
                 formData.append("v_id", currentVId || v_id);
               }
+
+              let uploadBlob = blob;
+              if (assetType === 'image' && shouldOptimizeImage(blob)) {
+                try {
+                  const opt = await optimizeImageForWeb(blob, { maxDimension: 2048, quality: 0.82 });
+                  if (opt?.blob) {
+                    uploadBlob = opt.blob;
+                    fileExt = ".webp";
+                  }
+                } catch (optErr) {
+                  console.warn('[useSaveEngine] Optimization fallback:', optErr);
+                }
+              }
+
               formData.append(
                 "file",
-                blob,
+                uploadBlob,
                 `asset_${Date.now()}_${Math.random().toString(36).substr(2, 5)}${fileExt}`,
               );
 

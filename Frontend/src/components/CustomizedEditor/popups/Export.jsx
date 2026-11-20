@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import html2canvas from 'html2canvas';
+import { analyticsApi } from '../../../api/analyticsApi';
 
 // Export Component handling Button + Popup + Download Logic
 const Export = ({
@@ -17,7 +18,11 @@ const Export = ({
     isThreedEditor = false,
     isMobile = false,
     isLandscape = false,
-    isTablet = false
+    isTablet = false,
+    v_id,
+    shareId,
+    sessionId,
+    userEmail
 }) => {
     // Internal state for popup visibility if not controlled externally
     const [internalShow, setInternalShow] = useState(false);
@@ -154,6 +159,45 @@ const Export = ({
 
                 pdf.save(`${bookNameClean}.pdf`);
 
+            } else if (format === 'svg') {
+                if (pagesToExport.length === 1) {
+                    const pageNum = pagesToExport[0];
+                    const page = pages.find((p, i) => (i + 1) === pageNum);
+                    const pageNameClean = sanitizeName(page?.name || `Page_${pageNum}`);
+                    let pageHTML = page?.html || page?.content || '';
+                    if (!pageHTML.includes('xmlns=')) {
+                        pageHTML = pageHTML.replace(/<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+                    }
+                    if (!pageHTML.includes('xmlns:xlink=')) {
+                        pageHTML = pageHTML.replace(/<svg\b/i, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+                    }
+                    if (!pageHTML.startsWith('<?xml')) {
+                        pageHTML = `<?xml version="1.0" encoding="UTF-8"?>\n${pageHTML}`;
+                    }
+                    const blob = new Blob([pageHTML], { type: 'image/svg+xml;charset=utf-8' });
+                    saveAs(blob, `${bookNameClean}_${pageNameClean}.svg`);
+                } else {
+                    const zip = new JSZip();
+                    for (const pageNum of pagesToExport) {
+                        const page = pages.find((p, i) => (i + 1) === pageNum);
+                        const pageNameClean = sanitizeName(page?.name || `Page_${pageNum}`);
+                        let pageHTML = page?.html || page?.content || '';
+                        if (!pageHTML.includes('xmlns=')) {
+                            pageHTML = pageHTML.replace(/<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+                        }
+                        if (!pageHTML.includes('xmlns:xlink=')) {
+                            pageHTML = pageHTML.replace(/<svg\b/i, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+                        }
+                        if (!pageHTML.startsWith('<?xml')) {
+                            pageHTML = `<?xml version="1.0" encoding="UTF-8"?>\n${pageHTML}`;
+                        }
+                        const blob = new Blob([pageHTML], { type: 'image/svg+xml;charset=utf-8' });
+                        zip.file(`${pageNameClean}.svg`, blob);
+                    }
+                    const content = await zip.generateAsync({ type: 'blob' });
+                    saveAs(content, `${bookNameClean}_svg.zip`);
+                }
+
             } else {
                 const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
                 const ext = format === 'jpg' ? 'jpg' : 'png';
@@ -218,6 +262,25 @@ const Export = ({
 
         try {
             await handleDownloadPages(pagesToExport, format);
+            try {
+                const pathEnd = typeof window !== 'undefined' ? (window.location.pathname.split('/').pop() || '') : '';
+                const resolvedVid = v_id || pathEnd;
+                const resolvedShareId = shareId || (pathEnd !== resolvedVid ? pathEnd : '');
+                const sessKey = `flipi_sess_${resolvedVid}`;
+                const resolvedSessId = sessionId || (typeof sessionStorage !== 'undefined' ? (sessionStorage.getItem(sessKey) || sessionStorage.getItem('flipi_current_sess') || '') : '');
+
+                analyticsApi.recordDownload({
+                    v_id: resolvedVid,
+                    shareId: resolvedShareId,
+                    sessionId: resolvedSessId,
+                    userEmail: userEmail || '',
+                    bookName,
+                    format: format.toUpperCase(),
+                    pagesCount: pagesToExport.length
+                }).catch(e => console.warn('[Analytics recordDownload warning]:', e?.message));
+            } catch (trackErr) {
+                console.warn('[Analytics recordDownload err]:', trackErr);
+            }
         } catch (error) {
             console.error("Export process error:", error);
         } finally {
@@ -331,7 +394,7 @@ const Export = ({
 
                             {/* Footer Area - Buttons */}
                             <div className="p-[1.7cqw] pt-0 flex flex-col gap-[0.9cqw]">
-                                {['jpg', 'png', 'pdf'].map((fmt) => (
+                                {['jpg', 'png', 'pdf', 'svg'].map((fmt) => (
                                     <button
                                         key={fmt}
                                         onClick={() => handleExportClick(fmt)}
@@ -440,7 +503,7 @@ const Export = ({
 
                             {/* Footer Area - Buttons */}
                             <div className={`${isMobile ? (isLandscape ? 'grid grid-cols-2 gap-2 mt-1' : 'flex flex-col gap-3') : 'p-[1.2vw] pt-0 flex flex-col gap-[0.6vw]'}`}>
-                                {['jpg', 'png', 'pdf'].map((fmt) => (
+                                {['jpg', 'png', 'pdf', 'svg'].map((fmt) => (
                                     <button
                                         key={fmt}
                                         onClick={() => handleExportClick(fmt)}

@@ -168,6 +168,7 @@ export const createDefaultMenuBarSettings = () => ({
     audioSettings: {
       flipSound: 'Soft Paper Flip',
       pageSpecificSound: false,
+      bgSoundEnabled: false,
       bgSound: 'BG Sound 1',
       bgSoundFile: '',
       customBgSounds: []
@@ -204,6 +205,7 @@ export const createDefaultOtherSetupSettings = () => ({
     flipSound: 'Soft Paper Flip',
     flipSoundEnabled: true,
     pageSpecificSound: false,
+    bgSoundEnabled: false,
     bgSound: 'BG Sound 1',
     customBgSounds: [],
     bgSoundFile: null
@@ -241,6 +243,19 @@ export const createDefaultLeadFormSettings = () => ({
     btnFill: '#3E4491',
     btnStroke: '',
     btnText: 'white'
+  },
+  enquiryButton: {
+    enabled: true,
+    showText: true,
+    text: 'Enquiry Now',
+    icon: 'lucide:message-square',
+    bgFill: '#E05638',
+    bgOpacity: 100,
+    textColor: '#FFFFFF',
+    textOpacity: 100,
+    iconColor: '#FFFFFF',
+    iconOpacity: 100,
+    position: 'bottom-right'
   }
 });
 

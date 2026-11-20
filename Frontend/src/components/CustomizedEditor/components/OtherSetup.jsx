@@ -17,11 +17,10 @@ import {
 } from 'lucide-react';
 import NavIconStylesPopup, { NavIconRenderer } from '../popups/NavIconStylesPopup';
 import { ImageCropOverlay } from '../AppearanceShared';
-import { CoverPicturePopup } from '../../FlipbookInfoModal';
+import { CoverPicturePopup, TemplatePreview } from '../../FlipbookInfoModal';
 import BookmarkStylesPopup from './BookmarkStylesPopup';
 import AlertModal from '../../AlertModal';
 import ReplaceMediaModal from '../../PageEditor/modals/ReplaceMediaModal';
-import cover1 from '../../../assets/cover/cover1.svg';
 import Switch from './Switch';
 import { fontFamilies } from '../utils/fontConstants';
 
@@ -545,7 +544,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
         <div>
           <SectionHeader 
             title="Background Sound" 
-            toggle={settings.sound?.bgSoundEnabled ?? true} 
+            toggle={settings.sound?.bgSoundEnabled === true} 
             onToggle={(v) => updateNested('sound', 'bgSoundEnabled', v)} 
           />
           <input type="file" ref={bgSoundInputRef} onChange={handleBgSoundUpload} accept=".mp3, .wav, .m4a" className="hidden" />
@@ -1059,7 +1058,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
   }
 
   return (
-    <div className="flex flex-col h-full bg-white relative overflow-visible">
+    <div className="flex flex-col h-full bg-transparent relative overflow-visible">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -1208,7 +1207,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
             <div>
               <SectionHeader 
                 title="Background Sound" 
-                toggle={settings.sound?.bgSoundEnabled ?? true} 
+                toggle={settings.sound?.bgSoundEnabled === true} 
                 onToggle={(v) => updateNested('sound', 'bgSoundEnabled', v)} 
               />
               <input type="file" ref={bgSoundInputRef} onChange={handleBgSoundUpload} accept=".mp3, .wav, .m4a" className="hidden" />
@@ -1650,16 +1649,30 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
               This image will appear as the cover of your flipbook<span className="text-red-500">*</span>
             </p>
 
-            <div className="relative w-[15vw] h-[14vw] mx-auto rounded-[1.2vw] overflow-hidden bg-gray-100 flex items-center justify-center group shadow-md border border-gray-200">
+            <div className="relative w-[15vw] aspect-[4/3] mx-auto rounded-[1.2vw] overflow-hidden bg-gray-100 flex items-center justify-center group shadow-md border border-gray-200">
               {settings.coverPicture?.url ? (
                 <img src={settings.coverPicture.url} className="w-full h-full object-cover" alt="Cover" />
               ) : settings.coverPicture?.type === 'template' ? (
-                <div className="w-full h-full flex flex-col items-center justify-center p-[1vw] text-center" style={{ backgroundColor: settings.coverPicture.bgColor || '#D7D8E8' }}>
-                  <h3 className="text-[0.8vw] font-bold mb-[0.2vw]" style={{ color: settings.coverPicture.shadowColor || '#000000' }}>{settings.coverPicture.text1 || 'Title'}</h3>
-                  <p className="text-[0.6vw]" style={{ color: settings.coverPicture.shadowColor || '#000000', opacity: 0.8 }}>{settings.coverPicture.text2 || 'Supporting Text'}</p>
+                <div className="w-full h-full relative overflow-hidden bg-gray-100 flex items-center justify-center">
+                  <TemplatePreview
+                    {...settings.coverPicture}
+                    pages={pages}
+                  />
                 </div>
               ) : (
-                <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${cover1})` }}></div>
+                <div className="w-full h-full bg-[#edd8cd] flex items-center justify-center relative overflow-hidden">
+                  <div className="relative w-full h-full flex items-center justify-center scale-[0.75]">
+                    <TemplatePreview
+                      selectedTemplate={{ id: 1 }}
+                      bgColor="#edd8cd"
+                      bgOpacity={100}
+                      text1="FREE A4 BROCHURE"
+                      text2="Mockup Presentation"
+                      selectedPages={[]}
+                      pages={pages}
+                    />
+                  </div>
+                </div>
               )}
               {/* Dark overlay for editing */}
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1789,6 +1802,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
             }}
             onSave={async (coverData) => {
               let finalUrl = coverData.url;
+              let finalLogoUrl = coverData.logoUrl;
 
               // If it's an uploaded image, we must upload it to the server to get a perent URL
               if (coverData.type === 'upload' && coverData.rawFile) {
@@ -1817,12 +1831,26 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
                 }
               }
 
+              // If rawLogoFile is present, upload it to permanent server storage
+              if (coverData.rawLogoFile) {
+                try {
+                  const uploadedLogo = await uploadFile(coverData.rawLogoFile);
+                  if (uploadedLogo && uploadedLogo.url) {
+                    finalLogoUrl = uploadedLogo.url;
+                  }
+                } catch (err) {
+                  console.error("Failed to upload cover logo", err);
+                }
+              }
+
               onUpdate(prev => ({
                 ...prev,
                 coverPicture: {
                   ...coverData,
                   url: finalUrl,
-                  rawFile: null // Clear file object from state
+                  logoUrl: finalLogoUrl,
+                  rawFile: null, // Clear file object from state
+                  rawLogoFile: null
                 }
               }));
               setShowCoverPopup(false);

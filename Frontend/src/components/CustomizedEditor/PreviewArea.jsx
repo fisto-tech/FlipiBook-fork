@@ -3,7 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import backgroundComponents from './Backgrounds';
 import animationComponents from './Animations';
 import * as BookAppearanceHelpers from './utils/bookAppearanceHelpers';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 
 import { LAYOUT_DEFAULT_COLORS } from './utils/layoutColors';
 import LeadFormPopup from './popups/LeadFormPopup';
@@ -17,6 +17,7 @@ import {
 } from './previewAreaModules';
 import tabFrameSvg from '../../assets/cover/Tab 1.svg';
 import { useCustomizerState, useActiveBook } from '../../store/hooks';
+import { PageNumberingContext } from './previewAreaModules/pageNumbering';
 
 const PreviewArea = React.memo(({
     pages = [],
@@ -159,7 +160,10 @@ const PreviewArea = React.memo(({
     }, [incomingOtherSetupSettings, incomingSettings, currentBook]);
 
     const leadFormSettings = React.useMemo(() => {
-        return incomingLeadFormSettings || incomingSettings?.leadForm || incomingSettings?.leadform || incomingSettings?.Customized_Settings?.leadForm || currentBook?.Customized_Settings?.leadForm || null;
+        const candidate = incomingLeadFormSettings || incomingSettings?.leadForm || incomingSettings?.leadform || incomingSettings?.Customized_Settings?.leadForm || currentBook?.Customized_Settings?.leadForm || null;
+        if (candidate && candidate.enabled !== undefined) return candidate;
+        const fallback = incomingSettings?.leadForm || incomingSettings?.leadform || incomingSettings?.Customized_Settings?.leadForm || currentBook?.Customized_Settings?.leadForm || null;
+        return fallback || candidate;
     }, [incomingLeadFormSettings, incomingSettings, currentBook]);
 
     const resolvedVId = React.useMemo(() => {
@@ -241,8 +245,8 @@ const PreviewArea = React.memo(({
         const galleryFromOther = otherSetupSettings?.gallery || {};
         const galleryFromMenuBar = menuBarSettings?.interaction?.gallerySettings || {};
         return {
-            ...galleryFromOther,
             ...galleryFromMenuBar,
+            ...galleryFromOther,
             images: (galleryFromOther.images && galleryFromOther.images.length > 0)
                 ? galleryFromOther.images
                 : (galleryFromMenuBar.images || [])
@@ -608,43 +612,7 @@ const PreviewArea = React.memo(({
         };
     }, []);
 
-    useEffect(() => {
-        // ── Scroll wheel: navigation (if enabled) ──────────
-        const handleWheel = (e) => {
-            if (!settings?.navigation?.mouseWheel) return;
-
-            const target = e.target;
-            const isInsideFlipbook = target.closest?.('.turn-book, #turn-book, [data-turn-book], .flipbook-magazine-wrapper, .fbe-book, .fbe-wrapper, [data-fbe]');
-            if (!isInsideFlipbook) return;
-
-            // Only flip on significant scroll to avoid accidental flips
-            if (Math.abs(e.deltaY) < 10) return;
-
-            if (isFlippingRef.current) {
-                e.preventDefault();
-                return;
-            }
-
-            e.preventDefault();
-
-            if (e.deltaY > 0) {
-                bookRef.current?.pageFlip()?.flipNext();
-            } else if (e.deltaY < 0) {
-                bookRef.current?.pageFlip()?.flipPrev();
-            }
-
-            isFlippingRef.current = true;
-            setTimeout(() => {
-                isFlippingRef.current = false;
-            }, 300);
-        };
-
-        window.addEventListener('wheel', handleWheel, { passive: false });
-
-        return () => {
-            window.removeEventListener('wheel', handleWheel);
-        };
-    }, [settings?.navigation?.mouseWheel]);
+    // Note: Scroll wheel navigation is handled by DeviceLayoutRenderer layouts with proper debouncing and animation locks
 
     useEffect(() => {
         if (!screenRef.current) {
@@ -888,10 +856,10 @@ const PreviewArea = React.memo(({
 
     // Sync current page with targetPage prop (from PageEditor's activePageIndex or direct URL)
     useEffect(() => {
-        if (prevTargetPageRef.current === targetPage) return;
+        if (targetPage === undefined || prevTargetPageRef.current === targetPage) return;
         prevTargetPageRef.current = targetPage;
 
-        if (targetPage !== undefined && targetPage !== currentPage) {
+        if (targetPage !== currentPage) {
             isExternalJumpRef.current = true;
             setCurrentPage(targetPage);
             if (externalJumpTimerRef.current) clearTimeout(externalJumpTimerRef.current);
@@ -906,7 +874,7 @@ const PreviewArea = React.memo(({
                 isExternalJumpRef.current = false;
             }, 120);
         }
-    }, [targetPage, currentPage]);
+    }, [targetPage]);
 
     const handleToggleAudio = useCallback(() => {
         setIsMuted(prev => !prev);
@@ -1182,11 +1150,16 @@ const PreviewArea = React.memo(({
         }
     }, [setBookmarks]);
 
-    const onPageClick = useCallback((index) => {
-        const physicalIndex = augmentedPages.findIndex(p => p.logicalPageIndex === index && !p.isTransparentSheet);
-        const targetIndex = physicalIndex !== -1 ? physicalIndex : index;
-        bookRef.current?.pageFlip()?.turnToPage(targetIndex);
+    // EDITOR page index (as authored, no transparent sheets) → BOOK page index (sheet sides included)
+    const toBookIndex = useCallback((editorIndex) => {
+        const physicalIndex = augmentedPages.findIndex(p => p.logicalPageIndex === editorIndex && !p.isTransparentSheet);
+        return physicalIndex !== -1 ? physicalIndex : editorIndex;
     }, [augmentedPages]);
+
+    // BOOK page index — what the counter, page input, thumbnails and progress bar use
+    const onPageClick = useCallback((index) => {
+        bookRef.current?.pageFlip()?.turnToPage(index);
+    }, []);
 
     // Listen to page navigation events sent from the page iframe
     useEffect(() => {
@@ -1194,7 +1167,7 @@ const PreviewArea = React.memo(({
             if (e.data && e.data.type === 'navigate-to-page') {
                 const targetIdx = e.data.page - 1; // Convert 1-indexed to 0-indexed
                 if (targetIdx >= 0 && targetIdx < pages.length) {
-                    onPageClick(targetIdx);
+                    onPageClick(toBookIndex(targetIdx)); // link page numbers are editor numbering
                 }
             } else if (e.data && e.data.type === 'IFRAME_WHEEL') {
                 if (settings?.navigation?.mouseWheel) {
@@ -1308,7 +1281,7 @@ const PreviewArea = React.memo(({
             window.removeEventListener('open-profile-preview', handleOpenProfilePreview);
             window.removeEventListener('close-profile-preview', handleCloseProfilePreview);
         };
-    }, [pages, onPageClick, setShowTOCMemo, setShowProfilePopup]);
+    }, [pages, onPageClick, toBookIndex, setShowTOCMemo, setShowProfilePopup]);
 
     const handleZoomIn = useCallback(() => setManualZoom(prev => Math.min(prev + 0.05, 2)), []);
     const handleZoomOut = useCallback(() => setManualZoom(prev => Math.max(prev - 0.05, 0.5)), []);
@@ -1363,9 +1336,9 @@ const PreviewArea = React.memo(({
         });
 
         if (foundPageIndex !== -1) {
-            onPageClick(foundPageIndex);
+            onPageClick(toBookIndex(foundPageIndex)); // searched the original (editor) pages
         }
-    }, [pages, onPageClick]);
+    }, [pages, onPageClick, toBookIndex]);
 
 
 
@@ -1415,14 +1388,14 @@ const PreviewArea = React.memo(({
 
     // Stop auto-flip when last page is reached (common for all layouts)
     useEffect(() => {
-        if (isAutoFlipping && currentPage >= pages.length - 1) {
+        if (isAutoFlipping && currentPage >= augmentedPages.length - 1) {
             setIsPlaying(false);
         }
-    }, [currentPage, pages.length, isAutoFlipping, setIsPlaying]);
+    }, [currentPage, augmentedPages.length, isAutoFlipping, setIsPlaying]);
 
     // Handle Auto Flip logic with 3-2-1 countdown
     useEffect(() => {
-        if (!isAutoFlipping || pages.length <= 1) {
+        if (!isAutoFlipping || augmentedPages.length <= 1) {
             setCountdown(null);
             return;
         }
@@ -1432,8 +1405,10 @@ const PreviewArea = React.memo(({
 
         // The overall timer for the flip
         const timer = setTimeout(() => {
-            if (currentPage < pages.length - 1) {
-                bookRef.current?.pageFlip()?.flipNext();
+            if (currentPage < augmentedPages.length - 1) {
+                if (!bookRef.current?.pageFlip()?.isAnimating?.()) {
+                    bookRef.current?.pageFlip()?.flipNext();
+                }
             } else {
                 setIsPlaying(false);
             }
@@ -1466,7 +1441,7 @@ const PreviewArea = React.memo(({
             if (countdownInterval) clearInterval(countdownInterval);
             setCountdown(null);
         };
-    }, [isAutoFlipping, currentPage, pages.length, settings.toolbar?.autoFlipDuration, settings.toolbar?.nextFlipCountdown, setIsPlaying]);
+    }, [isAutoFlipping, currentPage, augmentedPages.length, settings.toolbar?.autoFlipDuration, settings.toolbar?.nextFlipCountdown, settings.media?.autoFlipSettings?.duration, settings.media?.autoFlipSettings?.countdown, setIsPlaying]);
 
     // Book Appearance Logic - Using helper functions with memoization to prevent re-render loops
     const processedAppearance = React.useMemo(() =>
@@ -1556,12 +1531,28 @@ const PreviewArea = React.memo(({
 
     const customHardPages = useMemo(() => rawCustomHardPages || [], [rawCustomHardPages]);
 
+    const updateCenteringOffset = useCallback((logicalIndex) => {
+        if (isSinglePage) {
+            setOffset(0);
+            return;
+        }
+        let newOffset = 0;
+        const totalPages = augmentedPages.length || pages.length;
+        if (logicalIndex <= 0) {
+            newOffset = -(WIDTH / 2);
+        } else if (logicalIndex >= totalPages - 1 && totalPages % 2 === 0) {
+            newOffset = (WIDTH / 2);
+        } else {
+            newOffset = 0;
+        }
+        setOffset(newOffset);
+    }, [isSinglePage, augmentedPages.length, pages.length, WIDTH]);
+
     const onFlip = useCallback((e) => {
         // Skip echoing back to setTargetPage while we are in a programmatic external jump
         // — prevents the circular: targetPage → flip → onFlip → setTargetPage → targetPage loop
         if (isExternalJumpRef.current) return;
         const logicalIndex = e.data;
-        prevTargetPageRef.current = logicalIndex;
         setCurrentPage(logicalIndex);
 
         if (externalOnFlip) {
@@ -1569,17 +1560,7 @@ const PreviewArea = React.memo(({
         }
 
         // Compute offset for UI centering
-        let newOffset = 0;
-        const totalPages = augmentedPages.length || pages.length;
-        if (logicalIndex === 0) {
-            newOffset = -(WIDTH / 2);
-        } else if (logicalIndex === totalPages - 1) {
-            // For the back cover, shift to center the single page
-            newOffset = (logicalIndex % 2 === 0) ? -(WIDTH / 2) : (WIDTH / 2);
-        } else {
-            newOffset = 0;
-        }
-        setOffset(newOffset);
+        updateCenteringOffset(logicalIndex);
 
         // Signal a flip to the Sound component
         if (lastSoundLogicalRef.current !== logicalIndex) {
@@ -1592,10 +1573,13 @@ const PreviewArea = React.memo(({
         if (document.activeElement && typeof document.activeElement.blur === 'function' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
             document.activeElement.blur();
         }
-    }, [pages.length, WIDTH, useHardCover, externalOnFlip]);
+    }, [updateCenteringOffset, externalOnFlip]);
 
     const onTurning = useCallback((e) => {
         const logicalIndex = e.data;
+        // Instantly initiate smooth centering glide in lockstep with the 3D page flip animation!
+        updateCenteringOffset(logicalIndex);
+
         // Signal flip sound directly via zero-render custom event
         if (lastSoundLogicalRef.current !== logicalIndex) {
             lastSoundLogicalRef.current = logicalIndex;
@@ -1606,18 +1590,18 @@ const PreviewArea = React.memo(({
         if (document.activeElement && typeof document.activeElement.blur === 'function' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
             document.activeElement.blur();
         }
-    }, []);
+    }, [updateCenteringOffset]);
 
 
     useEffect(() => {
         const visiblePages = [];
         if (currentPage === 0) {
             visiblePages.push(1);
-        } else if (currentPage >= pages.length - 1) {
-            visiblePages.push(pages.length);
+        } else if (currentPage >= augmentedPages.length - 1) {
+            visiblePages.push(augmentedPages.length);
         } else {
             visiblePages.push(currentPage + 1);
-            if (currentPage + 2 <= pages.length) visiblePages.push(currentPage + 2);
+            if (currentPage + 2 <= augmentedPages.length) visiblePages.push(currentPage + 2);
         }
 
         if (containerRef.current) {
@@ -1637,7 +1621,7 @@ const PreviewArea = React.memo(({
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [currentPage, pages.length]);
+    }, [currentPage, augmentedPages.length]);
 
     const watermarkSettingsRef = useRef(watermarkSettings);
 
@@ -1708,8 +1692,8 @@ const PreviewArea = React.memo(({
     const watermarkSrc = watermarkSettings?.src;
 
     const memoizedBuildPageDoc = useCallback((html, pageNum) => {
-        return getIframeContent(html, pageNum, watermarkSettingsRef.current, pages.length, isSinglePage, baseUrl);
-    }, [watermarkSrc, pages.length, isSinglePage, baseUrl]);
+        return getIframeContent(html, pageNum, watermarkSettingsRef.current, augmentedPages.length, isSinglePage, baseUrl);
+    }, [watermarkSrc, augmentedPages.length, isSinglePage, baseUrl]);
 
     const interactionZoomStyle = useMemo(() => {
         if (!interactionZoom) return { transition: 'transform 0.5s ease', transform: 'scale(1)', transformOrigin: 'center center' };
@@ -1753,7 +1737,7 @@ const PreviewArea = React.memo(({
         shadowFilter,
         currentPage,
         singlePage: isSinglePage,
-        pagesCount: pages.length,
+        pagesCount: augmentedPages.length, // includes transparent-sheet sides
         onPageClick,
         settings,
         setShowViewBookmarkPopup,
@@ -1771,7 +1755,7 @@ const PreviewArea = React.memo(({
         makeFirstLastPageHard, selectCustomHardPages, customHardPages,
         targetPage, bookRef, onFlip, onTurning, cornerRadius, pageOpacity,
         textureStyle, shadowActive, shadowStyle, shadowFilter, currentPage,
-        isSinglePage, pages.length, onPageClick, settings, setShowViewBookmarkPopup,
+        isSinglePage, onPageClick, settings, setShowViewBookmarkPopup,
         memoizedBuildPageDoc, activeLayout, interactionZoom, activeTooltip,
         isTurnJs, actualPhysicalZoom, watermarkSettings, interactionZoomStyle
     ]);
@@ -1808,7 +1792,7 @@ const PreviewArea = React.memo(({
         }
 
         const isLeadFormTabActive = (activeSubView || '').toLowerCase() === 'leadform';
-        if (isLeadFormTabActive) {
+        if (isLeadFormTabActive && !leadFormSubmitted) {
             setShowLeadForm(true);
             return;
         }
@@ -1820,12 +1804,12 @@ const PreviewArea = React.memo(({
             setShowLeadForm(true);
         } else if (timing === 'after-pages' && currentPage >= afterPages - 1) {
             setShowLeadForm(true);
-        } else if (timing === 'end' && pages.length > 0 && currentPage >= pages.length - 2) {
+        } else if (timing === 'end' && augmentedPages.length > 0 && currentPage >= augmentedPages.length - 2) {
             setShowLeadForm(true);
         } else if (timing !== 'after-seconds') {
             setShowLeadForm(false);
         }
-    }, [currentPage, leadFormSettings, leadFormSubmitted, pages.length, activeSubView, isLoading]);
+    }, [currentPage, leadFormSettings, leadFormSubmitted, augmentedPages.length, activeSubView, isLoading]);
 
     // Separate useEffect for after-seconds to prevent resetting timer on page change
     useEffect(() => {
@@ -2285,7 +2269,7 @@ const PreviewArea = React.memo(({
 
     // Consistently handle centering offset across all layouts and engines
     useEffect(() => {
-        if (!pages || pages.length === 0) {
+        if (!pages || pages.length === 0 || isSinglePage) {
             setOffset(0);
             return;
         }
@@ -2293,15 +2277,15 @@ const PreviewArea = React.memo(({
         const totalPages = augmentedPages.length || pages.length;
         // Soft cover (turn.js): Shift left to center the front cover, shift right to center the back cover
         let targetOffset = 0;
-        if (currentPage === 0) {
+        if (currentPage <= 0) {
             targetOffset = -(WIDTH / 2);
-        } else if (currentPage >= totalPages - 2) {
-            targetOffset = (currentPage % 2 === 0) ? -(WIDTH / 2) : (WIDTH / 2);
+        } else if (currentPage >= totalPages - 1 && totalPages % 2 === 0) {
+            targetOffset = (WIDTH / 2);
         } else {
             targetOffset = 0;
         }
         setOffset(prev => prev === targetOffset ? prev : targetOffset);
-    }, [currentPage, pages.length, augmentedPages.length, WIDTH, useHardCover]);
+    }, [currentPage, pages.length, augmentedPages.length, WIDTH, isSinglePage, useHardCover]);
 
     const layoutBackgroundSettings = React.useMemo(() => ({
         ...backgroundSettings,
@@ -2388,6 +2372,8 @@ const PreviewArea = React.memo(({
             bookmarks={bookmarks}
             notes={notes}
             isMobileLandscape={isMobileLandscape}
+            leadFormSettings={leadFormSettings}
+            onOpenLeadForm={() => setShowLeadForm(true)}
         />
     );
 
@@ -2406,7 +2392,8 @@ const PreviewArea = React.memo(({
         logoCropStyle,
         onPageClick,
         currentPage,
-        pages,
+        // Layouts count / navigate with transparent-sheet sides included (same list the book uses)
+        pages: augmentedPages,
         bookRef,
         showBookmarkMenu,
         setShowBookmarkMenu: setShowBookmarkMenuMemo,
@@ -2513,6 +2500,7 @@ const PreviewArea = React.memo(({
     );
 
     return (
+        <PageNumberingContext.Provider value={toBookIndex}>
         <div
             ref={containerRef}
             id="preview-area-root"
@@ -2622,16 +2610,9 @@ const PreviewArea = React.memo(({
                 />
             )}
 
-            {/* Centered Screen Lead Form Modal Overlay */}
-            {showLeadForm && (
-                <LeadFormPopup
-                    leadFormSettings={leadFormSettings}
-                    isTablet={isTablet}
-                    isMobile={activeDevice === 'Mobile'}
-                    onClose={() => setLeadFormSubmitted(true)}
-                />
-            )}
+
         </div>
+        </PageNumberingContext.Provider>
     );
 });
 

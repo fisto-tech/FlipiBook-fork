@@ -4,8 +4,9 @@ import {
   getCustomizedEditorState,
   getPageEditorState,
   cleanupLegacyEditorKeys
-} from '../../../utils/dbUtils';
-import { getSupabaseBaseUrl, rewriteHtmlUploads } from '../../../utils/assetUtils';
+} from '../../../utils/storage/dbUtils';
+import { saveAllPagesToIDB } from '../../../utils/customizedEditor/pageWindowStore';
+import { getSupabaseBaseUrl, rewriteHtmlUploads } from '../../../utils/assets/assetUtils';
 import { createDefaultPageData } from '../utils/defaultPageData';
 
 export const useCustomizedEditorData = ({
@@ -20,6 +21,7 @@ export const useCustomizedEditorData = ({
   bookName,
   setBookName,
   setPages,
+  pages: externalPages,
   setProjectBaseUrl,
   setLogoSettings,
   setWatermarkSettings,
@@ -50,6 +52,10 @@ export const useCustomizedEditorData = ({
   const [isLoading, setIsLoading] = useState(() => !hasInMemoryPages);
   const [isDataLoadingComplete, setIsDataLoadingComplete] = useState(() => hasInMemoryPages);
   const [loadingProgress, setLoadingProgress] = useState(() => hasInMemoryPages ? 100 : 0);
+
+  // Keep a ref to the latest pages array so the poller can read it synchronously without batching issues
+  const pagesRef = useRef(externalPages || []);
+  useEffect(() => { pagesRef.current = externalPages || []; }, [externalPages]);
 
   useEffect(() => {
     let interval;
@@ -129,22 +135,7 @@ export const useCustomizedEditorData = ({
             setBookName(cached.bookName);
           }
           if (cached.pages && Array.isArray(cached.pages) && cached.pages.length > 0) {
-            setPages(prevPages => {
-              if (prevPages && prevPages.length >= cached.pages.length) {
-                return prevPages.map((p, idx) => {
-                  const cp = cached.pages[idx];
-                  if (!cp) return p;
-                  if (p.html && !p.isPlaceholder) return p;
-                  return {
-                    ...p,
-                    html: cp.html || cp.content || '',
-                    content: cp.content || cp.html || '',
-                    isPlaceholder: false
-                  };
-                });
-              }
-              return cached.pages;
-            });
+            setPages(cached.pages);
             setIsLoading(false);
             setIsDataLoadingComplete(true);
             setLoadingProgress(100);
@@ -308,17 +299,19 @@ export const useCustomizedEditorData = ({
 
               setPages(prevPages => {
                 const maxPageNumFromRes = Math.max(0, ...res.data.pages.map(p => Number(p.pageNumber) || 0));
+                const isDifferentBook = fetchedBookVIdRef.current && fetchedBookVIdRef.current !== v_id;
+                const basePages = isDifferentBook ? [] : (prevPages || []);
                 const targetLen = Math.max(
                   Number(location?.state?.pageCount) || 0,
                   Number(res.data.meta?.pageCount) || 0,
                   Number(res.data.pageCount) || 0,
-                  prevPages?.length || 0,
+                  basePages.length,
                   maxPageNumFromRes,
                   res.data.pages.length
                 );
 
                 const next = Array.from({ length: targetLen }, (_, idx) => {
-                  const existing = prevPages?.[idx];
+                  const existing = basePages[idx];
                   if (existing) return { ...existing };
                   return {
                     id: idx,
@@ -335,8 +328,15 @@ export const useCustomizedEditorData = ({
                   if (slotIdx >= 0 && slotIdx < next.length) {
                     const current = next[slotIdx];
                     const isBlank = !page.html || page.html.includes('createDefaultPageData') || page.html.includes('rect width="100%" height="100%" fill="#fff"');
-                    if (isBlank && current && current.html && !current.isPlaceholder && !current.html.includes('createDefaultPageData')) {
-                      next[slotIdx] = { ...page, html: current.html, content: current.content || current.html, isPlaceholder: false };
+                    if (isBlank) {
+                      if (current && current.html && !current.isPlaceholder && !current.html.includes('createDefaultPageData')) {
+                        next[slotIdx] = { ...page, html: current.html, content: current.content || current.html, isPlaceholder: false };
+                      } else if (cached?.pages?.[slotIdx]?.html && !cached.pages[slotIdx].isPlaceholder && !cached.pages[slotIdx].html.includes('createDefaultPageData')) {
+                        const cp = cached.pages[slotIdx];
+                        next[slotIdx] = { ...page, html: cp.html || cp.content, content: cp.content || cp.html, isPlaceholder: false };
+                      } else {
+                        next[slotIdx] = page;
+                      }
                     } else {
                       next[slotIdx] = page;
                     }
@@ -506,7 +506,8 @@ export const useCustomizedEditorData = ({
                   customBgSounds: audioCustomBgSounds,
                   flipSound: audioSet.flipSound || loadedOtherSetup?.sound?.flipSound || prev?.sound?.flipSound || 'Soft Paper Flip',
                   pageSpecificSound: audioSet.pageSpecificSound !== undefined ? Boolean(audioSet.pageSpecificSound) : Boolean(loadedOtherSetup?.sound?.pageSpecificSound ?? prev?.sound?.pageSpecificSound),
-                  bgSoundEnabled: audioVal
+                  // Background music is opt-in: on only if the user saved it on (and master audio is on)
+                  bgSoundEnabled: audioVal && ((loadedOtherSetup?.sound?.bgSoundEnabled ?? audioSet.bgSoundEnabled) === true)
                 }
               }));
             }
@@ -627,6 +628,108 @@ export const useCustomizedEditorData = ({
     };
     fetchBook();
   }, [v_id, folder, user?.userId || user?._id || user?.id || user?.email]);
+
+  // Real-time page hydration poller: If Fast-Launch loaded initial pages (1-10) with placeholders,
+  // stream newly extracted balance pages (11..10,000) from server into IndexedDB & state
+  useEffect(() => {
+    if (!v_id) return;
+    let pollCount = 0;
+    const maxPolls = 150; // 150 * 1.2s = ~180s (3 minutes) to guarantee 100+ page documents complete extraction
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+
+    const interval = setInterval(async () => {
+      pollCount++;
+      if (pollCount > maxPolls) {
+        clearInterval(interval);
+        return;
+      }
+
+      let hasPlaceholders = false;
+      // Read current pages directly from ref (avoids React batching issues with setPages functional read)
+      const currentPages = pagesRef.current;
+      if (currentPages && currentPages.length > 0) {
+        hasPlaceholders = currentPages.some(p =>
+          p.isPlaceholder ||
+          !p.content ||
+          p.content.includes('generateSkeletonPageSvg') ||
+          p.content.includes('data-skeleton') ||
+          p.content.includes('fbe-skeleton') ||
+          p.content.includes('fbe-spinner') ||
+          p.content.includes('createDefaultPageData') ||
+          p.content.trim().length < 50
+        );
+      }
+
+      if (!hasPlaceholders && pollCount > 1) {
+        clearInterval(interval);
+        return;
+      }
+
+      try {
+        const res = await axios.get(`${backendUrl}/api/flipbook/get`, {
+          params: { v_id, bookName: decodeURIComponent(v_id) },
+          withCredentials: true
+        });
+
+        if (res.data && Array.isArray(res.data.pages) && res.data.pages.length > 0) {
+          const freshPages = res.data.pages;
+          let newlyHydrated = 0;
+
+          setPages(prevPages => {
+            if (!prevPages || prevPages.length === 0) return prevPages;
+            const updated = [...prevPages];
+
+            freshPages.forEach(fp => {
+              const pNum = Number(fp.pageNumber);
+              const idx = pNum - 1;
+              if (idx >= 0 && idx < updated.length) {
+                const current = updated[idx];
+                let fpContent = fp.content || fp.html || '';
+                // Safety: If payload is raw binary WebP (starts with RIFF), convert it to clean SVG pointing to the image URL
+                if (fpContent && fpContent.startsWith('RIFF')) {
+                  const webpUrl = fp.imageUrl || `/storage/${fp.userId || 'FLIPI0001'}/books/${v_id}/pages/webp_page/${pNum}.webp`;
+                  fpContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 210 297" width="100%" height="100%" style="overflow: visible"><g id="g-page-${pNum}" data-name="Page ${pNum}"><image id="img-page-${pNum}" x="0" y="0" width="210" height="297" href="${webpUrl}" xlink:href="${webpUrl}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
+                }
+                const isFpReal = fpContent && 
+                  !fpContent.includes('generateSkeletonPageSvg') && 
+                  !fpContent.includes('data-skeleton') && 
+                  !fpContent.includes('createDefaultPageData') &&
+                  !fpContent.startsWith('RIFF') &&
+                  fpContent.trim().length > 20;
+
+                const isCurrentPlaceholder = current.isPlaceholder || 
+                  !current.content || 
+                  current.content.includes('generateSkeletonPageSvg') || 
+                  current.content.includes('data-skeleton') || 
+                  current.content.includes('fbe-spinner') || 
+                  current.content.includes('createDefaultPageData');
+
+                if (isFpReal && isCurrentPlaceholder) {
+                  updated[idx] = {
+                    ...current,
+                    ...fp,
+                    content: fpContent,
+                    html: fpContent,
+                    isPlaceholder: false
+                  };
+                  newlyHydrated++;
+                }
+              }
+            });
+
+            if (newlyHydrated > 0) {
+              saveAllPagesToIDB(v_id, updated).catch(() => {});
+              window.dispatchEvent(new CustomEvent('flipbook-pages-updated', { detail: { v_id } }));
+            }
+
+            return updated;
+          });
+        }
+      } catch (_) {}
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, [v_id, setPages]);
 
   return {
     isLoading,

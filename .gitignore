@@ -27,6 +27,7 @@ temp/
 # Uploads & Local File Storage (ignored from Git)
 storage/
 */storage/
+!Frontend/src/utils/storage/
 uploads/
 */uploads/
 temp_uploads/
@@ -50,3 +51,7 @@ Thumbs.db
 !.vscode/extensions.json
 *.sw?
 *.swo
+
+AGENTS.md
+
+AGENTS.md

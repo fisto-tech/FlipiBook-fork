@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import LazyPreview from './LazyPreview';
-import { getAssetBaseUrl } from '../../utils/assetUtils';
+import { getAssetBaseUrl } from '../../utils/assets/assetUtils';
 
 const defaultFormatDisplayDate = (dateVal) => {
     if (!dateVal) return 'Recently';
@@ -289,27 +289,19 @@ function FlipbookCard({
             onViewBook(book);
             return;
         }
-        const shareId =
+        const v_id = book.v_id || book.id;
+        const candidateShareId =
             book.Visibility?.shareId ||
             book.Customized_Settings?.Visibility?.shareId ||
             book.shareId ||
-            book.share?.shareId ||
-            book.v_id ||
-            encodeURIComponent(book.realName);
-        const rawAcc = String(
-            book.Visibility?.access ||
-            book.Customized_Settings?.Visibility?.access ||
-            book.share?.access ||
-            'public'
-        ).toLowerCase();
-        const accessPrefix = rawAcc.includes('private')
-            ? 'share=private'
-            : rawAcc.includes('password')
-            ? 'share=password'
-            : rawAcc.includes('invite')
-            ? 'share=invite'
-            : 'share=public';
-        window.open(`/${accessPrefix}/${shareId}`, '_blank');
+            book.share?.shareId;
+        const visibilityShareId = (candidateShareId && candidateShareId !== v_id) ? candidateShareId : null;
+
+        const previewUrl = visibilityShareId
+            ? `/preview?shareId=${visibilityShareId}${v_id ? `&v_id=${v_id}` : ''}`
+            : (v_id ? `/preview?v_id=${v_id}` : '/preview');
+
+        window.open(previewUrl, '_blank');
     };
 
     const handleCustomEdit = () => {
@@ -473,11 +465,20 @@ function FlipbookCard({
                 <div className="w-[7.6vw] h-[5.7vw] aspect-[4/3] bg-gray-100 rounded-[0.6vw] overflow-hidden flex-shrink-0 border border-gray-200 shadow-xs flex items-center justify-center relative">
                     <LazyPreview
                         v_id={book.v_id || book.id || book._id}
-                        emailId={emailId}
+                        emailId={book.userEmail || book.emailId || emailId}
                         backendUrl={backendUrl}
                         iframeBaseUrl={resolvedIframeBaseUrl}
                         title={book.title || book.realName || book.flipbookName}
                         imageUrl={book.image || null}
+                        coverPicture={
+                            book.coverPicture ||
+                            book.Customized_Settings?.FlipbookInfo?.coverPicture ||
+                            book.Customized_Settings?.otherSetup?.coverPicture ||
+                            book.Customized_Settings?.coverPicture ||
+                            book.meta?.coverPicture ||
+                            null
+                        }
+                        pages={book.pagesList || []}
                         firstPageFileName={book.pagesList?.[0]?.fileName || (book.pagesList?.[0]?.name ? `${book.pagesList[0].name}.svg` : 'Page 1.svg')}
                         firstPageContent={book.pagesList?.[0]?.html || book.pagesList?.[0]?.content || null}
                     />

@@ -21,7 +21,7 @@ const storage = multer.diskStorage({
 const pdfUpload = multer({
   storage,
   limits: {
-    fileSize: 200 * 1024 * 1024 // 200 MB
+    fileSize: 250 * 1024 * 1024 // 250 MB
   }
 });
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useEffect } from "react";
 import axios from "axios";
 import { checkFbxLegacyVersion, convertModelFileIfNeeded } from "../utils/modelConversionUtils";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 import { process3DDropEvent } from "../utils/modelDropHandler";
 import { useAuth } from "../../../context/AuthContext";
 
@@ -33,6 +33,7 @@ export function useThreedModelLoader({
   setTransformValues,
   setMaterialList,
   setModelHasAnimationsMap,
+  setModelHasRiggingMap,
   setIsAnimationPlaying,
   setSelectedTexture,
   setFormatErrorModal,
@@ -297,12 +298,28 @@ export function useThreedModelLoader({
   }, [backendUrl, models, modelName, startModelLoading, setModels, setModelUrl, setModelFile, setModelType, setModelName, setSelectedMaterial, setModelStats, setHotspots, setThreedState, commitHistoryNow, buildSnapshot, setIsSidebarCollapsed, startMountingBridgeTicker, loadingProgressRef, navigate]);
 
   const handleDragOver = useCallback((e) => {
+    // If dragging an internal material/texture item, let viewport handle it
+    if (e.dataTransfer?.types?.includes('application/json')) {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
   }, []);
 
   const handleDrop = useCallback(async (e) => {
+    // If dropping an internal material/texture item, ignore here
+    if (e.dataTransfer?.types?.includes('application/json') || e.dataTransfer?.getData('application/json')) {
+      return;
+    }
+
+    // If no actual files were dropped, do nothing
+    const hasFiles = (e.dataTransfer?.files && e.dataTransfer.files.length > 0) ||
+      (e.dataTransfer?.items && Array.from(e.dataTransfer.items).some(item => item.kind === 'file'));
+    if (!hasFiles) {
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     try {
@@ -317,6 +334,8 @@ export function useThreedModelLoader({
       }
     } catch (err) {
       console.warn("Drop processing fallback:", err.message);
+      setManualLoading(false);
+      setLoadingText("");
       const file = e.dataTransfer?.files?.[0];
       if (file) processFile(file);
     }
@@ -344,7 +363,8 @@ export function useThreedModelLoader({
     setModelMaterialLists({});
     setModelStatsMap({});
     setModelHasAnimationsMap({});
-    setIsAnimationPlaying(true);
+    if (typeof setModelHasRiggingMap === 'function') setModelHasRiggingMap({});
+    setIsAnimationPlaying(false);
     setSelectedMaterial(null);
     setModelName("");
     setSelectedTexture(null);
@@ -382,7 +402,7 @@ export function useThreedModelLoader({
       hotspots: [],
       materialSettings: {
         alpha: 100, metallic: 0, roughness: 50, normal: 100, bump: 100, scale: 100, scaleY: 100, rotation: 0,
-        specular: 50, reflection: 10, shadow: 50, softness: 50, ao: 100, environment: 'studio',
+        specular: 50, reflection: 18, shadow: 50, softness: 50, ao: 100, environment: 'studio',
         worldOpacity: 0, worldBlur: 0,
         color: '#ffffff', useFactorColor: false, autoUnwrap: false, envRotation: 0, offset: { x: 0, y: 0 },
         lightPosition: { x: 10, y: 10, z: 10 }
@@ -395,7 +415,7 @@ export function useThreedModelLoader({
       transformValues: defaultTransform,
       materialSettings: {
         alpha: 100, metallic: 0, roughness: 50, normal: 100, bump: 100, scale: 100, scaleY: 100, rotation: 0,
-        specular: 50, reflection: 10, shadow: 50, softness: 50, ao: 100, environment: 'studio',
+        specular: 50, reflection: 18, shadow: 50, softness: 50, ao: 100, environment: 'studio',
         worldOpacity: 0, worldBlur: 0,
         color: '#ffffff', useFactorColor: false, autoUnwrap: false, envRotation: 0, offset: { x: 0, y: 0 },
         lightPosition: { x: 10, y: 10, z: 10 }

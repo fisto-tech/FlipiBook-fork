@@ -9,6 +9,7 @@ const connectDB = require('./config/db');
 const myflipibookRoutes = require('./routes/myflipibookRoutes');
 const userSettingRoutes = require('./routes/userSettingRoutes');
 const exploreRoutes = require('./routes/exploreRoutes');
+const shelfRoutes = require('./routes/shelfRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const analyticsRoutes = require('./analytics_tracking/analyticsRoutes');
 
@@ -48,8 +49,8 @@ app.use(cors({
 }));
 
 app.use(cookieParser());
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '250mb' }));
+app.use(express.urlencoded({ limit: '250mb', extended: true }));
 
 const fs = require('fs');
 const { getStorageRoot } = require('./utils/storageHelper');
@@ -60,7 +61,7 @@ app.get('/health', (req, res) => {
 });
 
 // Static storage serving with fallback across user folder aliases (e.g. FLIPI0001 vs sanitizedEmail)
-const storageStaticMiddleware = (req, res, next) => {
+const storageStaticMiddleware = async (req, res, next) => {
   const storageRoot = getStorageRoot();
   const relPath = decodeURIComponent(req.path.replace(/^\/+/, ''));
   const directPath = path.join(storageRoot, relPath);
@@ -78,6 +79,47 @@ const storageStaticMiddleware = (req, res, next) => {
         if (fs.existsSync(candidatePath) && fs.statSync(candidatePath).isFile()) {
           return res.sendFile(candidatePath);
         }
+      }
+    } catch (e) {}
+  }
+
+  // Fast-Stream In-Flight Page Waiter:
+  const bookPageMatch = relPath.match(/books[/\\]([^/\\]+)[/\\]pages[/\\](\d+)\.(webp|json)$/i);
+  if (bookPageMatch) {
+    const bookId = bookPageMatch[1];
+    const pageNum = bookPageMatch[2];
+    const ext = bookPageMatch[3];
+    const fileName = `${pageNum}.${ext}`;
+
+    try {
+      const topDirs = fs.readdirSync(storageRoot);
+      const candidatePagesDirs = [
+        path.join(storageRoot, 'FLIPI0001', 'books', bookId, 'pages'),
+        ...topDirs.map(d => path.join(storageRoot, d, 'books', bookId, 'pages'))
+      ];
+
+      let targetPagesDir = null;
+      for (const pDir of candidatePagesDirs) {
+        if (fs.existsSync(pDir)) {
+          targetPagesDir = pDir;
+          break;
+        }
+      }
+
+      if (targetPagesDir) {
+        const targetFilePath = path.join(targetPagesDir, fileName);
+        const startTime = Date.now();
+        while (Date.now() - startTime < 1500) {
+          if (fs.existsSync(targetFilePath)) {
+            return res.sendFile(targetFilePath);
+          }
+          await new Promise(r => setTimeout(r, 150));
+        }
+        if (fs.existsSync(targetFilePath)) {
+          return res.sendFile(targetFilePath);
+        }
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.status(404).json({ error: 'Page asset still generating', pageNum, inProgress: true });
       }
     } catch (e) {}
   }
@@ -133,10 +175,21 @@ app.use('/api/usersetting', userSettingRoutes);
 app.use('/usersetting', userSettingRoutes);
 app.use('/api/explore', exploreRoutes);
 app.use('/explore', exploreRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/profile', profileRoutes);
+app.use('/api/shelf', shelfRoutes);
+app.use('/shelf', shelfRoutes);
+app.use('/api/profile', shelfRoutes);
+app.use('/profile', shelfRoutes);
 app.use('/', userSettingRoutes);
 app.use('/', myflipibookRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  if (err.type === 'request.aborted' || err.message === 'Request aborted' || err.message === 'request aborted' || req.aborted) {
+    return res.status(499).end();
+  }
+  console.error('[FLIPBOOK Error]:', err.message);
+  res.status(err.status || 500).json({ success: false, message: err.message });
+});
 
 // Fallback 404
 app.use((req, res) => {

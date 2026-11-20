@@ -4,7 +4,8 @@ import { AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 const SelectionTooltip = () => null;
 import { checkIsAnimatedWebp } from '../../utils/editorUtils';
-import { syncDOM } from '../utils/geometryUtils';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../utils/imageOptimizer';
+import { syncDOM, syncChildrenKeyed } from '../utils/geometryUtils';
 import {
   PENCIL_CURSOR,
   PEN_CURSOR,
@@ -120,7 +121,10 @@ export const CanvasViewport = ({
             ref={zoomContainerRef}
             className="flex items-center justify-center origin-center relative"
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / 100})`,
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0px) scale(${zoom / 100})`,
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
             }}
           >
             {/* Pages Container Centered */}
@@ -144,7 +148,7 @@ export const CanvasViewport = ({
                   >
                     {/* Page Content */}
                     <div
-                      className={`flex-1 w-full relative page-svg-container ${isConvertedFlipbook ? 'is-pdf-project' : ''} ${localTrimView ? 'trim-view-on' : 'trim-view-off'} overflow-visible tool-${selectedSelectTool} ${(activeTopTool !== 'interaction' && activeTopTool !== 'animation') ? 'hide-free-frames' : ''} ${(activeMainTool === 'pen' && selectedPenTool === 'pencil') ? 'pencil-mode' : ''} ${(activeMainTool === 'pen' && selectedPenTool === 'pen') ? 'pen-mode' : ''} ${(activeMainTool === 'shapes') ? 'shape-mode' : ''} ${(activeMainTool === 'type') ? 'type-mode' : ''}`}
+                      className={`flex-1 w-full relative page-svg-container ${isConvertedFlipbook ? 'is-pdf-project' : ''} ${localTrimView ? 'trim-view-on' : 'trim-view-off'} overflow-visible tool-${selectedSelectTool} ${(activeTopTool !== 'interaction' && activeTopTool !== 'animation') ? 'hide-free-frames' : ''} ${activeTopTool !== 'interaction' ? 'disable-interaction-layers' : ''} ${activeTopTool === 'interaction' ? 'interaction-mode-active' : ''} ${(activeMainTool === 'pen' && selectedPenTool === 'pencil') ? 'pencil-mode' : ''} ${(activeMainTool === 'pen' && selectedPenTool === 'pen') ? 'pen-mode' : ''} ${(activeMainTool === 'shapes') ? 'shape-mode' : ''} ${(activeMainTool === 'type') ? 'type-mode' : ''}`}
                       data-page-index={activePageIndex}
                     >
                       <style>{svgGlobalStyles}</style>
@@ -200,8 +204,16 @@ export const CanvasViewport = ({
                                       // Fast path: Direct innerHTML swap is hardware accelerated and avoids recursive syncDOM freezes
                                       // unless actively editing inline text where DOM input focus must be preserved.
                                       const isTextEditing = isEditingTextRef?.current;
+                                      // Same page with live map/embed iframes: patch in place (keyed by id) so the
+                                      // iframes are never detached — avoids reload/glitch on delete, undo, redo.
+                                      const hasLiveFrames = el.__lastPageIndex === displayIndex && !!el.querySelector('foreignObject iframe');
                                       if (el.__lastPageIndex !== displayIndex || !isTextEditing) {
-                                        el.innerHTML = newHtml;
+                                        if (hasLiveFrames) {
+                                          const parsed = new DOMParser().parseFromString(newHtml, 'text/html');
+                                          syncChildrenKeyed(el, parsed.body);
+                                        } else {
+                                          el.innerHTML = newHtml;
+                                        }
                                         el.__lastPageIndex = displayIndex;
                                         el.__lastHtml = newHtml;
                                         // Auto-heal any path.audio-fill-layer into rect.audio-fill-layer
@@ -270,7 +282,8 @@ export const CanvasViewport = ({
                                     const pt = svg.createSVGPoint();
                                     pt.x = e.clientX;
                                     pt.y = e.clientY;
-                                    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+                                    const ctm = svg.getScreenCTM(); // also used to scale dropped icon sizes
+                                    const svgP = pt.matrixTransform(ctm.inverse());
                                     const dropPoint = { x: svgP.x, y: svgP.y };
 
                                     let targetShapeId = undefined;
@@ -355,13 +368,26 @@ export const CanvasViewport = ({
                                           if (!isGif && file.type.includes('webp')) {
                                             isGif = await checkIsAnimatedWebp(file);
                                           }
+                                          let finalFile = file;
+                                          let finalUrl = fileUrl;
+                                          if (!isGif && !file.type.includes('svg') && shouldOptimizeImage(file)) {
+                                            try {
+                                              const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+                                              if (opt?.file) {
+                                                finalFile = opt.file;
+                                                finalUrl = opt.dataUrl || URL.createObjectURL(opt.file);
+                                              }
+                                            } catch (optErr) {
+                                              console.warn('[CanvasViewport] Drop image optimize fallback:', optErr);
+                                            }
+                                          }
                                           window.dispatchEvent(new CustomEvent('add-image-to-editor', {
                                             detail: {
                                               pageIndex: displayIndex,
-                                              url: fileUrl,
-                                              file,
-                                              gifUrl: isGif ? fileUrl : undefined,
-                                              name: file.name,
+                                              url: finalUrl,
+                                              file: finalFile,
+                                              gifUrl: isGif ? finalUrl : undefined,
+                                              name: finalFile.name,
                                               type: isGif ? 'gif' : 'image',
                                               dropPoint: offsetPoint,
                                               targetShapeId
@@ -400,11 +426,23 @@ export const CanvasViewport = ({
                                       }));
                                       setShowHotspotPopup(false);
                                     } else if (data.type === 'icon' || data.type === 'lucide-icon') {
+                                      let dropSize = null;
+                                      const scaleX = ctm ? ctm.a : 1;
+                                      const scaleY = ctm ? ctm.d : 1;
+                                      if ((data.dragSize || (data.dragWidth && data.dragHeight)) && scaleX && scaleY) {
+                                        const w = data.dragWidth || data.dragSize;
+                                        const h = data.dragHeight || data.dragSize;
+                                        dropSize = {
+                                          width: w / scaleX,
+                                          height: h / scaleY,
+                                        };
+                                      }
                                       window.dispatchEvent(new CustomEvent('add-icon-to-editor', {
                                         detail: {
                                           pageIndex: displayIndex,
                                           icon: data.icon || { name: data.name, html: data.html },
-                                          dropPoint
+                                          dropPoint,
+                                          dropSize
                                         }
                                       }));
                                     } else if (data.type === 'image' || data.type === 'upload' || data.url) {
@@ -431,11 +469,21 @@ export const CanvasViewport = ({
                                         }
                                       }));
                                     } else if (data.type === 'element' || data.type === 'element-item' || data.elementId) {
+                                      const ctm = svg.getScreenCTM();
+                                      const scaleX = (ctm && ctm.a) ? Math.abs(ctm.a) : 1;
+                                      const scaleY = (ctm && ctm.d) ? Math.abs(ctm.d) : 1;
+                                      const dropSize = (data.dragWidth && data.dragHeight)
+                                        ? {
+                                            width: data.dragWidth / scaleX,
+                                            height: data.dragHeight / scaleY
+                                          }
+                                        : undefined;
                                       window.dispatchEvent(new CustomEvent('add-element-to-editor', {
                                         detail: {
                                           pageIndex: displayIndex,
                                           elementId: data.elementId,
-                                          dropPoint
+                                          dropPoint,
+                                          dropSize
                                         }
                                       }));
                                     } else if (data.type === 'video') {

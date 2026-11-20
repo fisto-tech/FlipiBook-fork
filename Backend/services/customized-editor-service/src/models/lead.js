@@ -9,11 +9,11 @@ const leadSchema = new mongoose.Schema(
       unique: true,
       index: true
     },
-    // The flipbook owner's userId is the primary accessor
+    // The flipbook owner's userId is optional to support public guest views & preview
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'user',
-      required: true,
+      required: false,
       index: true
     },
     userID: {
@@ -48,6 +48,26 @@ const leadSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    status: {
+      type: String,
+      enum: ['New', 'Contacted', 'Qualified', 'Converted', 'Lost'],
+      default: 'New',
+      index: true
+    },
+    internalNotes: [
+      {
+        noteId: { type: String, default: () => crypto.randomBytes(4).toString('hex') },
+        text: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now }
+      }
+    ],
+    timeline: [
+      {
+        title: { type: String, required: true },
+        subtitle: { type: String, default: '' },
+        timestamp: { type: Date, default: Date.now }
+      }
+    ],
     submittedAt: {
       type: Date,
       default: Date.now

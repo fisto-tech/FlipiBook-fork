@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { LAYOUT_DEFAULT_COLORS } from '../utils/layoutColors';
 import { getTint, isLightColor, ensureDarkText } from '../utils/colorHelpers';
-import { getDominantColors, REACT_BITS_THEMES_COLORS } from '../../../utils/colorExtractor';
+import { getDominantColors, REACT_BITS_THEMES_COLORS } from '../../../utils/customizedEditor/colorExtractor';
 
 export const useDynamicLayoutColors = ({
   backgroundSettings,

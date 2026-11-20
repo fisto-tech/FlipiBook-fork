@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const User = require("../../../../shared/models/User");
+const RefreshToken = require("../../../../shared/models/RefreshToken");
 const LoginLog = require("../models/loginLog");
 const SignupOtp = require("../models/signupOtp");
 const {
@@ -69,6 +70,54 @@ const purgeCachedUserProfile = async (userId) => {
   try {
     await redis.del(`user:profile:${userId}`);
   } catch (_) {}
+};
+
+/**
+ * Hash raw Refresh Token using SHA-256 before database storage
+ */
+const hashToken = (token) => {
+  if (!token) return null;
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
+};
+
+/**
+ * Securely store refresh token hash in DB with 7-day TTL index
+ */
+const storeRefreshTokenInDB = async ({ user, refreshToken, sessionId, deviceId, deviceInfo, ipAddress, req = null }) => {
+  if (!user || !refreshToken) return null;
+  try {
+    const tokenHash = hashToken(refreshToken);
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    let resolvedDeviceInfo = deviceInfo;
+    let resolvedIp = ipAddress;
+    if (req) {
+      if (!resolvedIp) resolvedIp = getClientIp(req);
+      if (!resolvedDeviceInfo) {
+        const userAgent = req.headers["user-agent"] || "";
+        const parsed = parseUserAgent(userAgent);
+        const b = req.body?.browser || req.headers["x-client-browser"] || parsed.browser || "Browser";
+        const os = req.body?.operatingSystem || req.headers["x-client-os"] || parsed.operatingSystem || "OS";
+        resolvedDeviceInfo = `${b} on ${os}`;
+      }
+    }
+
+    return await RefreshToken.create({
+      userId: user._id,
+      userCanonicalId: user.userID || user.userId,
+      emailId: (user.emailId || user.email || "").trim().toLowerCase(),
+      sessionId: sessionId ? String(sessionId) : undefined,
+      tokenHash,
+      deviceId: deviceId || undefined,
+      deviceInfo: resolvedDeviceInfo || "Desktop / Mobile",
+      ipAddress: resolvedIp || undefined,
+      isRevoked: false,
+      expiresAt: new Date(Date.now() + SEVEN_DAYS_MS),
+    });
+  } catch (err) {
+    console.error("[RefreshToken DB Save Error]:", err.message);
+    return null;
+  }
 };
 
 /**
@@ -562,6 +611,16 @@ const verifySignupOtp = async (req, res) => {
       deviceId: clientDeviceId,
     });
 
+    await storeRefreshTokenInDB({
+      user,
+      refreshToken,
+      sessionId,
+      deviceId: clientDeviceId,
+      deviceInfo: `${browser || "Browser"} on ${operatingSystem || "OS"}`,
+      ipAddress,
+      req,
+    });
+
     setAuthCookies(res, token, refreshToken, req, user);
 
     return res.status(201).json({
@@ -794,6 +853,16 @@ const login = async (req, res) => {
       deviceId: clientDeviceId,
     });
 
+    await storeRefreshTokenInDB({
+      user,
+      refreshToken,
+      sessionId,
+      deviceId: clientDeviceId,
+      deviceInfo: `${browser || "Browser"} on ${operatingSystem || "OS"}`,
+      ipAddress,
+      req,
+    });
+
     setAuthCookies(res, token, refreshToken, req, user);
 
     // Ensure user storage workspace & subfolders exist
@@ -990,6 +1059,16 @@ const googleLogin = async (req, res) => {
       id: user._id,
       sessionId: sessionId,
       deviceId: clientDeviceId,
+    });
+
+    await storeRefreshTokenInDB({
+      user,
+      refreshToken,
+      sessionId,
+      deviceId: clientDeviceId,
+      deviceInfo: `${browser || "Browser"} on ${operatingSystem || "OS"}`,
+      ipAddress,
+      req,
     });
 
     setAuthCookies(res, token, refreshToken, req, user);
@@ -1190,6 +1269,12 @@ const setPasswordWithOtp = async (req, res) => {
 
     await user.save();
 
+    // Revoke all refresh tokens on password change
+    await RefreshToken.updateMany(
+      { userId: user._id },
+      { $set: { isRevoked: true, revokedAt: new Date() } }
+    ).catch(() => {});
+
     return res.status(200).json({
       success: true,
       message: "Password has been added successfully",
@@ -1275,6 +1360,12 @@ const resetPassword = async (req, res) => {
 
     await user.save();
 
+    // Revoke all refresh tokens on password change
+    await RefreshToken.updateMany(
+      { userId: user._id },
+      { $set: { isRevoked: true, revokedAt: new Date() } }
+    ).catch(() => {});
+
     // Revoke any existing active sessions in Redis & DB upon password reset (OWASP standard)
     try {
       const activeSessions = await LoginLog.find({ userId: user.userID, status: "ACTIVE" }).select("sessionId");
@@ -1332,6 +1423,21 @@ const logout = async (req, res) => {
     }
     if (decoded?.id) {
       purgeCachedUserProfile(decoded.id);
+    }
+
+    // Instantly revoke active RefreshToken in MongoDB
+    if (refreshToken) {
+      const rHash = hashToken(refreshToken);
+      RefreshToken.updateMany(
+        { tokenHash: rHash },
+        { $set: { isRevoked: true, revokedAt: new Date() } }
+      ).catch((err) => console.warn("[Logout RefreshToken Revoke Warning]:", err.message));
+    }
+    if (targetSessionId) {
+      RefreshToken.updateMany(
+        { sessionId: String(targetSessionId) },
+        { $set: { isRevoked: true, revokedAt: new Date() } }
+      ).catch((err) => console.warn("[Logout Session Revoke Warning]:", err.message));
     }
 
     try {
@@ -1403,6 +1509,88 @@ const logout = async (req, res) => {
 };
 
 /**
+ * Helper to build comprehensive user queries and identify user details for sessions/audit
+ */
+const getUserIdentityQueries = async (user) => {
+  if (!user) return { userQueries: [], dbUser: null, userId: '', emailId: '', userObjectId: null };
+  const rawId = user.id || user._id;
+  const rawUserId = user.userId || user.userID;
+  const rawEmail = (user.emailId || user.email || '').trim().toLowerCase();
+
+  let dbUser = null;
+  if (rawId && mongoose.Types.ObjectId.isValid(rawId)) {
+    try {
+      dbUser = await User.findById(rawId).select('_id userID emailId');
+    } catch (_) {}
+  }
+  if (!dbUser && rawEmail) {
+    try {
+      dbUser = await User.findOne({ emailId: rawEmail }).select('_id userID emailId');
+    } catch (_) {}
+  }
+  if (!dbUser && rawUserId) {
+    try {
+      dbUser = await User.findOne({ userID: rawUserId }).select('_id userID emailId');
+    } catch (_) {}
+  }
+
+  const queries = [];
+  const seenUserIds = new Set();
+  const seenEmails = new Set();
+  const seenObjIds = new Set();
+
+  const addUserId = (uid) => {
+    if (uid && !seenUserIds.has(uid)) {
+      seenUserIds.add(uid);
+      queries.push({ userId: uid });
+    }
+  };
+
+  const addEmail = (em) => {
+    if (em) {
+      const lower = em.trim().toLowerCase();
+      if (!seenEmails.has(lower)) {
+        seenEmails.add(lower);
+        queries.push({ emailId: lower });
+      }
+    }
+  };
+
+  const addObjId = (oid) => {
+    if (oid && mongoose.Types.ObjectId.isValid(oid)) {
+      const s = String(oid);
+      if (!seenObjIds.has(s)) {
+        seenObjIds.add(s);
+        try {
+          queries.push({ userObjectId: new mongoose.Types.ObjectId(s) });
+        } catch (_) {}
+      }
+    }
+  };
+
+  if (rawUserId) addUserId(rawUserId);
+  if (dbUser?.userID) addUserId(dbUser.userID);
+
+  if (rawEmail) addEmail(rawEmail);
+  if (dbUser?.emailId) addEmail(dbUser.emailId);
+
+  if (rawId) addObjId(rawId);
+  if (dbUser?._id) addObjId(dbUser._id);
+
+  const finalUserId = dbUser?.userID || rawUserId || (rawId ? `FLIPI${String(rawId).slice(-4).toUpperCase()}` : 'FLIPI0001');
+  const finalEmailId = dbUser?.emailId?.toLowerCase() || rawEmail;
+  const finalUserObjectId = dbUser?._id || (rawId && mongoose.Types.ObjectId.isValid(rawId) ? new mongoose.Types.ObjectId(rawId) : undefined);
+
+  return {
+    userQueries: queries,
+    dbUser,
+    userId: finalUserId,
+    emailId: finalEmailId,
+    userObjectId: finalUserObjectId,
+  };
+};
+
+/**
  * 7. Get Login Logs History
  */
 const getLoginLogs = async (req, res) => {
@@ -1416,19 +1604,8 @@ const getLoginLogs = async (req, res) => {
       });
     }
 
-    const userIdentifier = req.user.userId;
-    const userObjectId = req.user.id;
-    const userEmail = req.user.emailId;
-
-    const orClauses = [
-      userIdentifier ? { userId: userIdentifier } : null,
-      userObjectId && mongoose.Types.ObjectId.isValid(userObjectId)
-        ? { userObjectId }
-        : null,
-      userEmail ? { emailId: userEmail.toLowerCase() } : null,
-    ].filter(Boolean);
-
-    const query = orClauses.length > 0 ? { $or: orClauses } : {};
+    const { userQueries } = await getUserIdentityQueries(req.user);
+    const query = userQueries.length > 0 ? { $or: userQueries } : {};
 
     const logs = await LoginLog.find(query)
       .sort({ loginTime: -1 })
@@ -1524,6 +1701,25 @@ const verifySession = async (req, res) => {
     if (!targetUserId && refreshToken) {
       const decodedRefresh = verifyToken(refreshToken);
       if (decodedRefresh && decodedRefresh.id) {
+        // Strict DB Verification: Verify refresh token exists in DB and is active
+        const incomingHash = hashToken(refreshToken);
+        const storedRefreshToken = await RefreshToken.findOne({
+          tokenHash: incomingHash,
+          isRevoked: false,
+        });
+
+        // If the refresh token was not found in DB or has been revoked: REJECT!
+        if (!storedRefreshToken) {
+          console.warn("[Verify Session] Refresh token rejected: not found in DB or revoked");
+          clearAuthCookies(res, req);
+          return res.status(200).json({
+            success: true,
+            isAuthenticated: false,
+            user: null,
+            message: "Session has expired or was revoked. Please sign in again.",
+          });
+        }
+
         tokenEmail = decodedRefresh.emailId || null;
         // Verify session is active in LoginLog (safeguarded against DB buffering delay)
         if (decodedRefresh.sessionId) {
@@ -1628,7 +1824,7 @@ const verifySession = async (req, res) => {
         if (user) {
           // Auto-repair cookie session with current active user _id
           const repairedAccessToken = generateToken({
-            userId: user.userID,
+            userId: user.userID || `FLIPI${String(user._id).slice(-4).toUpperCase()}`,
             emailId: user.emailId,
             id: user._id,
           });
@@ -1692,11 +1888,7 @@ const getActiveSessions = async (req, res) => {
       });
     }
 
-    const userQueries = [
-      req.user.userId ? { userId: req.user.userId } : null,
-      req.user.id && mongoose.Types.ObjectId.isValid(req.user.id) ? { userObjectId: req.user.id } : null,
-      req.user.emailId ? { emailId: req.user.emailId.toLowerCase() } : null,
-    ].filter(Boolean);
+    const { userQueries, userId, emailId, userObjectId } = await getUserIdentityQueries(req.user);
 
     if (userQueries.length === 0) {
       return res.status(400).json({ success: false, message: "User identity unknown" });
@@ -1738,12 +1930,14 @@ const getActiveSessions = async (req, res) => {
         const ipAddress = getClientIp(req);
         const location = resolveLocation(req, ipAddress);
         const assignedDeviceId = callerDeviceId || `dev_${callerBrowser.toLowerCase()}_${crypto.randomBytes(8).toString("hex")}`;
+        const safeEmailId = emailId || req.user?.emailId || 'account@flipibook.com';
+        const safeUserId = userId || req.user?.userId || (userObjectId ? `FLIPI${userObjectId.toString().slice(-4).toUpperCase()}` : 'FLIPI0001');
 
         const createdSession = await LoginLog.create({
           _id: sessionObjectId,
-          userId: req.user.userId || `FLIPI${req.user.id?.toString().slice(-4).toUpperCase()}`,
-          userObjectId: req.user.id,
-          emailId: req.user.emailId,
+          userId: safeUserId,
+          userObjectId: userObjectId || (req.user.id && mongoose.Types.ObjectId.isValid(req.user.id) ? new mongoose.Types.ObjectId(req.user.id) : undefined),
+          emailId: safeEmailId,
           sessionId: sessionObjectId.toString(),
           deviceId: assignedDeviceId,
           ipAddress,
@@ -1855,7 +2049,9 @@ const getActiveSessions = async (req, res) => {
     console.error("[Get Active Sessions Error]:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to retrieve active sessions",
+      message: "Failed to retrieve active sessions: " + error.message,
+      error: error.message,
+      stack: error.stack,
     });
   }
 };
@@ -1874,11 +2070,10 @@ const revokeSession = async (req, res) => {
       return res.status(400).json({ success: false, message: "Session ID is required" });
     }
 
-    const userQueries = [
-      req.user.userId ? { userId: req.user.userId } : null,
-      req.user.id && mongoose.Types.ObjectId.isValid(req.user.id) ? { userObjectId: req.user.id } : null,
-      req.user.emailId ? { emailId: req.user.emailId.toLowerCase() } : null,
-    ].filter(Boolean);
+    const { userQueries } = await getUserIdentityQueries(req.user);
+    if (userQueries.length === 0) {
+      return res.status(400).json({ success: false, message: "User identity unknown" });
+    }
 
     const sessionQuery = [
       { sessionId: String(sessionId) },
@@ -1903,6 +2098,12 @@ const revokeSession = async (req, res) => {
     targetSession.isRevoked = true;
     targetSession.logoutTime = new Date();
     await targetSession.save();
+
+    // Revoke matching RefreshToken in DB
+    await RefreshToken.updateMany(
+      { sessionId: String(sessionId) },
+      { $set: { isRevoked: true, revokedAt: new Date() } }
+    ).catch(() => {});
 
     // Instantly blacklist revoked session in Redis (< 0.5ms)
     if (targetSession.sessionId) {
@@ -1934,11 +2135,10 @@ const revokeOtherSessions = async (req, res) => {
     const currentSessionId = req.user.sessionId ? String(req.user.sessionId) : null;
     const currentDeviceId = req.headers["x-device-id"] || req.user.deviceId || req.cookies?.flipibook_device_id || null;
 
-    const userQueries = [
-      req.user.userId ? { userId: req.user.userId } : null,
-      req.user.id && mongoose.Types.ObjectId.isValid(req.user.id) ? { userObjectId: req.user.id } : null,
-      req.user.emailId ? { emailId: req.user.emailId.toLowerCase() } : null,
-    ].filter(Boolean);
+    const { userQueries } = await getUserIdentityQueries(req.user);
+    if (userQueries.length === 0) {
+      return res.status(400).json({ success: false, message: "User identity unknown" });
+    }
 
     const filter = {
       $or: userQueries,
@@ -1972,6 +2172,24 @@ const revokeOtherSessions = async (req, res) => {
       },
     });
 
+    // Revoke all other RefreshTokens in DB
+    try {
+      const userRefQuery = userQueries
+        .map((q) => (q.userObjectId ? { userId: q.userObjectId } : q.userId ? { userCanonicalId: q.userId } : null))
+        .filter(Boolean);
+      if (userRefQuery.length > 0) {
+        const tokenRevokeFilter = {
+          $or: userRefQuery,
+        };
+        if (currentSessionId) {
+          tokenRevokeFilter.sessionId = { $ne: String(currentSessionId) };
+        }
+        await RefreshToken.updateMany(tokenRevokeFilter, {
+          $set: { isRevoked: true, revokedAt: new Date() },
+        });
+      }
+    } catch (_) {}
+
     return res.status(200).json({
       success: true,
       message: `Successfully logged out ${result.modifiedCount} other device(s)`,
@@ -1996,18 +2214,71 @@ const getRecentActivities = async (req, res) => {
     }
 
     const { limit = 20 } = req.query;
-    const userQueries = [
-      req.user.userId ? { userId: req.user.userId } : null,
-      req.user.id && mongoose.Types.ObjectId.isValid(req.user.id) ? { userObjectId: req.user.id } : null,
-      req.user.emailId ? { emailId: req.user.emailId.toLowerCase() } : null,
-    ].filter(Boolean);
+    const { userQueries, userId, emailId, userObjectId } = await getUserIdentityQueries(req.user);
 
-    const logs = await LoginLog.find({
+    if (userQueries.length === 0) {
+      return res.status(400).json({ success: false, message: "User identity unknown" });
+    }
+
+    let logs = await LoginLog.find({
       $or: userQueries,
     })
       .sort({ createdAt: -1 })
       .limit(Math.min(Math.max(1, Number(limit) || 20), 50))
       .lean();
+
+    // If no activities found yet, pull from active sessions or auto-register current activity
+    if (logs.length === 0) {
+      const activeSession = await LoginLog.findOne({
+        $or: userQueries,
+        status: { $in: ["ACTIVE", "active"] },
+        isRevoked: { $ne: true },
+      })
+        .sort({ lastActiveAt: -1 })
+        .lean();
+
+      if (activeSession) {
+        logs.push(activeSession);
+      } else {
+        try {
+          const userAgent = req.headers["user-agent"] || "";
+          const parsed = parseUserAgent(userAgent);
+          const callerBrowser = req.headers["x-client-browser"] || parsed.browser;
+          const callerOS = req.headers["x-client-os"] || parsed.operatingSystem;
+          const callerDeviceId = req.headers["x-device-id"] || req.user.deviceId || req.cookies?.flipibook_device_id || `dev_${callerBrowser.toLowerCase()}_${crypto.randomBytes(8).toString("hex")}`;
+          const sessionObjectId = new mongoose.Types.ObjectId();
+          const ipAddress = getClientIp(req);
+          const location = resolveLocation(req, ipAddress);
+          const safeEmailId = emailId || req.user?.emailId || 'account@flipibook.com';
+          const safeUserId = userId || req.user?.userId || (userObjectId ? `FLIPI${userObjectId.toString().slice(-4).toUpperCase()}` : 'FLIPI0001');
+
+          const initialLog = await LoginLog.create({
+            _id: sessionObjectId,
+            userId: safeUserId,
+            userObjectId: userObjectId || (req.user.id && mongoose.Types.ObjectId.isValid(req.user.id) ? new mongoose.Types.ObjectId(req.user.id) : undefined),
+            emailId: safeEmailId,
+            sessionId: sessionObjectId.toString(),
+            deviceId: callerDeviceId,
+            ipAddress,
+            userAgent,
+            browser: callerBrowser,
+            operatingSystem: callerOS,
+            deviceType: parsed.deviceType,
+            location,
+            loginTime: new Date(),
+            lastActiveAt: new Date(),
+            status: "ACTIVE",
+            isRevoked: false,
+            eventType: "SUCCESSFUL_LOGIN",
+            loginMethod: "TOKEN_AUTH",
+          });
+          const initialObj = initialLog.toObject ? initialLog.toObject() : initialLog;
+          logs.push(initialObj);
+        } catch (initialErr) {
+          console.warn("[Recent Activities Initial Log Warning]:", initialErr.message);
+        }
+      }
+    }
 
     const currentSessionId = req.user.sessionId ? String(req.user.sessionId) : null;
     const callerDeviceId = req.headers["x-device-id"] || req.user.deviceId || null;
@@ -2015,7 +2286,7 @@ const getRecentActivities = async (req, res) => {
 
     const activities = logs.map((log) => {
       const isCurrent = Boolean(
-        (currentSessionId && (log.sessionId === currentSessionId || log._id.toString() === currentSessionId)) ||
+        (currentSessionId && (log.sessionId === currentSessionId || log._id?.toString() === currentSessionId)) ||
         (callerDeviceId && log.deviceId === callerDeviceId)
       );
 
@@ -2055,7 +2326,9 @@ const getRecentActivities = async (req, res) => {
     console.error("[Get Recent Activities Error]:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to retrieve login activities",
+      message: "Failed to retrieve login activities: " + error.message,
+      error: error.message,
+      stack: error.stack,
     });
   }
 };

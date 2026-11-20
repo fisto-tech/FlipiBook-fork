@@ -1,6 +1,6 @@
 import { Icon } from '@iconify/react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
-import HotspotPresetPopup from '../../modals/HotspotPresetPopup';
+import HotspotPresetPopup from '../../Interaction/HotspotPresetPopup';
 import {
   TemplateIcon,
   ClearIcon,
@@ -162,7 +162,7 @@ export const FloatingToolbars = ({
 
         {/* Interaction Group: Sub Tools */}
         {activeTopTool === 'interaction' && (
-          <div className={`absolute right-0 top-[25vh] z-50 ${pages[activePageIndex]?.isHidden ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`absolute right-0 top-[calc(7.6vh+7.95vw+2px)] z-50 ${pages[activePageIndex]?.isHidden ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="bg-[#F1F3F4] rounded-l-[0.8vw] border-y border-l border-gray-300 p-[0.3vw] flex flex-col shadow-sm relative">
 
               {/* Cover Top Border */}
@@ -246,7 +246,7 @@ export const FloatingToolbars = ({
 
         {/* Bottom Group: Creation & Widgets - HIDDEN for PDF projects */}
         {!isPdfProject && activeTopTool === 'editor' && (
-          <div className={`absolute right-0 top-[25vh] z-50 ${pages[activePageIndex]?.isHidden ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`absolute right-0 top-[calc(7.6vh+7.95vw+2px)] z-50 ${pages[activePageIndex]?.isHidden ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="bg-[#F1F3F4] rounded-l-[0.8vw] border-y border-l border-gray-300 p-[0.3vw] flex flex-col shadow-sm relative">
 
               {/* Cover Top Border */}

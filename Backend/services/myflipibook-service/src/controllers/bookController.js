@@ -210,20 +210,31 @@ const formatBook = (doc, settingsDoc = null, currentUserId = null, folderMap = n
   const s = settingsDoc || doc.Customized_Settings || {};
   const bookVId = doc.book_v_id || doc.v_id;
 
+  // Normalize tokens of the requesting user (objectId, email, customUserId)
+  const tokensToCheck = Array.isArray(currentUserId)
+    ? currentUserId.map(t => String(t).trim().toLowerCase())
+    : (currentUserId ? [String(currentUserId).trim().toLowerCase()] : []);
+
+  // Determine if requesting user is the owner
   const isOwner = Boolean(
-    currentUserId && (
-      (doc.userObjectID && String(doc.userObjectID) === String(currentUserId)) ||
-      (doc.userID && String(doc.userID) === String(currentUserId))
+    tokensToCheck.length > 0 && (
+      (doc.userObjectID && tokensToCheck.includes(String(doc.userObjectID).toLowerCase())) ||
+      (doc.userID && tokensToCheck.includes(String(doc.userID).toLowerCase())) ||
+      (doc.userEmail && tokensToCheck.includes(String(doc.userEmail).trim().toLowerCase())) ||
+      (doc.emailId && tokensToCheck.includes(String(doc.emailId).trim().toLowerCase()))
     )
   );
 
   const cleanFavList = Array.isArray(doc.isFavorite)
     ? doc.isFavorite.filter(u => u && u !== false && String(u) !== 'false' && String(u) !== '[ false ]')
     : [];
+
+  // A user can NEVER favorite their own book.
+  // For other users' books, it's only a favorite if THIS requesting user's token is in the book's isFavorite list.
   const isFav = isOwner ? false : (
-    Array.isArray(doc.isFavorite)
-      ? (currentUserId ? cleanFavList.some(u => String(u) === String(currentUserId)) : cleanFavList.length > 0)
-      : (typeof doc.isFavorite === 'boolean' && !isOwner ? doc.isFavorite : false)
+    tokensToCheck.length > 0
+      ? cleanFavList.some(u => tokensToCheck.includes(String(u).trim().toLowerCase()))
+      : false
   );
 
   const extractedPagesSize = Array.isArray(doc.pages)
@@ -322,6 +333,14 @@ const formatBook = (doc, settingsDoc = null, currentUserId = null, folderMap = n
     height: s?.FlipbookInfo?.height || s?.height || null,
     orientation: s?.FlipbookInfo?.orientation || s?.orientation || null,
     templateId: s?.FlipbookInfo?.templateId || s?.templateId || null,
+    viewsCount: Number(doc.viewsCount) || Number(doc.views) || (Array.isArray(doc.viewers) ? doc.viewers.length : 0),
+    views: Number(doc.viewsCount) || Number(doc.views) || (Array.isArray(doc.viewers) ? doc.viewers.length : 0),
+    coverPicture: s?.FlipbookInfo?.coverPicture || s?.otherSetup?.coverPicture || s?.coverPicture || doc.coverPicture || null,
+    thumbnail: s?.FlipbookInfo?.coverPicture?.url || s?.coverPicture?.url || doc.thumbnail || null,
+    quotes: s?.FlipbookInfo?.quotes || '',
+    about: s?.FlipbookInfo?.about || '',
+    category: s?.FlipbookInfo?.category || '',
+    language: s?.FlipbookInfo?.language || 'English',
     Customized_Settings: s || {},
   };
 };
@@ -415,7 +434,37 @@ exports.getBooks = async (req, res) => {
       }
     }
 
-    const physicalBooks = rawBooks.map((b) => formatBook(b, settingsMap.get(b.v_id) || {}, null, folderMap, reverseFolderMap));
+    const auth = getAuthUser(req);
+    const userTokens = [
+      auth.objectId ? auth.objectId.toString() : null,
+      auth.emailId ? auth.emailId.trim().toLowerCase() : null,
+      auth.customUserId || null
+    ].filter(Boolean);
+
+    // Sync session views from analytics if available
+    try {
+      const { FlipbookSessionAnalytics } = require("../analytics_tracking/analyticsModel");
+      if (FlipbookSessionAnalytics && rawBooks.length > 0) {
+        const vIds = rawBooks.map(b => b.book_v_id || b.v_id).filter(Boolean);
+        const sessionCounts = await FlipbookSessionAnalytics.aggregate([
+          { $match: { v_id: { $in: vIds } } },
+          { $group: { _id: "$v_id", count: { $sum: 1 } } }
+        ]);
+        const sMap = new Map();
+        for (const sc of sessionCounts) {
+          if (sc._id) sMap.set(sc._id, sc.count);
+        }
+        for (const b of rawBooks) {
+          const sViews = sMap.get(b.book_v_id || b.v_id);
+          if (sViews && (!b.viewsCount || sViews > b.viewsCount)) {
+            b.viewsCount = sViews;
+            b.views = sViews;
+          }
+        }
+      }
+    } catch (_) {}
+
+    const physicalBooks = rawBooks.map((b) => formatBook(b, settingsMap.get(b.v_id) || {}, userTokens, folderMap, reverseFolderMap));
 
     const hasRecentTag = (doc) => {
       if (doc.trash) return false;
@@ -441,7 +490,7 @@ exports.getBooks = async (req, res) => {
     );
 
     const recentBooks = recentDocs.map((doc) => {
-      const base = formatBook(doc, settingsMap.get(doc.v_id) || {}, null, folderMap, reverseFolderMap);
+      const base = formatBook(doc, settingsMap.get(doc.v_id) || {}, userTokens, folderMap, reverseFolderMap);
       return {
         ...base,
         id: `Recent_${doc.v_id || doc._id.toString()}`,
@@ -455,13 +504,6 @@ exports.getBooks = async (req, res) => {
     });
 
     // Fetch other customers' books that this user has favorited
-    const auth = getAuthUser(req);
-    const userTokens = [
-      auth.objectId ? auth.objectId.toString() : null,
-      auth.emailId ? auth.emailId.trim().toLowerCase() : null,
-      auth.customUserId || null
-    ].filter(Boolean);
-
     let favoriteOtherBooks = [];
     if (userTokens.length > 0) {
       const favQuery = {
@@ -470,6 +512,10 @@ exports.getBooks = async (req, res) => {
       };
       if (auth.objectId) favQuery.userObjectID = { $ne: auth.objectId };
       if (auth.customUserId) favQuery.userID = { $ne: auth.customUserId };
+      if (auth.emailId) {
+        favQuery.userEmail = { $ne: auth.emailId.trim().toLowerCase() };
+        favQuery.emailId = { $ne: auth.emailId.trim().toLowerCase() };
+      }
 
       try {
         const favDocs = await Flipbook.find(favQuery).lean();
@@ -485,7 +531,7 @@ exports.getBooks = async (req, res) => {
           }
 
           favoriteOtherBooks = favDocs.map((doc) => {
-            const base = formatBook(doc, favSettingsMap.get(doc.v_id) || {}, null, null, null);
+            const base = formatBook(doc, favSettingsMap.get(doc.v_id) || {}, userTokens, null, null);
             return {
               ...base,
               folder: "Favorites",
@@ -1861,6 +1907,37 @@ exports.saveBook = async (req, res) => {
       );
       initFlipbookStorage(wsBookDir);
 
+      // Self-healing: if an edge-extracted stray directory exists under books/:v_id, migrate its WebP pages into wsBookDir/pages/webp_page/
+      try {
+        const strayVIdDir = path.join(storageRoot, userFolder, "books", resolvedVId);
+        if (fs.existsSync(strayVIdDir) && strayVIdDir !== wsBookDir) {
+          const strayPagesDir = path.join(strayVIdDir, "pages");
+          const targetWebpDir = path.join(wsBookDir, "pages", "webp_page");
+          if (!fs.existsSync(targetWebpDir)) {
+            fs.mkdirSync(targetWebpDir, { recursive: true });
+          }
+          if (fs.existsSync(strayPagesDir)) {
+            const strayFiles = fs.readdirSync(strayPagesDir);
+            for (const sf of strayFiles) {
+              const srcF = path.join(strayPagesDir, sf);
+              const destF = path.join(targetWebpDir, sf);
+              if (fs.statSync(srcF).isFile() && !fs.existsSync(destF)) {
+                fs.copyFileSync(srcF, destF);
+              }
+            }
+          }
+          const strayManifest = path.join(strayVIdDir, "manifest.json");
+          const targetManifest = path.join(wsBookDir, "manifest.json");
+          if (fs.existsSync(strayManifest) && !fs.existsSync(targetManifest)) {
+            fs.copyFileSync(strayManifest, targetManifest);
+          }
+          fs.rmSync(strayVIdDir, { recursive: true, force: true });
+          console.log(`[Book Controller] Successfully migrated & cleaned up stray book folder: ${strayVIdDir}`);
+        }
+      } catch (strayErr) {
+        console.warn('[Book Controller] Warning during stray v_id folder migration:', strayErr.message);
+      }
+
       // Self-healing: clean up any duplicate/stray book directories (e.g. books/fol_* or redundant folder)
       try {
         const booksBase = path.join(storageRoot, userFolder, "books");
@@ -1955,6 +2032,12 @@ exports.saveBook = async (req, res) => {
         });
 
         svgContent = cleanSvgMarkup(svgContent);
+
+        // Normalize WebP page image URLs to point strictly to the book's pages/webp_page/ subfolder
+        const targetWebpBase = `/storage/${userFolder}/books/${targetSubfolder}/${finalFlipbookName}/pages/webp_page/`;
+        svgContent = svgContent
+          .replace(new RegExp(`/storage/[^/]+/books/(?:${resolvedVId}|default/${resolvedVId})/pages/(?:webp_page/)?`, 'g'), targetWebpBase)
+          .replace(new RegExp(`/storage/${userFolder}/books/${targetSubfolder}/${finalFlipbookName}/pages/(\\d+\\.webp)`, 'g'), `${targetWebpBase}$1`);
 
         await fs.promises.writeFile(
           path.join(pagesDir, targetFileName),
@@ -2308,11 +2391,9 @@ exports.savePagesBatch = async (req, res) => {
     book.fileSize = resolvedBatchFileSize;
     book.lastUpdated = new Date();
 
-    try {
-      await book.save();
-    } catch (saveErr) {
-      if (saveErr.name === "VersionError" || saveErr.message?.includes("No matching document found")) {
-        console.warn(`[Book Controller] Version conflict in savePagesBatch for book ${book._id}. Performing atomic update fallback...`);
+    // Persist pages and metadata via atomic update with retry to eliminate TLS/SSL socket drops (alert 80)
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
         await Flipbook.updateOne(
           { _id: book._id },
           {
@@ -2323,10 +2404,18 @@ exports.savePagesBatch = async (req, res) => {
             }
           }
         );
-        const freshBook = await Flipbook.findById(book._id);
-        if (freshBook) book = freshBook;
-      } else {
-        throw saveErr;
+        break;
+      } catch (saveErr) {
+        console.warn(`[Book Controller] Retry ${attempt}/3 updating flipbook pages batch due to:`, saveErr.message);
+        if (attempt === 3) {
+          try {
+            await book.save();
+          } catch (finalErr) {
+            throw saveErr;
+          }
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+        }
       }
     }
 
@@ -2761,19 +2850,96 @@ exports.getBook = async (req, res) => {
       } catch (_) {}
     }
 
+    // Fallback: scan all user directories under storageRoot if not found under authenticated user
+    if (!primaryBookDir && fs.existsSync(storageRoot)) {
+      try {
+        const topDirs = fs.readdirSync(storageRoot);
+        for (const td of topDirs) {
+          for (const bn of bookNames) {
+            const p1 = path.join(storageRoot, td, "books", bn);
+            if (fs.existsSync(path.join(p1, "pages"))) {
+              primaryBookDir = p1;
+              break;
+            }
+            const p2 = path.join(storageRoot, td, "books", "default", bn);
+            if (fs.existsSync(path.join(p2, "pages"))) {
+              primaryBookDir = p2;
+              break;
+            }
+          }
+          if (primaryBookDir) break;
+        }
+      } catch (_) {}
+    }
+
     const dirsToSearch = primaryBookDir 
       ? [primaryBookDir, ...candidateDirs.filter(d => d !== primaryBookDir)]
       : candidateDirs;
 
     // 2. Load page data asynchronously in non-blocking parallel to prevent event-loop freezes on 100-page books
-    const sortedRawPages = (book.pages || []).slice().sort(
+    let sortedRawPages = (book.pages || []).slice().sort(
       (a, b) => (Number(a.pageNumber) || 0) - (Number(b.pageNumber) || 0)
     );
+
+    const effectiveFolder = resolvedPhysical || 'default';
+    const effectiveBookName = book.flipbookName || book.realName || book.title || book.v_id || 'flipbook';
+
+    // If server-side extractor generated a full manifest with more pages, hydrate from manifest.json
+    let manifestData = null;
+    const possibleManifestPaths = [];
+    if (primaryBookDir) {
+      possibleManifestPaths.push(path.join(primaryBookDir, 'manifest.json'));
+    }
+    for (const uf of [...userFolders, 'FLIPI0001', 'FLIPI0005']) {
+      if (!uf) continue;
+      for (const f of folders) {
+        for (const bn of bookNames) {
+          possibleManifestPaths.push(path.join(storageRoot, uf, 'books', f, bn, 'manifest.json'));
+        }
+      }
+      if (book.v_id) {
+        possibleManifestPaths.push(
+          path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json'),
+          path.join(storageRoot, uf, 'books', 'default', book.v_id, 'manifest.json')
+        );
+      }
+    }
+    for (const mPath of possibleManifestPaths) {
+      try {
+        if (fs.existsSync(mPath)) {
+          const rawM = await fs.promises.readFile(mPath, 'utf8');
+          manifestData = JSON.parse(rawM);
+          if (manifestData && Array.isArray(manifestData.pages)) break;
+        }
+      } catch (_) {}
+    }
+
+    if (manifestData && Array.isArray(manifestData.pages) && manifestData.pages.length > sortedRawPages.length) {
+      sortedRawPages = manifestData.pages.map((mp, mIdx) => {
+        const pNum = mp.pageNumber || mIdx + 1;
+        const existing = (book.pages || []).find(p => Number(p.pageNumber) === pNum);
+        if (existing) return existing;
+        const w = mp.width || manifestData.width || 210;
+        const h = mp.height || manifestData.height || 297;
+        const webpRel = `${manifestData.baseUrl || ''}${mp.image || `${pNum}.webp`}`;
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${pNum}" data-name="Page ${pNum}"><image id="img-page-${pNum}" x="0" y="0" width="${w}" height="${h}" href="${webpRel}" xlink:href="${webpRel}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
+        return {
+          pageNumber: pNum,
+          name: `Page ${pNum}`,
+          fileName: `Page ${pNum}.svg`,
+          content: svgContent,
+          html: svgContent,
+          hide: 0
+        };
+      });
+      // Update MongoDB asynchronously with complete pages array and count
+      Flipbook.updateOne({ _id: book._id }, { $set: { pages: sortedRawPages, pagesCount: sortedRawPages.length } }).catch(() => {});
+    }
     const populatedPages = await Promise.all(sortedRawPages.map(async (p) => {
       const pageObj = p.toObject ? p.toObject() : { ...p };
       let pageContent = "";
 
-      // MUST load page data directly from local storage file on disk first
+      // MUST load page data directly from local storage file on disk first (text markup files only)
       for (const candDir of dirsToSearch) {
         const candidateFiles = [
           pageObj.fileName
@@ -2789,8 +2955,12 @@ exports.getBook = async (req, res) => {
 
         for (const fPath of candidateFiles) {
           try {
+            // NEVER read binary image files as UTF-8 text! (e.g. .webp, .png, .jpg)
+            if (/\.(webp|png|jpe?g|gif|bmp|ico)$/i.test(fPath)) {
+              continue;
+            }
             const str = await fs.promises.readFile(fPath, "utf8");
-            if (str && str.trim()) {
+            if (str && str.trim() && !str.startsWith("RIFF")) {
               pageContent = str;
               break;
             }
@@ -2800,8 +2970,19 @@ exports.getBook = async (req, res) => {
       }
 
       // Fallback to MongoDB only if local storage file does not exist
-      if (!pageContent) {
+      if (!pageContent || pageContent.startsWith("RIFF")) {
         pageContent = pageObj.content || pageObj.html || "";
+      }
+
+      // If pageContent was corrupted with raw RIFF or empty, wrap image in SVG cleanly
+      if (!pageContent || pageContent.startsWith("RIFF")) {
+        const imageFile = pageObj.fileName && /\.(webp|png|jpe?g)$/i.test(pageObj.fileName)
+          ? pageObj.fileName
+          : `${pageObj.pageNumber}.webp`;
+        const webpRel = pageObj.imageUrl || `/storage/${book.userID || customUserId || 'FLIPI0001'}/books/${effectiveFolder}/${effectiveBookName}/pages/webp_page/${imageFile}`;
+        const w = (book.meta && book.meta.width) || 210;
+        const h = (book.meta && book.meta.height) || 297;
+        pageContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="overflow: visible"><g id="g-page-${pageObj.pageNumber}" data-name="Page ${pageObj.pageNumber}"><image id="img-page-${pageObj.pageNumber}" x="0" y="0" width="${w}" height="${h}" href="${webpRel}" xlink:href="${webpRel}" preserveAspectRatio="none" style="image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;" /></g></svg>`;
       }
 
       const cleanName = String(pageObj.name || "")
@@ -2853,6 +3034,10 @@ exports.getBook = async (req, res) => {
     } catch (_) {}
 
     const formattedMeta = formatBook(book, customizedDoc || {}, null, folderMap, reverseFolderMap);
+    if (populatedPages && populatedPages.length > (formattedMeta.pagesCount || 0)) {
+      formattedMeta.pagesCount = populatedPages.length;
+      formattedMeta.pages = populatedPages.length;
+    }
 
     let resolvedShareId =
       customizedDoc?.Visibility?.shareId ||
@@ -3073,9 +3258,26 @@ exports.previewBook = async (req, res) => {
       } catch (_) {}
     }
 
-    const firstPage =
-      book.pages && book.pages.length > 0 ? book.pages[0] : null;
-    let firstPageHtml = firstPage?.html || firstPage?.content || "";
+    // Determine which page to preview (e.g. if user selected specific page(s) like page 3 in cover template)
+    let requestedPageNum = Number(req.query?.page || req.query?.pageNum || 0);
+    if (!requestedPageNum) {
+      // Check if book has coverPicture with selectedPages
+      const cp = book.coverPicture || book.settings?.othersetup?.coverPicture;
+      if (Array.isArray(cp?.selectedPages) && cp.selectedPages.length > 0) {
+        requestedPageNum = Number(cp.selectedPages[0]) || 1;
+      }
+    }
+    if (!requestedPageNum || requestedPageNum < 1) {
+      requestedPageNum = 1;
+    }
+
+    const sortedPages = (book.pages || []).slice().sort((a, b) => (Number(a.pageNumber) || 0) - (Number(b.pageNumber) || 0));
+    const targetPage =
+      (sortedPages.length >= requestedPageNum && sortedPages[requestedPageNum - 1])
+        ? sortedPages[requestedPageNum - 1]
+        : (sortedPages.length > 0 ? sortedPages[0] : null);
+
+    let firstPageHtml = targetPage?.html || targetPage?.content || "";
 
     if (!firstPageHtml) {
       const storageRoot = getStorageRoot();
@@ -3183,15 +3385,15 @@ exports.previewBook = async (req, res) => {
 
       const uniqueCandidateDirs = Array.from(new Set(candidateDirs));
 
-      // 3. Build candidate file names for the first page
-      const pageNum = firstPage?.pageNumber || 1;
-      const cleanName = firstPage?.name
-        ? String(firstPage.name)
+      // 3. Build candidate file names for the target page
+      const pageNum = targetPage?.pageNumber || requestedPageNum || 1;
+      const cleanName = targetPage?.name
+        ? String(targetPage.name)
             .replace(/[\\/:*?"<>|]/g, "")
             .trim()
         : "";
-      const cleanFileName = firstPage?.fileName
-        ? String(firstPage.fileName)
+      const cleanFileName = targetPage?.fileName
+        ? String(targetPage.fileName)
             .replace(/[\\/:*?"<>|]/g, "")
             .trim()
         : "";

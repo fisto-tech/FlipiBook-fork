@@ -25,7 +25,7 @@ export function useElementInsertion({
   const lastInsertTimeRef = useRef(0);
 
   const handleInsert = useCallback(
-    (item, customX, customY, targetPageIndex) => {
+    (item, customX, customY, targetPageIndex, customSize) => {
       if (!item || typeof item.insert !== 'function') return;
 
       const now = Date.now();
@@ -40,16 +40,17 @@ export function useElementInsertion({
 
       // ViewBox boundary calculations via AABB Geometry algorithm
       const bounds = parseSvgViewBox(svg, baseWidth || 210, baseHeight || 297);
+      const hasCustomPoint = customX !== undefined && customX !== null && !isNaN(Number(customX));
       const { x: cx, y: cy } = clampCenterToAABB({
         cx: customX,
         cy: customY,
         bounds,
-        margin: 20,
+        margin: hasCustomPoint ? 0 : 20,
       });
 
       const uniqueId = `el-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`;
 
-      const el = item.insert(cx, cy);
+      const el = item.insert(cx, cy, customSize);
       if (!el) return;
 
       if (!el.getAttribute('id')) {

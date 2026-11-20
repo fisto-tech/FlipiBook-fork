@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 const Grid5Layout = ({
     children,
@@ -63,7 +64,7 @@ const Grid5Layout = ({
 }) => {
     // ... rest of the setup logic
     const flipSoundMasterEnabled = otherSetupSettings?.sound?.flipSoundEnabled !== false;
-    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled !== false;
+    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled === true;
     const isFlipActive = flipSoundMasterEnabled && !isFlipMuted;
     const isBgActive = bgSoundMasterEnabled && !isMuted;
 
@@ -145,15 +146,21 @@ const Grid5Layout = ({
 
     // Keyboard and Mouse Wheel Actions
     React.useEffect(() => {
+        let lastKeyTime = 0;
         const handleKeyDown = (e) => {
             // Prevent interference with search input or other text fields
             if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            const now = Date.now();
 
             switch (e.key) {
                 case 'ArrowRight':
+                    if (now - lastKeyTime < 350) return;
+                    lastKeyTime = now;
                     bookRef.current?.pageFlip()?.flipNext();
                     break;
                 case 'ArrowLeft':
+                    if (now - lastKeyTime < 350) return;
+                    lastKeyTime = now;
                     bookRef.current?.pageFlip()?.flipPrev();
                     break;
                 case 'ArrowUp':
@@ -619,14 +626,12 @@ const Grid5Layout = ({
 
                 {/* Right: Brand Logo */}
                 <div className="flex items-center">
-                    {settings.brandingProfile.logo && logoSettings?.src && (
-                        <img
-                            src={logoSettings.src}
-                            alt="Brand Logo"
-                            className={`${isTablet ? 'h-[1.6vw]' : 'h-[2.2vw]'} w-auto transition-all`}
-                            style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                        />
-                    )}
+                    <BrandLogo
+                        logoSettings={logoSettings}
+                        settings={settings}
+                        isTablet={isTablet}
+                        className={`${isTablet ? 'h-[1.6vw]' : 'h-[2.2vw]'}`}
+                    />
                 </div>
             </div>
             )}
@@ -659,23 +664,37 @@ const Grid5Layout = ({
                 >
                     {modifiedChildren}
 
-                    {/* Left Navigate Button â€” hugs the visible page's left edge */}
+                    {/* Left Navigate Button — hugs the visible page's left edge */}
                     {(settings?.navigation?.nextPrevButtons ?? true) && (
                         <button
-                            className="absolute top-1/2 -translate-y-1/2 -translate-x-full transition-all z-20 pointer-events-auto opacity-60 hover:opacity-100"
-                            style={{ left: localOffset < 0 ? `calc(${dimWidth}px - 0.8vw)` : '-0.8vw', color: getLayoutColor('toolbar-bg', '#555555') }}
-                            onClick={() => bookRef.current?.pageFlip()?.flipPrev()}
+                            className={`absolute top-1/2 -translate-y-1/2 -translate-x-full transition-all z-20 ${currentPage > 0 ? 'pointer-events-auto opacity-60 hover:opacity-100' : 'pointer-events-none opacity-0'}`}
+                            style={{
+                                left: localOffset < 0 ? `calc(${dimWidth}px - 0.8vw)` : '-0.8vw',
+                                color: getLayoutColor('toolbar-bg', '#555555'),
+                                transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease'
+                            }}
+                            onClick={() => {
+                                if (currentPage <= 0) return;
+                                bookRef.current?.pageFlip()?.flipPrev();
+                            }}
                         >
                             <Icon icon="ph:caret-left" className={`${isMobileLandscape ? 'w-[1vw] h-[1vw]' : isTablet ? 'w-[1.5vw] h-[1.5vw]' : 'w-[2vw] h-[2vw]'} hover:-translate-x-1 transition-transform`} />
                         </button>
                     )}
 
-                    {/* Right Navigate Button â€” hugs the visible page's right edge */}
+                    {/* Right Navigate Button — hugs the visible page's right edge */}
                     {(settings?.navigation?.nextPrevButtons ?? true) && (
                         <button
-                            className="absolute top-1/2 -translate-y-1/2 translate-x-full transition-all z-20 pointer-events-auto opacity-60 hover:opacity-100"
-                            style={{ right: localOffset > 0 ? `calc(${dimWidth}px - 0.8vw)` : '-0.8vw', color: getLayoutColor('toolbar-bg', '#555555') }}
-                            onClick={() => bookRef.current?.pageFlip()?.flipNext()}
+                            className={`absolute top-1/2 -translate-y-1/2 translate-x-full transition-all z-20 ${currentPage < (pages?.length || 0) - 1 ? 'pointer-events-auto opacity-60 hover:opacity-100' : 'pointer-events-none opacity-0'}`}
+                            style={{
+                                right: localOffset > 0 ? `calc(${dimWidth}px - 0.8vw)` : '-0.8vw',
+                                color: getLayoutColor('toolbar-bg', '#555555'),
+                                transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease'
+                            }}
+                            onClick={() => {
+                                if (currentPage >= (pages?.length || 0) - 1) return;
+                                bookRef.current?.pageFlip()?.flipNext();
+                            }}
                         >
                             <Icon icon="ph:caret-right" className={`${isMobileLandscape ? 'w-[1vw] h-[1vw]' : isTablet ? 'w-[1.5vw] h-[1.5vw]' : 'w-[2vw] h-[2vw]'} hover:translate-x-1 transition-transform`} />
                         </button>

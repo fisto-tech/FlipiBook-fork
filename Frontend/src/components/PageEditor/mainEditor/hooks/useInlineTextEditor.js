@@ -126,9 +126,11 @@ export const useInlineTextEditor = ({
     div.setAttribute('contenteditable', 'true');
     const isScrollable = foTarget.getAttribute('data-scrollable') === 'true';
     if (!isScrollable) {
-      div.style.setProperty('display', 'flex', 'important');
-      div.style.setProperty('flex-direction', 'column', 'important');
-      div.style.setProperty('justify-content', 'center', 'important');
+      // Block flow (not a flex column): styled <span> runs must stay inline in the paragraph,
+      // otherwise each run becomes its own line and justify/alignment breaks.
+      div.style.setProperty('display', 'block', 'important');
+      div.style.removeProperty('flex-direction');
+      div.style.removeProperty('justify-content');
       div.style.setProperty('height', '100%', 'important');
     }
     const initSizingMode = foTarget.getAttribute('data-sizing-mode') || 'auto-width';
@@ -239,6 +241,8 @@ export const useInlineTextEditor = ({
       div.style.cursor = '';
       div.classList.remove('text-edit-box');
 
+      sessionEnded = true;
+      document.removeEventListener('mousedown', handleCanvasPressWhileEditing, true);
       div.removeEventListener('blur', handleBlur);
       div.removeEventListener('keydown', handleKeyDown);
       div.removeEventListener('mousedown', stopScrollPropagation);
@@ -262,7 +266,26 @@ export const useInlineTextEditor = ({
       }
     };
 
-    const handleBlur = () => {
+    let sessionEnded = false;
+    // After interacting with the panel the text div is no longer focused, so a canvas click
+    // won't fire 'blur'. End editing explicitly when the user presses on the canvas elsewhere.
+    const handleCanvasPressWhileEditing = (ev) => {
+      if (sessionEnded) return;
+      const t = ev.target;
+      if (!t || !t.closest || !t.closest('[data-editor-canvas]')) return; // outside canvas: keep editing
+      if (foTarget.contains(t)) return; // clicking inside the text keeps editing
+      if (document.activeElement === div) return; // normal blur will handle it
+      handleBlur({ relatedTarget: null });
+    };
+
+    const handleBlur = (e) => {
+      if (sessionEnded) return;
+      // Focus moved to (or the last press was on) something outside the canvas — properties panel,
+      // color picker, dropdown… Keep editing so the selected text range can still be styled.
+      const rt = e?.relatedTarget;
+      if ((rt && rt.closest && !rt.closest('[data-editor-canvas]')) || window.__lastPressOutsideCanvas) {
+        return;
+      }
       const activeEl = document.activeElement;
       const isSidebarTarget = activeEl && (
         activeEl.closest('.right-sidebar') ||
@@ -423,6 +446,7 @@ export const useInlineTextEditor = ({
 
     div.addEventListener('blur', handleBlur);
     div.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleCanvasPressWhileEditing, true);
   };
 
   return {

@@ -5,6 +5,9 @@ const {
   recordHeartbeat,
   recordSessionEnd,
   recordPageFlip,
+  recordDownload,
+  recordShare,
+  recordLeadFormEvent,
   getFlipbookAnalytics,
   getUserAnalytics
 } = require("./analyticsController");
@@ -16,6 +19,15 @@ const router = express.Router();
  */
 // When flipbook link is opened
 router.post("/session-start", recordSessionStart);
+
+// When flipbook is downloaded
+router.post("/record-download", recordDownload);
+
+// When flipbook is shared / link copied
+router.post("/record-share", recordShare);
+
+// When lead form is viewed or skipped
+router.post("/lead-form-event", recordLeadFormEvent);
 
 // Periodic heartbeat every 15-30s while viewer is active
 router.post("/heartbeat", recordHeartbeat);

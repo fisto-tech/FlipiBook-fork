@@ -94,6 +94,14 @@ const flipbookSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
+    coverPicture: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
+    thumbnail: {
+      type: String,
+      default: ''
+    },
     viewers: {
       type: [String],
       default: []

@@ -3,6 +3,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
+const nodemailer = require('nodemailer');
 
 const CustomizedSettings = require('../../../../shared/models/CustomizedSettings');
 const Lead = require('../models/lead');
@@ -10,6 +11,7 @@ const UserGallery = require('../../../../shared/models/UserGallery');
 const EditorPreset = require('../models/editorPreset');
 const Flipbook = require('../../../../shared/models/Flipbook');
 const backupService = require('../../../../shared/backupService');
+const bookInfoController = require('./bookInfoController');
 
 const { getAuthUser, getUserQuery, getUserStorageFolder } = require('../utils/userHelper');
 const {
@@ -397,7 +399,7 @@ const updateSettings = async (req, res) => {
       rawSettings.branding
     );
 
-    // 8. FlipbookInfo
+    // 8. FlipbookInfo & Metadata
     let incFlipbookInfo = pick(
       rawCustomized.FlipbookInfo,
       rawBody.FlipbookInfo,
@@ -405,7 +407,7 @@ const updateSettings = async (req, res) => {
       rawCustomized.flipbookInfo,
       rawBody.flipbookInfo
     );
-    if (!incFlipbookInfo && (width || height || orientation)) {
+    if (!incFlipbookInfo && (width || height || orientation || rawBody.category || rawBody.language || rawBody.quotes || rawBody.about)) {
       incFlipbookInfo = {};
     }
     if (incFlipbookInfo) {
@@ -413,16 +415,37 @@ const updateSettings = async (req, res) => {
       if (width) incFlipbookInfo.width = width;
       if (height) incFlipbookInfo.height = height;
       if (orientation) incFlipbookInfo.orientation = orientation;
+      if (rawBody.category !== undefined) incFlipbookInfo.category = rawBody.category;
+      if (rawBody.language !== undefined) incFlipbookInfo.language = rawBody.language;
+      if (rawBody.quotes !== undefined) incFlipbookInfo.quotes = rawBody.quotes;
+      if (rawBody.about !== undefined) incFlipbookInfo.about = rawBody.about;
     }
 
-    // 9. otherSetup
-    const incOtherSetup = pick(
+    // 9. otherSetup & Cover Picture
+    let incOtherSetup = pick(
       rawCustomized.otherSetup,
       rawBody.otherSetup,
       rawSettings.otherSetup,
       rawCustomized.othersetup,
-      rawBody.othersetup
+      rawBody.othersetup,
+      rawSettings.othersetup
     );
+
+    const incomingCoverPicture = pick(
+      rawBody.coverPicture,
+      rawCustomized.coverPicture,
+      rawSettings.coverPicture,
+      rawSettings.othersetup?.coverPicture,
+      rawBody.settings?.othersetup?.coverPicture,
+      incOtherSetup?.coverPicture
+    );
+
+    if (incomingCoverPicture !== undefined) {
+      if (!incFlipbookInfo) incFlipbookInfo = {};
+      incFlipbookInfo.coverPicture = incomingCoverPicture;
+      if (!incOtherSetup) incOtherSetup = {};
+      incOtherSetup = { ...incOtherSetup, coverPicture: incomingCoverPicture };
+    }
 
     // 3. Merge with existing settings or defaults
     let existingSettings = await CustomizedSettings.findOne({ v_id: resolvedVId });
@@ -438,7 +461,8 @@ const updateSettings = async (req, res) => {
       BookAppearance: { ...(defaults.BookAppearance || {}), ...(existing.BookAppearance || {}), ...(incBookAppearance || {}) },
       leadForm: { ...(defaults.leadForm || {}), ...(existing.leadForm || {}), ...(incLeadForm || {}) },
       Visibility: { ...(defaults.Visibility || {}), ...(existing.Visibility || {}), ...(incVisibility || {}) },
-      otherSetup: { ...(existing.otherSetup || {}), ...(incOtherSetup || {}) }
+      otherSetup: { ...(existing.otherSetup || {}), ...(incOtherSetup || {}) },
+      coverPicture: incomingCoverPicture !== undefined ? incomingCoverPicture : (existing.coverPicture || existing.FlipbookInfo?.coverPicture || null)
     };
     if (cleanSettings.Branding) {
       delete cleanSettings.Branding.profileSettings;
@@ -509,15 +533,24 @@ const updateSettings = async (req, res) => {
       }
     }
 
-    // 5. Synchronize with Flipbook model (lastUpdated, userID)
+    // 5. Synchronize with Flipbook model (lastUpdated, userID, flipbookName, coverPicture, thumbnail)
+    const flipbookSyncUpdates = {
+      userID: targetUserID,
+      lastUpdated: new Date()
+    };
+    if (effectiveBookName) {
+      flipbookSyncUpdates.flipbookName = effectiveBookName;
+    }
+    if (incomingCoverPicture) {
+      flipbookSyncUpdates.coverPicture = incomingCoverPicture;
+      if (incomingCoverPicture.url) {
+        flipbookSyncUpdates.thumbnail = incomingCoverPicture.url;
+      }
+    }
+
     await Flipbook.updateOne(
       { $or: [{ v_id: resolvedVId }, ...(flipbook?._id ? [{ _id: flipbook._id }] : [])] },
-      {
-        $set: {
-          userID: targetUserID,
-          lastUpdated: new Date()
-        }
-      }
+      { $set: flipbookSyncUpdates }
     ).catch((e) => console.warn('[Customized Editor] Could not sync with Flipbook model:', e.message));
 
     return res.status(200).json({
@@ -1128,9 +1161,288 @@ const copyThemeAsset = async (req, res) => {
  * Public endpoint for viewer submitting a flipbook lead form.
  * Captures lead and links to flipbook owner's userId.
  */
+// ─────────────────────────────────────────────────────────────────────────────
+// Lead Notification Helpers & Email Templates
+// ─────────────────────────────────────────────────────────────────────────────
+const getTransporter = () => {
+  const user = (process.env.EMAIL_USER || '').trim();
+  const pass = (process.env.EMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: user,
+      pass: pass,
+    },
+  });
+};
+
+const escapeHtml = (str) => {
+  if (typeof str !== 'string') return String(str ?? '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+const formatLeadDataRows = (leadData) => {
+  if (!leadData || typeof leadData !== 'object') return '';
+  return Object.entries(leadData).map(([key, val]) => {
+    if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object' && val[0] !== null) {
+      const productCardsHtml = val.map(item => {
+        const name = escapeHtml(item.name || item.title || 'Product');
+        const qty = item.quantity ? `Qty: ${item.quantity}` : 'Qty: 1';
+        const category = item.category ? `<span style="display: block; font-size: 11px; color: #718096; margin-top: 2px;">Category: ${escapeHtml(item.category)}</span>` : '';
+        const imgTag = item.image && typeof item.image === 'string' && !item.image.startsWith('data:')
+          ? `<img src="${escapeHtml(item.image)}" alt="${name}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0; display: block;" />`
+          : `<div style="width: 48px; height: 48px; background-color: #edf2f7; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 20px; line-height: 48px; text-align: center;">&#128230;</div>`;
+
+        return `
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; overflow: hidden;">
+            <tr>
+              <td width="60" style="padding: 10px; vertical-align: middle;">
+                ${imgTag}
+              </td>
+              <td style="padding: 10px 10px 10px 0; vertical-align: middle;">
+                <span style="font-size: 14px; font-weight: 600; color: #1a202c; display: block;">${name}</span>
+                ${category}
+              </td>
+              <td align="right" style="padding: 10px 14px; vertical-align: middle; white-space: nowrap;">
+                <span style="display: inline-block; padding: 4px 10px; background-color: #e0e7ff; color: #4338ca; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                  ${escapeHtml(qty)}
+                </span>
+              </td>
+            </tr>
+          </table>
+        `;
+      }).join('');
+
+      return `
+        <tr>
+          <td style="padding: 14px 16px; border-bottom: 1px solid #edf2f7; font-size: 13px; font-weight: 600; color: #4a5568; background-color: #f8fafc; width: 35%; vertical-align: top;">
+            ${escapeHtml(key)}
+          </td>
+          <td style="padding: 14px 16px; border-bottom: 1px solid #edf2f7; background-color: #ffffff; vertical-align: top;">
+            ${productCardsHtml}
+          </td>
+        </tr>
+      `;
+    }
+
+    let displayVal = val;
+    if (Array.isArray(val)) {
+      displayVal = val.map(item => String(item)).join(', ');
+    } else if (typeof val === 'object' && val !== null) {
+      displayVal = JSON.stringify(val);
+    }
+
+    return `
+      <tr>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7; font-size: 13px; font-weight: 600; color: #4a5568; background-color: #f8fafc; width: 35%; vertical-align: top;">
+          ${escapeHtml(key)}
+        </td>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #edf2f7; font-size: 14px; color: #1a202c; background-color: #ffffff; vertical-align: top;">
+          ${escapeHtml(displayVal || '—')}
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+const generateAdminLeadEmailHtml = ({ flipbookName, leadId, leadData, viewerIp, submittedAt, customMessage }) => {
+  const formattedDate = new Date(submittedAt || Date.now()).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  const introParagraph = customMessage && customMessage.trim()
+    ? `<p style="margin: 0 0 18px 0; font-size: 15px; line-height: 1.6; color: #334155; white-space: pre-line;">${escapeHtml(customMessage.trim())}</p>`
+    : `<p style="margin: 0 0 18px 0; font-size: 15px; line-height: 1.5; color: #4a5568;">
+        A viewer submitted their details on your flipbook <strong>"${escapeHtml(flipbookName)}"</strong>. Below are the details captured:
+      </p>`;
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>New Lead Captured</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2d3748;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0f4f8; padding: 30px 10px;">
+        <tr>
+          <td align="center">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 620px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01); border: 1px solid #e2e8f0;">
+              <tr>
+                <td style="background: linear-gradient(135deg, #4A3AFF 0%, #3026B9 100%); padding: 32px 30px; text-align: left;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <span style="display: inline-block; padding: 4px 10px; background: rgba(255, 255, 255, 0.2); border-radius: 20px; font-size: 11px; font-weight: 700; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                          New Lead Notification
+                        </span>
+                        <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; line-height: 1.3;">
+                          ${escapeHtml(flipbookName)}
+                        </h1>
+                        <p style="margin: 6px 0 0 0; color: #e0e7ff; font-size: 13px;">
+                          Lead ID: <strong>#${escapeHtml(leadId)}</strong> &bull; ${escapeHtml(formattedDate)}
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 28px 30px 28px 30px;">
+                  ${introParagraph}
+                  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                    ${formatLeadDataRows(leadData)}
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="background-color: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
+                  <p style="margin: 0 0 4px 0;">This email was sent automatically by Flipibook Lead Capture System.</p>
+                  <p style="margin: 0;">&copy; ${new Date().getFullYear()} Flipibook. All rights reserved.</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+};
+
+const generateViewerConfirmationEmailHtml = ({ flipbookName, leadData, contactPersonName, customMessage }) => {
+  const customMessageBody = customMessage && customMessage.trim()
+    ? `<p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #4a5568; white-space: pre-line;">${escapeHtml(customMessage.trim())}</p>`
+    : `<p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #4a5568;">
+        Thank you for your interest. Our team has received your inquiry details and will review and get in touch with you shortly.
+      </p>`;
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Thank you for reaching out</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f0f4f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2d3748;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0f4f8; padding: 30px 10px;">
+        <tr>
+          <td align="center">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;">
+              <tr>
+                <td style="background: linear-gradient(135deg, #4A3AFF 0%, #3026B9 100%); padding: 36px 30px; text-align: center;">
+                  <div style="display: inline-block; width: 48px; height: 48px; line-height: 48px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; color: #ffffff; font-size: 24px; margin-bottom: 12px;">
+                    &#10003;
+                  </div>
+                  <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
+                    Thank You for Your Submission!
+                  </h1>
+                  <p style="margin: 8px 0 0 0; color: #e0e7ff; font-size: 14px;">
+                    We have successfully received your inquiry for <strong>${escapeHtml(flipbookName)}</strong>.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 30px;">
+                  <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #4a5568;">
+                    Hi${contactPersonName ? ` <strong>${escapeHtml(contactPersonName)}</strong>` : ''},
+                  </p>
+                  ${customMessageBody}
+
+                  <div style="margin: 20px 0; padding: 18px 20px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #edf2f7;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Summary of Your Request
+                    </h3>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+                      ${formatLeadDataRows(leadData)}
+                    </table>
+                  </div>
+
+                  <p style="margin: 20px 0 0 0; font-size: 14px; line-height: 1.6; color: #718096;">
+                    If you have any urgent queries in the meantime, feel free to reply directly to this email.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="background-color: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
+                  <p style="margin: 0 0 4px 0;">This is an automated confirmation sent on behalf of <strong>${escapeHtml(flipbookName)}</strong>.</p>
+                  <p style="margin: 0;">&copy; ${new Date().getFullYear()} Flipibook. All rights reserved.</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+};
+
+const extractViewerEmail = (leadData, rawLeadData) => {
+  const combined = { ...(rawLeadData || {}), ...(leadData || {}) };
+  for (const [key, value] of Object.entries(combined)) {
+    if (typeof value === 'string') {
+      const emailMatch = value.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      if (emailMatch && (/email/i.test(key) || /mail/i.test(key))) {
+        return emailMatch[0].trim();
+      }
+    }
+  }
+  for (const value of Object.values(combined)) {
+    if (typeof value === 'string') {
+      const emailMatch = value.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/);
+      if (emailMatch) return emailMatch[0].trim();
+    }
+  }
+  return null;
+};
+
+const extractViewerName = (leadData, rawLeadData) => {
+  const combined = { ...(rawLeadData || {}), ...(leadData || {}) };
+  for (const [key, value] of Object.entries(combined)) {
+    if (/name/i.test(key) && typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+};
+
+const getClientIp = (req) => {
+  let rawIp = req.body?.viewerIp ||
+              req.headers['cf-connecting-ip'] ||
+              req.headers['x-client-ip'] ||
+              req.headers['x-real-ip'] ||
+              req.headers['x-forwarded-for'] ||
+              req.ip ||
+              req.socket?.remoteAddress ||
+              req.connection?.remoteAddress ||
+              '';
+
+  if (typeof rawIp === 'string' && rawIp) {
+    if (rawIp.includes(',')) {
+      rawIp = rawIp.split(',')[0].trim();
+    }
+    if (rawIp.startsWith('::ffff:')) {
+      rawIp = rawIp.replace('::ffff:', '');
+    }
+    if (rawIp === '::1') {
+      rawIp = '127.0.0.1';
+    }
+  }
+  return rawIp || '';
+};
+
 const submitLead = async (req, res) => {
   try {
-    const { v_id, shareId, flipbookName, userEmail, leadData } = req.body;
+    const { v_id, shareId, flipbookName, userEmail, leadData, rawLeadData, leadNotification: incomingNotification } = req.body;
 
     if (!leadData || typeof leadData !== 'object') {
       return res.status(400).json({ success: false, message: 'Invalid leadData' });
@@ -1149,7 +1461,16 @@ const submitLead = async (req, res) => {
       flipbook = await Flipbook.findOne({ v_id });
     }
     if (!flipbook && shareId) {
-      flipbook = await Flipbook.findOne({ v_id: shareId });
+      flipbook = await Flipbook.findOne({
+        $or: [
+          { 'Customized_Settings.Visibility.shareId': shareId },
+          { 'share.shareId': shareId },
+          { v_id: shareId }
+        ]
+      });
+    }
+    if (!flipbook && flipbookName && userEmail) {
+      flipbook = await Flipbook.findOne({ userEmail, flipbookName });
     }
     if (!settingsDoc && flipbook?.v_id) {
       settingsDoc = await CustomizedSettings.findOne({ v_id: flipbook.v_id });
@@ -1157,19 +1478,17 @@ const submitLead = async (req, res) => {
 
     const ownerUserId = flipbook?.userId || (flipbook?.userID ? null : undefined);
     const effectiveVId = flipbook?.v_id || v_id || 'preview';
-    const effectiveShareId = shareId || settingsDoc?.Visibility?.shareId || '';
+    const effectiveShareId = shareId || settingsDoc?.Visibility?.shareId || flipbook?.Customized_Settings?.Visibility?.shareId || flipbook?.share?.shareId || '';
     const effectiveBookName = flipbook?.flipbookName || flipbookName || 'Flipbook';
     const effectiveUserEmail = flipbook?.userEmail || userEmail || '';
+    const detectedViewerIp = getClientIp(req);
 
-    const detectedViewerIp =
-      req.headers['cf-connecting-ip'] ||
-      req.headers['x-real-ip'] ||
-      (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-      req.socket?.remoteAddress ||
-      '';
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
     const newLead = await Lead.create({
-      userId: ownerUserId || new mongoose.Types.ObjectId(),
+      userId: (ownerUserId && mongoose.Types.ObjectId.isValid(ownerUserId)) ? ownerUserId : undefined,
       userID: flipbook?.userID || null,
       userEmail: effectiveUserEmail,
       v_id: effectiveVId,
@@ -1177,7 +1496,20 @@ const submitLead = async (req, res) => {
       flipbookName: effectiveBookName,
       leadData,
       viewerIp: detectedViewerIp,
-      submittedAt: new Date()
+      submittedAt: now,
+      status: 'New',
+      timeline: [
+        {
+          title: 'Form Submitted',
+          subtitle: `${dateFormatted} ${timeFormatted}`,
+          timestamp: now
+        },
+        {
+          title: 'Lead Created',
+          subtitle: `${dateFormatted} ${timeFormatted}`,
+          timestamp: now
+        }
+      ]
     });
 
     if (flipbook) {
@@ -1194,6 +1526,113 @@ const submitLead = async (req, res) => {
           }
         }
       ).catch(() => {});
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Send Email Notifications
+    // ─────────────────────────────────────────────────────────────────────────────
+    try {
+      const flipbookLeadSettings = settingsDoc?.leadForm?.leadNotification || flipbook?.Customized_Settings?.leadForm?.leadNotification || flipbook?.settings?.leadForm?.leadNotification;
+      const leadNotification = incomingNotification || flipbookLeadSettings || {};
+
+      const isNotificationEnabled = leadNotification.enabled !== false;
+
+      if (isNotificationEnabled) {
+        let primaryRecipient = (leadNotification.primaryRecipient || '').trim();
+        const rawAdditional = Array.isArray(leadNotification.additionalRecipients)
+          ? leadNotification.additionalRecipients
+          : [];
+        let additionalRecipients = rawAdditional
+          .map(r => (typeof r === 'string' ? r.trim() : ''))
+          .filter(Boolean);
+
+        if (!primaryRecipient && additionalRecipients.length > 0) {
+          primaryRecipient = additionalRecipients[0];
+          additionalRecipients = additionalRecipients.slice(1);
+        } else if (!primaryRecipient) {
+          primaryRecipient = (effectiveUserEmail || '').trim();
+        }
+
+        additionalRecipients = additionalRecipients.filter(r => r !== primaryRecipient);
+
+        const transporter = getTransporter();
+        const senderDisplayName = (leadNotification.senderName || 'Flipibook Lead Form').trim();
+        const fromHeader = `"${senderDisplayName}" <${process.env.EMAIL_USER || 'no-reply@fistotech.com'}>`;
+
+        // 1. Send Alert Email to Primary Recipient + CC Additional Recipients
+        if (primaryRecipient) {
+          const rawAdminMsg = leadNotification.message || '';
+          const adminCustomMessage = rawAdminMsg
+            ? rawAdminMsg.replace(/\{flipbookName\}/g, effectiveBookName).replace(/\{leadId\}/g, newLead.leadId)
+            : '';
+          const adminHtml = generateAdminLeadEmailHtml({
+            flipbookName: effectiveBookName,
+            leadId: newLead.leadId,
+            leadData: leadData,
+            viewerIp: detectedViewerIp,
+            submittedAt: newLead.submittedAt,
+            customMessage: adminCustomMessage
+          });
+
+          const defaultAdminSubject = `[New Lead Captured] - ${effectiveBookName}`;
+          const adminSubject = (leadNotification.subject && leadNotification.subject.trim())
+            ? leadNotification.subject.replace(/\{flipbookName\}/g, effectiveBookName).replace(/\{leadId\}/g, newLead.leadId)
+            : defaultAdminSubject;
+
+          const mailOptions = {
+            from: fromHeader,
+            to: primaryRecipient,
+            subject: adminSubject,
+            html: adminHtml
+          };
+
+          if (additionalRecipients.length > 0) {
+            mailOptions.cc = additionalRecipients;
+          }
+
+          transporter.sendMail(mailOptions).then(info => {
+            console.log(`[Lead Email] Notification sent to ${primaryRecipient} (CC: ${additionalRecipients.join(', ') || 'none'}):`, info.messageId);
+          }).catch(mailErr => {
+            console.error('[Lead Email] Error sending lead notification:', mailErr.message);
+          });
+        }
+
+        // 2. Send Confirmation Email to the Viewer if enabled
+        const shouldSendToViewer = leadNotification.sendToViewer !== false;
+        const viewerEmail = extractViewerEmail(leadData, rawLeadData);
+
+        if (shouldSendToViewer && viewerEmail) {
+          const viewerName = extractViewerName(leadData, rawLeadData);
+          const rawViewerMsg = leadNotification.viewerMessage || '';
+          const viewerCustomMessage = rawViewerMsg
+            ? rawViewerMsg.replace(/\{flipbookName\}/g, effectiveBookName).replace(/\{name\}/g, viewerName || 'there')
+            : '';
+          const viewerHtml = generateViewerConfirmationEmailHtml({
+            flipbookName: effectiveBookName,
+            leadData: leadData,
+            contactPersonName: viewerName,
+            customMessage: viewerCustomMessage
+          });
+
+          const defaultViewerSubject = `Thank you for reaching out - ${effectiveBookName}`;
+          const viewerSubject = (leadNotification.viewerSubject && leadNotification.viewerSubject.trim())
+            ? leadNotification.viewerSubject.replace(/\{flipbookName\}/g, effectiveBookName).replace(/\{name\}/g, viewerName || 'there')
+            : defaultViewerSubject;
+
+          transporter.sendMail({
+            from: fromHeader,
+            to: viewerEmail,
+            subject: viewerSubject,
+            html: viewerHtml
+          }).then(info => {
+            console.log(`[Lead Email] Confirmation sent to viewer ${viewerEmail}:`, info.messageId);
+          }).catch(mailErr => {
+            console.error('[Lead Email] Error sending confirmation to viewer:', mailErr.message);
+          });
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('[Lead Email] Notification dispatch error (non-blocking):', notifyErr);
     }
 
     return res.status(200).json({
@@ -1274,6 +1713,139 @@ const deleteLead = async (req, res) => {
   } catch (err) {
     console.error('[Customized Editor] Error deleting lead:', err);
     return res.status(500).json({ success: false, message: 'Failed to delete lead', error: err.message });
+  }
+};
+
+/**
+ * PATCH /leads/:leadId/status
+ * Update lead status ('New', 'Contacted', 'Qualified', 'Converted', 'Lost')
+ */
+const updateLeadStatus = async (req, res) => {
+  try {
+    const userQuery = getUserQuery(req);
+    const leadId = req.params?.leadId || req.body?.leadId;
+    const { status } = req.body;
+
+    const validStatuses = ['New', 'Contacted', 'Qualified', 'Converted', 'Lost'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    if (!leadId) {
+      return res.status(400).json({ success: false, message: 'Missing leadId' });
+    }
+
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = now.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    // Check existing timeline
+    const leadQuery = mongoose.Types.ObjectId.isValid(leadId)
+      ? { $or: [{ leadId }, { _id: leadId }] }
+      : { leadId };
+
+    const existingLead = await Lead.findOne({ ...userQuery, ...leadQuery });
+    if (!existingLead) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    let initialTimeline = [];
+    if (!Array.isArray(existingLead.timeline) || existingLead.timeline.length === 0) {
+      const createdDate = existingLead.submittedAt || existingLead.createdAt || now;
+      const cTime = new Date(createdDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const cDate = new Date(createdDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+      initialTimeline = [
+        {
+          title: 'Form Submitted',
+          subtitle: `${cDate} ${cTime}`,
+          timestamp: createdDate
+        },
+        {
+          title: 'Lead Created',
+          subtitle: `${cDate} ${cTime}`,
+          timestamp: createdDate
+        }
+      ];
+    }
+
+    const newTimelineItem = {
+      title: 'Status Updated',
+      subtitle: `${status} • ${dateFormatted} ${timeFormatted}`,
+      timestamp: now
+    };
+
+    const finalTimeline = [...(existingLead.timeline && existingLead.timeline.length > 0 ? existingLead.timeline : initialTimeline), newTimelineItem];
+
+    const updated = await Lead.findOneAndUpdate(
+      { ...userQuery, ...leadQuery },
+      {
+        $set: {
+          status,
+          timeline: finalTimeline
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lead status updated successfully',
+      lead: updated
+    });
+  } catch (err) {
+    console.error('[Customized Editor] Error updating lead status:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update lead status', error: err.message });
+  }
+};
+
+/**
+ * POST /leads/:leadId/notes
+ * Add internal note to a lead
+ */
+const addLeadNote = async (req, res) => {
+  try {
+    const userQuery = getUserQuery(req);
+    const leadId = req.params?.leadId;
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Note text required' });
+    }
+
+    const leadQuery = mongoose.Types.ObjectId.isValid(leadId)
+      ? { $or: [{ leadId }, { _id: leadId }] }
+      : { leadId };
+
+    const updated = await Lead.findOneAndUpdate(
+      { ...userQuery, ...leadQuery },
+      {
+        $push: {
+          internalNotes: {
+            noteId: crypto.randomBytes(4).toString('hex'),
+            text: text.trim(),
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Lead not found or unauthorized' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Note added successfully',
+      lead: updated
+    });
+  } catch (err) {
+    console.error('[Customized Editor] Error adding lead note:', err);
+    return res.status(500).json({ success: false, message: 'Failed to add note', error: err.message });
   }
 };
 
@@ -1907,6 +2479,7 @@ const getPublicBook = async (req, res) => {
       )
     );
 
+    const safeBookName = book.flipbookName || book.v_id || 'flipbook';
     const primaryFolder = resolveFolder(book.folderName);
     const rawFolders = Array.isArray(book.folderName) ? book.folderName.flat(Infinity) : [book.folderName];
     const folders = Array.from(
@@ -1919,7 +2492,7 @@ const getPublicBook = async (req, res) => {
 
     const bookNames = Array.from(
       new Set(
-        [book.flipbookName, book.v_id, `${book.flipbookName}_${book.v_id}`]
+        [safeBookName, book.v_id, `${safeBookName}_${book.v_id}`]
           .flat(Infinity)
           .filter((bn) => bn && typeof bn === 'string' && bn.trim())
           .map((bn) => String(bn).trim())
@@ -1948,18 +2521,18 @@ const getPublicBook = async (req, res) => {
     const sanitizedEmail = (book.userEmail || '').replace(/[@.]/g, '_');
     let effectiveUserFolder = book.userID || sanitizedEmail;
     for (const uf of userFolders) {
-      if (fs.existsSync(path.join(storageRoot, uf, 'books', primaryFolder, book.flipbookName))) {
+      if (fs.existsSync(path.join(storageRoot, uf, 'books', primaryFolder, safeBookName))) {
         effectiveUserFolder = uf;
         break;
       }
-      if (fs.existsSync(path.join(storageRoot, uf, primaryFolder, book.flipbookName))) {
+      if (fs.existsSync(path.join(storageRoot, uf, primaryFolder, safeBookName))) {
         effectiveUserFolder = uf;
         break;
       }
     }
-    const resolvedBaseUrl = `/storage/${effectiveUserFolder}/books/${primaryFolder}/${book.flipbookName}/`;
+    const resolvedBaseUrl = `/storage/${effectiveUserFolder}/books/${primaryFolder}/${safeBookName}/`;
 
-    const populatedPages = (book.pages || []).map((p) => {
+    let populatedPages = (book.pages || []).map((p) => {
       const pageObj = p.toObject ? p.toObject() : { ...p };
       let pageContent = "";
 
@@ -2005,6 +2578,73 @@ const getPublicBook = async (req, res) => {
         html: pageContent,
       };
     });
+
+    // Seamlessly hydrate extracted WebP pages from manifest.json if present on disk
+    try {
+      let manifestData = null;
+      for (const candDir of candidateDirs) {
+        const mPath = path.join(candDir, 'manifest.json');
+        if (fs.existsSync(mPath)) {
+          manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+          break;
+        }
+      }
+      if (!manifestData) {
+        for (const uf of userFolders) {
+          const candManifests = [
+            path.join(storageRoot, uf, 'books', primaryFolder, safeBookName, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', 'default', safeBookName, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', 'default', book.v_id, 'manifest.json')
+          ];
+          for (const mPath of candManifests) {
+            if (fs.existsSync(mPath)) {
+              manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+              break;
+            }
+          }
+          if (manifestData) break;
+        }
+      }
+
+      if (manifestData && Array.isArray(manifestData.pages) && manifestData.pages.length > 0) {
+        const defaultBaseUrl = `/storage/${effectiveUserFolder}/books/${primaryFolder}/${safeBookName}/pages/webp_page/`;
+        const mBaseUrl = manifestData.baseUrl || defaultBaseUrl;
+        const totalManifestPages = manifestData.pages.length;
+
+        const existingMap = new Map();
+        populatedPages.forEach(p => {
+          const pNum = Number(p.pageNumber || p.id);
+          if (pNum) existingMap.set(pNum, p);
+        });
+
+        const merged = [];
+        for (let i = 1; i <= totalManifestPages; i++) {
+          const ep = existingMap.get(i);
+          const hasRealContent = ep && ep.content && !ep.content.includes('generateSkeletonPageSvg') && !ep.content.includes('createDefaultPageData') && !ep.isPlaceholder;
+          if (hasRealContent) {
+            merged.push(ep);
+          } else {
+            const pageImgUrl = `${mBaseUrl}${i}.webp`;
+            const pageHtml = `<div style="position:relative;width:100%;height:100%;"><img src="${pageImgUrl}" style="width:100%;height:100%;object-fit:contain;display:block;" alt="Page ${i}" /></div>`;
+            merged.push({
+              id: i,
+              pageNumber: i,
+              name: `Page ${i}`,
+              fileName: `${i}.webp`,
+              imageUrl: pageImgUrl,
+              content: pageHtml,
+              html: pageHtml,
+              isPlaceholder: false,
+              ...(ep || {})
+            });
+          }
+        }
+        populatedPages = merged;
+      }
+    } catch (mErr) {
+      console.warn('[customizedEditorController] Manifest merge warning:', mErr.message);
+    }
 
     const docFlipbookInfo = book.Customized_Settings?.FlipbookInfo || {};
     const docSettings = { ...(book.Customized_Settings || {}) };
@@ -2182,6 +2822,8 @@ module.exports = {
   copyThemeAsset,
   submitLead,
   getLeads,
+  updateLeadStatus,
+  addLeadNote,
   deleteLead,
   verifyCredential,
   sendVisibilityOtp,
@@ -2196,5 +2838,8 @@ module.exports = {
   recordPublicView,
   submitPublicRating,
   updatePublicRating,
-  deletePublicRating
+  deletePublicRating,
+  saveBookInfo: bookInfoController.saveBookInfo,
+  getBookInfo: bookInfoController.getBookInfo,
+  saveCoverPicture: bookInfoController.saveCoverPicture
 };

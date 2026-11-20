@@ -7,6 +7,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const customizedEditorRoutes = require('./routes/customizedEditorRoutes');
+require('./services/documentExtractor'); // Register worker:start listener
 
 const app = express();
 app.set('trust proxy', true);
@@ -58,9 +59,26 @@ app.get('/health', (req, res) => {
 app.use('/api/customized-editor', customizedEditorRoutes);
 app.use('/', customizedEditorRoutes);
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+  if (err.type === 'request.aborted' || err.message === 'Request aborted' || err.message === 'request aborted' || req.aborted) {
+    return res.status(499).end();
+  }
+  console.error('[CUSTOM_ED Error]:', err.message);
+  res.status(err.status || 500).json({ success: false, message: err.message });
+});
+
 // Fallback 404
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found on customized-editor-service' });
+});
+
+// Process-Level Crash Protection (ensures service never dies from uncaught stream exceptions)
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught exception in customized-editor-service:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled rejection in customized-editor-service:', reason);
 });
 
 app.listen(PORT, '0.0.0.0', () => {

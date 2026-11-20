@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import MobileLayout1 from '../Mobile/MobileLayouts/MobileLayout1';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 const hexToRgb = (hex) => {
     if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return '255, 255, 255';
@@ -254,13 +255,20 @@ const Grid4Layout = ({
 
     // Keyboard and Mouse Wheel Actions
     React.useEffect(() => {
+        let lastKeyTime = 0;
         const handleKeyDown = (e) => {
             if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            const now = Date.now();
+
             switch (e.key) {
                 case 'ArrowRight':
+                    if (now - lastKeyTime < 350) return;
+                    lastKeyTime = now;
                     bookRef.current?.pageFlip()?.flipNext();
                     break;
                 case 'ArrowLeft':
+                    if (now - lastKeyTime < 350) return;
+                    lastKeyTime = now;
                     bookRef.current?.pageFlip()?.flipPrev();
                     break;
                 case 'ArrowUp':
@@ -291,7 +299,7 @@ const Grid4Layout = ({
                     return;
                 }
                 const now = Date.now();
-                if (now - lastWheelTime < 600) return;
+                if (now - lastWheelTime < 400 || bookRef.current?.pageFlip()?.isAnimating?.()) return;
                 
                 if (e.deltaY > 0) {
                     bookRef.current?.pageFlip()?.flipNext();
@@ -527,14 +535,12 @@ const Grid4Layout = ({
             {/* Top Bar: Brand - Title - Search */}
             <div className={`${isMobileLandscape ? 'h-[12%]' : isFullscreen ? 'h-[6vh]' : (!isBigBars ? 'h-[6.5vh]' : 'h-[7.5vh]')} flex items-center justify-between px-[1.5vw] shrink-0 w-full z-[1010] border-b border-white/5 shadow-lg transition-all duration-500 ${isFullscreen ? `absolute top-0 left-0 ${(!isCanvasHovered || showThumbnails || showTOC || showProfilePopup || showSoundPopup) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}` : 'relative'}`} style={{ backgroundColor: getLayoutColor('toolbar-bg', '#555555') }}>
                 <div className="flex items-center">
-                    {settings.brandingProfile.logo && logoSettings?.src && (
-                        <img
-                            src={logoSettings.src}
-                            alt="Logo"
-                            className={`${'h-[2vw]'} w-auto transition-all`}
-                            style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                        />
-                    )}
+                    <BrandLogo
+                        logoSettings={logoSettings}
+                        settings={settings}
+                        isTablet={isTablet}
+                        className="h-[2vw]"
+                    />
                 </div>
 
                 <div className={`absolute left-1/2 -translate-x-1/2 text-center pointer-events-none ${isMobileLandscape ? 'mt-[1.5vh]' : ''}`}>
@@ -653,11 +659,11 @@ const Grid4Layout = ({
                     ref={buttonsRef}
                     onMouseMove={(e) => setSidebarMousePos({ x: e.clientX, y: e.clientY })}
                     onMouseLeave={() => setSidebarMousePos(null)}
-                    className={`${isMobileLandscape ? 'w-[10vw] items-end pr-[1.5vw]' : isFullscreen ? 'w-[3.6vw] items-center' : (!isBigBars ? 'w-[3.5vw] items-center' : 'w-[4.2vw] items-center')} flex flex-col ${isFullscreen ? 'justify-center pb-[18vh]' : 'pt-[8vh] pb-[2vh]'} gap-[${isMobileLandscape ? '3.5vh' : '3vh'}] border-r border-white/5 shadow-xl z-[1000] shrink-0 transition-all duration-500 ${isFullscreen ? `absolute left-0 top-0 bottom-0 ${(!isCanvasHovered || showThumbnails || showTOC || showProfilePopup || showSoundPopup) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}` : 'relative'}`} style={{ backgroundColor: getLayoutColor('toolbar-bg', '#555555') }}>
+                    className={`${isMobileLandscape ? 'w-[10vw] items-end pr-[1.5vw] gap-[3.5vh]' : isFullscreen ? 'w-[3.6vw] items-center gap-[2vh]' : (!isBigBars ? 'w-[3.5vw] items-center gap-[2.2vh]' : 'w-[4.2vw] items-center gap-[2.5vh]')} flex flex-col ${isFullscreen ? 'justify-center pb-[18vh]' : 'pt-[4vh] pb-[2vh]'} border-r border-white/5 shadow-xl z-[1000] shrink-0 transition-all duration-500 ${isFullscreen ? `absolute left-0 top-0 bottom-0 ${(!isCanvasHovered || showThumbnails || showTOC || showProfilePopup || showSoundPopup) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}` : 'relative'}`} style={{ backgroundColor: getLayoutColor('toolbar-bg', '#555555') }}>
 
                     {(settings?.navigation?.tableOfContents ?? true) && renderSidebarBtn(
                         <Icon icon="fluent:text-bullet-list-24-filled" className={`${isMobileLandscape ? 'w-[2.4vw] h-[2.4vw]' : (isFullscreen && typeof document !== 'undefined' && !!document.fullscreenElement) ? ('w-[1.35vw] h-[1.35vw]') : ('w-[1.2vw] h-[1.2vw]')}`} />,
-                        "Table of Contents",
+                        "TOC",
                         () => {
                             setShowTOCMemo(!showTOC);
                             setShowThumbnails(false);
@@ -665,7 +671,7 @@ const Grid4Layout = ({
                             setShowSoundPopupMemo?.(false);
                         },
                         { color: getLayoutColor('toolbar-icon', '#FFFFFF') },
-                        <><span style={{ display: 'block' }}>Table of</span><span style={{ display: 'block' }}>Contents</span></>
+                        "TOC"
                     )}
 
                     {(settings?.navigation?.pageThumbnails ?? true) && renderSidebarBtn(
@@ -928,7 +934,10 @@ const Grid4Layout = ({
                                                 <div
                                                     className="flex items-center justify-between py-[0.6vh] rounded-[0.3vw] cursor-pointer transition-colors"
                                                     style={{ color: getLayoutColor('toc-text', '#555555') }}
-                                                    onClick={() => onPageClick && onPageClick(heading.page - 1)}
+                                                    onClick={() => {
+                                                        const p = parseInt(String(heading.page || '').replace(/\D/g, ''), 10);
+                                                        if (onPageClick && !isNaN(p) && p >= 1) onPageClick(p - 1);
+                                                    }}
                                                 >
                                                     <span className={`${'text-[0.85vw]'} font-medium truncate pr-[0.5vw] flex items-center`}>
                                                         {(settings.tocSettings?.addSerialNumberHeading !== false) && <span className="mr-1">{hIdx + 1}.</span>}
@@ -936,7 +945,11 @@ const Grid4Layout = ({
                                                     </span>
                                                     {settings.tocSettings?.addPageNumber !== false && (
                                                         <span className={`${'text-[0.85vw]'} font-medium tabular-nums ml-[0.3vw]`}>
-                                                            {heading.page < 10 ? `0${heading.page}` : heading.page}
+                                                            {(() => {
+                                                                const num = parseInt(String(heading.page || '').replace(/\D/g, ''), 10);
+                                                                if (isNaN(num)) return '';
+                                                                return num < 10 ? `0${num}` : `${num}`;
+                                                            })()}
                                                         </span>
                                                     )}
                                                 </div>
@@ -947,7 +960,10 @@ const Grid4Layout = ({
                                                             key={sub.id}
                                                             className="flex items-center justify-between py-[0.6vh] rounded-[0.3vw] cursor-pointer transition-colors pl-[1vw]"
                                                             style={{ color: getLayoutColor('toc-text', '#555555') }}
-                                                            onClick={() => onPageClick && onPageClick(sub.page - 1)}
+                                                            onClick={() => {
+                                                                const p = parseInt(String(sub.page || '').replace(/\D/g, ''), 10);
+                                                                if (onPageClick && !isNaN(p) && p >= 1) onPageClick(p - 1);
+                                                            }}
                                                         >
                                                             <span className={`${'text-[0.85vw]'} font-normal truncate pr-[0.5vw] flex items-center`}>
                                                                 {(settings.tocSettings?.addSerialNumberSubheading !== false) && <span className="mr-1">{hIdx + 1}.{sIdx + 1}</span>}
@@ -955,7 +971,11 @@ const Grid4Layout = ({
                                                             </span>
                                                             {settings.tocSettings?.addPageNumber !== false && (
                                                                 <span className={`${'text-[0.85vw]'} font-normal tabular-nums ml-[0.2vw]`}>
-                                                                    {sub.page < 10 ? `0${sub.page}` : sub.page}
+                                                                    {(() => {
+                                                                        const num = parseInt(String(sub.page || '').replace(/\D/g, ''), 10);
+                                                                        if (isNaN(num)) return '';
+                                                                        return num < 10 ? `0${num}` : `${num}`;
+                                                                    })()}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1061,32 +1081,58 @@ const Grid4Layout = ({
                     onMouseLeave={() => isFullscreen && setIsCanvasHovered(false)}
                 >
                     {/* Navigation Arrows */}
-                    {(settings?.navigation?.nextPrevButtons ?? true) && (
-                        <button
-                            className={`absolute top-1/2 -translate-y-1/2 hover:scale-110 transition-all z-20 flex items-center justify-center ${'w-[2.4vw] h-[2.4vw]'} rounded-full`}
-                            style={{
-                                color: getLayoutColor('toolbar-icon', '#FFFFFF'),
-                                backgroundColor: getLayoutColorRgba('toolbar-bg', '87, 92, 156', '0.15'),
-                                left: `max(2vw, calc(50% + ${localOffset}px ${currentPage === 0 ? '' : `- ${dimWidth}px`} - 3vw))`
-                            }}
-                            onClick={() => bookRef.current?.pageFlip()?.flipPrev()}
-                        >
-                            <Icon icon="lucide:chevron-left" className={`${'w-[1.5vw] h-[1.5vw]'}`} />
-                        </button>
-                    )}
-                    {(settings?.navigation?.nextPrevButtons ?? true) && (
-                        <button
-                            className={`absolute top-1/2 -translate-y-1/2 hover:scale-110 transition-all z-20 flex items-center justify-center ${'w-[2.4vw] h-[2.4vw]'} rounded-full`}
-                            style={{
-                                color: getLayoutColor('toolbar-icon', '#FFFFFF'),
-                                backgroundColor: getLayoutColorRgba('toolbar-bg', '87, 92, 156', '0.15'),
-                                right: `max(2vw, calc(50% - ${localOffset}px - ${(currentPage >= pages.length - 1 && pages.length % 2 === 0) ? 0 : dimWidth}px - 3vw))`
-                            }}
-                            onClick={() => bookRef.current?.pageFlip()?.flipNext()}
-                        >
-                            <Icon icon="lucide:chevron-right" className={`${'w-[1.5vw] h-[1.5vw]'}`} />
-                        </button>
-                    )}
+                    {(() => {
+                        const hasPrev = currentPage > 0;
+                        const hasNext = currentPage < pages.length - 1;
+                        const isCover = typeof offset === 'number' ? offset < 0 : currentPage === 0;
+                        const isBackCover = typeof offset === 'number' ? offset > 0 : (currentPage >= pages.length - 1 && pages.length % 2 === 0);
+                        const isPortraitLayout = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
+                        const isSinglePage = isPortraitLayout || isCover || isBackCover;
+                        const bookHalfWidth = isSinglePage ? dimWidth / 2 : dimWidth;
+                        const gap = 3.5;
+                        return (
+                            <>
+                                {(settings?.navigation?.nextPrevButtons ?? true) && (
+                                    <button
+                                        className={`absolute top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-[2.4vw] h-[2.4vw] rounded-full ${!hasPrev ? 'pointer-events-none' : 'hover:scale-110 cursor-pointer'}`}
+                                        style={{
+                                            color: getLayoutColor('toolbar-icon', '#FFFFFF'),
+                                            backgroundColor: getLayoutColorRgba('toolbar-bg', '87, 92, 156', '0.15'),
+                                            left: `calc(50% - ${bookHalfWidth}px - ${gap}vw)`,
+                                            opacity: hasPrev ? 1 : 0,
+                                            pointerEvents: hasPrev ? 'auto' : 'none',
+                                            transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                        }}
+                                        onClick={() => {
+                                            if (!hasPrev) return;
+                                            bookRef.current?.pageFlip()?.flipPrev();
+                                        }}
+                                    >
+                                        <Icon icon="lucide:chevron-left" className="w-[1.5vw] h-[1.5vw]" />
+                                    </button>
+                                )}
+                                {(settings?.navigation?.nextPrevButtons ?? true) && (
+                                    <button
+                                        className={`absolute top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-[2.4vw] h-[2.4vw] rounded-full ${!hasNext ? 'pointer-events-none' : 'hover:scale-110 cursor-pointer'}`}
+                                        style={{
+                                            color: getLayoutColor('toolbar-icon', '#FFFFFF'),
+                                            backgroundColor: getLayoutColorRgba('toolbar-bg', '87, 92, 156', '0.15'),
+                                            right: `calc(50% - ${bookHalfWidth}px - ${gap}vw)`,
+                                            opacity: hasNext ? 1 : 0,
+                                            pointerEvents: hasNext ? 'auto' : 'none',
+                                            transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                        }}
+                                        onClick={() => {
+                                            if (!hasNext) return;
+                                            bookRef.current?.pageFlip()?.flipNext();
+                                        }}
+                                    >
+                                        <Icon icon="lucide:chevron-right" className="w-[1.5vw] h-[1.5vw]" />
+                                    </button>
+                                )}
+                            </>
+                        );
+                    })()}
 
                     {/* Page Indicator Badge */}
                     {(settings?.navigation?.pageQuickAccess ?? true) && (

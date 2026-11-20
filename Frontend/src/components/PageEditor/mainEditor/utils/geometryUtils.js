@@ -18,7 +18,37 @@ export const formatSmoothPathD = (pts) => {
   return d;
 };
 
+// ── Frame-Level Bounding Box Cache ───────────────────────────────────────────
+// Caches bounding boxes within the current animation frame to eliminate layout thrashing
+// when multiple subsystems (smart guides, highlight overlay, marquee, drag) query BBox.
+const visualBBoxCache = new WeakMap();
+let activeFrameId = 0;
+
+if (typeof window !== 'undefined') {
+  const advanceFrameTick = () => {
+    activeFrameId++;
+    requestAnimationFrame(advanceFrameTick);
+  };
+  requestAnimationFrame(advanceFrameTick);
+}
+
+export const invalidateVisualBBox = (el) => {
+  if (el) visualBBoxCache.delete(el);
+  else activeFrameId++;
+};
+
 export const getVisualBBox = (el) => {
+  if (!el || typeof el.getBBox !== 'function') return { x: 0, y: 0, width: 0, height: 0 };
+  const cached = visualBBoxCache.get(el);
+  if (cached && cached.frameId === activeFrameId) {
+    return cached.bbox;
+  }
+  const result = calculateRawVisualBBox(el);
+  visualBBoxCache.set(el, { frameId: activeFrameId, bbox: result });
+  return result;
+};
+
+const calculateRawVisualBBox = (el) => {
   if (!el || typeof el.getBBox !== 'function') return { x: 0, y: 0, width: 0, height: 0 };
 
   // ── TABLE ELEMENT BOUNDING BOX ──
@@ -237,6 +267,71 @@ export const getVisualBBox = (el) => {
       return { x: rx, y: ry, width: rw, height: rh };
     }
     return { x: 0, y: 0, width: 650, height: 400 };
+  }
+
+  // ── SHAPE ELEMENT BOUNDING BOX (Account for stroke expansion) ──
+  const isShape = el.getAttribute?.('data-is-element-shape') === 'true' ||
+                  el.getAttribute?.('data-shape-type') !== null ||
+                  el.getAttribute?.('data-type') === 'shape' ||
+                  (el.id && el.id.startsWith('shape-')) ||
+                  !!el.querySelector?.('[data-is-element-shape="true"], [data-shape-type]');
+  if (isShape) {
+    const strokeEl = (el.getAttribute('stroke') || el.getAttribute('data-stroke-width'))
+      ? el
+      : (el.querySelector?.('[data-is-element-shape="true"], [data-stroke-width], [stroke]') || el);
+
+    let baseBBox = null;
+    try {
+      baseBBox = el.getBBox();
+    } catch { /* ignored */ }
+
+    if (baseBBox && (baseBBox.width > 0 || baseBBox.height > 0)) {
+      const strokeVal = strokeEl.getAttribute('stroke') || strokeEl.style?.stroke;
+      const hasStroke = strokeVal && strokeVal !== 'none' && strokeVal !== 'transparent';
+      if (hasStroke) {
+        const dataSw = parseFloat(strokeEl.getAttribute('data-stroke-width'));
+        const attrSw = parseFloat(strokeEl.getAttribute('stroke-width') || strokeEl.style?.strokeWidth || '0');
+        const strokePos = (strokeEl.getAttribute('data-stroke-position') || 'Outside').toLowerCase();
+
+        let outerStrokePx = 0;
+        if (strokePos === 'outside') {
+          outerStrokePx = (!isNaN(dataSw) && dataSw > 0) ? dataSw : (attrSw > 0 ? attrSw / 2 : 0);
+        } else if (strokePos === 'center') {
+          outerStrokePx = ((!isNaN(dataSw) && dataSw > 0) ? dataSw : attrSw) / 2;
+        } else if (strokePos === 'inside') {
+          outerStrokePx = 0;
+        }
+
+        if (outerStrokePx > 0) {
+          const isNonScaling = (strokeEl.getAttribute('vector-effect') || strokeEl.style?.vectorEffect) === 'non-scaling-stroke';
+          let scaleX = 1;
+          let scaleY = 1;
+          if (isNonScaling) {
+            try {
+              const ctm = el.getCTM();
+              if (ctm) {
+                scaleX = Math.sqrt(ctm.a * ctm.a + ctm.b * ctm.b) || 1;
+                scaleY = Math.sqrt(ctm.c * ctm.c + ctm.d * ctm.d) || 1;
+              }
+            } catch { /* ignored */ }
+          }
+          const offsetX = outerStrokePx / scaleX;
+          const offsetY = outerStrokePx / scaleY;
+          return {
+            x: baseBBox.x - offsetX,
+            y: baseBBox.y - offsetY,
+            width: baseBBox.width + (offsetX * 2),
+            height: baseBBox.height + (offsetY * 2)
+          };
+        }
+      }
+      return {
+        x: baseBBox.x,
+        y: baseBBox.y,
+        width: baseBBox.width,
+        height: baseBBox.height
+      };
+    }
   }
 
   const isUserGroup = el.tagName?.toLowerCase() === 'g' && (
@@ -668,10 +763,15 @@ export const clearOverlayType = (typePattern) => {
     if (typePattern.includes('selected')) {
       htmlOverlay.querySelectorAll('.resize-handle').forEach(h => h.remove());
       if (!window.__isRotatingActive) {
-        htmlOverlay.querySelectorAll('.corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"]').forEach(h => h.remove());
+        htmlOverlay.querySelectorAll('.corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"], [id^="interaction-badge-"]').forEach(h => h.remove());
+      } else {
+        htmlOverlay.querySelectorAll('[id^="interaction-badge-"]').forEach(h => h.remove());
       }
     }
   });
+  if (typePattern.includes('selected')) {
+    document.querySelectorAll('[id^="interaction-badge-"]').forEach(b => b.remove());
+  }
 };
 
 export const getLocalPoint = (svg, element, clientX, clientY) => {
@@ -689,4 +789,88 @@ export const getLocalPoint = (svg, element, clientX, clientY) => {
   } catch {
     return { x: clientX, y: clientY };
   }
+};
+
+/**
+ * Keyed DOM patch: like syncDOM, but children with an `id` are matched by id instead of
+ * by position. Existing nodes are reused in place, so live content (map / embed iframes)
+ * is never detached and reloaded when a sibling is deleted, restored (undo/redo) or edited.
+ */
+const domKeyOf = (n) => (n.nodeType === 1 && n.getAttribute && n.getAttribute('id')) ? n.getAttribute('id') : null;
+
+export const syncDOMKeyed = (oldNode, newNode) => {
+  if (!oldNode || !newNode) return;
+  if (oldNode.isEqualNode && oldNode.isEqualNode(newNode)) return;
+
+  if (oldNode.nodeType !== newNode.nodeType || oldNode.nodeName !== newNode.nodeName) {
+    oldNode.replaceWith(newNode.cloneNode(true));
+    return;
+  }
+  if (oldNode.nodeType === Node.TEXT_NODE || oldNode.nodeType === Node.COMMENT_NODE) {
+    if (oldNode.nodeValue !== newNode.nodeValue) oldNode.nodeValue = newNode.nodeValue;
+    return;
+  }
+
+  const oldAttrs = oldNode.attributes;
+  const newAttrs = newNode.attributes;
+  if (oldAttrs && newAttrs) {
+    for (let i = oldAttrs.length - 1; i >= 0; i--) {
+      const name = oldAttrs[i].name;
+      if (!newNode.hasAttribute(name)) oldNode.removeAttribute(name);
+    }
+    for (let i = 0; i < newAttrs.length; i++) {
+      const { name, value } = newAttrs[i];
+      if (oldNode.getAttribute(name) !== value) oldNode.setAttribute(name, value);
+    }
+  }
+
+  syncChildrenKeyed(oldNode, newNode);
+};
+
+export const syncChildrenKeyed = (oldParent, newParent) => {
+  const oldChildren = Array.from(oldParent.childNodes);
+  const newChildren = Array.from(newParent.childNodes);
+
+  const oldByKey = new Map();
+  const unkeyedOld = [];
+  oldChildren.forEach((c) => {
+    const k = domKeyOf(c);
+    if (k && !oldByKey.has(k)) oldByKey.set(k, c);
+    else unkeyedOld.push(c);
+  });
+
+  const used = new Set();
+  let ui = 0;
+  const result = newChildren.map((nc) => {
+    const k = domKeyOf(nc);
+    let match = null;
+    if (k) {
+      const cand = oldByKey.get(k);
+      if (cand && cand.nodeName === nc.nodeName && !used.has(cand)) match = cand;
+    } else {
+      // Unkeyed: next unused old unkeyed node of the same type, in order
+      let j = ui;
+      while (j < unkeyedOld.length && (used.has(unkeyedOld[j]) || unkeyedOld[j].nodeName !== nc.nodeName)) j++;
+      if (j < unkeyedOld.length) { match = unkeyedOld[j]; ui = j + 1; }
+    }
+    if (match) {
+      used.add(match);
+      syncDOMKeyed(match, nc);
+      return match;
+    }
+    return nc.cloneNode(true);
+  });
+
+  // Remove nodes that no longer exist
+  oldChildren.forEach((c) => { if (!used.has(c) && c.parentNode === oldParent) oldParent.removeChild(c); });
+
+  // Place nodes in order, only moving/inserting what is out of place
+  let ref = oldParent.firstChild;
+  result.forEach((node) => {
+    if (node === ref) {
+      ref = ref.nextSibling;
+    } else {
+      oldParent.insertBefore(node, ref);
+    }
+  });
 };

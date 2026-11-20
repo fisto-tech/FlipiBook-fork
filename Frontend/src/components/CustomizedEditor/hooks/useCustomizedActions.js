@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import axios from 'axios';
-import { saveCustomizedEditorState } from '../../../utils/dbUtils';
-import { getSupabaseBaseUrl } from '../../../utils/assetUtils';
+import { saveCustomizedEditorState } from '../../../utils/storage/dbUtils';
+import { getSupabaseBaseUrl } from '../../../utils/assets/assetUtils';
 import { createDefaultPageData } from '../utils/defaultPageData';
 
 export const useCustomizedActions = ({

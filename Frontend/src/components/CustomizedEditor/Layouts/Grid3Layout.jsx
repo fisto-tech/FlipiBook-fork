@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 const getLayoutColor = (id, defaultColor) => `var(--${id}, ${defaultColor})`;
 const getLayoutColorRgba = (id, defaultRgb, defaultOpacity) =>
@@ -394,11 +395,15 @@ const Grid3Layout = ({
 
     // Keyboard and Mouse Wheel Actions
     useEffect(() => {
+        let lastKeyTime = 0;
         const handleKeyDown = (e) => {
             if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            const now = Date.now();
 
             switch (e.key) {
                 case 'ArrowRight':
+                    if (now - lastKeyTime < 350) return;
+                    lastKeyTime = now;
                     setShowSoundPopupMemo?.(false);
                     setShowThumbnails(false);
                     setShowBookmarkMenu(false);
@@ -407,6 +412,8 @@ const Grid3Layout = ({
                     bookRef.current?.pageFlip()?.flipNext();
                     break;
                 case 'ArrowLeft':
+                    if (now - lastKeyTime < 350) return;
+                    lastKeyTime = now;
                     setShowSoundPopupMemo?.(false);
                     setShowThumbnails(false);
                     setShowBookmarkMenu(false);
@@ -440,7 +447,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                 }
                 
                 const now = Date.now();
-                if (now - lastWheelTime < 600) return;
+                if (now - lastWheelTime < 400 || bookRef.current?.pageFlip()?.isAnimating?.()) return;
                 
                 if (e.deltaY > 0) {
                     bookRef.current?.pageFlip()?.flipNext();
@@ -793,15 +800,13 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                     style={{ color: getLayoutColor('toolbar-text-main', '#FFFFFF'), opacity: 0.9 }}>{/* {bookName} */}</span>
                             )}
                             <div className="flex items-center">
-                                {settings.brandingProfile.logo && logoSettings?.src && (
-                                    <img
-                                        src={logoSettings.src}
-                                        alt="Brand Logo"
-                                        className={`${isMobileLandscape ? 'h-[1.8vw]' : 'h-[1.5vw]'} w-auto transition-all cursor-pointer hover:scale-105 active:scale-95`}
-                                        style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                                        onClick={() => setShowProfilePopup(true)}
-                                    />
-                                )}
+                                <BrandLogo
+                                    logoSettings={logoSettings}
+                                    settings={settings}
+                                    isTablet={isTablet}
+                                    className={`${isMobileLandscape ? 'h-[1.8vw]' : 'h-[1.5vw]'}`}
+                                    onClick={() => setShowProfilePopup(true)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -841,32 +846,39 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
 
                         {(() => {
                             const isPortraitLayout = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
-                            const isCover = currentPage === 0;
-                            const isBackCover = currentPage === pages.length - 1 && pages.length % 2 === 0;
+                            const isCover = typeof offset === 'number' ? offset < 0 : currentPage === 0;
+                            const isBackCover = typeof offset === 'number' ? offset > 0 : (currentPage >= pages.length - 1 && pages.length % 2 === 0);
+                            const isSinglePage = isPortraitLayout || isCover || isBackCover;
+
+                            const hasPrev = currentPage > 0;
+                            const hasNext = currentPage < pages.length - 1;
 
                             const currentScale = isMobileLandscape ? responsiveScale : 1;
-                            const leftDistance = isPortraitLayout
+                            const bookHalfWidth = isSinglePage
                                 ? (dimWidth * currentScale) / 2
-                                : (isCover ? 0 : dimWidth * currentScale);
+                                : (dimWidth * currentScale);
 
-                            const rightDistance = isPortraitLayout
-                                ? (dimWidth * currentScale) / 2
-                                : (isBackCover ? 0 : dimWidth * currentScale);
-
-                            const isSinglePage = isPortraitLayout || isCover || isBackCover;
-                            const gap = (isTablet ? 4 : 5) + (isSinglePage ? 2 : 0);
-
-                            const leftPos = `calc(50% - ${leftDistance}px - ${gap}vw + ${localOffset}px)`;
-                            const rightPos = `calc(50% - ${rightDistance}px - ${gap}vw - ${localOffset}px)`;
+                            const gap = (isTablet ? 3.5 : 4.5);
+                            const leftPos = `calc(50% - ${bookHalfWidth}px - ${gap}vw)`;
+                            const rightPos = `calc(50% - ${bookHalfWidth}px - ${gap}vw)`;
 
                             return (
                                 <>
                                     {(settings?.navigation?.nextPrevButtons ?? true) && (
                                         <button
                                             id="v3-prev-arrow"
-                                            className={`absolute top-1/2 -translate-y-1/2 ${isTablet ? 'w-[1.8vw] h-[1.8vw]' : 'w-[2.4vw] h-[2.4vw]'} flex items-center justify-center transition-all rounded-full z-20`}
-                                            style={{ left: leftPos, color: getLayoutColor('toolbar-icon', '#FFFFFF'), opacity: 'var(--toolbar-icon-opacity, 1)' }}
-                                            onClick={() => bookRef.current?.pageFlip()?.flipPrev()}
+                                            className={`absolute top-1/2 -translate-y-1/2 ${isTablet ? 'w-[1.8vw] h-[1.8vw]' : 'w-[2.4vw] h-[2.4vw]'} flex items-center justify-center rounded-full z-20 ${!hasPrev ? 'pointer-events-none' : 'cursor-pointer'}`}
+                                            style={{
+                                                left: leftPos,
+                                                color: getLayoutColor('toolbar-icon', '#FFFFFF'),
+                                                opacity: hasPrev ? 'var(--toolbar-icon-opacity, 1)' : 0,
+                                                pointerEvents: hasPrev ? 'auto' : 'none',
+                                                transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                            }}
+                                            onClick={() => {
+                                                if (!hasPrev) return;
+                                                bookRef.current?.pageFlip()?.flipPrev();
+                                            }}
                                         >
                                             <Icon icon="lucide:chevron-left" className={`${isTablet ? 'w-[1vw] h-[1vw]' : 'w-[1.2vw] h-[1.2vw]'}`} />
                                         </button>
@@ -874,9 +886,18 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                     {(settings?.navigation?.nextPrevButtons ?? true) && (
                                         <button
                                             id="v3-next-arrow"
-                                            className={`absolute top-1/2 -translate-y-1/2 ${isTablet ? 'w-[1.8vw] h-[1.8vw]' : 'w-[2.4vw] h-[2.4vw]'} flex items-center justify-center transition-all rounded-full z-20`}
-                                            style={{ right: rightPos, color: getLayoutColor('toolbar-icon', '#FFFFFF'), opacity: 'var(--toolbar-icon-opacity, 1)' }}
-                                            onClick={() => bookRef.current?.pageFlip()?.flipNext()}
+                                            className={`absolute top-1/2 -translate-y-1/2 ${isTablet ? 'w-[1.8vw] h-[1.8vw]' : 'w-[2.4vw] h-[2.4vw]'} flex items-center justify-center rounded-full z-20 ${!hasNext ? 'pointer-events-none' : 'cursor-pointer'}`}
+                                            style={{
+                                                right: rightPos,
+                                                color: getLayoutColor('toolbar-icon', '#FFFFFF'),
+                                                opacity: hasNext ? 'var(--toolbar-icon-opacity, 1)' : 0,
+                                                pointerEvents: hasNext ? 'auto' : 'none',
+                                                transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                            }}
+                                            onClick={() => {
+                                                if (!hasNext) return;
+                                                bookRef.current?.pageFlip()?.flipNext();
+                                            }}
                                         >
                                             <Icon icon="lucide:chevron-right" className={`${isTablet ? 'w-[1vw] h-[1vw]' : 'w-[1.2vw] h-[1.2vw]'}`} />
                                         </button>
@@ -891,7 +912,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                             style={{
                                 transform: `translateX(${localOffset}px) scale(${isMobileLandscape ? responsiveScale : 1})`,
                                 transformOrigin: 'center center',
-                                transition: 'transform 0.5s ease-out',
+                                transition: 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
                                 top: isMobileLandscape ? '0.5vw' : '0'
                             }}
                         >
@@ -904,7 +925,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                 <div className={isFullscreen ? 'absolute bottom-0 left-0 w-full z-[1000] bg-transparent' : 'shrink-0'}>
                     <div className={`${!isBigBars ? (isMobileLandscape ? 'h-[4vh] pt-[0.5vh]' : isTablet ? 'h-[5vh]' : 'h-[6.5vh] pt-[1vh]') : (isMobileLandscape ? 'h-[4.5vh] pt-[0.5vh]' : isTablet ? 'h-[5.5vh]' : 'h-[6.5vh] pt-[1vh]')} flex items-start justify-between px-[2vw] w-full z-[1001] transition-all duration-500 ease-in-out ${isFullscreen ? `absolute bottom-0 left-0 ${!isCanvasHovered ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}` : 'relative'}`}
                         onClick={(e) => e.stopPropagation()}
-                        style={{ backgroundColor: getLayoutColorRgba('bottom-toolbar-bg', '62, 68, 145', '1') }}>
+                        style={{ backgroundColor: getLayoutColorRgba('bottom-toolbar-bg', '87, 92, 156', '1') }}>
 
                         {/* Left: Page Counter Rounded Box */}
                         {(settings?.navigation?.pageQuickAccess ?? true) && (
@@ -1215,7 +1236,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                             <div
                                 ref={scrollRef}
                                 onScroll={checkScroll}
-                                className={`flex w-full ${spreads.length > maxItems ? 'overflow-x-auto justify-start' : 'overflow-x-hidden justify-center'} no-scrollbar scroll-smooth items-center h-full ${isTablet ? 'gap-[0.5vw] px-[0.7vw]' : 'gap-[0.8vw] px-[1vw]'}`}
+                                className={`flex w-full ${spreads.length > maxItems ? 'overflow-x-auto justify-start' : 'overflow-x-hidden justify-center'} overflow-y-hidden scroll-smooth items-center h-full ${isTablet ? 'gap-[0.5vw] px-[0.7vw]' : 'gap-[0.8vw] px-[1vw]'}`}
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                             >
                                 {spreads.map((spread, idx) => {
                                     const isSelected = spread.indices.includes(currentPage);
