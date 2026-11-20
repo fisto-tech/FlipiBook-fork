@@ -2354,41 +2354,6 @@ const Pricing = () => {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------- */}
-      {/* 5. READY TO GET STARTED CTA BANNER */}
-      {/* ------------------------------------------------------------- */}
-      <section className="py-[3vw] px-[4vw] max-w-[85vw] mx-auto">
-        <div className="relative rounded-[1vw] overflow-hidden shadow-sm min-h-[16vw] flex items-center justify-center p-[2vw] border border-gray-200 group bg-white">
-          
-          {/* Banner Image Background */}
-          <img 
-            src={BannerImage} 
-            alt="Ready to get started banner" 
-            className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-700 group-hover:scale-105"
-          />
-
-          {/* Center Banner Content */}
-          <div className="relative z-10 text-center max-w-[36vw] mx-auto space-y-[0.6vw]">
-            <h2 className="text-[2vw] font-bold tracking-tight text-gray-800 leading-tight">
-              Ready to <span className="text-[#ec5137]">get started?</span>
-            </h2>
-
-            <p className="text-gray-600 text-[0.95vw] font-normal leading-relaxed max-w-[28vw] mx-auto">
-              Create engaging, interactive publications and catalogs, and bring your designs to life today.
-            </p>
-
-            <div className="pt-[0.4vw] flex justify-center">
-              <button type="button"
-                className="bg-[#ec5137] hover:bg-[#d94229] active:scale-[0.98] text-white font-medium text-[0.95vw] px-[1.4vw] py-[0.52vw] rounded-full shadow-xs transition-all flex items-center gap-[0.4vw]"
-              >
-                <span>Get Started Now</span>
-                <ArrowRight className="w-[0.85vw] h-[0.85vw]" />
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </section>
 
       {/* ------------------------------------------------------------- */}
       {/* 6. FOOTER */}
