@@ -9,8 +9,8 @@ import ImageCropModal from '../ImageCropModal';
 import EditProfile from './EditProfile';
 import Activity from '../Activity';
 import { useAuth } from '../../../context/AuthContext';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
-import { getInitialUser } from '../../../utils/authUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
+import { getInitialUser } from '../../../utils/auth/authUtils';
 
 const LazyPreview = ({ v_id, emailId, backendUrl, iframeBaseUrl = '', title, imageUrl }) => {
   const containerRef = useRef(null);

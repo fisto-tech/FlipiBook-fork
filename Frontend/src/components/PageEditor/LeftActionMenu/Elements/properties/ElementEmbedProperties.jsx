@@ -272,7 +272,7 @@ const formatEmbedUrl = (rawUrl, allowFs = true) => {
 
 const getEmbedIframeContent = ({ via, targetUrl, code, allowFs }) => {
   const defaultPlaceholderHtml = `
-    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#64748b; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border-radius:0px; border:2px dashed #cbd5e1;">
+    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#64748b; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border-radius:0px; border:none;">
       <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
@@ -317,7 +317,7 @@ const getEmbedIframeContent = ({ via, targetUrl, code, allowFs }) => {
 
     // Only allow HTML embed code (tags like <iframe>, <div>, <script>, etc.) - do not parse plain URLs as embeds
     if (!trimmedCode.startsWith('<')) {
-      const invalidEmbedDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;width:100vw;height:100vh;overflow:hidden;border-radius:0px;}</style></head><body><div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#ef4444; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border:2px dashed #fca5a5;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><div style="font-size:16px; font-weight:600; color:#b91c1c; margin-bottom:4px;">Invalid Embed Code</div><div style="font-size:12px; color:#64748b;">Please enter valid HTML embed code (e.g. &lt;iframe...&gt;), or switch to URL mode.</div></div></body></html>`;
+      const invalidEmbedDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;width:100vw;height:100vh;overflow:hidden;border-radius:0px;}</style></head><body><div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#ef4444; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border:none;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><div style="font-size:16px; font-weight:600; color:#b91c1c; margin-bottom:4px;">Invalid Embed Code</div><div style="font-size:12px; color:#64748b;">Please enter valid HTML embed code (e.g. &lt;iframe...&gt;), or switch to URL mode.</div></div></body></html>`;
       return {
         type: 'placeholder',
         src: '',
@@ -352,10 +352,33 @@ const BEHAVIOR_OPTIONS = [
   { value: 'Open in - New Tab', label: 'Open in - New Tab' }
 ];
 
-const LINE_CORNER_OPTIONS = [
-  { value: 'Rounded', label: 'Rounded' },
-  { value: 'Square', label: 'Square' }
-];
+// Draw the embed border as a solid line fully OUTSIDE the content (the iframe paints
+// over anything inside its box). The embed group is scaled (e.g. 0.25), so convert the
+// user's stroke width into the group's local units to keep it visibly the chosen width.
+const applyEmbedStrokeGeometry = (frameGroup, strokeEl, w, h, strokeW) => {
+  if (!frameGroup || !strokeEl) return;
+  let scale = 0.25;
+  try {
+    const svg = frameGroup.ownerSVGElement;
+    const g = frameGroup.getScreenCTM();
+    const r = svg?.getScreenCTM();
+    if (g && r) {
+      const ratio = Math.hypot(g.a, g.b) / Math.hypot(r.a, r.b);
+      if (ratio > 0 && isFinite(ratio)) scale = ratio;
+    }
+  } catch { /* keep fallback */ }
+  const t = Math.max(0, Number(strokeW) || 0) / scale;
+  strokeEl.setAttribute('x', (-t / 2).toString());
+  strokeEl.setAttribute('y', (-t / 2).toString());
+  strokeEl.setAttribute('width', (w + t).toString());
+  strokeEl.setAttribute('height', (h + t).toString());
+  strokeEl.setAttribute('stroke-width', t.toString());
+  strokeEl.setAttribute('stroke-linecap', 'square');
+  strokeEl.setAttribute('stroke-linejoin', 'miter');
+  strokeEl.removeAttribute('stroke-dasharray');
+  strokeEl.removeAttribute('rx');
+  strokeEl.removeAttribute('ry');
+};
 
 const ElementEmbedProperties = ({
   selectedElementProps,
@@ -380,7 +403,7 @@ const ElementEmbedProperties = ({
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [strokeOpacity, setStrokeOpacity] = useState(100);
   const [strokeWidth, setStrokeWidth] = useState(1);
-  const [lineCorner, setLineCorner] = useState('Rounded');
+  const [lineCorner, setLineCorner] = useState('Square'); // corners always square (option removed)
   const [activeColorPicker, setActiveColorPicker] = useState(null);
 
   // --- Dimensions ---
@@ -570,7 +593,7 @@ const ElementEmbedProperties = ({
     setStrokeColor(cleanStrokeCol);
     setStrokeOpacity(cleanStrokeOp);
     setStrokeWidth(cleanStrokeW);
-    setLineCorner(sCorner);
+    setLineCorner('Square');
 
     // Hydrate Drop Shadow Effect from element attributes
     const hasDropShadow = frameGroup.getAttribute('data-effect-drop-shadow') === 'true';
@@ -652,7 +675,11 @@ const ElementEmbedProperties = ({
     if (!selectedElement) return;
     if (isHydratingRef.current) return;
 
-    const frameGroup = selectedElement.querySelector('[data-type="embed-frame"]') || (selectedElement.getAttribute('data-type') === 'embed-frame' ? selectedElement : null);
+    // If a canvas re-render replaced the node, edit the live one (not the detached copy)
+    const liveEl = selectedElement.isConnected
+      ? selectedElement
+      : (selectedLayerId && document.getElementById(selectedLayerId)) || selectedElement;
+    const frameGroup = liveEl.querySelector('[data-type="embed-frame"]') || (liveEl.getAttribute('data-type') === 'embed-frame' ? liveEl : null);
     if (!frameGroup) return;
 
     const snap = lastAppliedSnapshotRef.current;
@@ -790,6 +817,12 @@ const ElementEmbedProperties = ({
       }
 
       // 3. Update foreignObject, rootContainer, iframe, and overlay in-place
+      // Only touch the iframe / overlay when their inputs changed — stroke, size, etc.
+      // must never reload the embed (that caused a visible refresh/glitch).
+      const contentChanged = !snap || snap.code !== customCode || snap.url !== url ||
+        snap.via !== embedVia || snap.allowFs !== allowFullscreen;
+      const overlayChanged = contentChanged || overlayNeedsUpdate ||
+        snap.openBtn !== openWebsiteBtn || snap.beh !== behavior;
       const iframeInfo = getEmbedIframeContent({
         via: embedVia,
         targetUrl: url,
@@ -832,6 +865,8 @@ const ElementEmbedProperties = ({
         let needsReload = false;
         if (!existingIframe) {
           needsReload = true;
+        } else if (!contentChanged) {
+          needsReload = false;
         } else if (iframeInfo.type === 'url') {
           if (existingIframe.getAttribute('src') !== iframeInfo.src || existingIframe.hasAttribute('srcdoc')) {
             needsReload = true;
@@ -858,7 +893,9 @@ const ElementEmbedProperties = ({
 
         // Update or insert overlay wrapper
         const existingOverlay = rootContainer.querySelector('.embed-overlay-wrapper');
-        if (existingOverlay) {
+        if (!overlayChanged) {
+          // overlay unchanged — leave it as is
+        } else if (existingOverlay) {
           if (overlayHtml) {
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = overlayHtml;
@@ -890,6 +927,8 @@ const ElementEmbedProperties = ({
         `;
       }
 
+      applyEmbedStrokeGeometry(frameGroup, frameGroup.querySelector('.svg-image-stroke-overlay'), w, h, strokeColor === 'none' ? 0 : strokeW);
+
       // Record snapshot of applied values
       lastAppliedSnapshotRef.current = {
         code: customCode,
@@ -908,7 +947,7 @@ const ElementEmbedProperties = ({
 
       // Save to page state without wiping out canvas
       if (updateElementAttribute && selectedElement) {
-        let node = selectedElement;
+        let node = frameGroup;
         let lastSvg = null;
         while (node) {
           if (node.tagName?.toLowerCase() === 'svg') lastSvg = node;
@@ -1094,13 +1133,7 @@ const ElementEmbedProperties = ({
         strokeOverlay.setAttribute('stroke', newColor);
       }
     }
-    if (updateElementAttribute) {
-      updateElementAttribute(activePageIndex, selectedLayerId, {
-        'data-stroke-color': newColor,
-        'data-stroke-alignment': 'Outside',
-        'data-stroke-position': 'Outside'
-      });
-    }
+    // Persisted by the sync effect via '__dom_sync__' (no canvas re-render / iframe reload)
   };
 
   const handleStrokeOpacityChange = (newOpacity) => {
@@ -1117,13 +1150,7 @@ const ElementEmbedProperties = ({
         strokeOverlay.setAttribute('stroke-opacity', (newOpacity / 100).toString());
       }
     }
-    if (updateElementAttribute) {
-      updateElementAttribute(activePageIndex, selectedLayerId, {
-        'data-stroke-opacity': (newOpacity / 100).toString(),
-        'data-stroke-alignment': 'Outside',
-        'data-stroke-position': 'Outside'
-      });
-    }
+    // Persisted by the sync effect via '__dom_sync__' (no canvas re-render / iframe reload)
   };
 
   const handleStrokeWidthChange = (newWidth) => {
@@ -1151,26 +1178,13 @@ const ElementEmbedProperties = ({
           strokeOverlay.setAttribute('width', baseW.toString());
           strokeOverlay.setAttribute('height', baseH.toString());
         }
-        const cornerR = lineCorner === 'Rounded' ? Math.max(0, Math.min(val, 16)) : 0;
-        if (cornerR > 0) {
-          strokeOverlay.setAttribute('rx', cornerR.toString());
-          strokeOverlay.setAttribute('ry', cornerR.toString());
-        } else {
-          strokeOverlay.removeAttribute('rx');
-          strokeOverlay.removeAttribute('ry');
-        }
+        if (baseW && baseH) applyEmbedStrokeGeometry(frameGroup, strokeOverlay, baseW, baseH, val);
       }
       window.dispatchEvent(new CustomEvent('force-update-selection-box', {
         detail: { elementId: frameGroup.id || selectedLayerId }
       }));
     }
-    if (updateElementAttribute) {
-      updateElementAttribute(activePageIndex, selectedLayerId, {
-        'data-stroke-width': val.toString(),
-        'data-stroke-alignment': 'Outside',
-        'data-stroke-position': 'Outside'
-      });
-    }
+    // Persisted by the sync effect via '__dom_sync__' (no canvas re-render / iframe reload)
   };
 
   const handleLineCornerChange = (corner) => {
@@ -1343,7 +1357,7 @@ const ElementEmbedProperties = ({
       {/* ===================== 3. STROKE COLOR & WIDTH ===================== */}
       <div className="flex flex-col gap-[1.1vw]">
         <ColorBoxRow
-          title="Stoke Color"
+          title="Stroke Color"
           color={strokeColor}
           opacity={strokeOpacity}
           onOpenPicker={() => setActiveColorPicker(activeColorPicker === 'strokeColor' ? null : 'strokeColor')}
@@ -1352,7 +1366,7 @@ const ElementEmbedProperties = ({
           isActive={activeColorPicker === 'strokeColor'}
         />
 
-        {/* Stroke Width & Line Corner */}
+        {/* Stroke Width */}
         {(() => {
           const isStrokeDisabled = !strokeColor || strokeColor === 'none' || strokeColor === 'transparent';
           return (
@@ -1395,18 +1409,6 @@ const ElementEmbedProperties = ({
                 </div>
               </div>
 
-              {/* Line Corner */}
-              <div className="flex-1 flex flex-col gap-[0.35vw]">
-                <span className="text-[0.82vw] font-medium text-gray-800">Line Corner</span>
-                <div className="relative">
-                  <CustomSelect
-                    value={lineCorner}
-                    onChange={handleLineCornerChange}
-                    options={LINE_CORNER_OPTIONS}
-                    disabled={isStrokeDisabled}
-                  />
-                </div>
-              </div>
             </div>
           );
         })()}

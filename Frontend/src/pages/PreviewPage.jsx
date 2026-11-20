@@ -3,9 +3,9 @@ import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
 import FlipbookPreview from '../components/PageEditor/modals/FlipbookPreview';
-import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assetUtils';
+import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
-import { getFromDB, CUSTOMIZED_EDITOR_KEY, getCustomizedEditorKey } from '../utils/dbUtils';
+import { getFromDB, CUSTOMIZED_EDITOR_KEY, getCustomizedEditorKey } from '../utils/storage/dbUtils';
 
 const PreviewPage = () => {
   const [data, setData] = useState(null);

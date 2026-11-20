@@ -2,9 +2,10 @@ export const getVideoControlsScript = () => `  <script>
     (function() {
       // Inject global styles for the progress bar thumb
       const thumbStyleId = 'global-custom-video-progress-style';
-      if (!document.getElementById(thumbStyleId)) {
-        const ts = document.createElement('style');
-        ts.id = thumbStyleId;
+      {
+        let ts = document.getElementById(thumbStyleId);
+        const isNewStyle = !ts;
+        if (!ts) { ts = document.createElement('style'); ts.id = thumbStyleId; }
         ts.textContent = \`
           input.custom-video-progress {
             -webkit-appearance: none !important;
@@ -45,7 +46,6 @@ export const getVideoControlsScript = () => `  <script>
             background: transparent;
             transition: opacity 0.3s ease, background 0.3s ease !important;
           }
-          .custom-video-overlay.is-paused,
           .custom-video-overlay.video-is-hovered,
           [id]:hover > .custom-video-overlay,
           [id]:hover > foreignObject > .custom-video-overlay,
@@ -54,8 +54,20 @@ export const getVideoControlsScript = () => `  <script>
             opacity: 1 !important;
             background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 70%, rgba(0,0,0,0.9) 100%) !important;
           }
+          .pv-center-play-btn {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: min(18%, 72px); aspect-ratio: 1 / 1; border-radius: 50%;
+            background: rgba(0,0,0,0.6); border: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.45); color: #fff;
+            display: none; align-items: center; justify-content: center;
+            pointer-events: auto; cursor: pointer; z-index: 15;
+          }
+          .custom-video-overlay.is-paused .pv-center-play-btn { display: flex; }
+          /* Not started yet (thumbnail state): no controls, only the center play button */
+          .custom-video-overlay.not-started { opacity: 1 !important; background: transparent !important; }
+          .custom-video-overlay.not-started > *:not(.pv-center-play-btn) { visibility: hidden !important; }
         \`;
-        document.head.appendChild(ts);
+        if (isNewStyle) document.head.appendChild(ts);
       }
 
       const renderVideoControls = () => {
@@ -66,7 +78,7 @@ export const getVideoControlsScript = () => `  <script>
           }
         });
 
-        const videos = document.querySelectorAll('video');
+        const videos = document.querySelectorAll('video:not([data-static-thumb])');
         videos.forEach(video => {
           const fo = video.closest('foreignObject');
           const liveEl = fo ? (fo.closest('[id]') || fo) : (video.closest('[id]') || video);
@@ -177,7 +189,7 @@ export const getVideoControlsScript = () => `  <script>
             if (progC) progC.style.display = showProgressBar ? '' : 'none';
             
             const showControls = video.getAttribute('data-show-controls') !== 'false';
-            bar.style.display = (showControls || showPlayPause || showFullscreenButton || showDownloadButton) ? 'flex' : 'none';
+            bar.style.display = (showControls || showPlayPause || showFullscreenButton || showDownloadButton || showProgressBar) ? 'flex' : 'none';
           }
 
           if (!bar) {
@@ -208,6 +220,16 @@ export const getVideoControlsScript = () => `  <script>
             bar.id = ctrlId;
             bar._video = video;
             bar.className = 'custom-video-overlay' + (video.paused ? ' is-paused' : '');
+            if (video.paused && !video.currentTime) {
+              bar.classList.add('not-started');
+              video.addEventListener('play', () => bar.classList.remove('not-started'), { once: true });
+            }
+            // Center play button shown while the video is paused
+            const pvCenterPlay = document.createElement('div');
+            pvCenterPlay.className = 'pv-center-play-btn';
+            pvCenterPlay.innerHTML = '<svg width="50%" height="50%" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px"><polygon points="7 4 19 12 7 20 7 4"/></svg>';
+            pvCenterPlay.addEventListener('click', (ev) => { ev.stopPropagation(); video.play().catch(() => {}); });
+            bar.appendChild(pvCenterPlay);
             Object.assign(bar.style, {
               position: 'absolute', top: '0', bottom: '0', left: '0', right: '0', display: 'flex', flexDirection: 'column',
               justifyContent: 'space-between', padding: '2% 3%', boxSizing: 'border-box', zIndex: '9999',
@@ -538,5 +560,6 @@ export const getVideoControlsScript = () => `  <script>
     })();
   </script>
 `;
-;
+
+;
 export default getVideoControlsScript;

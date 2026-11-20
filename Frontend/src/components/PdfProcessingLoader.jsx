@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Check, Lightbulb, Bell, ChevronDown, X, Loader2, Minimize2, Maximize2 } from 'lucide-react';
+import { Check, Lightbulb, X, Loader2, Minimize2, Maximize2, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const FlipibookLogo = '/Login/logo.svg';
@@ -25,10 +25,20 @@ const DEFAULT_STEPS = [
  *   (All 4 turn completed with checkmarks upon stage === 'done')
  * - Bottom tip pill banner with lightbulb icon
  */
-const PdfProcessingLoader = ({ progress, onCancel }) => {
+const PdfProcessingLoader = ({
+    progress,
+    onCancel,
+    isMinimized: controlledMinimized,
+    setIsMinimized: setControlledMinimized,
+    onOpenEditor
+}) => {
     const { user } = useAuth() || {};
 
-    const [isMinimized, setIsMinimized] = useState(false);
+    const isControlled = controlledMinimized !== undefined;
+    const [internalMinimized, setInternalMinimized] = useState(false);
+    const isMinimized = isControlled ? controlledMinimized : internalMinimized;
+    const setIsMinimized = isControlled ? setControlledMinimized : setInternalMinimized;
+
     const [isCancelledLocally, setIsCancelledLocally] = useState(false);
     const hadProgressRef = useRef(Boolean(progress));
 
@@ -36,14 +46,14 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
     useEffect(() => {
         const hasProg = Boolean(progress);
         if (!hasProg) {
-            setIsMinimized(false);
+            if (!isControlled) setIsMinimized(false);
             setIsCancelledLocally(false);
         } else if (!hadProgressRef.current) {
-            setIsMinimized(false);
+            if (!isControlled) setIsMinimized(false);
             setIsCancelledLocally(false);
         }
         hadProgressRef.current = hasProg;
-    }, [progress]);
+    }, [progress, isControlled, setIsMinimized]);
 
     const handleCancel = (e) => {
         if (e && e.stopPropagation) e.stopPropagation();
@@ -369,7 +379,7 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                         />
                     </div>
 
-                    {/* Top Right Controls (Minimize Button + Notification Bell & User Profile Avatar Pill) */}
+                    {/* Top Right Controls (Minimize Button) */}
                     <div className="flex items-center gap-[0.8vw]">
                         {/* Minimize Button */}
                         <button
@@ -381,23 +391,6 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                             <Minimize2 className="w-[0.9vw] h-[0.9vw]" />
                             <span>Minimize</span>
                         </button>
-
-                        {/* Notification Bell Button */}
-                        <div className="w-[2.4vw] h-[2.4vw] min-w-[2.4vw] min-h-[2.4vw] rounded-full bg-white/90 border border-gray-200/80 shadow-xs flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
-                            <Bell className="w-[1vw] h-[1vw] text-gray-600" />
-                        </div>
-
-                        {/* User Avatar Pill */}
-                        <div className="flex items-center gap-[0.5vw] py-[0.25vw] pl-[0.25vw] pr-[0.7vw] rounded-full bg-white/90 border border-gray-200/80 shadow-xs">
-                            <div className="w-[1.9vw] h-[1.9vw] rounded-full overflow-hidden bg-gradient-to-tr from-amber-700 to-amber-600 border border-amber-200 flex items-center justify-center text-white text-[0.7vw] font-semibold shadow-inner">
-                                {user?.picture ? (
-                                    <img src={user.picture} alt="Avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                    <span>{userInitial}</span>
-                                )}
-                            </div>
-                            <ChevronDown className="w-[0.8vw] h-[0.8vw] text-gray-500" />
-                        </div>
                     </div>
                 </header>
 
@@ -672,19 +665,21 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                         </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => setIsMinimized(false)}
-                            title="Expand to fullscreen"
-                            className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
-                        >
-                            <Maximize2 className="w-4 h-4" />
-                        </button>
+                        {!isDone && (
+                            <button
+                                type="button"
+                                onClick={() => setIsMinimized(false)}
+                                title="Expand to fullscreen"
+                                className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                            >
+                                <Maximize2 className="w-4 h-4" />
+                            </button>
+                        )}
                         {onCancel && (
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                title="Cancel upload"
+                                title={isDone ? "Dismiss" : "Cancel upload"}
                                 className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                             >
                                 <X className="w-4 h-4" />
@@ -716,6 +711,20 @@ const PdfProcessingLoader = ({ progress, onCancel }) => {
                     <span>{stage === 'uploading' ? 'Step 1 of 4: Uploading' : isExtracting ? 'Step 2 of 4: Extracting' : isSaving ? 'Step 3 of 4: Processing' : 'Complete'}</span>
                     <span className={`font-bold ${isVps ? 'text-[#EA580C]' : 'text-[#2563EB]'}`}>{animatedDisplayPercent}%</span>
                 </div>
+
+                {/* Open Flipbook Action Button when completed in background minimized dock */}
+                {isDone && onOpenEditor && (
+                    <motion.button
+                        type="button"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        onClick={onOpenEditor}
+                        className="mt-3 w-full py-2 px-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                    >
+                        <span>Open Flipbook in Editor</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                    </motion.button>
+                )}
             </motion.div>
         )}
         </AnimatePresence>

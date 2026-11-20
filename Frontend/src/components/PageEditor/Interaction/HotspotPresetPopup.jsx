@@ -137,9 +137,9 @@ const HotspotPresetPopup = ({ onClose, onSelectPreset }) => {
   return createPortal(
     <div 
       ref={popupRef}
-      className={`fixed right-[12vw] top-[10vh] w-[19vw] pl-[1.2vw] pt-[1.2vw] pb-[1.2vw] pr-[0.35vw] rounded-[0.8vw] bg-white shadow-[0_1vw_3vw_-0.5vw_rgba(0,0,0,0.2)] border border-gray-300 animate-in fade-in zoom-in-95 duration-200 select-none font-sans pointer-events-auto z-[99999] flex flex-col max-h-[56vh] ${isPopupDragging ? 'cursor-grabbing' : ''}`}
+      className={`fixed right-[14vw] top-1/2 w-[19vw] min-w-[280px] pl-[1.2vw] pt-[1.2vw] pb-[1.2vw] pr-[0.35vw] rounded-[0.8vw] bg-white shadow-[0_1vw_3vw_-0.5vw_rgba(0,0,0,0.2)] border border-gray-300 animate-in fade-in zoom-in-95 duration-200 select-none font-sans pointer-events-auto z-[99999] flex flex-col max-h-[56vh] ${isPopupDragging ? 'cursor-grabbing' : ''}`}
       style={{
-        transform: `translate3d(${dragPosition.x}px, ${dragPosition.y}px, 0)`,
+        transform: `translate3d(${dragPosition.x}px, calc(-50% + ${dragPosition.y}px), 0)`,
         transition: isPopupDragging ? 'none' : 'transform 0.05s ease-out'
       }}
       onClick={(e) => e.stopPropagation()}
@@ -172,7 +172,7 @@ const HotspotPresetPopup = ({ onClose, onSelectPreset }) => {
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-[2.2vw] pl-[1.8vw] pr-[0.6vw] bg-white border border-gray-300 rounded-[0.55vw] text-[0.8vw] font-medium text-gray-700 shadow-2xs hover:border-gray-400 focus:outline-none focus:border-[#4D47FF] transition-colors"
+            className="w-full h-[2.2vw] pl-[1.8vw] pr-[0.6vw] bg-white border border-gray-300 rounded-[0.55vw] text-[0.8vw] font-medium text-gray-700 shadow-2xs hover:border-gray-400 focus:outline-none focus:border-[#EC5137] transition-colors"
           />
         </div>
         {onClose && (

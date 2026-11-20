@@ -124,11 +124,11 @@ export const useCanvasElementBlink = ({ drawOverlayHighlight }) => {
           return;
         }
 
-        // Smooth squared-sine breathing wave: peaks at 0.28 (soft, gentle indigo, zero harshness)
+        // Smooth squared-sine breathing wave: peaks at 0.14 (subtle indigo, reduced from 0.28)
         const progress = Math.min(1, Math.max(0, elapsed / duration));
         const sinVal = Math.sin(progress * Math.PI * 3);
         const smoothPulse = sinVal * sinVal; // Smooth zero-tangent transitions at both top and bottom
-        const alpha = smoothPulse * 0.28;
+        const alpha = smoothPulse * 0.14;
         const fillColor = `rgba(77, 71, 255, ${alpha.toFixed(3)})`;
 
         const targets = getTargetFrames();

@@ -15,6 +15,7 @@ import { AuthModal } from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./Layouts/MainLayout";
 import ScrollToTop from "./components/ScrollToTop";
+import { DocumentUploadProvider } from "./context/DocumentUploadContext";
 
 function AuthRouteRedirect({ mode = "signin" }) {
   const { openAuthModal } = useAuth();
@@ -47,6 +48,7 @@ const Converter = lazy(() => import("./pages/Converter"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Forum = lazy(() => import("./pages/Forum"));
 const Overview = lazy(() => import("./pages/Overview"));
+const LeadFormAnalytics = lazy(() => import("./pages/LeadFormAnalytics"));
 const Guide = lazy(() => import("./pages/Guide/Guide"));
 const TermsAndConditions = lazy(() => import("./pages/LegalTerms"));
 const PrivacyPolicy = lazy(() => import("./pages/LegalPrivacy"));
@@ -69,7 +71,7 @@ const ThreedEditor = lazy(
   () => import("./components/ThreedEditor/ThreedEditor"),
 );
 
-import "./utils/preloadUtils";
+import "./utils/common/preloadUtils";
 
 // Settings Components
 const SettingsLayout = lazy(() => import("./components/Settings/SettingsLayout"));
@@ -97,9 +99,10 @@ export default function App() {
         <ModernToastProvider>
           <ConfirmationProvider>
             <Router>
-            <ScrollToTop />
-            <AuthModal />
-            <Routes>
+              <DocumentUploadProvider>
+                <ScrollToTop />
+                <AuthModal />
+                <Routes>
               {/* Direct visits to auth URLs automatically open the Auth Modal over home */}
               <Route
                 path="/login"
@@ -237,11 +240,63 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="/analytics"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <Overview />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/analytics/:bookId"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <Overview />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/lead-form"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <LeadFormAnalytics />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/lead-form/:bookId"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <LeadFormAnalytics />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/overview"
                   element={
-                    <Suspense fallback={null}>
-                      <Overview />
-                    </Suspense>
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <Overview />
+                      </Suspense>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/overview/:bookId"
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={null}>
+                        <Overview />
+                      </Suspense>
+                    </ProtectedRoute>
                   }
                 />
                 <Route
@@ -638,6 +693,7 @@ export default function App() {
               {/* Catch-all fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+          </DocumentUploadProvider>
           </Router>
           </ConfirmationProvider>
         </ModernToastProvider>

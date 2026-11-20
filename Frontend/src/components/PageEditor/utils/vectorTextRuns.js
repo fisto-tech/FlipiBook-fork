@@ -16,7 +16,9 @@ export const RUN_KEYS = [
   'textDecoration',
   'textTransform',
   'letterSpacing',
-  'backgroundColor'
+  'backgroundColor',
+  'strokeColor',
+  'strokeWidth'
 ];
 
 /**
@@ -31,6 +33,28 @@ export function normalizeStylePatch(attribute, value) {
     case 'color':
       patch.color = value;
       break;
+    case 'stroke':
+    case 'strokeColor':
+    case 'textStrokeColor':
+    case '-webkit-text-stroke-color':
+      patch.strokeColor = value;
+      break;
+    case 'strokeWidth':
+    case 'textStrokeWidth':
+    case '-webkit-text-stroke-width': {
+      let v = value;
+      if (typeof v === 'number') v = `${v}px`;
+      else {
+        const s = String(v).trim();
+        if (!s.includes('px') && !s.includes('em') && !s.includes('pt') && s !== '') {
+          v = `${s}px`;
+        } else {
+          v = s;
+        }
+      }
+      patch.strokeWidth = v;
+      break;
+    }
     case 'fontSize': {
       let v = value;
       if (typeof v === 'number') v = `${v}pt`;
@@ -136,6 +160,10 @@ export function parseHtmlToRuns(rootDiv) {
         if (s.textTransform) nextStyle.textTransform = s.textTransform;
         if (s.letterSpacing) nextStyle.letterSpacing = s.letterSpacing;
         if (s.backgroundColor) nextStyle.backgroundColor = s.backgroundColor;
+        const sColor = s.webkitTextStrokeColor || (s.getPropertyValue && s.getPropertyValue('-webkit-text-stroke-color'));
+        if (sColor) nextStyle.strokeColor = sColor;
+        const sWidth = s.webkitTextStrokeWidth || (s.getPropertyValue && s.getPropertyValue('-webkit-text-stroke-width'));
+        if (sWidth) nextStyle.strokeWidth = sWidth;
       }
 
       node.childNodes.forEach((child) => walk(child, nextStyle));
@@ -158,6 +186,10 @@ export function parseHtmlToRuns(rootDiv) {
     if (rootDiv.style.textDecoration) baseStyle.textDecoration = rootDiv.style.textDecoration;
     if (rootDiv.style.textTransform) baseStyle.textTransform = rootDiv.style.textTransform;
     if (rootDiv.style.letterSpacing) baseStyle.letterSpacing = rootDiv.style.letterSpacing;
+    const baseSColor = rootDiv.style.webkitTextStrokeColor || (rootDiv.style.getPropertyValue && rootDiv.style.getPropertyValue('-webkit-text-stroke-color'));
+    if (baseSColor) baseStyle.strokeColor = baseSColor;
+    const baseSWidth = rootDiv.style.webkitTextStrokeWidth || (rootDiv.style.getPropertyValue && rootDiv.style.getPropertyValue('-webkit-text-stroke-width'));
+    if (baseSWidth) baseStyle.strokeWidth = baseSWidth;
   }
 
   rootDiv.childNodes.forEach((child) => walk(child, baseStyle));
@@ -212,6 +244,15 @@ export function runsToHtml(chars, baseStyle = {}) {
       if (currentRunStyle.textTransform) cssRules.push(`text-transform: ${currentRunStyle.textTransform}`);
       if (currentRunStyle.letterSpacing) cssRules.push(`letter-spacing: ${currentRunStyle.letterSpacing}`);
       if (currentRunStyle.backgroundColor) cssRules.push(`background-color: ${currentRunStyle.backgroundColor}`);
+      if (currentRunStyle.strokeColor) {
+        cssRules.push(`-webkit-text-stroke-color: ${currentRunStyle.strokeColor}`);
+        if (!currentRunStyle.strokeWidth && (!baseStyle.strokeWidth || baseStyle.strokeWidth === '0px' || baseStyle.strokeWidth === '0')) {
+          cssRules.push(`-webkit-text-stroke-width: 1px`);
+        }
+      }
+      if (currentRunStyle.strokeWidth) {
+        cssRules.push(`-webkit-text-stroke-width: ${currentRunStyle.strokeWidth}`);
+      }
 
       const safeStyle = cssRules.join('; ').replace(/"/g, "'");
       html += `<span style="${safeStyle}">${escaped}</span>`;
@@ -372,10 +413,24 @@ export function applyStyleToCharacterRange(rootDiv, start, end, attribute, value
 
   const newHtml = runsToHtml(chars, baseStyle);
   rootDiv.innerHTML = newHtml;
+  // A flex-column container turns every styled <span> into its own line (breaks justify).
+  try {
+    if (typeof window !== 'undefined' && window.getComputedStyle(rootDiv).display.includes('flex')) {
+      rootDiv.style.setProperty('display', 'block', 'important');
+      rootDiv.style.removeProperty('flex-direction');
+      rootDiv.style.removeProperty('justify-content');
+    }
+  } catch { /* ignore */ }
 
-  // Restore selection on the modified range
-  rootDiv.focus();
-  setSelectionCharacterOffsets(rootDiv, s, e);
+  // Restore selection on the modified range — but don't pull focus away from a panel
+  // input / dropdown / picker the user is currently interacting with.
+  const ae = typeof document !== 'undefined' ? document.activeElement : null;
+  const userInControl = ae && ae !== rootDiv && !rootDiv.contains(ae) && ae !== document.body &&
+    (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable || ae.tagName === 'BUTTON');
+  if (!userInControl) {
+    rootDiv.focus();
+    setSelectionCharacterOffsets(rootDiv, s, e);
+  }
 
   return true;
 }
@@ -408,6 +463,9 @@ if (typeof window !== 'undefined' && !window.__vectorTextRunsTrackingInitialized
         text: offsets.text,
         timestamp: Date.now()
       };
+      // Durable copy: survives the end of inline editing (panel / color-picker interactions)
+      // and is only cleared when the user presses on the canvas again.
+      window.__lastTextSelection = { ...window.__savedTextSelection };
     }
   };
 

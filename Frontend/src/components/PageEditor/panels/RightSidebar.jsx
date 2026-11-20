@@ -680,7 +680,9 @@ const RightSidebar = ({
           (!el.getAttribute('data-is-image-group') && !el.getAttribute('data-is-video-group') && !el.getAttribute('data-is-gif-group') && dataType !== 'icon' && lowerDataName !== 'icon' && !lowerId.includes('icon'))
         ) && el.getAttribute('data-is-image-group') !== 'true' && el.getAttribute('data-is-video-group') !== 'true' && el.getAttribute('data-is-gif-group') !== 'true' && dataType !== 'icon' && lowerDataName !== 'icon' && !lowerId.includes('icon');
 
-        const isElementShape = el.getAttribute('data-is-element-shape') === 'true' ||
+        // A real group (Group / Ctrl+G) that merely CONTAINS shapes must show Group Properties
+        const isExplicitGroup = lowerTagName === 'g' && (dataType === 'group' || el.getAttribute('data-type') === 'group' || lowerId.startsWith('group-'));
+        const isElementShape = !isExplicitGroup && (el.getAttribute('data-is-element-shape') === 'true' ||
           el.getAttribute('data-shape-type') !== null ||
           el.getAttribute('data-type') === 'shape' ||
           el.getAttribute('data-type') === 'vector-path' ||
@@ -698,7 +700,7 @@ const RightSidebar = ({
             el.querySelector('[data-shape-type]') !== null ||
             el.querySelector('[data-type="shape"]') !== null ||
             el.querySelector('[data-type="vector-path"]') !== null
-          ));
+          )));
 
         const isImage = !isUserGroup && !isElementShape && el.getAttribute('data-type') !== 'vector-path' && (lowerTagName.includes('image') ||
           lowerTagName === 'img' ||

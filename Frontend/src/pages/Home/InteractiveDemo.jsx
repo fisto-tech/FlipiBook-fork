@@ -101,29 +101,29 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
   const themeColor = activeModalBook?.isDress
     ? '#362517'
     : activeModalBook?.isHospital
-    ? '#2A6790'
-    : activeModalBook?.isCompany
-    ? '#684919'
-    : '#062232';
+      ? '#2A6790'
+      : activeModalBook?.isCompany
+        ? '#684919'
+        : '#062232';
   const activePages = activeModalBook?.isFood
     ? foodPages
     : activeModalBook?.isDress
-    ? dressPages
-    : activeModalBook?.isHospital
-    ? hospitalPages
-    : activeModalBook?.isTravel
-    ? travelPages
-    : activeModalBook?.isCompany
-    ? companyPages
-    : defaultPages;
+      ? dressPages
+      : activeModalBook?.isHospital
+        ? hospitalPages
+        : activeModalBook?.isTravel
+          ? travelPages
+          : activeModalBook?.isCompany
+            ? companyPages
+            : defaultPages;
 
   const totalSteps = activeModalBook?.isFood
     ? 5
     : (activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany)
-    ? 4
-    : activePages.length === 8
-    ? 5
-    : 3;
+      ? 4
+      : activePages.length === 8
+        ? 5
+        : 3;
 
   // Build step-based spreads for thumbnail tray (cover = single page, open spreads = two pages side-by-side in one card)
   const spreads = React.useMemo(() => {
@@ -183,7 +183,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
   useEffect(() => {
     if (activeModalBook && !isMuted) {
       if (bgAudioRef.current) {
-        bgAudioRef.current.play().catch(() => {});
+        bgAudioRef.current.play().catch(() => { });
       }
     } else {
       if (bgAudioRef.current) {
@@ -199,7 +199,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
         if (next) {
           bgAudioRef.current.pause();
         } else if (activeModalBook) {
-          bgAudioRef.current.play().catch(() => {});
+          bgAudioRef.current.play().catch(() => { });
         }
       }
       return next;
@@ -209,7 +209,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
   const playFlipSound = useCallback(() => {
     if (!isMuted && modalAudioRef.current) {
       modalAudioRef.current.currentTime = 0;
-      modalAudioRef.current.play().catch(() => {});
+      modalAudioRef.current.play().catch(() => { });
     }
   }, [isMuted]);
 
@@ -317,13 +317,13 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
     const elem = modalContainerRef.current || document.documentElement;
     if (!document.fullscreenElement) {
       if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(() => {});
+        elem.requestFullscreen().catch(() => { });
       } else if (elem.webkitRequestFullscreen) {
         elem.webkitRequestFullscreen();
       }
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       }
     }
   }, []);
@@ -425,7 +425,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       setModalCoverState('front');
       if (playIntervalRef.current) clearInterval(playIntervalRef.current);
       if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       }
     } else {
       setModalActiveStep(1);
@@ -475,7 +475,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
   const books = [
     {
       id: 0,
-      title: "Beyond The",
+      title: "Beyond the",
       subtitle: "Plate",
       cover: demoBook1,
       isFood: true,
@@ -483,35 +483,35 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
     },
     {
       id: 1,
-      title: "Beyond",
-      subtitle: "Horizons",
+      title: "Fashion",
+      subtitle: "Collection",
       cover: demoBook2,
       isDress: true,
-      headerTitle: "FASHION PRODUCTS",
+      headerTitle: "FASHION COLLECTION",
     },
     {
       id: 2,
-      title: "Design",
-      subtitle: "Essential",
-      cover: demoBook3,
-      isHospital: true,
-      headerTitle: "HOSPITAL PRODUCTS",
+      title: "Explore",
+      subtitle: "Travel",
+      cover: demoBook4,
+      isTravel: true,
+      headerTitle: "EXPLORE TRAVEL",
     },
     {
       id: 3,
-      title: "Future",
-      subtitle: "Forward",
-      cover: demoBook4,
-      isTravel: true,
-      headerTitle: "TRAVEL STORIES",
+      title: "Medical",
+      subtitle: "Solutions",
+      cover: demoBook3,
+      isHospital: true,
+      headerTitle: "MEDICAL SOLUTIONS",
     },
     {
       id: 4,
-      title: "Culinary",
-      subtitle: "Stories",
+      title: "Beyond",
+      subtitle: "Machinery",
       cover: demoBook5,
       isCompany: true,
-      headerTitle: "COMPANY BROCHURE",
+      headerTitle: "BEYOND MACHINERY",
     }
   ];
 
@@ -522,10 +522,10 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
       transition={{ duration: 0.6 }}
       id="interactive-demo-section"
-      className="w-full bg-[#f6f6f6] pt-8 pb-10 sm:pt-10 sm:pb-14 lg:pt-[2.6vw] lg:pb-[3.5vw] px-6 sm:px-8 md:px-10 lg:px-[4.2vw] font-poppins select-none [--book-shadow:2px_4px_7px_rgba(0,0,0,0.18)] sm:[--book-shadow:4px_7px_12px_rgba(0,0,0,0.22)] lg:[--book-shadow:8px_14px_20px_rgba(0,0,0,0.28)] [--book-shadow-hover:4px_6px_10px_rgba(0,0,0,0.24)] sm:[--book-shadow-hover:6px_10px_16px_rgba(0,0,0,0.28)] lg:[--book-shadow-hover:10px_18px_24px_rgba(0,0,0,0.36)]"
+      className="w-full bg-[#f6f6f6] pt-5 pb-6 sm:pt-6 sm:pb-8 lg:pt-[1.5vw] lg:pb-[1.8vw] px-6 sm:px-8 md:px-10 lg:px-[4.2vw] font-poppins select-none [--book-shadow:2px_4px_7px_rgba(0,0,0,0.18)] sm:[--book-shadow:4px_7px_12px_rgba(0,0,0,0.22)] lg:[--book-shadow:8px_14px_20px_rgba(0,0,0,0.28)] [--book-shadow-hover:4px_6px_10px_rgba(0,0,0,0.24)] sm:[--book-shadow-hover:6px_10px_16px_rgba(0,0,0,0.28)] lg:[--book-shadow-hover:10px_18px_24px_rgba(0,0,0,0.36)]"
     >
       <div className="w-full mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 sm:gap-8 lg:gap-[4.2vw]">
-        
+
         {/* Left Column: Heading, Subtitle & Description (Left-aligned like About Us) */}
         <div
           className="w-full lg:w-[24%] flex flex-col text-left items-start shrink-0"
@@ -550,11 +550,11 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
             transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="text-[32px] xs:text-[36px] sm:text-[44px] md:text-[48px] lg:text-[2.6vw] font-bold text-[#202227] leading-[1.25] sm:leading-[1.2] md:leading-[1.18] lg:leading-[3.5vw] tracking-tight text-left"
+            className="text-[32px] xs:text-[36px] sm:text-[44px] md:text-[48px] lg:text-[2.6vw] font-bold text-[#202227] leading-[1.08] sm:leading-[1.05] md:leading-[1.05] lg:leading-[1.1] tracking-tight text-left"
           >
             <span>Explore</span> <br />
-            <span>Interactive</span> <br />
-            <span className="text-[#ED5B43]">Demo Books</span>
+            <span className="text-[#ED5B43]">Demo</span> <br />
+            <span>Books</span>
           </motion.h2>
 
           {/* Thin Divider Line */}
@@ -572,9 +572,9 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
             transition={{ duration: 0.85, delay: 0.42, ease: [0.22, 1, 0.36, 1] }}
-            className="text-[12px] sm:text-[13.5px] md:text-[14px] lg:text-[0.82vw] text-[#6d7178] font-normal leading-[165%] text-justify w-full max-w-full sm:max-w-[480px] lg:max-w-[17vw]"
+            className="text-[12px] sm:text-[13px] md:text-[13.5px] lg:text-[0.8vw] text-[#6d7178] font-normal leading-[165%] text-left w-full max-w-full sm:max-w-[480px] lg:max-w-[18vw]"
           >
-            Explore our interactive digital catalogue demos. Turn the pages, watch product videos, and rotate 3D models to see products from different angles. Discover how FlipiBook helps customers understand what you sell.
+            Explore interactive demo catalogues featuring realistic page flips, videos, and 3D experiences. Discover how FlipiBook brings digital content to life.
           </motion.p>
 
           {/* CTA Button: Explore Demo Catalogues */}
@@ -604,6 +604,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
           <div className="w-full flex items-start justify-center gap-4 sm:gap-6 md:contents">
             {books.slice(0, 3).map((book, idx) => {
               const isHovered = selectedBook === idx;
+              const isFirstBook = idx === 0;
               return (
                 <motion.div
                   key={book.id}
@@ -614,18 +615,17 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                   onMouseEnter={() => setSelectedBook(idx)}
                   onMouseLeave={() => setSelectedBook(null)}
                   onClick={() => setActiveModalBook(book)}
-                  className="flex flex-col items-center flex-1 max-w-[120px] xs:max-w-[135px] sm:max-w-[160px] md:max-w-[195px] lg:max-w-[215px] xl:max-w-[230px] cursor-pointer group transition-all duration-300"
+                  className="flex flex-col items-center flex-1 max-w-[85px] xs:max-w-[100px] sm:max-w-[115px] md:max-w-[135px] lg:max-w-[145px] xl:max-w-[155px] cursor-pointer group transition-all duration-300"
                 >
                   <div className="relative w-full flex flex-col items-center">
                     <div
-                      className={`relative z-10 w-full flex items-center justify-center transition-transform duration-300 transform ${
-                        isHovered ? '-translate-y-1.5 sm:-translate-y-2 scale-[1.025]' : 'hover:-translate-y-1'
-                      }`}
+                      className={`relative z-10 w-full flex items-center justify-center transition-transform duration-300 transform ${isHovered ? '-translate-y-1.5 sm:-translate-y-2 scale-[1.025]' : 'hover:-translate-y-1'
+                        }`}
                     >
                       <img
                         src={book.cover}
                         alt={`${book.title} ${book.subtitle}`}
-                        className="w-full max-w-[115px] xs:max-w-[128px] sm:max-w-[150px] md:max-w-full h-auto aspect-[595/842] object-contain select-none pointer-events-none rounded-[3px] border border-black/[0.08] transition-all duration-300"
+                        className="w-full max-w-[80px] xs:max-w-[95px] sm:max-w-[110px] md:max-w-[130px] lg:max-w-[140px] xl:max-w-[150px] h-auto aspect-[595/842] object-contain select-none pointer-events-none rounded-[3px] border border-black/[0.08] transition-all duration-300"
                         style={{
                           filter: isHovered
                             ? 'drop-shadow(var(--book-shadow-hover, 5px 8px 12px rgba(0, 0, 0, 0.28)))'
@@ -635,11 +635,11 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
                   </div>
 
-                  <div className="mt-2 sm:mt-3 md:mt-4 lg:mt-[1.2vw] text-center select-none flex flex-col items-center w-full px-0.5">
-                    <h4 className="text-[11.5px] sm:text-[13.5px] md:text-[15px] lg:text-[1.05vw] font-semibold text-[#2c2f35] tracking-tight sm:tracking-wide leading-tight sm:leading-snug truncate max-w-full">
+                  <div className="mt-2 sm:mt-2.5 md:mt-3 lg:mt-[0.7vw] text-center select-none flex flex-col items-center w-full px-0.5">
+                    <h4 className="text-[10.5px] sm:text-[11.5px] md:text-[12.5px] lg:text-[0.82vw] font-semibold text-[#2c2f35] tracking-tight sm:tracking-wide leading-tight sm:leading-snug truncate max-w-full">
                       {book.title}
                     </h4>
-                    <p className="text-[10px] sm:text-[12px] md:text-[13px] lg:text-[0.9vw] font-normal text-[#5a5e65] tracking-tight sm:tracking-wide leading-tight sm:leading-snug mt-0.5 truncate max-w-full">
+                    <p className="text-[9px] sm:text-[10px] md:text-[11px] lg:text-[0.72vw] font-normal text-[#5a5e65] tracking-tight sm:tracking-wide leading-tight sm:leading-snug mt-0.5 truncate max-w-full">
                       {book.subtitle}
                     </p>
                   </div>
@@ -663,18 +663,17 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                   onMouseEnter={() => setSelectedBook(idx)}
                   onMouseLeave={() => setSelectedBook(null)}
                   onClick={() => setActiveModalBook(book)}
-                  className="flex flex-col items-center flex-1 max-w-[120px] xs:max-w-[135px] sm:max-w-[160px] md:max-w-[195px] lg:max-w-[215px] xl:max-w-[230px] cursor-pointer group transition-all duration-300"
+                  className="flex flex-col items-center flex-1 max-w-[85px] xs:max-w-[100px] sm:max-w-[115px] md:max-w-[135px] lg:max-w-[145px] xl:max-w-[155px] cursor-pointer group transition-all duration-300"
                 >
                   <div className="relative w-full flex flex-col items-center">
                     <div
-                      className={`relative z-10 w-full flex items-center justify-center transition-transform duration-300 transform ${
-                        isHovered ? '-translate-y-1.5 sm:-translate-y-2 scale-[1.025]' : 'hover:-translate-y-1'
-                      }`}
+                      className={`relative z-10 w-full flex items-center justify-center transition-transform duration-300 transform ${isHovered ? '-translate-y-1.5 sm:-translate-y-2 scale-[1.025]' : 'hover:-translate-y-1'
+                        }`}
                     >
                       <img
                         src={book.cover}
                         alt={`${book.title} ${book.subtitle}`}
-                        className="w-full max-w-[115px] xs:max-w-[128px] sm:max-w-[150px] md:max-w-full h-auto aspect-[595/842] object-contain select-none pointer-events-none rounded-[3px] border border-black/[0.08] transition-all duration-300"
+                        className="w-full max-w-[80px] xs:max-w-[95px] sm:max-w-[110px] md:max-w-[130px] lg:max-w-[140px] xl:max-w-[150px] h-auto aspect-[595/842] object-contain select-none pointer-events-none rounded-[3px] border border-black/[0.08] transition-all duration-300"
                         style={{
                           filter: isHovered
                             ? 'drop-shadow(var(--book-shadow-hover, 5px 8px 12px rgba(0, 0, 0, 0.28)))'
@@ -684,11 +683,11 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
                   </div>
 
-                  <div className="mt-2 sm:mt-3 md:mt-4 lg:mt-[1.2vw] text-center select-none flex flex-col items-center w-full px-0.5">
-                    <h4 className="text-[11.5px] sm:text-[13.5px] md:text-[15px] lg:text-[1.05vw] font-semibold text-[#2c2f35] tracking-tight sm:tracking-wide leading-tight sm:leading-snug truncate max-w-full">
+                  <div className="mt-2 sm:mt-2.5 md:mt-3 lg:mt-[0.7vw] text-center select-none flex flex-col items-center w-full px-0.5">
+                    <h4 className="text-[10.5px] sm:text-[11.5px] md:text-[12.5px] lg:text-[0.82vw] font-semibold text-[#2c2f35] tracking-tight sm:tracking-wide leading-tight sm:leading-snug truncate max-w-full">
                       {book.title}
                     </h4>
-                    <p className="text-[10px] sm:text-[12px] md:text-[13px] lg:text-[0.9vw] font-normal text-[#5a5e65] tracking-tight sm:tracking-wide leading-tight sm:leading-snug mt-0.5 truncate max-w-full">
+                    <p className="text-[9px] sm:text-[10px] md:text-[11px] lg:text-[0.72vw] font-normal text-[#5a5e65] tracking-tight sm:tracking-wide leading-tight sm:leading-snug mt-0.5 truncate max-w-full">
                       {book.subtitle}
                     </p>
                   </div>
@@ -704,7 +703,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       <AnimatePresence>
         {activeModalBook && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pt-16 sm:pt-20 bg-black/60 backdrop-blur-sm"
+            className={`fixed inset-0 z-50 flex items-center justify-center ${isFullScreen ? 'p-0' : 'p-[2vw] pt-[7vh]'} bg-black/60 backdrop-blur-sm`}
             onClick={() => setActiveModalBook(null)}
           >
             <motion.div
@@ -716,41 +715,40 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
               style={
                 activeModalBook?.isFood
                   ? {
-                      backgroundImage: `url(${foodbg})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }
+                    backgroundImage: `url(${foodbg})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
                   : activeModalBook?.isDress
-                  ? {
+                    ? {
                       backgroundImage: `url(${dressbg})`,
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
                     }
-                  : activeModalBook?.isHospital
-                  ? {
-                      backgroundImage: `url(${hospitalbg})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }
-                  : activeModalBook?.isTravel
-                  ? {
-                      backgroundImage: `url(${travelbg})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }
-                  : activeModalBook?.isCompany
-                  ? {
-                      backgroundImage: `url(${companybg})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }
-                  : {}
+                    : activeModalBook?.isHospital
+                      ? {
+                        backgroundImage: `url(${hospitalbg})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }
+                      : activeModalBook?.isTravel
+                        ? {
+                          backgroundImage: `url(${travelbg})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }
+                        : activeModalBook?.isCompany
+                          ? {
+                            backgroundImage: `url(${companybg})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                          }
+                          : {}
               }
-              className={`relative w-full ${
-                isFullScreen
+              className={`relative w-full ${isFullScreen
                   ? 'max-w-none w-screen h-screen max-h-none rounded-none p-0'
-                  : 'max-w-5xl xl:max-w-6xl rounded-2xl shadow-2xl p-0 h-[88vh] max-h-[88vh]'
-              } bg-white flex flex-col items-center justify-between overflow-hidden`}
+                  : 'max-w-[74vw] xl:max-w-[70vw] rounded-2xl shadow-2xl p-0 h-[84vh] max-h-[86vh]'
+                } bg-white flex flex-col items-center justify-between overflow-hidden`}
               onClick={(e) => {
                 e.stopPropagation();
                 // Close thumbnails when clicking background area of modal
@@ -806,15 +804,14 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                   type="button"
                   onClick={flipPrev}
                   disabled={modalActiveStep <= 1}
-                  className={`absolute left-1 sm:left-3 z-20 flex items-center justify-center transition-all cursor-pointer ${
-                    isCustomBook
+                  className={`absolute left-1 sm:left-3 z-20 flex items-center justify-center transition-all cursor-pointer ${isCustomBook
                       ? modalActiveStep <= 1
                         ? 'cursor-not-allowed opacity-30'
                         : 'hover:scale-110 active:scale-95'
                       : modalActiveStep <= 1
-                      ? 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-40 w-10 h-10 sm:w-11 sm:h-11 rounded-full'
-                      : 'bg-white hover:bg-gray-50 text-gray-800 hover:text-[#EC5137] hover:scale-105 active:scale-95 w-10 h-10 sm:w-11 sm:h-11 rounded-full shadow-md'
-                  }`}
+                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-40 w-10 h-10 sm:w-11 sm:h-11 rounded-full'
+                        : 'bg-white hover:bg-gray-50 text-gray-800 hover:text-[#EC5137] hover:scale-105 active:scale-95 w-10 h-10 sm:w-11 sm:h-11 rounded-full shadow-md'
+                    }`}
                   style={isCustomBook ? { color: themeColor } : undefined}
                   aria-label="Previous Page"
                 >
@@ -830,23 +827,21 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                 {/* Flipbook Canvas */}
                 <div
-                  className={`relative mx-auto aspect-[420/297] flex items-center justify-center ${
-                    isFullScreen
-                      ? 'w-full max-w-[820px] sm:max-w-[860px] xl:max-w-[900px]'
-                      : 'w-full max-w-[640px] sm:max-w-[700px] xl:max-w-[760px]'
-                  }`}
+                  className={`relative mx-auto aspect-[420/297] flex items-center justify-center ${isFullScreen
+                      ? 'w-auto h-[82vh] max-w-[95vw]'
+                      : 'w-auto h-[62vh] max-h-[64vh] max-w-[80vw]'
+                    }`}
                 >
                   <div
                     key={`${activeModalBook?.id || 'modal-book'}-${isFullScreen ? 'fullscreen' : 'modal'}`}
-                    className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${
-                      isCustomBook || activePages.length === 8
+                    className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${isCustomBook || activePages.length === 8
                         ? modalCoverState === 'front'
                           ? '-translate-x-[25%]'
                           : modalCoverState === 'back'
-                          ? 'translate-x-[25%]'
-                          : 'translate-x-0'
+                            ? 'translate-x-[25%]'
+                            : 'translate-x-0'
                         : 'translate-x-0'
-                    }`}
+                      }`}
                   >
                     <HTMLFlipBook
                       width={595}
@@ -869,8 +864,8 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                         activeModalBook?.isFood
                           ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : modalActiveStep === 4 ? 5 : 7
                           : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany
-                          ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : 5
-                          : 0
+                            ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : 5
+                            : 0
                       }
                       className="w-full h-full mx-auto"
                     >
@@ -893,15 +888,14 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                   type="button"
                   onClick={flipNext}
                   disabled={modalActiveStep >= totalSteps}
-                  className={`absolute right-1 sm:right-3 z-20 flex items-center justify-center transition-all cursor-pointer ${
-                    isCustomBook
+                  className={`absolute right-1 sm:right-3 z-20 flex items-center justify-center transition-all cursor-pointer ${isCustomBook
                       ? modalActiveStep >= totalSteps
                         ? 'cursor-not-allowed opacity-30'
                         : 'hover:scale-110 active:scale-95'
                       : modalActiveStep >= totalSteps
-                      ? 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-40 w-10 h-10 sm:w-11 sm:h-11 rounded-full'
-                      : 'bg-white hover:bg-gray-50 text-gray-800 hover:text-[#EC5137] hover:scale-105 active:scale-95 w-10 h-10 sm:w-11 sm:h-11 rounded-full shadow-md'
-                  }`}
+                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-40 w-10 h-10 sm:w-11 sm:h-11 rounded-full'
+                        : 'bg-white hover:bg-gray-50 text-gray-800 hover:text-[#EC5137] hover:scale-105 active:scale-95 w-10 h-10 sm:w-11 sm:h-11 rounded-full shadow-md'
+                    }`}
                   style={isCustomBook ? { color: themeColor } : undefined}
                   aria-label="Next Page"
                 >
@@ -919,107 +913,210 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
               {/* Bottom Controls Bar */}
               {isCustomBook ? (
                 <div className="w-full relative z-30">
-                  {/* Floating Page Thumbnails Carousel (Positioned in Center above Bottom Bar) */}
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className={`absolute bottom-full left-0 w-full flex justify-center px-4 pb-2 transition-all duration-300 ease-in-out ${
-                      showThumbnails ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-3 pointer-events-none'
-                    }`}
-                  >
-                    <div className="bg-[#5c5c5c]/90 backdrop-blur-md rounded-2xl shadow-2xl p-2 sm:p-2.5 flex items-center gap-2 max-w-full border border-white/10">
-                      {/* Left scroll chevron */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (thumbCarouselRef.current) {
-                            thumbCarouselRef.current.scrollBy({ left: -140, behavior: 'smooth' });
-                          }
-                        }}
-                        className="p-1 rounded-full bg-white/15 hover:bg-white/30 text-white shadow-xs transition-all cursor-pointer shrink-0"
-                        title="Scroll thumbnails left"
-                      >
-                        <Icon icon="lucide:chevron-left" className="w-4 h-4 stroke-[2.5]" />
-                      </button>
+                  {/* Dress & Travel Collections: Vertical 2-Column Sidebar Drawer (Grid6 style matching Screenshot 2) */}
+                  {(activeModalBook?.isDress || activeModalBook?.isTravel) ? (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className={`absolute bottom-full left-3 sm:left-6 pb-2 transition-all duration-300 ease-in-out z-50 ${
+                        showThumbnails
+                          ? 'opacity-100 translate-y-0 pointer-events-auto'
+                          : 'opacity-0 translate-y-3 pointer-events-none'
+                      }`}
+                    >
+                      <div className="w-64 sm:w-72 bg-white/70 backdrop-blur-xl rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-white/60 p-3 flex flex-col max-h-[65vh]">
+                        {/* Drawer Header */}
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-black/10">
+                          <span className="text-xs sm:text-sm font-bold text-gray-800 tracking-tight">Thumbnails</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowThumbnails(false)}
+                            className="p-1 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                            aria-label="Close thumbnails"
+                          >
+                            <Icon icon="lucide:x" className="w-4 h-4" />
+                          </button>
+                        </div>
 
-                      {/* Thumbnails list */}
-                      <div
-                        ref={thumbCarouselRef}
-                        className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto py-0.5 px-1 scroll-smooth max-w-[80vw] sm:max-w-[700px]"
-                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                      >
-                        {spreads.map((spread, idx) => {
-                          const isActive = modalActiveStep === spread.step;
-                          const isDouble = spread.pages.length === 2;
+                        {/* 2-Column Staggered Grid Spreads */}
+                        <div className="flex-1 overflow-y-auto pr-1 flex gap-2 custom-scrollbar" style={{ scrollbarWidth: 'thin' }}>
+                          {/* Left Column (Page 1, Page 4-5) */}
+                          <div className="flex-1 flex flex-col gap-2">
+                            {spreads.filter((_, i) => i % 2 === 0).map((spread, idx) => {
+                              const isActive = modalActiveStep === spread.step;
+                              const isDouble = spread.pages.length === 2;
+                              return (
+                                <button
+                                  key={`l-${idx}`}
+                                  type="button"
+                                  onClick={() => flipToStep(spread.step)}
+                                  className={`w-full bg-white rounded-lg p-1.5 flex flex-col items-center border transition-all duration-200 cursor-pointer text-left ${
+                                    isActive
+                                      ? 'shadow-md ring-2 scale-[1.02]'
+                                      : 'border-gray-200 hover:border-gray-300 hover:shadow-xs hover:scale-[1.01]'
+                                  }`}
+                                  style={isActive ? { borderColor: themeColor, outlineColor: themeColor } : undefined}
+                                >
+                                  <div className="w-full aspect-[420/297] rounded bg-gray-50 overflow-hidden flex items-center justify-center border border-black/5">
+                                    {isDouble ? (
+                                      <div className="w-full h-full flex">
+                                        <img src={spread.pages[0]} alt="left" className="w-1/2 h-full object-cover select-none pointer-events-none" />
+                                        <img src={spread.pages[1]} alt="right" className="w-1/2 h-full object-cover select-none pointer-events-none border-l border-black/10" />
+                                      </div>
+                                    ) : (
+                                      <img src={spread.pages[0]} alt="cover" className="h-full aspect-[595/842] object-contain select-none pointer-events-none shadow-2xs" />
+                                    )}
+                                  </div>
+                                  <span
+                                    className={`text-[10px] font-medium mt-1.5 leading-none ${isActive ? 'font-bold' : 'text-gray-600'}`}
+                                    style={isActive ? { color: themeColor } : undefined}
+                                  >
+                                    {spread.label}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
 
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                flipToStep(spread.step);
-                              }}
-                              className={`relative flex-shrink-0 group flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all duration-200 cursor-pointer ${
-                                isActive
-                                  ? 'bg-white shadow-md ring-2 ring-white scale-102'
-                                  : 'bg-white/40 hover:bg-white/70 hover:scale-101 opacity-75 hover:opacity-100'
-                              }`}
-                              title={`Jump to ${spread.label}`}
-                            >
-                              <div className="w-20 sm:w-24 h-14 sm:h-16 rounded-md overflow-hidden bg-white shadow-xs border border-black/10 flex items-center justify-center">
-                                {isDouble ? (
-                                  <div className="w-full h-full flex items-center">
-                                    <div className="w-1/2 h-full border-r border-black/10 overflow-hidden">
+                          {/* Right Column (Page 2-3, Page 6) */}
+                          <div className="flex-1 flex flex-col gap-2 pt-4">
+                            {spreads.filter((_, i) => i % 2 !== 0).map((spread, idx) => {
+                              const isActive = modalActiveStep === spread.step;
+                              const isDouble = spread.pages.length === 2;
+                              return (
+                                <button
+                                  key={`r-${idx}`}
+                                  type="button"
+                                  onClick={() => flipToStep(spread.step)}
+                                  className={`w-full bg-white rounded-lg p-1.5 flex flex-col items-center border transition-all duration-200 cursor-pointer text-left ${
+                                    isActive
+                                      ? 'shadow-md ring-2 scale-[1.02]'
+                                      : 'border-gray-200 hover:border-gray-300 hover:shadow-xs hover:scale-[1.01]'
+                                  }`}
+                                  style={isActive ? { borderColor: themeColor, outlineColor: themeColor } : undefined}
+                                >
+                                  <div className="w-full aspect-[420/297] rounded bg-gray-50 overflow-hidden flex items-center justify-center border border-black/5">
+                                    {isDouble ? (
+                                      <div className="w-full h-full flex">
+                                        <img src={spread.pages[0]} alt="left" className="w-1/2 h-full object-cover select-none pointer-events-none" />
+                                        <img src={spread.pages[1]} alt="right" className="w-1/2 h-full object-cover select-none pointer-events-none border-l border-black/10" />
+                                      </div>
+                                    ) : (
+                                      <img src={spread.pages[0]} alt="cover" className="h-full aspect-[595/842] object-contain select-none pointer-events-none shadow-2xs" />
+                                    )}
+                                  </div>
+                                  <span
+                                    className={`text-[10px] font-medium mt-1.5 leading-none ${isActive ? 'font-bold' : 'text-gray-600'}`}
+                                    style={isActive ? { color: themeColor } : undefined}
+                                  >
+                                    {spread.label}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Floating Page Thumbnails Carousel for other books */
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className={`absolute bottom-full left-0 w-full flex justify-center px-4 pb-2 transition-all duration-300 ease-in-out ${showThumbnails ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-3 pointer-events-none'
+                        }`}
+                    >
+                      <div className="bg-[#5c5c5c]/90 backdrop-blur-md rounded-2xl shadow-2xl p-2 sm:p-2.5 flex items-center gap-2 max-w-full border border-white/10">
+                        {/* Left scroll chevron */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (thumbCarouselRef.current) {
+                              thumbCarouselRef.current.scrollBy({ left: -140, behavior: 'smooth' });
+                            }
+                          }}
+                          className="p-1 rounded-full bg-white/15 hover:bg-white/30 text-white shadow-xs transition-all cursor-pointer shrink-0"
+                          title="Scroll thumbnails left"
+                        >
+                          <Icon icon="lucide:chevron-left" className="w-4 h-4 stroke-[2.5]" />
+                        </button>
+
+                        {/* Thumbnails list */}
+                        <div
+                          ref={thumbCarouselRef}
+                          className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto py-0.5 px-1 scroll-smooth max-w-[80vw] sm:max-w-[700px]"
+                          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                        >
+                          {spreads.map((spread, idx) => {
+                            const isActive = modalActiveStep === spread.step;
+                            const isDouble = spread.pages.length === 2;
+
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  flipToStep(spread.step);
+                                }}
+                                className={`relative flex-shrink-0 group flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all duration-200 cursor-pointer ${isActive
+                                    ? 'bg-white shadow-md ring-2 ring-white scale-102'
+                                    : 'bg-white/40 hover:bg-white/70 hover:scale-101 opacity-75 hover:opacity-100'
+                                  }`}
+                                title={`Jump to ${spread.label}`}
+                              >
+                                <div className="w-20 sm:w-24 h-14 sm:h-16 rounded-md overflow-hidden bg-white shadow-xs border border-black/10 flex items-center justify-center">
+                                  {isDouble ? (
+                                    <div className="w-full h-full flex items-center">
+                                      <div className="w-1/2 h-full border-r border-black/10 overflow-hidden">
+                                        <img
+                                          src={spread.pages[0]}
+                                          alt={`${spread.label} left`}
+                                          className="w-full h-full object-cover select-none pointer-events-none"
+                                        />
+                                      </div>
+                                      <div className="w-1/2 h-full overflow-hidden">
+                                        <img
+                                          src={spread.pages[1]}
+                                          alt={`${spread.label} right`}
+                                          className="w-full h-full object-cover select-none pointer-events-none"
+                                        />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gray-100/60">
                                       <img
                                         src={spread.pages[0]}
-                                        alt={`${spread.label} left`}
-                                        className="w-full h-full object-cover select-none pointer-events-none"
+                                        alt={spread.label}
+                                        className="h-full aspect-[595/842] object-contain shadow-xs border border-black/10 select-none pointer-events-none"
                                       />
                                     </div>
-                                    <div className="w-1/2 h-full overflow-hidden">
-                                      <img
-                                        src={spread.pages[1]}
-                                        alt={`${spread.label} right`}
-                                        className="w-full h-full object-cover select-none pointer-events-none"
-                                      />
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-gray-100/60">
-                                    <img
-                                      src={spread.pages[0]}
-                                      alt={spread.label}
-                                      className="h-full aspect-[595/842] object-contain shadow-xs border border-black/10 select-none pointer-events-none"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                              <span
-                                className={`text-[9px] sm:text-[10px] font-semibold leading-none pt-0.5 ${
-                                  isActive ? 'text-gray-900 font-bold' : 'text-white'
-                                }`}
-                              >
-                                {spread.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                                  )}
+                                </div>
+                                <span
+                                  className={`text-[9px] sm:text-[10px] font-semibold leading-none pt-0.5 ${isActive ? 'text-gray-900 font-bold' : 'text-white'
+                                    }`}
+                                >
+                                  {spread.label}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
 
-                      {/* Right scroll chevron */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (thumbCarouselRef.current) {
-                            thumbCarouselRef.current.scrollBy({ left: 140, behavior: 'smooth' });
-                          }
-                        }}
-                        className="p-1 rounded-full bg-white/15 hover:bg-white/30 text-white shadow-xs transition-all cursor-pointer shrink-0"
-                        title="Scroll thumbnails right"
-                      >
-                        <Icon icon="lucide:chevron-right" className="w-4 h-4 stroke-[2.5]" />
-                      </button>
+                        {/* Right scroll chevron */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (thumbCarouselRef.current) {
+                              thumbCarouselRef.current.scrollBy({ left: 140, behavior: 'smooth' });
+                            }
+                          }}
+                          className="p-1 rounded-full bg-white/15 hover:bg-white/30 text-white shadow-xs transition-all cursor-pointer shrink-0"
+                          title="Scroll thumbnails right"
+                        >
+                          <Icon icon="lucide:chevron-right" className="w-4 h-4 stroke-[2.5]" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Dark Bottom Bar */}
                   <div className="w-full bg-[#424242] border-t border-white/10 px-3 sm:px-5 py-2.5 flex items-center justify-between text-white/90">
@@ -1028,9 +1125,8 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                       <button
                         type="button"
                         onClick={() => setShowThumbnails((prev) => !prev)}
-                        className={`p-1.5 rounded-md hover:bg-white/15 transition-all cursor-pointer ${
-                          showThumbnails ? 'bg-white/20 text-white' : 'text-white/80'
-                        }`}
+                        className={`p-1.5 rounded-md hover:bg-white/15 transition-all cursor-pointer ${showThumbnails ? 'bg-white/20 text-white' : 'text-white/80'
+                          }`}
                         title={showThumbnails ? "Hide thumbnails" : "Show thumbnails"}
                       >
                         <Icon icon="lucide:layout-grid" className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1105,20 +1201,20 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                           modalActiveStep === 1
                             ? "01 / 06"
                             : modalActiveStep === 2
-                            ? "02 / 06"
-                            : modalActiveStep === 3
-                            ? "04 / 06"
-                            : "06 / 06"
+                              ? "02 / 06"
+                              : modalActiveStep === 3
+                                ? "04 / 06"
+                                : "06 / 06"
                         ) : activePages.length === 8 ? (
                           modalActiveStep === 1
                             ? "01 / 08"
                             : modalActiveStep === 2
-                            ? "02 / 08"
-                            : modalActiveStep === 3
-                            ? "04 / 08"
-                            : modalActiveStep === 4
-                            ? "06 / 08"
-                            : "08 / 08"
+                              ? "02 / 08"
+                              : modalActiveStep === 3
+                                ? "04 / 08"
+                                : modalActiveStep === 4
+                                  ? "06 / 08"
+                                  : "08 / 08"
                         ) : (
                           `0${modalActiveStep} / 0${totalSteps}`
                         )}

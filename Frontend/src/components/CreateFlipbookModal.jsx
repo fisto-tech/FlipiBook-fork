@@ -3,9 +3,9 @@ import { X, Upload, ChevronLeft, ChevronRight, Minus, Plus, GripVertical } from 
 import { Icon } from '@iconify/react';
 import { useModernToast } from './ModernToast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPdfPageCount, getPdfDetails, getDocumentDetails, isOfficeDocument, getOfficeDocType } from '../utils/pdfUtils';
+import { getPdfPageCount, getPdfDetails, getDocumentDetails, isOfficeDocument, getOfficeDocType } from '../utils/pdf/pdfUtils';
 import AlertModal from './AlertModal';
-import { validateStorageBeforeUpload } from '../utils/storageValidation';
+import { validateStorageBeforeUpload } from '../utils/storage/storageValidation';
 import { checkIsLegacyOfficeDocument } from './PageEditor/PageEditorModule/extractor/officeExtractor';
 import LegacyFormatModal from './LegacyFormatModal';
 

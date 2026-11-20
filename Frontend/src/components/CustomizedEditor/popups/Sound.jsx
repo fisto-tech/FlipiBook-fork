@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 
 import classicBookFlipSound from '../../../assets/Audios/Classic book flip.mp3';
 import hardCoverPageSound from '../../../assets/Audios/Hard cover page.mp3';
@@ -85,6 +85,7 @@ const MobileLayout = ({
                             <h2 className="text-[12px]" style={{ color: getLayoutColorRgba('dropdown-text', '0, 0, 0', 1), opacity: 'var(--dropdown-text-opacity, 1)', fontWeight: 'bold' }}>Sound</h2>
                         </div>
                         {/* Flip */}
+                        {flipSoundMasterEnabled && (
                         <div className="flex items-center gap-2.5">
                             <button
                                 className={`flex-shrink-0 w-[20px] h-[20px] flex items-center justify-center transition-all duration-300 rounded-full bg-transparent ${flipSoundMasterEnabled ? 'hover:bg-white/10 active:scale-95' : 'cursor-not-allowed opacity-40'}`}
@@ -108,7 +109,9 @@ const MobileLayout = ({
                                 </div>
                             </div>
                         </div>
+                        )}
                         {/* BG */}
+                        {bgSoundMasterEnabled && (
                         <div className="flex items-center gap-2.5">
                             <button
                                 className={`flex-shrink-0 w-[20px] h-[20px] flex items-center justify-center transition-all duration-300 rounded-full bg-transparent ${bgSoundMasterEnabled ? 'hover:bg-white/10 active:scale-95' : 'cursor-not-allowed opacity-40'}`}
@@ -137,6 +140,7 @@ const MobileLayout = ({
                                 </div>
                             </div>
                         </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -167,6 +171,7 @@ const MobileLayout = ({
                     </div>
 
                     {/* Flip Sound Control */}
+                    {flipSoundMasterEnabled && (
                     <div className="flex items-center gap-3">
                         <button
                             className={`flex-shrink-0 w-7 h-7 flex items-center justify-center transition-all duration-300 rounded-full ${flipSoundMasterEnabled
@@ -198,8 +203,10 @@ const MobileLayout = ({
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Background Sound Control */}
+                    {bgSoundMasterEnabled && (
                     <div className="flex items-center gap-3">
                         <button
                             className={`flex-shrink-0 w-7 h-7 flex items-center justify-center transition-all duration-300 rounded-full ${bgSoundMasterEnabled
@@ -244,6 +251,7 @@ const MobileLayout = ({
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -279,6 +287,7 @@ const Layout1 = ({
                     style={{ backgroundColor: getLayoutColorRgba('dropdown-text', '255, 255, 255', 1), opacity: 0.2 }}
                 />
             </div>
+            {flipSoundMasterEnabled && (
             <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                 <button
                     className={`flex-shrink-0 ${isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]'} flex items-center justify-center transition-all duration-300 rounded-full ${flipSoundMasterEnabled ? (isFlipActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -294,6 +303,8 @@ const Layout1 = ({
                     </div>
                 </div>
             </div>
+            )}
+            {bgSoundMasterEnabled && (
             <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                 <button
                     className={`flex-shrink-0 ${isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]'} flex items-center justify-center transition-all duration-300 rounded-full ${bgSoundMasterEnabled ? (isBgActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -319,6 +330,7 @@ const Layout1 = ({
                     </div>
                 </div>
             </div>
+            )}
         </div>
     </div>
 );
@@ -348,6 +360,7 @@ const Layout2 = ({
                     <div className="h-[1px] flex-1 mt-[0.1vw]" style={{ backgroundColor: "var(--dropdown-text, #FFFFFF)", opacity: "var(--dropdown-text-opacity, 0.3)" }} />
                 </div>
                 {/* Flip */}
+                {flipSoundMasterEnabled && (
                 <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                     <button
                         className={`flex-shrink-0 ${isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]'} flex items-center justify-center transition-all duration-300 rounded-full ${flipSoundMasterEnabled ? (isFlipActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -363,7 +376,9 @@ const Layout2 = ({
                         </div>
                     </div>
                 </div>
+                )}
                 {/* BG */}
+                {bgSoundMasterEnabled && (
                 <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                     <button
                         className={`flex-shrink-0 ${isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]'} flex items-center justify-center transition-all duration-300 rounded-full ${bgSoundMasterEnabled ? (isBgActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -389,6 +404,7 @@ const Layout2 = ({
                         </div>
                     </div>
                 </div>
+                )}
             </div>
         </div>
     </div>
@@ -421,6 +437,7 @@ const Layout3 = ({
                     <h2 className={isTablet ? "text-[11px]" : "text-[0.9vw]"} style={{ color: getLayoutColorRgba('dropdown-text', '0, 0, 0', 1), opacity: 'var(--dropdown-text-opacity, 1)', fontWeight: 'bold' }}>Sound</h2>
                 </div>
                 {/* Flip */}
+                {flipSoundMasterEnabled && (
                 <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                     <button
                         className={`flex-shrink-0 ${isTablet ? 'w-[13px] h-[13px]' : 'w-[1.2vw] h-[1.2vw]'} flex items-center justify-center transition-all duration-300 rounded-full bg-transparent ${flipSoundMasterEnabled ? 'hover:bg-white/10' : 'cursor-not-allowed opacity-40'}`}
@@ -439,7 +456,9 @@ const Layout3 = ({
                         </div>
                     </div>
                 </div>
+                )}
                 {/* BG */}
+                {bgSoundMasterEnabled && (
                 <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                     <button
                         className={`flex-shrink-0 ${isTablet ? 'w-[13px] h-[13px]' : 'w-[1.2vw] h-[1.2vw]'} flex items-center justify-center transition-all duration-300 rounded-full bg-transparent ${bgSoundMasterEnabled ? 'hover:bg-white/10' : 'cursor-not-allowed opacity-40'}`}
@@ -464,6 +483,7 @@ const Layout3 = ({
                         </div>
                     </div>
                 </div>
+                )}
             </div>
         </div>
     </div>
@@ -496,6 +516,7 @@ const Layout4 = ({
                 <h2 className={isMobile ? "text-[12px] font-bold whitespace-nowrap" : (isTablet ? "text-[8px] font-bold whitespace-nowrap" : "text-[0.8vw] font-bold whitespace-nowrap")} style={{ color: getLayoutColorRgba('dropdown-text', '255, 255, 255', 1) }}>Sound</h2>
                 <div className={isMobile ? "h-[1px] flex-1 mt-[2px]" : "h-[1px] flex-1 mt-[0.1vw]"} style={{ backgroundColor: getLayoutColorRgba('dropdown-text', '255, 255, 255', 1), opacity: 0.3 }} />
             </div>
+            {flipSoundMasterEnabled && (
             <div className={isMobile ? "flex items-center gap-[12px]" : (isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]")}>
                 <button
                     className={`flex-shrink-0 ${isMobile ? 'w-[20px] h-[20px]' : (isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]')} flex items-center justify-center transition-all duration-300 rounded-none ${flipSoundMasterEnabled ? (isFlipActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -511,6 +532,8 @@ const Layout4 = ({
                     </div>
                 </div>
             </div>
+            )}
+            {bgSoundMasterEnabled && (
             <div className={isMobile ? "flex items-center gap-[12px]" : (isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]")}>
                 <button
                     className={`flex-shrink-0 ${isMobile ? 'w-[20px] h-[20px]' : (isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]')} flex items-center justify-center transition-all duration-300 rounded-none ${bgSoundMasterEnabled ? (isBgActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -526,6 +549,7 @@ const Layout4 = ({
                     </div>
                 </div>
             </div>
+            )}
         </div>
     </div>
 );
@@ -553,6 +577,7 @@ const Layout5 = ({
                 <div className="flex-1 h-[2px] rounded-full" style={{ backgroundColor: getLayoutColorRgba('dropdown-text', '255, 255, 255', 1) }} />
             </div>
             {/* Volume / Flip Sound */}
+            {flipSoundMasterEnabled && (
             <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-[1vw]'}`}>
                 <button
                     className={`flex-shrink-0 transition-all duration-300 rounded-full flex items-center justify-center ${isMobile ? 'w-[28px] h-[28px]' : (isTablet ? 'w-[29px] h-[29px]' : 'w-[2.2vw] h-[2.2vw]')} ${!flipSoundMasterEnabled ? 'opacity-30 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
@@ -575,8 +600,10 @@ const Layout5 = ({
                     </div>
                 </div>
             </div>
+            )}
 
             {/* Music / BG Sound */}
+            {bgSoundMasterEnabled && (
             <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-[1vw]'}`}>
                 <button
                     className={`flex-shrink-0 transition-all duration-300 rounded-full flex items-center justify-center ${isMobile ? 'w-[28px] h-[28px]' : (isTablet ? 'w-[29px] h-[29px]' : 'w-[2.2vw] h-[2.2vw]')} ${!bgSoundMasterEnabled ? 'opacity-30 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
@@ -605,6 +632,7 @@ const Layout5 = ({
                     </div>
                 </div>
             </div>
+            )}
         </div>
         <div
             className={`absolute ${isMobile ? '-bottom-[11px] right-[25%] translate-x-1/2' : '-bottom-[1.3vw] left-1/2 -translate-x-1/2'} z-10 pointer-events-none`}
@@ -643,6 +671,7 @@ const Layout6_OLD = ({
 
             <div className={isMobile ? "flex flex-col gap-[12px]" : "flex flex-col gap-[0.8vw]"}>
                 {/* Flip Sound Control */}
+                {flipSoundMasterEnabled && (
                 <div className={isMobile ? "flex items-center gap-[12px]" : "flex items-center gap-[0.8vw]"}>
                     <button
                         className={`flex-shrink-0 transition-all duration-300 ${!flipSoundMasterEnabled ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-80'}`}
@@ -673,8 +702,10 @@ const Layout6_OLD = ({
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* Background Sound Control */}
+                {bgSoundMasterEnabled && (
                 <div className={isMobile ? "flex items-center gap-[12px]" : "flex items-center gap-[0.8vw]"}>
                     <button
                         className={`flex-shrink-0 transition-all duration-300 ${!bgSoundMasterEnabled ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-80'}`}
@@ -711,6 +742,7 @@ const Layout6_OLD = ({
                         </div>
                     </div>
                 </div>
+                )}
             </div>
         </div>
     </div>
@@ -747,6 +779,7 @@ const Layout6 = ({
             </div>
 
             {/* Volume / Flip Sound */}
+            {flipSoundMasterEnabled && (
             <div className={isMobile ? "flex items-center gap-[12px]" : "flex items-center gap-[1.2vw]"}>
                 <button
                     className={`flex-shrink-0 transition-all duration-300 ${!flipSoundMasterEnabled ? 'opacity-30 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
@@ -768,8 +801,10 @@ const Layout6 = ({
                     </div>
                 </div>
             </div>
+            )}
 
             {/* Music / BG Sound */}
+            {bgSoundMasterEnabled && (
             <div className={isMobile ? "flex items-center gap-[12px]" : "flex items-center gap-[1.2vw]"}>
                 <button
                     className={`flex-shrink-0 transition-all duration-300 ${!bgSoundMasterEnabled ? 'opacity-30 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
@@ -797,6 +832,7 @@ const Layout6 = ({
                     </div>
                 </div>
             </div>
+            )}
         </div>
     </div>
 );
@@ -823,6 +859,7 @@ const Layout7 = ({
         </div>
         <div className={isMobile ? "flex flex-col gap-3 px-3 pb-4 pt-2" : (isTablet ? "flex flex-col gap-[10px] px-[10px] pb-[13px]" : "flex flex-col gap-[0.8vw] px-[0.8vw] pb-[1vw]")}>
             {/* Flip */}
+            {flipSoundMasterEnabled && (
             <div className={isMobile ? "flex items-center gap-2" : (isTablet ? "flex items-center gap-[8px]" : "flex items-center gap-[0.8vw]")}>
                 <button
                     className={isMobile ? "flex-shrink-0 w-5 h-5 flex items-center justify-center transition-all duration-300 rounded-full" : (isTablet ? "flex-shrink-0 w-[16px] h-[16px] flex items-center justify-center transition-all duration-300 rounded-full" : "flex-shrink-0 w-[1.5vw] h-[1.5vw] flex items-center justify-center transition-all duration-300 rounded-full")}
@@ -836,7 +873,9 @@ const Layout7 = ({
                     <div className="absolute inset-0 transition-all duration-75 rounded-full" style={{ width: flipWidth, backgroundColor: getLayoutColorRgba('dropdown-bg', '87, 92, 156', 1) }} />
                 </div>
             </div>
+            )}
             {/* BG */}
+            {bgSoundMasterEnabled && (
             <div className={isMobile ? "flex items-center gap-2" : (isTablet ? "flex items-center gap-[8px]" : "flex items-center gap-[0.8vw]")}>
                 <button
                     className={isMobile ? "flex-shrink-0 w-5 h-5 flex items-center justify-center transition-all duration-300 rounded-full" : (isTablet ? "flex-shrink-0 w-[16px] h-[16px] flex items-center justify-center transition-all duration-300 rounded-full" : "flex-shrink-0 w-[1.5vw] h-[1.5vw] flex items-center justify-center transition-all duration-300 rounded-full")}
@@ -860,6 +899,7 @@ const Layout7 = ({
                     <div className="absolute inset-0 transition-all duration-75 rounded-full" style={{ width: bgWidth, backgroundColor: getLayoutColorRgba('dropdown-bg', '87, 92, 156', 1) }} />
                 </div>
             </div>
+            )}
         </div>
     </div>
 );
@@ -907,6 +947,7 @@ const Layout8 = ({
                 <div className="h-[1px] flex-1 mt-[0.1vw]" style={{ backgroundColor: getLayoutColor('dropdown-icon', '#000000'), opacity: 0.15 }} />
             </div>
             {/* Flip */}
+            {flipSoundMasterEnabled && (
             <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                 <button
                     className={`flex-shrink-0 ${isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]'} flex items-center justify-center transition-all duration-300 rounded-full`}
@@ -925,7 +966,9 @@ const Layout8 = ({
                     <div className="absolute top-1/2 -translate-y-1/2 rounded-full shadow-md bg-white z-50 transition-all duration-75" style={{ left: `calc(${flipWidth} - 6px)`, width: '12px', height: '12px', border: '1px solid rgba(0,0,0,0.1)', pointerEvents: 'none' }} />
                 </div>
             </div>
+            )}
             {/* BG */}
+            {bgSoundMasterEnabled && (
             <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                 <button
                     className={`flex-shrink-0 ${isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]'} flex items-center justify-center transition-all duration-300 rounded-full`}
@@ -954,6 +997,7 @@ const Layout8 = ({
                     <div className="absolute top-1/2 -translate-y-1/2 rounded-full shadow-md bg-white z-50 transition-all duration-75" style={{ left: `calc(${bgWidth} - 6px)`, width: '12px', height: '12px', border: '1px solid rgba(0,0,0,0.1)', pointerEvents: 'none' }} />
                 </div>
             </div>
+            )}
         </div>
     </div>
 );
@@ -977,6 +1021,7 @@ const LayoutDefault = ({
         }}
     >
         <div className={isTablet ? "flex flex-col gap-[13px]" : "flex flex-col gap-[1.2vw]"}>
+            {flipSoundMasterEnabled && (
             <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                 <button
                     className={`flex-shrink-0 ${isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]'} flex items-center justify-center transition-all duration-300 rounded-full ${flipSoundMasterEnabled ? (isFlipActive ? 'bg-[#4A3AFF]' : 'bg-white/20 border border-white/20') : 'bg-white/15 cursor-not-allowed opacity-75'}`}
@@ -989,6 +1034,8 @@ const LayoutDefault = ({
                     <div className="absolute inset-0 transition-all duration-75 rounded-full" style={{ width: flipWidth, backgroundColor: getLayoutColorRgba('dropdown-text', '255, 255, 255', 1) }} />
                 </div>
             </div>
+            )}
+            {bgSoundMasterEnabled && (
             <div className={isTablet ? "flex items-center gap-[10px]" : "flex items-center gap-[1vw]"}>
                 <button
                     className={`flex-shrink-0 ${isTablet ? 'w-[19px] h-[19px]' : 'w-[1.8vw] h-[1.8vw]'} flex items-center justify-center transition-all duration-300 rounded-full ${bgSoundMasterEnabled ? (isBgActive ? 'bg-[#4A3AFF] border-[#4A3AFF]' : 'bg-white/10 border-white/20 hover:bg-white/20') : 'bg-white/15 border-white/10 cursor-not-allowed opacity-75'}`}
@@ -1001,6 +1048,7 @@ const LayoutDefault = ({
                     <div className="absolute inset-0 transition-all duration-75 rounded-full" style={{ width: bgWidth, backgroundColor: getLayoutColorRgba('dropdown-text', '255, 255, 255', 1) }} />
                 </div>
             </div>
+            )}
         </div>
     </div>
 );
@@ -1124,7 +1172,7 @@ const Sound = ({
 
         const bgSound = getEffectiveSoundValue('bgSound') || 'BG Sound 1';
         const customBgSounds = getEffectiveSoundValue('customBgSounds') || otherSetupSettings?.sound?.customBgSounds || backendSoundSettings?.sound?.customBgSounds || [];
-        const bgSoundEnabled = getEffectiveSoundValue('bgSoundEnabled') !== false;
+        const bgSoundEnabled = getEffectiveSoundValue('bgSoundEnabled') === true; // background music is OFF unless explicitly enabled
         const isEnabled = (settings?.media?.backgroundAudio ?? settings?.media?.audio ?? true) && !isMuted && bgSoundEnabled !== false && !isLoading;
 
         const rawBgStr = String(bgSound || '').trim();
@@ -1288,7 +1336,7 @@ const Sound = ({
     const isFlipNone = otherSetupSettings?.sound?.flipSound === 'None';
     const isBgNone = otherSetupSettings?.sound?.bgSound === 'None';
     const flipSoundMasterEnabled = otherSetupSettings?.sound?.flipSoundEnabled !== false && !isFlipNone;
-    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled !== false && !isBgNone;
+    const bgSoundMasterEnabled = otherSetupSettings?.sound?.bgSoundEnabled === true && !isBgNone;
     const isFlipActive = flipSoundMasterEnabled && !isFlipMuted;
     const isBgActive = bgSoundMasterEnabled && !isMuted;
 
@@ -1475,6 +1523,7 @@ const Sound = ({
                                         <div className="h-[0.5px] w-[calc(100%+32px)] -ml-4" style={{ backgroundColor: getLayoutColorRgba('dropdown-text', '255, 255, 255', 1), opacity: 0.2 }} />
                                     </div>
 
+                                    {flipSoundMasterEnabled && (
                                     <div className="flex items-center gap-3">
                                         <button
                                             className={`flex-shrink-0 w-7 h-7 flex items-center justify-center transition-all duration-300 rounded-full ${flipSoundMasterEnabled ? (isFlipActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -1490,7 +1539,9 @@ const Sound = ({
                                             </div>
                                         </div>
                                     </div>
+                                    )}
 
+                                    {bgSoundMasterEnabled && (
                                     <div className="flex items-center gap-3">
                                         <button
                                             className={`flex-shrink-0 w-7 h-7 flex items-center justify-center transition-all duration-300 rounded-full ${bgSoundMasterEnabled ? (isBgActive ? 'shadow-inner' : 'bg-transparent hover:bg-black/5') : 'bg-transparent cursor-not-allowed opacity-40'}`}
@@ -1516,6 +1567,7 @@ const Sound = ({
                                             </div>
                                         </div>
                                     </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

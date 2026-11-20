@@ -12,7 +12,7 @@ import CreatorProfileModal from './CreatorProfileModal';
 import { useToast } from '../components/CustomToast';
 import { useAuth } from '../context/AuthContext';
 import { LazyPreview } from '../components/MyFlipbooks/LazyPreview';
-import { resolveUploadsPath, getAssetBaseUrl } from '../utils/assetUtils';
+import { resolveUploadsPath, getAssetBaseUrl } from '../utils/assets/assetUtils';
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
 

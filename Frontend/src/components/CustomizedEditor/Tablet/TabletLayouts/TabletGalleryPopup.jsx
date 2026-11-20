@@ -94,7 +94,15 @@ const TabletGalleryPopup = ({ onClose, settings = {}, popupSettings = {} }) => {
     if (hex.startsWith('rgba') || hex.startsWith('rgb')) return hex;
     let c = hex.replace('#', '');
     if (c.length === 3) c = c.split('').map(x => x + x).join('');
-    if (c.length !== 6 && c.length !== 8) return hex;
+    if (c.length === 8) {
+      const alphaHex = parseInt(c.slice(6, 8), 16);
+      const hexAlpha = Math.round((alphaHex / 255) * 100);
+      c = c.slice(0, 6);
+      if (opacity === 100) {
+        opacity = hexAlpha;
+      }
+    }
+    if (c.length !== 6) return hex;
     const r = parseInt(c.slice(0, 2), 16);
     const g = parseInt(c.slice(2, 4), 16);
     const b = parseInt(c.slice(4, 6), 16);

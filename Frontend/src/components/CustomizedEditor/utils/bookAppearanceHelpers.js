@@ -26,19 +26,19 @@ export const processBookAppearanceSettings = (settings) => {
   const cornerMap = { 'Sharp': '0px', 'Soft': '5px', 'Round': '10px' };
   const cornerRadius = cornerMap[settings.corner] || '0px';
 
-  // Base Flip Time Maps
-  const speedMap = { 'Slow': 1700, 'Medium': 1200, 'Fast': 800 };
-  let flipTime = speedMap[settings.flipSpeed] || 1000;
+  // Base Flip Time Maps: tuned for a relaxed, smooth, natural page-turn glide
+  const speedMap = { 'Slow': 1200, 'Medium': 850, 'Fast': 600 };
+  let flipTime = speedMap[settings.flipSpeed] || 850;
 
   // Add flip style alterations to flip time / stiffness where possible
   const styleMapTimeModifiers = {
-    'Fast Flip': 0.6,
-    'Smooth Flip': 1.0,
-    'Classic Flip': 1.4
+    'Fast Flip': 0.75,
+    'Smooth Flip': 1.05,
+    'Classic Flip': 1.0
   };
   
   if (settings.flipStyle && styleMapTimeModifiers[settings.flipStyle]) {
-      flipTime = Math.max(300, flipTime * styleMapTimeModifiers[settings.flipStyle]);
+      flipTime = Math.max(300, Math.round(flipTime * styleMapTimeModifiers[settings.flipStyle]));
   }
 
   // Paper textures and warmth removed

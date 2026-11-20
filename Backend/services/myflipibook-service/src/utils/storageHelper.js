@@ -336,7 +336,12 @@ const initFlipbookStorage = (bookDir) => {
       fs.mkdirSync(pagesDir, { recursive: true });
     }
 
-    return { bookDir, assetsDir, customAssetsDir, pagesDir };
+    const webpPagesDir = path.join(pagesDir, 'webp_page');
+    if (!fs.existsSync(webpPagesDir)) {
+      fs.mkdirSync(webpPagesDir, { recursive: true });
+    }
+
+    return { bookDir, assetsDir, customAssetsDir, pagesDir, webpPagesDir };
   } catch (err) {
     console.error('[Storage Helper] Error initializing flipbook storage:', err.message);
     return null;

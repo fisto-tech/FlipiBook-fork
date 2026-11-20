@@ -13,7 +13,7 @@ export default function ArIntegrationSection() {
       className="relative w-full bg-white font-poppins overflow-hidden"
     >
       {/* Background Watermark Text on Top Right */}
-      <div className="hidden lg:block absolute top-6 sm:top-7 right-[3vw] xl:right-[4vw] pointer-events-none select-none z-0 text-right">
+      <div className="hidden lg:block absolute top-9 sm:top-11 lg:top-[3.2vw] right-[3vw] xl:right-[4vw] pointer-events-none select-none z-0 text-right">
         <h2 className="text-[3.2vw] xl:text-[3.6vw] font-black tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-b from-[#cbd5e1] via-[#e2e8f0]/90 to-white/10 leading-none block">
           AUGMENTED REALITY
         </h2>
@@ -29,7 +29,7 @@ export default function ArIntegrationSection() {
       <div className="w-full flex flex-col lg:flex-row items-stretch justify-between">
         
         {/* Left Column: Content with exact matching proportions */}
-        <div className="w-full lg:w-[48%] xl:w-[46%] flex flex-col justify-start text-left items-start pt-6 sm:pt-8 lg:pt-[4.5vw] pb-3 sm:pb-3 lg:pb-[4.5vw] px-6 sm:px-12 lg:pl-[6.2vw] lg:pr-2 z-10 shrink-0">
+        <div className="w-full lg:w-[48%] xl:w-[46%] flex flex-col justify-start text-left items-start pt-2 sm:pt-3 lg:pt-[1.2vw] pb-3 sm:pb-3 lg:pb-[4.5vw] px-6 sm:px-12 lg:pl-[6.2vw] lg:pr-2 z-10 shrink-0">
           
           {/* 1. Top Header Tag: AR INTEGRATION with horizontal rule */}
           <motion.div
@@ -37,7 +37,7 @@ export default function ArIntegrationSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-center gap-2.5 sm:gap-4 mb-2.5 sm:mb-4 lg:mb-[2.2vw]"
+            className="flex items-center gap-2.5 sm:gap-4 mb-1.5 sm:mb-2 lg:mb-[1vw]"
           >
             <span className="text-[10px] sm:text-[13px] lg:text-[0.82vw] font-semibold tracking-[0.22em] text-[#35363A] uppercase">
               AR INTEGRATION
@@ -171,11 +171,11 @@ export default function ArIntegrationSection() {
         </div>
 
         {/* Right Column: Docked to bottom right without cropping or overflow */}
-        <div className="w-full lg:w-[52%] xl:w-[54%] flex items-end justify-center lg:justify-end self-end pointer-events-none select-none mt-2 sm:mt-1 md:-mt-4 lg:mt-0 px-2 sm:px-6 lg:px-0">
+        <div className="w-full lg:w-[50%] xl:w-[51%] flex items-end justify-center lg:justify-end self-end pointer-events-none select-none mt-2 sm:mt-1 md:-mt-4 lg:mt-0 px-2 sm:px-6 lg:px-0 lg:pr-[2.5vw] xl:pr-[3vw]">
           <img
             src={arViewImg}
             alt="AR Real Space Experience"
-            className="w-[94%] sm:w-[95%] lg:w-[94%] xl:w-[93%] max-w-[470px] sm:max-w-[545px] md:max-w-[605px] lg:max-w-none h-auto block object-contain object-bottom"
+            className="w-[89%] sm:w-[90%] lg:w-[89%] xl:w-[88%] max-w-[445px] sm:max-w-[520px] md:max-w-[570px] lg:max-w-[45vw] xl:max-w-[47vw] h-auto block object-contain object-bottom -translate-x-3 sm:-translate-x-5 lg:-translate-x-7 xl:-translate-x-8"
           />
         </div>
 

@@ -192,8 +192,8 @@ const TopToolbar = ({
           </div>
           
           {/* Zoom Label */}
-          <div className="px-[0.4vw] flex items-center justify-center min-w-[2.2vw]">
-            <span className="text-[0.7vw] font-bold text-[#111827]">{zoom}%</span>
+          <div className="w-[3.4vw] flex-shrink-0 flex items-center justify-center">
+            <span className="text-[0.7vw] font-bold text-[#111827] tabular-nums">{Math.round(zoom * 10) / 10}%</span>
           </div>
           
           {/* Zoom In */}

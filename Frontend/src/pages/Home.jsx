@@ -5,9 +5,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import CreateFlipbookModal from '../components/CreateFlipbookModal';
 import AlertModal from '../components/AlertModal';
-import PdfProcessingLoader from '../components/PdfProcessingLoader';
 import Footer from './Footer';
-import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdfUtils';
+import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdf/pdfUtils';
+import { useDocumentUpload } from '../context/DocumentUploadContext';
 
 // Modular Sections
 import HeroSection from './Home/HeroSection';
@@ -45,7 +45,13 @@ export default function Home() {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
 
   const [isLoading, setIsLoading] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState(null);
+  const {
+    processingProgress,
+    setProcessingProgress,
+    registerUploadSession,
+    cancelUpload: cancelGlobalUpload,
+    notifyUploadComplete
+  } = useDocumentUpload();
   const isUploadCancelledRef = useRef(false);
   const createdFlipbookVIdRef = useRef(null);
   const [alertState, setAlertState] = useState({
@@ -86,6 +92,10 @@ export default function Home() {
     isUploadCancelledRef.current = false;
     createdFlipbookVIdRef.current = null;
 
+    registerUploadSession({
+      onCancel: handleCancelUploadPDF
+    });
+
     const firstFile = files[0];
     const initialDocType = firstFile._docType || getOfficeDocType(firstFile.name);
     const initialDocLabel = initialDocType === 'word' ? 'Word document' : initialDocType === 'powerpoint' ? 'PowerPoint presentation' : 'file';
@@ -112,6 +122,18 @@ export default function Home() {
       }
       let allImages = [];
 
+      const now = new Date();
+      const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+      const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
+      let uniqueName = customName;
+      if (!uniqueName || (uniqueName.startsWith('PDF_Flipbook_') && initialDocType !== 'pdf')) {
+        uniqueName = customName ? customName.replace(/^PDF_Flipbook_/, defaultPrefix) : `${defaultPrefix}${timeString}`;
+      }
+      const assignedBookId = ((typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+        : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
+      const resolvedUserId = user?.userID || user?.userId || 'FLIPI0001';
+
       for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
         if (isUploadCancelledRef.current) return;
         const file = files[fileIndex];
@@ -134,6 +156,7 @@ export default function Home() {
           fileName: file.name,
           stage: 'uploading'
         });
+        const startPageForFile = allImages.length + 1;
         const images = await convertPdfWithInkscape(file, remainingPages, backendUrl, (currOrObj, total, pct, stage, msg) => {
           let current, pageCount, percent, message, currentStage;
           if (typeof currOrObj === 'object' && currOrObj !== null) {
@@ -169,7 +192,7 @@ export default function Home() {
               stage: currentStage || prev?.stage || 'converting'
             };
           });
-        });
+        }, null, assignedBookId, resolvedUserId, startPageForFile, 'default', uniqueName);
         if (isUploadCancelledRef.current) return;
         allImages = [...allImages, ...images];
       }
@@ -194,13 +217,6 @@ export default function Home() {
       const maxWidth = firstW;
       const maxHeight = firstH;
 
-      const now = new Date();
-      const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-      const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
-      let uniqueName = customName;
-      if (!uniqueName || (uniqueName.startsWith('PDF_Flipbook_') && initialDocType !== 'pdf')) {
-        uniqueName = customName ? customName.replace(/^PDF_Flipbook_/, defaultPrefix) : `${defaultPrefix}${timeString}`;
-      }
       const targetFolder = 'My_Flipbooks';
 
       const totalDocPages = (allImages.totalPages && allImages.totalPages > allImages.length)
@@ -367,7 +383,7 @@ export default function Home() {
   const handleCancelUploadPDF = () => {
     isUploadCancelledRef.current = true;
     setIsLoading(false);
-    setProcessingProgress(null);
+    cancelGlobalUpload();
     if (createdFlipbookVIdRef.current) {
       axios.delete(`${backendUrl}/api/flipbook/delete/${createdFlipbookVIdRef.current}`, { withCredentials: true }).catch(() => { });
       createdFlipbookVIdRef.current = null;
@@ -507,8 +523,6 @@ export default function Home() {
         onUpload={handleUploadPDF}
         onTemplate={handleUseTemplate}
       />
-
-      <PdfProcessingLoader progress={processingProgress} onCancel={handleCancelUploadPDF} />
 
       <AnimatePresence>
         {isLoading && !processingProgress && (

@@ -107,7 +107,7 @@ export const getEmbedSvgCode = (isClick = false) => {
   const transform = 'transform="scale(0.25)"';
 
   const defaultBody = `
-    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#64748b; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border-radius:0px; border:2px dashed #cbd5e1;">
+    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#64748b; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border-radius:0px; border:none;">
       <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
@@ -171,7 +171,7 @@ export function createEmbedElementNode(cx = 105, cy = 148, customCode = '') {
   const y = Math.round(cy - targetH / 2);
 
   const defaultBody = customCode ? customCode : `
-    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#64748b; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border-radius:0px; border:2px dashed #cbd5e1;">
+    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#64748b; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border-radius:0px; border:none;">
       <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>

@@ -11,6 +11,11 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
             .fbe-is-dragging iframe, .fbe-is-turning iframe, .fbe-is-flipping iframe {
                 pointer-events: none !important;
             }
+            .fbe-is-turning .flipbook-magazine-wrapper,
+            .fbe-is-flipping .flipbook-magazine-wrapper,
+            .fbe-is-dragging .flipbook-magazine-wrapper {
+                transition: none !important;
+            }
             .fbe-is-flipping .fbe-active-spread-overlay,
             .fbe-is-turning .fbe-active-spread-overlay {
                 visibility: hidden !important;
@@ -27,6 +32,55 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
             }
             .fbe-static-bg {
                 backface-visibility: hidden;
+            }
+            /* Transparent sheet texture layer. Per-sheet settings arrive as CSS variables set by the engine
+               (FlipBookEngine/index.jsx → applySheetStyle) from the sheet's Book Appearance options:
+                 --sheet-blur            blur of the page seen through the sheet
+                 --sheet-haze            haze colour + opacity over it
+                 --sheet-texture-opacity texture intensity (0–1)
+                 --sheet-texture-scale   texture size multiplier
+               The texture sits on ::before so its intensity never weakens the blur. */
+            .fbe-sheet-fiber {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                z-index: 0;
+                border-radius: inherit;
+                -webkit-backdrop-filter: blur(var(--sheet-blur, 1px));
+                backdrop-filter: blur(var(--sheet-blur, 1px));
+                background-color: var(--sheet-haze, rgba(246, 247, 249, 0.36));
+                --sheet-texture-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 2.2 -1.05'/%3E%3C/filter%3E%3Cfilter id='d' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.4' numOctaves='3' seed='21' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.44  0 0 0 0 0.5  0 0 0 1.6 -1.0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23d)'/%3E%3C/svg%3E");
+                --sheet-texture-base: 150px;
+            }
+            .fbe-sheet-fiber::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                background-image: var(--sheet-texture-img);
+                background-size: calc(var(--sheet-texture-base) * var(--sheet-texture-scale, 1)) calc(var(--sheet-texture-base) * var(--sheet-texture-scale, 1));
+                background-repeat: repeat;
+                opacity: var(--sheet-texture-opacity, 1);
+            }
+            /* A page lying directly under a transparent sheet stays rendered while Turn.js peels/turns
+               (Turn.js would set its wrapper to display:none until the turn lands, leaving the sheet
+               empty). Only for a sheet on the current spread (always) or the adjacent spread (while
+               turning) — see markUnderSheetRef. Turn.js still controls the z-index. */
+            .fbe-book .page-wrapper:has(.fbe-under-sheet),
+            .fbe-book.fbe-is-turning .page-wrapper:has(.fbe-under-sheet-near),
+            .fbe-book.fbe-is-dragging .page-wrapper:has(.fbe-under-sheet-near),
+            .fbe-book.fbe-is-flipping .page-wrapper:has(.fbe-under-sheet-near) {
+                display: block !important;
+            }
+            /* During a peel/turn Turn.js resets page z-indexes (often both the sheet and the page under it to
+               0); on a tie the later DOM node — the page under the sheet — would cover the sheet. Keep it below. */
+            .fbe-book.fbe-is-turning .page-wrapper:has(.fbe-under-sheet),
+            .fbe-book.fbe-is-dragging .page-wrapper:has(.fbe-under-sheet),
+            .fbe-book.fbe-is-flipping .page-wrapper:has(.fbe-under-sheet),
+            .fbe-book.fbe-is-turning .page-wrapper:has(.fbe-under-sheet-near),
+            .fbe-book.fbe-is-dragging .page-wrapper:has(.fbe-under-sheet-near),
+            .fbe-book.fbe-is-flipping .page-wrapper:has(.fbe-under-sheet-near) {
+                z-index: -1 !important;
             }
             /* A live page iframe temporarily moved into its Turn.js page during a peel/turn
                (frozen at its current slide / audio time). Visible, but never takes the mouse. */
@@ -330,13 +384,38 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 pointer-events: none !important;
             }
 
+            /* Scrollable text on static/turning pages: use the box's chosen scrollbar color
+               (same rules as the interactive layer, so there's no grey flash while turning) */
+            .flipbook-text-scrollbar {
+                scrollbar-color: var(--scrollbar-color, #4B5563) transparent !important;
+                scrollbar-width: thin !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar {
+                width: 6px !important;
+                height: 6px !important;
+                background: transparent !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar-track {
+                background: transparent !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar-thumb {
+                background: var(--scrollbar-color, #4B5563) !important;
+                border-radius: 10px !important;
+            }
+
             /* Prevent editor selection overlay rect from blocking clicks on live map or embed */
             g[data-type="map"] > rect,
             g[id^="map-"] > rect,
-            g[data-type="embed-frame"] > rect,
-            g[id^="embed-"] > rect {
+            g[data-type="embed-frame"] > rect:not(.svg-image-stroke-overlay),
+            g[id^="embed-"] > rect:not(.svg-image-stroke-overlay) {
                 pointer-events: none !important;
                 display: none !important;
+            }
+            /* Keep the user's embed border visible in preview, but never let it block clicks */
+            g[data-type="embed-frame"] > rect.svg-image-stroke-overlay,
+            g[id^="embed-"] > rect.svg-image-stroke-overlay {
+                pointer-events: none !important;
+                fill: none !important;
             }
 
             /* Add a global invisible shield over the entire wrapper during a drag to guarantee mousemove tracking */

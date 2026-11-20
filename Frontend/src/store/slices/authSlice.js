@@ -5,7 +5,7 @@ import {
   getInitialUser,
   setClientUserCookie,
   clearSession,
-} from "../../utils/authUtils";
+} from "../../utils/auth/authUtils";
 import { prefetchMyFlipbooks } from "../../queryClient";
 
 export const checkAuth = createAsyncThunk(

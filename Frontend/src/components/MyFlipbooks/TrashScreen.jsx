@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 import CustomScrollbar from '../CustomScrollbar';
 import FlipbookCard from './FlipbookCard';
 import LazyPreview from './LazyPreview';
-import { getAssetBaseUrl } from '../../utils/assetUtils';
+import { getAssetBaseUrl } from '../../utils/assets/assetUtils';
 
 export default function TrashScreen({
     navigate,

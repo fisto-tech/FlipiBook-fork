@@ -221,6 +221,32 @@ const MainEditor = ({
   const lastClickRef = useRef({ time: 0, target: null });
   const updatePageHtmlRef = useRef(updatePageHtml);
   const editorContainerRef = useRef(null);
+
+  // Mouse-wheel scrolling for "Scrollable text" boxes. Text boxes don't receive pointer events
+  // on the canvas in select mode, so route the wheel to the box under the cursor ourselves.
+  useEffect(() => {
+    const el = editorContainerRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // zoom gestures
+      const fos = el.querySelectorAll('.page-svg-container foreignObject[data-scrollable="true"]');
+      for (const fo of fos) {
+        const r = fo.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) continue;
+        const inner = fo.querySelector('.flipbook-text-scrollbar') || fo.firstElementChild;
+        if (!inner || inner.scrollHeight <= inner.clientHeight) return;
+        const atTop = inner.scrollTop <= 0 && e.deltaY < 0;
+        const atBottom = inner.scrollTop + inner.clientHeight >= inner.scrollHeight - 1 && e.deltaY > 0;
+        if (atTop || atBottom) return;
+        e.preventDefault();
+        e.stopPropagation();
+        inner.scrollTop += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+        return;
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
   const isEditingTextRef = useRef(false);
   const drawOverlayHighlightRef = useRef(null); // Stable ref, populated after useSelectionOverlays
   const nodeEditModeRef = useRef(false);    // Stable early ref, also returned by usePenNodeEngine
@@ -257,15 +283,18 @@ const MainEditor = ({
       const boundsPoly = document.getElementById('overlay-poly-selected-multi-selection-bounds');
       if (boundsPoly) boundsPoly.remove();
     } else {
-      // In normal edit mode: deselect any Free Frame immediately
+      // In non-interaction mode: deselect any Free Frame or Hotspot immediately
       if (selectedLayerId) {
         const selEl = document.getElementById(selectedLayerId);
-        const isFreeFrame = selEl ? (
+        const isFreeFrameOrHotspot = selEl ? (
           selEl.getAttribute('data-name') === 'Free Frame' ||
           selEl.getAttribute('data-type') === 'free-frame' ||
-          (selEl.id && selEl.id.startsWith('free-frame'))
-        ) : selectedLayerId.startsWith('free-frame');
-        if (isFreeFrame) {
+          (selEl.id && selEl.id.startsWith('free-frame')) ||
+          selEl.getAttribute('data-is-hotspot') === 'true' ||
+          selEl.getAttribute('data-type') === 'hotspot' ||
+          (selEl.id && selEl.id.startsWith('hotspot-'))
+        ) : (selectedLayerId.startsWith('free-frame') || selectedLayerId.startsWith('hotspot-'));
+        if (isFreeFrameOrHotspot) {
           if (setSelectedLayerId) setSelectedLayerId(null);
           selectedLayerIdRef.current = null;
           if (setMultiSelectedIds) setMultiSelectedIds(new Set());
@@ -908,7 +937,7 @@ const MainEditor = ({
 
     // Clean up HTML-based UI elements (interaction badges)
     document.querySelectorAll('[id^="interaction-badge-"]').forEach(badge => {
-      if (activeTopTool !== 'interaction') {
+      if (activeTopTool !== 'interaction' && activeTopTool !== 'animation') {
         badge.remove();
       } else {
         const id = badge.id.replace('interaction-badge-', '');
@@ -1001,6 +1030,14 @@ const MainEditor = ({
     }
   }, [selectedLayerId, currentFrameId, multiSelectedIds, pages, activePageIndex, zoom, activeTopTool, localTrimView]);
 
+  // Redraw hover outline on zoom so its stroke stays a constant on-screen width
+  useEffect(() => {
+    document.querySelectorAll('.page-svg-container [data-hovered="true"], .page-svg-container [data-child-hovered="true"]').forEach(el => {
+      if (el.getAttribute('data-selected') === 'true' || el.getAttribute('data-child-selected') === 'true') return;
+      drawOverlayHighlight(el, el.getAttribute('data-child-hovered') === 'true' ? 'child-hover' : 'hover');
+    });
+  }, [zoom]);
+
   // Synchronize Trim View mask and outside status across all visible page SVGs
   useEffect(() => {
     const svgs = document.querySelectorAll('.page-svg-container svg:not([id^="highlight-overlay-"])');
@@ -1021,6 +1058,18 @@ const MainEditor = ({
 
 
 
+  // Deselect audio element when switching to interaction mode
+  useEffect(() => {
+    if (activeTopTool === 'interaction' && selectedLayerId) {
+      const el = document.getElementById(selectedLayerId);
+      const isAudio = el?.getAttribute?.('data-type') === 'audio-frame' || (selectedLayerId && selectedLayerId.startsWith('audio-')) || el?.closest?.('[data-type="audio-frame"], g[id^="audio-"]');
+      if (isAudio) {
+        if (typeof setSelectedLayerId === 'function') setSelectedLayerId(null);
+        if (typeof setMultiSelectedIds === 'function') setMultiSelectedIds(new Set());
+      }
+    }
+  }, [activeTopTool, selectedLayerId, setSelectedLayerId, setMultiSelectedIds]);
+
   // Sync refs with props/state
   useEffect(() => { selectedLayerIdRef.current = selectedLayerId; }, [selectedLayerId]);
   useEffect(() => { activeMainToolRef.current = activeMainTool; }, [activeMainTool]);
@@ -1032,18 +1081,29 @@ const getDraggableElement = (target, canvasRoot) => {
     if (!target || !canvasRoot || !canvasRoot.contains || !canvasRoot.contains(target)) return null;
     let current = target;
 
+    // Locked elements can NEVER be clicked, selected, or dragged on the canvas!
+    const lockedEl = (typeof current.closest === 'function' ? current.closest('[data-locked="true"]') : null) ||
+                     (current.getAttribute && current.getAttribute('data-locked') === 'true' ? current : null);
+    if (lockedEl) {
+      return null;
+    }
+
     // If clicking on a tspan, promote to parent text element first
     if (current && current.tagName?.toLowerCase() === 'tspan') {
       current = current.parentElement || current.parentNode;
     }
 
-    // Hotspots are single compound elements; if clicking anywhere inside a hotspot group, drag the whole hotspot!
+    // Hotspots are single compound elements; if clicking anywhere inside a hotspot group, drag the whole hotspot ONLY in interaction mode!
     const hotspotGroup = current && typeof current.closest === 'function' ? current.closest('[data-is-hotspot="true"], [data-type="hotspot"]') : null;
     if (hotspotGroup) {
-      if (!hotspotGroup.id) {
-        hotspotGroup.id = `hotspot-${Date.now()}`;
+      if (activeTopToolRef.current !== 'interaction') {
+        // When not in interaction mode, do not target hotspots so clicks pass through
+      } else {
+        if (!hotspotGroup.id) {
+          hotspotGroup.id = `hotspot-${Date.now()}`;
+        }
+        return hotspotGroup;
       }
-      return hotspotGroup;
     }
 
     // Video groups are single compound elements; always drag the whole video group
@@ -1064,6 +1124,9 @@ const getDraggableElement = (target, canvasRoot) => {
     // Audio elements are single compound elements; always drag/select the whole audio group
     const audioGroup = current && typeof current.closest === 'function' ? current.closest('[data-type="audio-frame"], g[id^="audio-"]') : null;
     if (audioGroup) {
+      if (activeTopToolRef.current === 'interaction') {
+        return null;
+      }
       if (!audioGroup.id) {
         audioGroup.id = `audio-${Date.now()}`;
       }
@@ -1168,15 +1231,18 @@ const getDraggableElement = (target, canvasRoot) => {
         return deepestElementWithId;
       }
 
-      // In normal edit mode (non-interaction & non-animation), Free Frames must never be draggable or selectable
-      const isFreeFrame = (
+      // In non-interaction mode, Free Frames and Hotspots must never be draggable or selectable
+      const isFreeFrameOrHotspot = (
         current.getAttribute && (
           current.getAttribute('data-name') === 'Free Frame' ||
           current.getAttribute('data-type') === 'free-frame' ||
-          (current.id && current.id.startsWith('free-frame'))
+          (current.id && current.id.startsWith('free-frame')) ||
+          current.getAttribute('data-is-hotspot') === 'true' ||
+          current.getAttribute('data-type') === 'hotspot' ||
+          (current.id && current.id.startsWith('hotspot-'))
         )
       );
-      if (isFreeFrame && activeTopToolRef.current !== 'interaction' && activeTopToolRef.current !== 'animation') {
+      if (isFreeFrameOrHotspot && activeTopToolRef.current !== 'interaction') {
         current = current.parentElement || current.parentNode;
         continue;
       }
@@ -1214,9 +1280,8 @@ const getDraggableElement = (target, canvasRoot) => {
         current.getAttribute('data-name') !== 'Document Shield' &&
         current.getAttribute('data-type') !== 'shield' &&
         (!isConvertedFlipbook || (
-          current.getAttribute('data-is-hotspot') === 'true' ||
-          current.getAttribute('data-type') === 'hotspot' ||
-          ((current.getAttribute('data-name') === 'Free Frame' || current.getAttribute('data-type') === 'free-frame' || current.id?.startsWith('free-frame')) && (activeTopToolRef.current === 'interaction' || activeTopToolRef.current === 'animation')) ||
+          ((current.getAttribute('data-is-hotspot') === 'true' || current.getAttribute('data-type') === 'hotspot' || current.id?.startsWith('hotspot-')) && activeTopToolRef.current === 'interaction') ||
+          ((current.getAttribute('data-name') === 'Free Frame' || current.getAttribute('data-type') === 'free-frame' || current.id?.startsWith('free-frame')) && activeTopToolRef.current === 'interaction') ||
           (current.getAttribute('data-type') === 'shape' && current.getAttribute('data-name') !== 'Free Frame' && current.getAttribute('data-type') !== 'free-frame' && !current.id?.startsWith('free-frame')) ||
           current.getAttribute('data-type') === 'icon'
         ))
@@ -1454,6 +1519,7 @@ const getDraggableElement = (target, canvasRoot) => {
       />
       <div
         ref={editorContainerRef}
+        data-editor-canvas="true"
         className="flex-1 relative flex items-center justify-center overflow-hidden"
         style={{
           cursor: isSpaceDown ? (isPanningRef.current ? 'grabbing' : 'grab') : 'default',
@@ -1514,7 +1580,7 @@ const getDraggableElement = (target, canvasRoot) => {
 
             if (zoomContainerRef.current) {
               zoomContainerRef.current.style.transition = 'none';
-              zoomContainerRef.current.style.transform = `translate(${boundedX}px, ${boundedY}px) scale(${currentScale})`;
+              zoomContainerRef.current.style.transform = `translate3d(${boundedX}px, ${boundedY}px, 0px) scale(${currentScale})`;
             }
             window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: { x: boundedX, y: boundedY } }));
           } else if (marqueeDataRef?.current && (e.buttons & 1) !== 0) {

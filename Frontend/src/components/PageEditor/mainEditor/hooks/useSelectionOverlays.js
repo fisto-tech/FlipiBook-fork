@@ -48,6 +48,8 @@ export const useSelectionOverlays = ({
   const { drawInteractionBadge } = createInteractionBadgeOverlay({
     activeTopToolRef,
     activePageIndex,
+    selectedLayerIdRef,
+    multiSelectedIdsRef,
     setActiveTopTool,
     updateElementAttribute
   });

@@ -550,7 +550,7 @@ const SliderControl = React.memo(({ label, value, onChange, onCommit, min = 0, m
           onTouchEnd={handleCommit}
           onKeyUp={handleCommit}
           className="flex-1 cursor-pointer custom-range-slider"
-          style={{ backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${percentage}%, #E2E8F0 ${percentage}%, #E2E8F0 100%)` }}
+          style={{ backgroundImage: `linear-gradient(to right, #EC5137 0%, #EC5137 ${percentage}%, #E2E8F0 ${percentage}%, #E2E8F0 100%)` }}
         />
         <span className="text-[0.8vw] font-medium text-gray-700 min-w-[1.8vw] text-right">{Math.round(localVal * 100) / 100}{unit}</span>
       </div>
@@ -881,7 +881,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
             <button
               onClick={(e) => { e.stopPropagation(); previewTextEffects(targetList); }}
               disabled={textFx.effect === 'none'}
-              className="w-[2vw] h-[2vw] flex items-center justify-center bg-white border border-gray-300 rounded-[0.4vw] text-[#4D47FF] shadow-2xs hover:border-[#4D47FF] hover:bg-[#4D47FF]/5 disabled:opacity-40 transition-all flex-shrink-0"
+              className="w-[2vw] h-[2vw] flex items-center justify-center bg-white border border-gray-300 rounded-[0.4vw] text-[#EC5137] shadow-2xs hover:border-[#EC5137] hover:bg-[#EC5137]/5 disabled:opacity-40 transition-all flex-shrink-0"
               title="Preview Text Effect"
             >
               <ScanEye size="0.95vw" />
@@ -896,7 +896,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
                     e.stopPropagation();
                     onOpenGallery(primaryElement, (newEffect) => updateTextFx('effect', newEffect), 'text');
                   }}
-                  className="anim-panel-replace-btn absolute top-[0.4vw] right-[0.4vw] w-[1.4vw] h-[1.4vw] rounded-[0.3vw] flex items-center justify-center cursor-pointer transition-all duration-200 z-20 text-gray-400 hover:text-[#4D47FF] hover:bg-gray-100"
+                  className="anim-panel-replace-btn absolute top-[0.4vw] right-[0.4vw] w-[1.4vw] h-[1.4vw] rounded-[0.3vw] flex items-center justify-center cursor-pointer transition-all duration-200 z-20 text-gray-400 hover:text-[#EC5137] hover:bg-gray-100"
                   title="Replace Text Effect"
                 >
                   <Icon icon="ph:arrows-left-right" width="0.85vw" height="0.85vw" className="transition-colors" />
@@ -940,7 +940,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
             <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Text Color :</span>
             <div className="flex items-center gap-[0.5vw]">
               {textFx.color && (
-                <button onClick={() => updateTextFx('color', '')} className="text-[0.75vw] text-gray-500 hover:text-[#4D47FF] transition-colors">Auto</button>
+                <button onClick={() => updateTextFx('color', '')} className="text-[0.75vw] text-gray-500 hover:text-[#EC5137] transition-colors">Auto</button>
               )}
               <input
                 type="color"
@@ -970,7 +970,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
         <div className="flex-1 relative">
           <button
             onClick={(e) => { e.stopPropagation(); setShowTriggerSelector(!showTriggerSelector); setShowActionSelector(false); }}
-            className="w-full h-[2vw] flex items-center justify-between px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs text-[0.8vw] font-semibold text-gray-700 hover:border-gray-400 focus:border-[#4D47FF] transition-all group"
+            className="w-full h-[2vw] flex items-center justify-between px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs text-[0.8vw] font-semibold text-gray-700 hover:border-gray-400 focus:border-[#EC5137] transition-all group"
           >
             <span className="text-[0.8vw] font-semibold text-gray-700 truncate">{trigger}</span>
             <ArrowRightLeft size="0.75vw" className="text-gray-400 group-hover:rotate-180 transition-transform duration-500" />
@@ -981,7 +981,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
                 <button
                   key={t}
                   onClick={() => handleTriggerChange(t)}
-                  className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${trigger === t ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                  className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${trigger === t ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                 >
                   {t}
                 </button>
@@ -994,7 +994,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
           <div className="flex-1 relative">
             <button
               onClick={(e) => { e.stopPropagation(); setShowActionSelector(!showActionSelector); setShowTriggerSelector(false); }}
-              className="w-full h-[2vw] flex items-center justify-between px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs text-[0.8vw] font-semibold text-gray-700 hover:border-gray-400 focus:border-[#4D47FF] transition-all group"
+              className="w-full h-[2vw] flex items-center justify-between px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs text-[0.8vw] font-semibold text-gray-700 hover:border-gray-400 focus:border-[#EC5137] transition-all group"
             >
               <span className="text-[0.8vw] font-semibold text-gray-700 truncate">{action}</span>
               <ArrowRightLeft size="0.75vw" className="text-gray-400 group-hover:rotate-180 transition-transform duration-500" />
@@ -1005,7 +1005,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
                   <button
                     key={a}
                     onClick={() => handleActionChange(a)}
-                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${action === a ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${action === a ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
                     {a}
                   </button>
@@ -1025,7 +1025,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
               previewAnimation(e, settings.type, settings, primaryElement);
             }
           }}
-          className="w-[2vw] h-[2vw] flex items-center justify-center bg-white border border-gray-300 rounded-[0.4vw] text-[#4D47FF] shadow-2xs hover:border-[#4D47FF] hover:bg-[#4D47FF]/5 transition-all flex-shrink-0"
+          className="w-[2vw] h-[2vw] flex items-center justify-center bg-white border border-gray-300 rounded-[0.4vw] text-[#EC5137] shadow-2xs hover:border-[#EC5137] hover:bg-[#EC5137]/5 transition-all flex-shrink-0"
           title="Preview Animation"
         >
           <ScanEye size="0.95vw" />
@@ -1045,7 +1045,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
                   updateSetting('type', newType);
                 });
               }}
-              className="anim-panel-replace-btn absolute top-[0.4vw] right-[0.4vw] w-[1.4vw] h-[1.4vw] rounded-[0.3vw] flex items-center justify-center cursor-pointer transition-all duration-200 z-20 text-gray-400 hover:text-[#4D47FF] hover:bg-gray-100"
+              className="anim-panel-replace-btn absolute top-[0.4vw] right-[0.4vw] w-[1.4vw] h-[1.4vw] rounded-[0.3vw] flex items-center justify-center cursor-pointer transition-all duration-200 z-20 text-gray-400 hover:text-[#EC5137] hover:bg-gray-100"
               title="Replace Animation"
             >
               <Icon icon="ph:arrows-left-right" width="0.85vw" height="0.85vw" className="transition-colors" />
@@ -1097,7 +1097,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
         <div className="relative">
           <button
             onClick={(e) => { e.stopPropagation(); setShowEasingSelector(!showEasingSelector); setShowRepeatSelector(false); }}
-            className="flex items-center justify-between px-[0.7vw] h-[2vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:border-gray-400 focus:border-[#4D47FF] transition-all group w-[8.8vw]"
+            className="flex items-center justify-between px-[0.7vw] h-[2vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:border-gray-400 focus:border-[#EC5137] transition-all group w-[8.8vw]"
           >
             <span className="text-[0.8vw] font-medium text-gray-700 truncate">{settings.easing}</span>
             <ChevronDown size="0.85vw" className={`text-gray-400 transition-transform duration-200 ${showEasingSelector ? 'rotate-180' : ''}`} />
@@ -1139,7 +1139,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
                       });
                     }, 120);
                   }}
-                  className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${settings.easing === opt ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                  className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${settings.easing === opt ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                 >
                   {opt}
                 </button>
@@ -1156,7 +1156,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
           <div className="relative">
             <button
               onClick={(e) => { e.stopPropagation(); setShowRepeatSelector(!showRepeatSelector); setShowEasingSelector(false); }}
-              className="flex items-center justify-between px-[0.7vw] h-[2vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:border-gray-400 focus:border-[#4D47FF] transition-all group w-[8.8vw]"
+              className="flex items-center justify-between px-[0.7vw] h-[2vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:border-gray-400 focus:border-[#EC5137] transition-all group w-[8.8vw]"
             >
               <span className="text-[0.8vw] font-medium text-gray-700 truncate">
                 {['None', 'Once', 'Twice', 'Thrice', 'Infinite'].includes(settings.repeat || 'None') ? (settings.repeat || 'None') : `${settings.repeat} times`}
@@ -1169,7 +1169,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
                   <button
                     key={opt}
                     onClick={() => { updateSetting('repeat', opt); setShowRepeatSelector(false); }}
-                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${settings.repeat === opt ? 'text-[#4D47FF] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${settings.repeat === opt ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
                     {opt}
                   </button>
@@ -1179,7 +1179,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
                     type="number"
                     min="1"
                     placeholder="Custom"
-                    className="w-[3.5vw] h-[1.8vw] border border-gray-200 rounded-[0.3vw] px-[0.4vw] text-[0.75vw] text-center text-gray-700 outline-none focus:border-[#4D47FF] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-[3.5vw] h-[1.8vw] border border-gray-200 rounded-[0.3vw] px-[0.4vw] text-[0.75vw] text-center text-gray-700 outline-none focus:border-[#EC5137] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={!['None', 'Once', 'Twice', 'Thrice', 'Infinite'].includes(settings.repeat || 'None') ? (settings.repeat || '') : ''}
                     onChange={(e) => updateSetting('repeat', e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') setShowRepeatSelector(false); }}
@@ -1196,7 +1196,7 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
       <div className="flex flex-col pt-[0.2vw] mt-[0.6vw] border-t border-gray-100 gap-[0.4vw]">
         <div className="flex items-center justify-between pt-[0.2vw]">
           <label className="flex items-center gap-[0.6vw] cursor-pointer group select-none">
-            <div className={`w-[1.1vw] h-[1.1vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.everyVisit ? 'bg-[#4D47FF]' : 'border border-gray-300 bg-white hover:border-gray-400'}`}>
+            <div className={`w-[1.1vw] h-[1.1vw] rounded-[0.3vw] flex items-center justify-center transition-all ${settings.everyVisit ? 'bg-[#EC5137]' : 'border border-gray-300 bg-white hover:border-gray-400'}`}>
               {settings.everyVisit && <Icon icon="lucide:check" width="0.75vw" height="0.75vw" className="text-white stroke-[3]" />}
             </div>
             <input type="checkbox" className="hidden" checked={settings.everyVisit} onChange={() => updateSetting('everyVisit', !settings.everyVisit)} />
@@ -1820,8 +1820,8 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
         .custom-range-slider { -webkit-appearance: none; width: 100%; background: transparent; position: relative; }
         .custom-range-slider::before { content: ""; position: absolute; top: -0.75vw; bottom: -0.75vw; left: 0; right: 0; cursor: pointer; z-index: 1; }
         .custom-range-slider::-webkit-slider-runnable-track { height: 0.2vw; border-radius: 0.1vw; background: inherit; }
-        .custom-range-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 1vw; width: 1vw; border-radius: 50%; background: #4D47FF; border: 0.02vw solid #ffffff; box-shadow: 0 0.15vw 0.5vw rgba(77,71,255,0.4); margin-top: -0.4vw; cursor: pointer; transition: box-shadow 0.15s ease; position: relative; z-index: 2; }
-        .custom-range-slider::-webkit-slider-thumb:hover { box-shadow: 0 0.15vw 0.75vw rgba(77,71,255,0.6); }
+        .custom-range-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 1vw; width: 1vw; border-radius: 50%; background: #EC5137; border: 0.02vw solid #ffffff; box-shadow: 0 0.15vw 0.5vw rgba(236,81,55,0.4); margin-top: -0.4vw; cursor: pointer; transition: box-shadow 0.15s ease; position: relative; z-index: 2; }
+        .custom-range-slider::-webkit-slider-thumb:hover { box-shadow: 0 0.15vw 0.75vw rgba(236,81,55,0.6); }
         .overlay-scrollbar {
           overflow-y: overlay !important;
         }
@@ -1832,7 +1832,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
         {/* Top Banner Button (STICKY AT TOP, NEVER SQUISHED) */}
         <div
           onClick={handleGlobalPreview}
-          className="flex-shrink-0 min-h-[3.2vw] relative bg-gray-100 hover:bg-gray-200/80 p-[0.75vw] rounded-[0.8vw] flex items-center gap-[0.75vw] border border-gray-200 cursor-pointer mb-[1.2vw] transition-all overflow-hidden group shadow-2xs select-none"
+          className="flex-shrink-0 min-h-[3.2vw] relative bg-gray-100 hover:bg-gray-200/80 p-[0.75vw] rounded-[0.6vw] flex items-center gap-[0.75vw] border border-gray-200 cursor-pointer mb-[1.2vw] transition-all overflow-hidden group shadow-2xs select-none"
         >
           {/* Progress Bar Overlay */}
           {isPreviewing && (
@@ -1855,16 +1855,17 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
 
         {/* Selected Element Animation Status Card (ONLY if selected AND not added yet) */}
         {activeSelectedEl && !isSelectedElAnimated && (
-          <div className="flex-shrink-0 p-[0.7vw] rounded-[0.8vw] border-[0.15vw] border-indigo-200 bg-indigo-50/60 shadow-2xs mb-[1.2vw] flex items-center justify-between gap-[0.6vw]">
-            <div className="flex items-center gap-[0.6vw] min-w-0 flex-1">
-              <div className="w-[2vw] h-[2vw] rounded-[0.4vw] flex items-center justify-center flex-shrink-0 bg-indigo-100 text-[#4D47FF]">
+          <div className="flex-shrink-0 p-[0.65vw] rounded-[0.6vw] border border-[#EC5137]/25 bg-gradient-to-r from-[#EC5137]/[0.06] via-white to-white hover:border-[#EC5137]/45 shadow-2xs mb-[1.2vw] flex items-center justify-between gap-[0.8vw] transition-all">
+            <div className="flex items-center gap-[0.65vw] min-w-0 flex-1">
+              <div className="w-[2.2vw] h-[2.2vw] rounded-[0.45vw] flex items-center justify-center flex-shrink-0 bg-[#EC5137]/10 text-[#EC5137] border border-[#EC5137]/15">
                 <Icon icon="tdesign:animation-1" width="1.15vw" height="1.15vw" />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-[0.8vw] font-semibold text-gray-900 truncate" title={selectedElName}>
+                <span className="text-[0.82vw] font-semibold text-gray-900 truncate leading-tight" title={selectedElName}>
                   {selectedElName}
                 </span>
-                <span className="text-[0.68vw] font-medium text-[#4D47FF]">
+                <span className="text-[0.68vw] text-gray-500 font-medium whitespace-nowrap flex items-center gap-[0.3vw] mt-[0.15vh]">
+                  <span className="w-[0.35vw] h-[0.35vw] rounded-full bg-amber-400 flex-shrink-0" />
                   No animation added
                 </span>
               </div>
@@ -1872,10 +1873,10 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
 
             <button
               onClick={() => handleAddAnimationToSelected(activeSelectedEl)}
-              className="flex-shrink-0 h-[1.9vw] px-[0.7vw] bg-[#4D47FF] hover:bg-[#3d36e8] text-white rounded-[0.4vw] text-[0.75vw] font-semibold flex items-center gap-[0.3vw] shadow-sm transition-all cursor-pointer hover:shadow"
+              className="flex-shrink-0 h-[1.85vw] px-[0.85vw] bg-[#EC5137] hover:bg-[#d6442c] text-white rounded-[0.4vw] text-[0.74vw] font-medium flex items-center gap-[0.3vw] shadow-xs hover:shadow transition-all cursor-pointer active:scale-95 whitespace-nowrap"
             >
               <Icon icon="lucide:plus" width="0.85vw" height="0.85vw" />
-              Click to Add Animation
+              <span>Add Animation</span>
             </button>
           </div>
         )}
@@ -1892,7 +1893,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
       >
         <div
           ref={scrollContainerRef}
-          className="flex flex-col gap-[1.5vh] pb-[4vw] pt-[0.2vw] px-[1.5vw]"
+          className="flex flex-col gap-[0.7vh] pb-[4vw] pt-[0.2vw] px-[1.5vw]"
         >
         {(() => {
           const groups = {};
@@ -1930,14 +1931,14 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
               <div
                 key={id || idx}
                 ref={el => itemRefs.current[id] = el}
-                className={`w-full mx-auto bg-white border-[0.15vw] rounded-[0.8vw] shadow-2xs flex flex-col relative transition-all duration-200 overflow-hidden ${
+                className={`w-full mx-auto bg-white border-[0.15vw] rounded-[0.6vw] shadow-2xs flex flex-col relative transition-all duration-200 overflow-hidden ${
                   isExpanded || isSelected
-                    ? 'border-[#4D47FF] shadow-sm z-[50]'
+                    ? 'border-[#EC5137] shadow-sm z-[50]'
                     : 'border-gray-200 hover:border-gray-300 z-[10]'
                 }`}
               >
                 <div
-                  className="flex items-center justify-between gap-[0.8vw] py-[0.7vw] px-[0.8vw] cursor-pointer select-none rounded-t-[0.8vw]"
+                  className="flex items-center justify-between gap-[0.8vw] py-[0.7vw] px-[0.8vw] cursor-pointer select-none rounded-t-[0.6vw]"
                   onClick={() => {
                     const nextId = isExpanded ? null : id;
                     setExpandedElementId(nextId);
@@ -1951,7 +1952,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
                 >
                   <div className="flex items-center gap-[0.8vw] flex-1 min-w-0">
                     {/* Star / Animation Icon */}
-                    <div className="flex-shrink-0 text-[#4D47FF] flex items-center" style={{ stroke: 'currentColor', strokeWidth: '0.35px' }}>
+                    <div className="flex-shrink-0 text-[#EC5137] flex items-center" style={{ stroke: 'currentColor', strokeWidth: '0.35px' }}>
                       <Icon icon="tdesign:animation-1" className="text-[1.15vw]" width="1.15vw" height="1.15vw" />
                     </div>
 
@@ -1959,7 +1960,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
                     <div className="h-[2vw] flex items-center justify-start gap-[0.4vw] px-[0.7vw] relative select-none">
                       {editingNameId === id ? (
                         <input
-                          className="text-[0.8vw] text-gray-700 font-semibold font-sans bg-gray-50 border-b border-[#4D47FF] outline-none w-full px-[0.2vw]"
+                          className="text-[0.8vw] text-gray-700 font-semibold font-sans bg-gray-50 border-b border-[#EC5137] outline-none w-full px-[0.2vw]"
                           value={tempName}
                           autoFocus
                           onClick={(e) => e.stopPropagation()}
@@ -1984,7 +1985,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
                         />
                       ) : (
                         <span
-                          className="text-[0.8vw] text-gray-700 font-semibold font-sans select-none flex-shrink-0 truncate max-w-[14vw] cursor-pointer hover:text-[#4D47FF] transition-colors"
+                          className="text-[0.8vw] text-gray-700 font-semibold font-sans select-none flex-shrink-0 truncate max-w-[14vw] cursor-pointer hover:text-[#EC5137] transition-colors"
                           onDoubleClick={(e) => {
                             e.stopPropagation();
                             if (!isGroup) {
@@ -2006,7 +2007,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
 
                   <div className="flex items-center gap-[0.5vw]">
                     {isExpanded && (
-                      <div className="flex-shrink-0 text-gray-400 hover:text-[#4D47FF] transition-colors p-[0.2vw]">
+                      <div className="flex-shrink-0 text-gray-400 hover:text-[#EC5137] transition-colors p-[0.2vw]">
                         <Icon
                           icon="lucide:rotate-cw"
                           width="0.85vw"
@@ -2050,7 +2051,7 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3, ease: 'easeInOut' }}
-                      className="bg-white rounded-b-[0.8vw] overflow-hidden"
+                      className="bg-white rounded-b-[0.6vw] overflow-hidden"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="w-full border-t border-gray-100"></div>

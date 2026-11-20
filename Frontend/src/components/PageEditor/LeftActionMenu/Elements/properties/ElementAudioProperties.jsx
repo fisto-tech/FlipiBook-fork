@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../../../utils/assets/assetUtils';
 import sampleAudio from '../../../../../assets/Audios/bg music1.mp3';
 import ColorPicker, { parseGradient, generateGradientString } from '../../../properties/ColorPicker';
 import { handleScrubHelper } from '../../../properties/Color';
@@ -1025,8 +1025,12 @@ const ElementAudioProperties = ({
     } else {
       setAudioSrc(sampleAudio);
       selectedElement.setAttribute('data-audio-src', sampleAudio);
-      selectedElement.setAttribute('data-interaction', 'audio');
-      selectedElement.setAttribute('data-interaction-value', sampleAudio);
+    }
+    if (selectedElement.hasAttribute('data-interaction')) {
+      selectedElement.removeAttribute('data-interaction');
+    }
+    if (selectedElement.hasAttribute('data-interaction-value')) {
+      selectedElement.removeAttribute('data-interaction-value');
     }
 
     // Audio properties
@@ -1728,8 +1732,8 @@ const ElementAudioProperties = ({
 
       setAudioSrc(localUrl);
       updateAttribute('data-audio-src', localUrl);
-      updateAttribute('data-interaction', 'audio');
-      updateAttribute('data-interaction-value', localUrl);
+      updateAttribute('data-interaction', null);
+      updateAttribute('data-interaction-value', null);
 
       // Upload to backend if logged in
       const storedUser = localStorage.getItem('user');
@@ -1748,7 +1752,6 @@ const ElementAudioProperties = ({
             const serverUrl = resolveUploadsPath(res.data.url);
             setAudioSrc(serverUrl);
             updateAttribute('data-audio-src', serverUrl);
-            updateAttribute('data-interaction-value', serverUrl);
           }
         } catch (uploadErr) {
           console.warn('Backend upload failed, kept local URL:', uploadErr);

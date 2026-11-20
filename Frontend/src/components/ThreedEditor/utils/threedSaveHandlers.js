@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GLTFExporter } from "three-stdlib";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import axios from "axios";
-import { resolveUploadsPath } from "../../../utils/assetUtils.js";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils.js";
 import { store } from "../../../store";
 
 /**

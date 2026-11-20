@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import { X, Check, ZoomIn, ZoomOut, RotateCw, RefreshCw } from 'lucide-react';
-import { resolveUploadsPath, BACKEND_URL } from '../../utils/assetUtils';
+import { resolveUploadsPath, BACKEND_URL } from '../../utils/assets/assetUtils';
 
 /**
  * ImageCropModal

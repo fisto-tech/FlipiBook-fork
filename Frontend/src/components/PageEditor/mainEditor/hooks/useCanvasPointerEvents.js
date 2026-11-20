@@ -26,6 +26,55 @@ import { drawShapeImageAdjustOverlay } from '../../penTool/penOverlayEngine';
  */
 const setsAreEqual = (a, b) => a.size === b.size && [...a].every(v => b.has(v));
 
+// Group-first targeting: a shape inside a group targets the (outermost) group until the group —
+// or something inside it — is selected; then clicks go one level deeper into the group.
+const resolveGroupAwareTarget = (target, selectedId) => {
+  if (!target || !target.closest) return null;
+  // outermost group containing the target
+  // user-made groups only (Group action / Ctrl+G → id "group-…"); template wrappers keep normal picking
+  const USER_GROUP = 'g[data-type="group"][id^="group-"]';
+  let outer = null;
+  let g = target.closest(USER_GROUP);
+  while (g) { outer = g; g = g.parentElement?.closest(USER_GROUP); }
+  if (!outer || outer === target) return null;
+  if (outer.getAttribute('data-locked') === 'true') return null;
+
+  const svg = outer.ownerSVGElement;
+  const selEl = selectedId && svg ? svg.querySelector(`[id="${CSS.escape(selectedId)}"]`) : null;
+  // Nothing in this group selected yet -> target the whole group
+  if (!selEl || !outer.contains(selEl)) return outer;
+
+  // Inside the group's context: deepest group containing both the selection and the target
+  let ctx = (selEl.getAttribute('data-type') === 'group' && selEl.contains(target))
+    ? selEl
+    : selEl.parentElement?.closest('g[data-type="group"]');
+  while (ctx && !ctx.contains(target)) ctx = ctx.parentElement?.closest('g[data-type="group"]');
+  if (!ctx) ctx = outer;
+  // the child of that context which contains the target (next level down)
+  let c = target;
+  while (c.parentElement && c.parentElement !== ctx) c = c.parentElement;
+  return (c && c.id && c !== ctx) ? c : ctx;
+};
+
+// Groups have no fill of their own, so the empty space between grouped shapes hits nothing.
+// Find the topmost outermost group whose on-screen box contains the pointer.
+const findGroupAtPoint = (svg, clientX, clientY) => {
+  if (!svg) return null;
+  const groups = Array.from(svg.querySelectorAll('g[data-type="group"]')).filter(g =>
+    g.id && g.id.startsWith('group-') && // user-made groups only (not template/page wrapper groups)
+    g.getAttribute('data-hidden') !== 'true' &&
+    g.getAttribute('data-locked') !== 'true' &&
+    !g.parentElement?.closest('g[data-type="group"]') // outermost group only
+  );
+  for (let i = groups.length - 1; i >= 0; i--) {
+    const r = groups[i].getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+      return groups[i];
+    }
+  }
+  return null;
+};
+
 export const useCanvasPointerEvents = ({
   zoom = 90,
   activePageIndex = 0,
@@ -779,9 +828,7 @@ export const useCanvasPointerEvents = ({
         div.style.width = 'max-content'; // Allows scrollWidth to perfectly match text
         div.style.height = '100%';
         div.style.minHeight = '100%';
-        div.style.display = 'flex';
-        div.style.flexDirection = 'column';
-        div.style.justifyContent = 'center';
+        div.style.display = 'block'; // keep styled runs inline (no flex column)
         div.style.color = '#000000';
         div.style.fontFamily = "'Outfit', sans-serif";
         div.style.fontSize = '24pt';
@@ -1088,6 +1135,15 @@ export const useCanvasPointerEvents = ({
           hitCandidate = leafTarget;
         }
       }
+    }
+
+    // Empty gap inside a group: hit the group itself
+    if (!hitCandidate || topFrames.some(f => f.id === hitCandidate.id) || isPageRootElement(hitCandidate, svg) ||
+        hitCandidate.getAttribute('data-name') === 'Overlay' || hitCandidate.getAttribute('data-type') === 'background') {
+      const gapGroup = findGroupAtPoint(svg, e.clientX, e.clientY);
+      const gapGroupSelected = gapGroup && (selectedLayerIdRef.current === gapGroup.id || multiSelectedIdsRef.current.has(gapGroup.id));
+      // Unselected group: let drag-select (marquee) start; a plain click still selects the group on 'click'.
+      if (gapGroupSelected) hitCandidate = gapGroup;
     }
 
     // ── NEW: Check if we hit ANY already-selected element's bounding box ──────────
@@ -1686,7 +1742,7 @@ export const useCanvasPointerEvents = ({
       e.target.getAttribute?.('data-type') === 'shield' ||
       (e.target.id && e.target.id.includes('overlay-poly-'));
 
-    if (isBackground) {
+    if (isBackground && !findGroupAtPoint(svg, e.clientX, e.clientY)) {
       if (lastHoveredIdRef.current) {
         const prev = svg.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
         prev?.removeAttribute('data-hovered');
@@ -1724,6 +1780,25 @@ export const useCanvasPointerEvents = ({
       if (curr && curr.parentElement === svg && curr.id && curr.getAttribute('data-name') !== 'Overlay' && curr.getAttribute('data-locked') !== 'true' && curr.tagName.toLowerCase() !== 'style' && curr.tagName.toLowerCase() !== 'defs') {
         candidate = curr;
         isChild = false;
+      }
+    }
+
+    // Hovering the empty gap inside a group (or the page frame behind it) -> hover the group
+    if (!candidate || isBackground || isPageRootElement(candidate, svg) || candidate.getAttribute('data-type') === 'frame' ||
+        candidate.getAttribute('data-type') === 'background' || candidate.id === effectiveFrameId) {
+      const gapGroup = findGroupAtPoint(svg, e.clientX, e.clientY);
+      if (gapGroup) {
+        candidate = gapGroup;
+        isChild = Boolean(effectiveFrameId && svg.querySelector(`[id="${effectiveFrameId}"]`)?.contains(gapGroup));
+      }
+    }
+
+    // Group-first hover: show the group's outline until you're working inside it
+    if (candidate && e.target && !(e.target.id && e.target.id.includes('overlay-poly-'))) {
+      const groupAware = resolveGroupAwareTarget(e.target, selectedLayerIdRef.current);
+      if (groupAware && groupAware.id) {
+        candidate = groupAware;
+        isChild = Boolean(effectiveFrameId && svg.querySelector(`[id="${effectiveFrameId}"]`)?.contains(groupAware));
       }
     }
 
@@ -2140,6 +2215,67 @@ export const useCanvasPointerEvents = ({
     return () => window.removeEventListener('trigger-image-adjust', handleTriggerImageAdjust);
   }, [activePageIndex, enterNodeEditMode, drawNodeEditOverlay, startShapeImageAdjust]);
 
+  // ── HOVER SYNC FROM LAYERS PANEL ─────────────────────────────────────────────
+  useEffect(() => {
+    const handleLayerHover = (e) => {
+      const { layerId, isHovered, pageIndex } = e.detail || {};
+
+      // Clear any active hover overlay
+      if (lastHoveredIdRef.current) {
+        const prev = document.getElementById(lastHoveredIdRef.current) 
+                  || document.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
+        prev?.removeAttribute('data-hovered');
+        prev?.removeAttribute('data-child-hovered');
+        clearOverlayType('hover');
+        clearOverlayType('child-hover');
+        lastHoveredIdRef.current = null;
+      }
+
+      if (!isHovered || !layerId) return;
+
+      // If already selected, do not draw hover box (selection box is already visible)
+      if (selectedLayerIdRef.current === layerId || multiSelectedIdsRef.current?.has(layerId)) {
+        return;
+      }
+
+      const targetPageIndex = typeof pageIndex === 'number' ? pageIndex : activePageIndex;
+      const targetContainer = document.querySelector(`.page-svg-container[data-page-index="${targetPageIndex}"]`)
+                           || document.getElementById('main-flipbook-editor')?.contentDocument?.querySelector(`.page-svg-container[data-page-index="${targetPageIndex}"]`)
+                           || document.querySelector('.page-svg-container');
+
+      if (!targetContainer) return;
+
+      const targetEl = targetContainer.querySelector(`[id="${CSS.escape(layerId)}"]`)
+                    || targetContainer.querySelector(`[data-name="${CSS.escape(layerId)}"]`)
+                    || document.getElementById(layerId);
+
+      if (!targetEl) return;
+
+      // Skip base background / locked / overlay elements
+      const isBackgroundOrOverlay = targetEl.getAttribute('data-name') === 'Overlay' ||
+        targetEl.getAttribute('data-type') === 'background' ||
+        targetEl.getAttribute('data-type') === 'shield' ||
+        targetEl.getAttribute('data-locked') === 'true';
+
+      if (isBackgroundOrOverlay) return;
+
+      lastHoveredIdRef.current = targetEl.id || layerId;
+      targetEl.setAttribute('data-hovered', 'true');
+      if (typeof drawOverlayHighlight === 'function') {
+        try {
+          drawOverlayHighlight(targetEl, 'hover');
+        } catch (err) {
+          console.warn('[useCanvasPointerEvents] Error drawing layer hover highlight:', err);
+        }
+      }
+    };
+
+    window.addEventListener('layer-hover', handleLayerHover);
+    return () => {
+      window.removeEventListener('layer-hover', handleLayerHover);
+    };
+  }, [activePageIndex, drawOverlayHighlight]);
+
   // ── FIGMA-STYLE MOUSE LEAVE: clear all hovers ─────────────────────────────────
   const handleSvgMouseLeave = (e) => {
     if ((e.buttons & 1) === 0 && (marqueeDataRef.current || marqueeRef.current)) {
@@ -2218,6 +2354,14 @@ export const useCanvasPointerEvents = ({
         (finalEl.id && finalEl.id.startsWith('free-frame'))
       ) : resolvedId.startsWith('free-frame');
       if (isFreeFrame && activeTopToolRef.current !== 'interaction' && activeTopToolRef.current !== 'animation') {
+        return;
+      }
+      const isAudio = finalEl ? (
+        finalEl.getAttribute('data-type') === 'audio-frame' ||
+        (finalEl.id && finalEl.id.startsWith('audio-')) ||
+        (typeof finalEl.closest === 'function' && !!finalEl.closest('[data-type="audio-frame"], g[id^="audio-"]'))
+      ) : resolvedId.startsWith('audio-');
+      if (isAudio && activeTopToolRef.current === 'interaction') {
         return;
       }
     }
@@ -2300,7 +2444,7 @@ export const useCanvasPointerEvents = ({
         }
       });
       document.querySelectorAll('[id^="highlight-overlay-html-"]').forEach(htmlOverlay => {
-        htmlOverlay.querySelectorAll('.resize-handle, .corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"]').forEach(node => {
+        htmlOverlay.querySelectorAll('.resize-handle, .corner-value-badge, [id^="rotation-degree-badge-"], [id^="rotate-handle-"], [id^="rotate-hotspot-"], [id^="interaction-badge-"]').forEach(node => {
           if (!node.id.includes(id)) {
             node.remove();
           }
@@ -2454,6 +2598,33 @@ export const useCanvasPointerEvents = ({
         currentFrameIdRef.current = null;
       }
       return;
+    }
+
+    // ── Click on a shape inside a group → select the group first, then its children ──
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey && selectedSelectTool !== 'direct' && !(e.target.id && e.target.id.includes('overlay-poly-'))) {
+      const leaf = getDraggableElement(e.target, svg);
+      const groupAware = leaf ? resolveGroupAwareTarget(leaf, selectedLayerIdRef.current) : null;
+      if (groupAware && groupAware.id) {
+        setSingleSelection(groupAware.id);
+        return;
+      }
+    }
+
+    // ── Click in the empty gap inside a group → select the group ───────────────
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey && selectedSelectTool !== 'direct') {
+      const direct = getDraggableElement(e.target, svg);
+      const isOverlayPoly = Boolean(e.target.id && e.target.id.includes('overlay-poly-'));
+      const onBackground = !isOverlayPoly && (!direct || direct === svg || isPageRootElement(direct, svg) ||
+        direct.getAttribute?.('data-name') === 'Overlay' || direct.getAttribute?.('data-type') === 'background');
+      const gapGroup = (onBackground || isOverlayPoly) ? findGroupAtPoint(svg, e.clientX, e.clientY) : null;
+      // Overlay outlines only count when they are the group's own hover/selection outline
+      const polyIsGroupOutline = isOverlayPoly && gapGroup && e.target.id.endsWith(`-${gapGroup.id}`);
+      if (onBackground || polyIsGroupOutline) {
+        if (gapGroup) {
+          setSingleSelection(gapGroup.id);
+          return;
+        }
+      }
     }
 
     // ── Pre-empt polygon clicks (hit area padding) ─────────────────────────────

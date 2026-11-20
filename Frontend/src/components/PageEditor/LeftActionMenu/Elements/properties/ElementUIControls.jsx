@@ -120,7 +120,36 @@ export const ElementDropdown = ({
   align = 'left'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef(null);
+
+  // Open upward when there isn't enough room below (inside the scrolling panel or viewport)
+  const computeOpenUp = () => {
+    const el = containerRef.current;
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    let boundTop = 0;
+    let boundBottom = window.innerHeight;
+    let node = el.parentElement;
+    let scroller = null;
+    while (node && node !== document.body) {
+      const oy = getComputedStyle(node).overflowY;
+      if (oy === 'auto' || oy === 'scroll' || oy === 'hidden') {
+        const r = node.getBoundingClientRect();
+        boundTop = Math.max(boundTop, r.top);
+        boundBottom = Math.min(boundBottom, r.bottom);
+        scroller = node;
+        break;
+      }
+      node = node.parentElement;
+    }
+    // Room we could still gain by scrolling the panel down
+    const scrollRoom = scroller ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight : 0;
+    const menuH = Math.min(window.innerWidth * 0.14, options.length * Math.max(window.innerWidth * 0.024, 28) + 12);
+    const spaceBelow = boundBottom - rect.bottom + Math.max(0, scrollRoom);
+    const spaceAbove = rect.top - boundTop;
+    return spaceBelow < menuH + 8 && spaceAbove > spaceBelow;
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -135,7 +164,7 @@ export const ElementDropdown = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen && containerRef.current) {
+    if (isOpen && containerRef.current && !openUp) {
       // Allow the dropdown menu to render in the DOM before scrolling to center, matching Animation & Interaction panels
       setTimeout(() => {
         containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -167,7 +196,9 @@ export const ElementDropdown = ({
         disabled={disabled}
         onClick={(e) => {
           e.stopPropagation();
-          if (!disabled) setIsOpen(!isOpen);
+          if (disabled) return;
+          if (!isOpen) setOpenUp(computeOpenUp());
+          setIsOpen(!isOpen);
         }}
         className={`w-full h-[2.4vw] min-h-[32px] flex items-center justify-between bg-white px-[0.65vw] rounded-[0.45vw] text-[0.78vw] font-semibold transition-all cursor-pointer shadow-2xs select-none ${
           disabled ? 'opacity-50 cursor-not-allowed' : ''
@@ -192,7 +223,7 @@ export const ElementDropdown = ({
 
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 top-full mt-[0.35vw] bg-white border border-gray-100 rounded-[0.55vw] shadow-xl overflow-hidden z-[110] flex flex-col py-[0.3vw] max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150 ${menuClassName}`}
+          className={`absolute left-0 right-0 ${openUp ? 'bottom-full mb-[0.35vw]' : 'top-full mt-[0.35vw]'} bg-white border border-gray-100 rounded-[0.55vw] shadow-xl overflow-hidden z-[110] flex flex-col py-[0.3vw] max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150 ${menuClassName}`}
           style={align === 'right' ? { right: 0, left: 'auto', minWidth: '100%' } : {}}
         >
           {normalizedOptions.map((opt) => {

@@ -305,7 +305,6 @@ export const parseLayersFromSVG = (element) => {
     .filter(child => {
       if (['defs', 'metadata', 'style', 'title', 'desc', 'parsererror'].includes(child.tagName.toLowerCase())) return false;
       if (child.getAttribute('data-name') === 'Overlay') return false;
-      if (child.getAttribute('style')?.includes('display:none') || child.getAttribute('style')?.includes('display: none')) return false;
       if (child.classList.contains('svg-drop-shadow-caster')) return false;
       if (child.classList.contains('internal-crop-rect')) return false;
       if (child.classList.contains('internal-crop-pattern')) return false;
@@ -356,11 +355,16 @@ export const parseLayersFromSVG = (element) => {
       const rawName = child.getAttribute('data-name') || id || `${child.tagName.charAt(0).toUpperCase() + child.tagName.slice(1)}`;
       const cleanName = rawName.replace(/^tpl-[a-z0-9]{4}-/, '');
 
+      const isHidden = child.getAttribute('data-hidden') === 'true' ||
+                       child.getAttribute('style')?.includes('display:none') ||
+                       child.getAttribute('style')?.includes('display: none') ||
+                       child.style?.display === 'none';
+
       const layer = {
         id,
         name: cleanName,
         type: child.tagName.toLowerCase(),
-        visible: child.getAttribute('data-hidden') !== 'true',
+        visible: !isHidden,
         locked: child.getAttribute('data-locked') === 'true'
       };
 
@@ -436,12 +440,26 @@ export const parseLayersFromSVG = (element) => {
                            (lowerId.startsWith('typography-') && child.getAttribute('data-type') === 'text')
       );
 
+      const isHotspot = !isPageRoot && (
+        child.getAttribute('data-is-hotspot') === 'true' ||
+        child.getAttribute('data-type') === 'hotspot' ||
+        lowerId.startsWith('hotspot-') ||
+        (child.getAttribute('data-name') || '').toLowerCase().startsWith('hotspot')
+      );
+
+      const isFreeFrame = !isPageRoot && (
+        child.getAttribute('data-name') === 'Free Frame' ||
+        child.getAttribute('data-type') === 'free-frame' ||
+        lowerId.startsWith('free-frame')
+      );
+
       const isGroup = !isPageRoot && (
         child.getAttribute('data-is-image-group') === 'true' ||
         child.getAttribute('data-is-video-group') === 'true' ||
         child.getAttribute('data-is-gif-group') === 'true' ||
         isEmbedGroup || isAudioFrame || isButton || isQRCode ||
-        isMap || isSlideshow || isImageFrame || isShape || isTable || isDecorator || isTypography
+        isMap || isSlideshow || isImageFrame || isShape || isTable || isDecorator || isTypography ||
+        isHotspot || isFreeFrame
       );
 
       const isPdfVector = child.getAttribute('data-type') === 'pdf-vector-layer';
@@ -454,7 +472,8 @@ export const parseLayersFromSVG = (element) => {
         // but never touch dedicated element containers (image-frame, qrcode, audio-frame, etc.) or SVG definition tags (defs, pattern, clipPath, mask, filter, grad)
         const isElementPresetContainer =
           isImageFrame || isQRCode || isAudioFrame || isEmbedGroup ||
-          isButton || isMap || isSlideshow || isTable || isTypography || isShape || isDecorator;
+          isButton || isMap || isSlideshow || isTable || isTypography || isShape || isDecorator ||
+          isHotspot || isFreeFrame;
 
         if (!isElementPresetContainer) {
           const stripIds = (node) => {
@@ -623,7 +642,15 @@ if (typeof window !== 'undefined' && !window.__textSelectionTrackingInitialized)
 
   document.addEventListener('mousedown', (e) => {
     const target = e.target;
+    // Remember (without a timeout) whether the last press was outside the editor canvas.
+    // Color pickers / dropdowns can move focus well after the click; inline text editing
+    // must stay alive until the user actually clicks back on the canvas.
+    window.__lastPressOutsideCanvas = !!(target && target.closest && !target.closest('[data-editor-canvas]'));
+    if (!window.__lastPressOutsideCanvas) window.__lastTextSelection = null;
     if (target && (
+      // Any click outside the editor canvas (properties panel, dropdowns, color-picker portals, …)
+      // must not end inline text editing — otherwise the selected text range is lost.
+      (target.closest && !target.closest('[data-editor-canvas]')) ||
       target.closest('.right-sidebar') ||
       target.closest('#right-sidebar') ||
       target.closest('[data-panel]') ||
@@ -652,14 +679,21 @@ export const applyStyleToActiveTextSelection = (elementId, attribute, value) => 
   const fo = document.getElementById(elementId);
   if (!fo) return false;
 
-  // If text is NOT actively in inline edit mode, styles must apply to the entire element!
-  if (fo.getAttribute('data-editing') !== 'true') {
-    window.__savedTextSelection = null;
-    return false;
-  }
-
   const contentDiv = fo.querySelector('[contenteditable="true"]') || fo.querySelector('.flipbook-text-scrollbar') || fo.firstElementChild;
   if (!contentDiv) return false;
+
+  // Not in inline edit mode (e.g. editing ended while the user used the color picker):
+  // apply to the last selected range of THIS element if the user hasn't clicked the canvas since.
+  if (fo.getAttribute('data-editing') !== 'true') {
+    const last = window.__lastTextSelection;
+    if (!last || last.elementId !== elementId || last.start === last.end) return false;
+    try {
+      return applyStyleToCharacterRange(contentDiv, last.start, last.end, attribute, value);
+    } catch (err) {
+      console.error('[applyStyleToActiveTextSelection] Error applying style to remembered range:', err);
+      return false;
+    }
+  }
 
   // 1. Try to get current character offsets from live window selection
   let offsets = getSelectionCharacterOffsets(contentDiv);
@@ -1340,8 +1374,11 @@ export const sanitizeSvgXml = (rawContent) => {
   // 2. Remove lingering editor overlays, temporary handles, and damage rects
   str = str.replace(/<[^>]*id="(?:vectra-overlay-group|node-edit-overlay-group|multi-selection-bounds|temp-blink-clone)"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
   str = str.replace(/<[^>]*id="(?:temp-blink-clone|temp-blink-[^"]*)"[^>]*\/?>/gi, '');
-  str = str.replace(/<[^>]*class="[^"]*(?:slideshow-transition-clone|custom-video-overlay|video-damage-rect)[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
-  str = str.replace(/<[^>]*id="custom-ctrl-[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
+  str = str.replace(/<[^>]*class="[^"]*(?:slideshow-transition-clone|video-damage-rect)[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
+  // Video control bars are nested markup: remove them with the DOM (below), not regex,
+  // otherwise inner pieces (3s, play, time) are left behind and show as duplicate controls.
+  const VIDEO_CTRL_SEL = '.custom-video-overlay, [id^="custom-ctrl-"], .custom-top-container, .custom-center-container, .custom-bottom-container, .custom-center-play-btn, .custom-time-wrapper, .custom-time-display, .custom-prog-container, .custom-play-btn, .custom-rewind-btn, .custom-forward-btn, .custom-repeat-btn, .custom-download-btn, .custom-fs-btn, .custom-vol-btn, .pv-center-play-btn';
+  const stripVideoControls = (root) => { root?.querySelectorAll?.(VIDEO_CTRL_SEL).forEach(el => el.remove()); };
 
   // 3. Fix unclosed void HTML tags inside foreignObject/text (<br>, <img>, <hr>, <input>, <link>, <meta>)
   str = str.replace(/<br(?:\s*\/?>|\s+[^>]*?\/?>)/gi, '<br/>');
@@ -1362,6 +1399,7 @@ export const sanitizeSvgXml = (rawContent) => {
         const svgInHtml = htmlDoc.querySelector('svg');
         if (svgInHtml) {
           svgInHtml.querySelectorAll('parsererror').forEach(el => el.remove());
+          stripVideoControls(svgInHtml);
           const serializer = new XMLSerializer();
           const serialized = serializer.serializeToString(svgInHtml);
           const healed = serialized
@@ -1376,6 +1414,7 @@ export const sanitizeSvgXml = (rawContent) => {
       } else {
         const svgEl = xmlDoc.querySelector('svg');
         if (svgEl) {
+          stripVideoControls(svgEl);
           str = new XMLSerializer().serializeToString(svgEl);
         }
       }

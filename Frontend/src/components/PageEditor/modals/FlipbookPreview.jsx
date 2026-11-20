@@ -5,7 +5,7 @@ import { LAYOUT_DEFAULT_COLORS } from '../../CustomizedEditor/utils/layoutColors
 import { Icon } from '@iconify/react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { getFromDB, getCustomizedEditorState, CUSTOMIZED_EDITOR_KEY, getCustomizedEditorKey } from '../../../utils/dbUtils';
+import { getFromDB, getCustomizedEditorState, CUSTOMIZED_EDITOR_KEY, getCustomizedEditorKey } from '../../../utils/storage/dbUtils';
 import useDeviceDetection from '../hooks/useDeviceDetection';
 import { useAuth } from '../../../context/AuthContext';
 

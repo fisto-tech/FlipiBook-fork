@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 import { useAuth } from '../../../context/AuthContext';
-import { getInitialUser } from '../../../utils/authUtils';
+import { getInitialUser } from '../../../utils/auth/authUtils';
 
 import AccountOverview from './AccountOverview';
 import AddPassword from './AddPassword';

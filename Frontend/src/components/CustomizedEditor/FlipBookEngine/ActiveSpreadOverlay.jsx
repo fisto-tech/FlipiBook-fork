@@ -46,7 +46,7 @@ export default function ActiveSpreadOverlay({
         // so pages with only maps or embeds do NOT mount a redundant overlay iframe!
         const htmlClean = rawHtml.replace(/<foreignObject\b[^>]*data-type=["'](?:map|embed-frame)["'][\s\S]*?<\/foreignObject>/gi, '')
             .replace(/<g\b[^>]*data-type=["'](?:map|embed-frame)["'][\s\S]*?<\/g>/gi, '');
-        return /<video|<audio|<iframe|data-type=["'](video|audio|form|link|slideshow)|slideshow|flipibook-swiper|data-interaction|hotspot|class=["'][^"']*interactive|<a\s+href/i.test(htmlClean);
+        return /<video|<audio|<iframe|data-type=["'](video|audio|form|link|slideshow)|slideshow|flipibook-swiper|data-interaction|hotspot|data-scrollable=["']true|class=["'][^"']*interactive|<a\s+href/i.test(htmlClean);
     }, []);
 
     // Nested non-map/embed iframes (e.g. YouTube) keep playing when hidden and can't be paused from here
@@ -155,6 +155,10 @@ export default function ActiveSpreadOverlay({
                     return;
                 }
 
+                // Optimization: If mouse is moving passively outside corners without dragging, avoid layout reflows
+                if (type === 'mousemove' && !isCornerZone && ev.buttons === 0) {
+                    return;
+                }
                 const iframeRect = iframeEl.getBoundingClientRect();
                 const clientX = ev.clientX + iframeRect.left;
                 const clientY = ev.clientY + iframeRect.top;

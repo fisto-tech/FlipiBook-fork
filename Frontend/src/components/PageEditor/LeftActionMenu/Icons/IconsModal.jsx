@@ -664,6 +664,22 @@ export const IconsModal = ({
   className: customClassName = '',
 }) => {
   const dragControls = useDragControls();
+
+  // Hide while an icon is being dragged onto the canvas; show again when the drag ends
+  const [isDraggingIcon, setIsDraggingIcon] = useState(false);
+  useEffect(() => {
+    const end = () => setIsDraggingIcon(false);
+    window.addEventListener('dragend', end);
+    window.addEventListener('drop', end);
+    window.addEventListener('mouseup', end);
+    window.addEventListener('add-icon-to-editor', end);
+    return () => {
+      window.removeEventListener('dragend', end);
+      window.removeEventListener('drop', end);
+      window.removeEventListener('mouseup', end);
+      window.removeEventListener('add-icon-to-editor', end);
+    };
+  }, []);
   const modalRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [rulerActive, setRulerActive] = useState(Boolean(isRulerEnabled));
@@ -766,6 +782,9 @@ export const IconsModal = ({
  
   // Drag start to place icon at dropped position
   const handleDragStart = (e, item) => {
+    // Hide the modal while dragging onto the canvas (same as the Elements modal).
+    // Deferred one tick so the browser has captured the drag image first.
+    setTimeout(() => setIsDraggingIcon(true), 0);
     const IconComp = icons[item.key];
     const svgData = extractIconSvg(item.key, IconComp);
 
@@ -862,6 +881,7 @@ export const IconsModal = ({
     <AnimatePresence>
       <motion.div
         ref={modalRef}
+        key="icons-modal"
         drag
         dragListener={false}
         dragControls={dragControls}
@@ -869,9 +889,9 @@ export const IconsModal = ({
         dragElastic={0}
         dragConstraints={dragConstraintsRef}
         initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
+        animate={{ opacity: isDraggingIcon ? 0 : 1, scale: isDraggingIcon ? 0.96 : 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
+        transition={{ duration: isDraggingIcon ? 0.28 : 0.18, ease: 'easeOut' }}
         className={`${defaultClasses} ${customClassName}`.trim()}
         style={{
           width: '21.5vw',
@@ -880,6 +900,7 @@ export const IconsModal = ({
           maxHeight: '640px',
           ...defaultPosition,
           ...customStyle,
+          pointerEvents: isDraggingIcon ? 'none' : 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
       >

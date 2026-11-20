@@ -105,8 +105,8 @@ export const SHAPES_DATA = [
     fill: '#ffefefff',
     stroke: '#e32914ff',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -132,8 +132,8 @@ export const SHAPES_DATA = [
     fill: '#faf0e7ff',
     stroke: '#ca480cff',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -238,8 +238,8 @@ export const SHAPES_DATA = [
     fill: '#e1f7f8ff',
     stroke: '#0dbbc1ff',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -278,8 +278,8 @@ export const SHAPES_DATA = [
     fill: '#f0e1fbff',
     stroke: '#640bbdff',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -305,8 +305,8 @@ export const SHAPES_DATA = [
     fill: '#fde6ffff',
     stroke: '#b40cc4ff',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -332,8 +332,8 @@ export const SHAPES_DATA = [
     fill: '#fcecf5ff',
     stroke: '#ce228cff',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -359,8 +359,8 @@ export const SHAPES_DATA = [
     fill: '#e8fbefff',
     stroke: '#166534',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -386,8 +386,8 @@ export const SHAPES_DATA = [
     fill: '#e2fafdff',
     stroke: '#0E7490',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -407,8 +407,8 @@ export const SHAPES_DATA = [
     fill: '#f2fee4ff',
     stroke: '#8cb409ff',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -425,8 +425,8 @@ export const SHAPES_DATA = [
     fill: '#ecf5ffff',
     stroke: '#334155',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -504,8 +504,8 @@ export const SHAPES_DATA = [
     fill: '#e4f7fbff',
     stroke: '#0f9cb5ff',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   },
   {
@@ -547,8 +547,8 @@ export const SHAPES_DATA = [
     fill: '#FFFFDF',
     stroke: '#FFFF00',
     strokeWidth: '2.5',
-    strokeLinejoin: 'round',
-    strokeLinecap: 'round',
+    strokeLinejoin: 'miter',
+    strokeLinecap: 'square',
     fillRule: 'evenodd'
   }
 ].map(shape => ({

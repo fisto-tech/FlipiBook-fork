@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
-import { resolveUploadsPath } from "../../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../../utils/assets/assetUtils";
 import { SliderRow } from "../common/PanelInputs";
 
 // Helper to extract all selectable parts and materials recursively

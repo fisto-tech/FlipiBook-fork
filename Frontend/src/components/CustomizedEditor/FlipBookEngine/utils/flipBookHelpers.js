@@ -1,4 +1,4 @@
-import { rewriteHtmlUploads } from '../../../../utils/assetUtils';
+import { rewriteHtmlUploads } from '../../../../utils/assets/assetUtils';
 
 /* ─────────────────────────────── helpers ─────────────────────────────── */
 
@@ -73,12 +73,59 @@ export const staticHtmlCache = new Map();
 
 export const staticVideoBg = '<div class="video-static-backdrop" style="position: absolute; inset: 0; width: 100%; height: 100%; background: #0f172a; display: flex; align-items: center; justify-content: center; overflow: hidden;"><svg width="44" height="44" viewBox="0 0 24 24" fill="#ffffff" style="opacity: 0.9; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';
 
+// Static (page-turn) stand-in for a <video>: show the video's first frame (or its poster) as a
+// still thumbnail instead of a dark play-icon box, until the live player takes over.
+const staticVideoFirstFrame = (videoHtml) => {
+    const attr = (tag, name) => {
+        const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*["']([^"']*)["']`, 'i'));
+        return m ? m[1] : '';
+    };
+    const openTag = (videoHtml.match(/<video\b[^>]*>/i) || [''])[0];
+    let src = attr(openTag, 'src');
+    if (!src) {
+        const srcTag = (videoHtml.match(/<source\b[^>]*>/i) || [''])[0];
+        src = attr(srcTag, 'src');
+    }
+    const poster = attr(openTag, 'poster');
+    if (!src && !poster) return staticVideoBg;
+    const fitMatch = (attr(openTag, 'style') || '').match(/object-fit\s*:\s*([a-z-]+)/i);
+    const fit = fitMatch ? fitMatch[1] : 'cover';
+    const media = src
+        // #t=0.001 makes the browser decode and paint the first frame without playing
+        ? `<video class="fbe-static-video-thumb" data-static-thumb="true" src="${src.split('#')[0]}#t=0.001"${poster ? ` poster="${poster}"` : ''} preload="auto" muted playsinline disablepictureinpicture tabindex="-1" style="position:absolute;inset:0;width:100%;height:100%;object-fit:${fit};pointer-events:none;display:block;"></video>`
+        : `<img src="${poster}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:${fit};pointer-events:none;display:block;" />`;
+    return `<div class="video-static-backdrop" style="position:absolute;inset:0;width:100%;height:100%;background:#000;overflow:hidden;">${media}</div>`;
+};
+
+// Editor video-control markup (and partial leftovers of it) sometimes gets baked into saved
+// page HTML. Strip it so the flipbook/preview never shows duplicate video controls.
+export const EDITOR_VIDEO_CTRL_SELECTOR = '.custom-video-overlay, [id^="custom-ctrl-"], .custom-top-container, .custom-center-container, .custom-bottom-container, .custom-center-play-btn, .custom-time-wrapper, .custom-time-display, .custom-prog-container, .custom-play-btn, .custom-rewind-btn, .custom-forward-btn, .custom-repeat-btn, .custom-download-btn, .custom-fs-btn, .custom-vol-btn, .pv-center-play-btn';
+const VIDEO_CTRL_MARKER = /custom-(?:video-overlay|ctrl-|top-container|center-container|bottom-container|center-play-btn|time-wrapper|time-display|prog-container|play-btn|rewind-btn|forward-btn|repeat-btn|download-btn|fs-btn|vol-btn)|pv-center-play-btn/;
+export const stripEditorVideoControls = (html) => {
+    if (!html || typeof html !== 'string') return html;
+    const hasCtrls = VIDEO_CTRL_MARKER.test(html);
+    const hasSbColor = html.includes('data-scrollbar-color');
+    if (!hasCtrls && !hasSbColor) return html;
+    try {
+        const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+        if (hasCtrls) doc.querySelectorAll(EDITOR_VIDEO_CTRL_SELECTOR).forEach(el => el.remove());
+        // Per-box scrollbar color -> CSS variable used by the scrollbar rules
+        if (hasSbColor) doc.querySelectorAll('[data-scrollbar-color]').forEach(el => {
+            const c = el.getAttribute('data-scrollbar-color');
+            if (c) el.style.setProperty('--scrollbar-color', c);
+        });
+        return doc.body.innerHTML;
+    } catch {
+        return html;
+    }
+};
+
 export const cleanStaticHtml = (html) => {
     if (!html) return '';
     if (staticHtmlCache.has(html)) return staticHtmlCache.get(html);
     try {
         // Ultra-fast regex cleaning without allocating heavy DOMParser documents
-        let cleaned = html
+        let cleaned = stripEditorVideoControls(html)
             // Keep real Google Map iframe intact with pointer-events: none during peel/turn and orange loading spinner
             .replace(/(<div\b[^>]*class=["'][^"']*map-stage[^"']*["'][^>]*>)\s*(<iframe\b[^>]*>[\s\S]*?<\/iframe>)/gi, (match, p1, p2) => {
                 let safeIframe = p2;
@@ -122,7 +169,7 @@ export const cleanStaticHtml = (html) => {
                     ${safeIframe}`;
             })
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-            .replace(/<video\b[^<]*(?:(?!<\/video>)<[^<]*)*<\/video>/gi, staticVideoBg)
+            .replace(/<video\b[^<]*(?:(?!<\/video>)<[^<]*)*<\/video>/gi, staticVideoFirstFrame)
             .replace(/<iframe\b(?![^>]*class=["'][^"']*(?:fbe-map-iframe|fbe-embed-iframe)[^"']*["'])[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
 
         // Ensure root SVG scales to 100% width and height
@@ -155,6 +202,16 @@ export const sanitizePageHtmlForPreview = (html) => {
     try {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+
+        // Remove any editor video-control markup baked into saved pages (incl. partial leftovers)
+        // so the preview player doesn't render duplicate controls.
+        doc.querySelectorAll(EDITOR_VIDEO_CTRL_SELECTOR).forEach(el => el.remove());
+
+        // Scrollable text: carry the chosen scrollbar color into CSS (older saved boxes)
+        doc.querySelectorAll('[data-scrollbar-color]').forEach(el => {
+            const c = el.getAttribute('data-scrollbar-color');
+            if (c) el.style.setProperty('--scrollbar-color', c);
+        });
 
         const rootSvg = doc.querySelector('svg');
         if (rootSvg) {
@@ -256,6 +313,30 @@ export const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
     clip-path: none !important;
   }
 
+
+  /* Scrollable text: clip to the box and scroll inside it (same structure as the editor) */
+  foreignObject[data-scrollable="true"]:not([data-type="map"]):not([data-type="embed-frame"]) {
+    overflow: hidden !important;
+  }
+  foreignObject[data-scrollable="true"] > div,
+  foreignObject[data-scrollable="true"] .flipbook-text-viewport {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+  foreignObject[data-scrollable="true"] .flipbook-text-scrollbar,
+  foreignObject[data-scrollable="true"] > div.flipbook-text-scrollbar {
+    box-sizing: border-box !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    pointer-events: auto !important;
+  }
+
   foreignObject[data-type="map"],
   g[data-type="map"] foreignObject,
   .map-root-container {
@@ -341,6 +422,11 @@ export const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
     pointer-events: auto !important;
   }
 
+  .flipbook-text-scrollbar {
+      scrollbar-color: var(--scrollbar-color, #4B5563) transparent !important;
+      scrollbar-width: thin !important;
+  }
+
   .flipbook-text-scrollbar::-webkit-scrollbar,
   [data-scrollable="true"]::-webkit-scrollbar,
   [data-scrollable="true"] *::-webkit-scrollbar {
@@ -354,14 +440,14 @@ export const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
   .flipbook-text-scrollbar::-webkit-scrollbar-track,
   [data-scrollable="true"]::-webkit-scrollbar-track,
   [data-scrollable="true"] *::-webkit-scrollbar-track {
-    background: #E5E7EB !important;
+    background: transparent !important;
     border-radius: 10px !important;
   }
 
   .flipbook-text-scrollbar::-webkit-scrollbar-thumb,
   [data-scrollable="true"]::-webkit-scrollbar-thumb,
   [data-scrollable="true"] *::-webkit-scrollbar-thumb {
-    background: #4B5563 !important;
+    background: var(--scrollbar-color, #4B5563) !important;
     border-radius: 10px !important;
     border: none !important;
   }
@@ -369,13 +455,13 @@ export const buildPageDoc = (rawHtml, pageNum) => `<!DOCTYPE html>
   .flipbook-text-scrollbar::-webkit-scrollbar-thumb:hover,
   [data-scrollable="true"]::-webkit-scrollbar-thumb:hover,
   [data-scrollable="true"] *::-webkit-scrollbar-thumb:hover {
-    background: #374151 !important;
+    background: var(--scrollbar-color, #4B5563) !important;
   }
 
   .flipbook-text-scrollbar::-webkit-scrollbar-thumb:active,
   [data-scrollable="true"]::-webkit-scrollbar-thumb:active,
   [data-scrollable="true"] *::-webkit-scrollbar-thumb:active {
-    background: #1F2937 !important;
+    background: var(--scrollbar-color, #4B5563) !important;
   }
 
   foreignObject[data-sizing-mode="fixed"]>div {
@@ -451,3 +537,6 @@ export const checkTurnReady = ($book) => {
         return false;
     }
 };
+
+/** Defaults for a transparent sheet's look (Book Appearance → Transparent Sheet → Sheet Texture) */
+export const SHEET_STYLE_DEFAULTS = { blur: 1, haze: 36, tint: '#f3f4f6', textureIntensity: 100, textureSize: 100 };

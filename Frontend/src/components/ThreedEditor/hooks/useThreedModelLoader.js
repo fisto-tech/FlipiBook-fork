@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useEffect } from "react";
 import axios from "axios";
 import { checkFbxLegacyVersion, convertModelFileIfNeeded } from "../utils/modelConversionUtils";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 import { process3DDropEvent } from "../utils/modelDropHandler";
 import { useAuth } from "../../../context/AuthContext";
 
@@ -33,6 +33,7 @@ export function useThreedModelLoader({
   setTransformValues,
   setMaterialList,
   setModelHasAnimationsMap,
+  setModelHasRiggingMap,
   setIsAnimationPlaying,
   setSelectedTexture,
   setFormatErrorModal,
@@ -362,7 +363,8 @@ export function useThreedModelLoader({
     setModelMaterialLists({});
     setModelStatsMap({});
     setModelHasAnimationsMap({});
-    setIsAnimationPlaying(true);
+    if (typeof setModelHasRiggingMap === 'function') setModelHasRiggingMap({});
+    setIsAnimationPlaying(false);
     setSelectedMaterial(null);
     setModelName("");
     setSelectedTexture(null);

@@ -225,7 +225,12 @@ export const useCanvasKeyboardShortcuts = ({
           if (hasChanges) {
             if (updatePageHtml) updatePageHtml(activePageIndex, svg.outerHTML);
             const newIdsArr = Array.from(newSelectedIds);
-            if (setSelectedLayerId) setSelectedLayerId(newIdsArr.length === 1 ? newIdsArr[0] : null);
+            // Keep the ungrouped children selected (primary = last one). A null primary made the
+            // editor fall back to selecting the page root folder.
+            const primary = newIdsArr.length > 0 ? newIdsArr[newIdsArr.length - 1] : null;
+            if (selectedLayerIdRef) selectedLayerIdRef.current = primary;
+            if (setSelectedLayerId) setSelectedLayerId(primary);
+            if (multiSelectedIdsRef) multiSelectedIdsRef.current = new Set(newIdsArr);
             if (setMultiSelectedIds) setMultiSelectedIds(new Set(newIdsArr));
           }
         }
