@@ -333,19 +333,19 @@ export default function PageEditorFeatures() {
         <section className="relative w-full py-8 md:py-[2vw] overflow-hidden bg-[#FBF9F7] border-t border-[#F1F5F9]/80">
           <div className="relative z-10 max-w-[88vw] mx-auto px-4">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-              {/* Left Column: UI Mockup Showcase (lg:col-span-7) */}
-              <div className="w-full lg:col-span-7 flex justify-center lg:justify-end">
-                <div className="relative mr-[70px] w-full max-w-[600px]">
+              {/* Left Column: UI Mockup Showcase (lg:col-span-6) */}
+              <div className="w-full lg:col-span-6 flex justify-center lg:justify-end">
+                <div className="relative w-full mr-[30px] max-w-[600px]">
                   <img
                     src={animationsMock}
                     alt="Animations and Interactive Hotspots Showcase"
-                    className="w-full h-auto object-contain"
+                    className="w-full h-auto object-contain block"
                   />
                 </div>
               </div>
 
-              {/* Right Column: Details (lg:col-span-5) */}
-              <div className="w-full lg:col-span-5 flex flex-col justify-center">
+              {/* Right Column: Details (lg:col-span-6) */}
+              <div className="w-full lg:col-span-6 flex flex-col justify-center">
                 <h2 className="text-2xl sm:text-3xl md:text-[2.3vw] font-semibold tracking-tight text-[#111827] leading-tight md:leading-[1.2]">
                   Animations &amp; interactive Hotspots
                 </h2>
