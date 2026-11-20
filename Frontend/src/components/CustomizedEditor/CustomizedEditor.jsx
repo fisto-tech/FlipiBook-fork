@@ -86,7 +86,8 @@ const CustomizedEditor = () => {
     setIsSaving,
     currentBook,
     setCurrentBook,
-    activeDevice
+    activeDevice,
+    setExportContext
   } = useOutletContext() || {};
   const { user } = useAuth();
 
@@ -403,6 +404,50 @@ const CustomizedEditor = () => {
     // re-serialising location.state (SVG data) on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetPage, folder, v_id, currentBook?.folder_v_id, currentBook?.folder_id]);
+
+  // Sync export context (pages, active page index, active spread pages) to EditorLayout for ExportModal
+  useEffect(() => {
+    if (setExportContext) {
+      const isMobileDevice = activeDevice === 'Mobile';
+      const isTabletPortrait = activeDevice === 'Tablet' && typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
+      const isSingle = isMobileDevice || isTabletPortrait;
+      const totalCount = pages.length;
+
+      let currentSpreadPages = [];
+      if (totalCount > 0) {
+        // targetPage is 0-indexed (0 = Page 1)
+        const page1Based = (targetPage || 0) + 1;
+
+        if (isSingle) {
+          const p = Math.max(1, Math.min(page1Based, totalCount));
+          currentSpreadPages = [p];
+        } else {
+          // Two-page spread
+          if (page1Based <= 1) {
+            // Page 1 is cover
+            currentSpreadPages = [1];
+          } else if (totalCount % 2 === 0 && page1Based >= totalCount) {
+            // Even page count back cover
+            currentSpreadPages = [totalCount];
+          } else {
+            // Internal 2-page spread: even left, odd right (e.g. 2 & 3, 4 & 5, 6 & 7, 8 & 9)
+            const leftPage = page1Based % 2 === 0 ? page1Based : page1Based - 1;
+            const rightPage = leftPage + 1;
+            currentSpreadPages = [leftPage];
+            if (rightPage <= totalCount) {
+              currentSpreadPages.push(rightPage);
+            }
+          }
+        }
+      }
+
+      setExportContext({
+        pages,
+        activePageIndex: targetPage || 0,
+        activePages: currentSpreadPages
+      });
+    }
+  }, [pages, targetPage, activeDevice, setExportContext]);
 
   // Global flipbook name sync
   useEffect(() => {

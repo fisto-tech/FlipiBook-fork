@@ -74,7 +74,7 @@ const BrandLogo = ({
     // Predefined "YOUR LOGO" Placeholder Box
     return (
         <div
-            className={`flex items-center justify-center gap-[0.35vw] px-[0.7vw] py-[0.35vh] rounded-[0.3vw] border border-dashed border-gray-400/50 bg-white/10 select-none transition-all ${className ? '' : (isTablet ? 'h-[1.6vw]' : 'h-[2vw]')}`}
+            className={`flex items-center justify-center gap-[0.35vw] px-[0.7vw] py-[0.35vh] rounded-[0.3vw] border border-dashed border-white/20 bg-white/5 text-white/50 select-none transition-all ${className ? '' : (isTablet ? 'h-[1.6vw]' : 'h-[2vw]')}`}
             style={{
                 backdropFilter: 'blur(4px)',
                 ...style
@@ -84,10 +84,10 @@ const BrandLogo = ({
         >
             <Icon
                 icon="lucide:image"
-                className={`${isTablet ? 'w-[0.75vw] h-[0.75vw]' : 'w-[0.9vw] h-[0.9vw]'} opacity-70`}
+                className={`${isTablet ? 'w-[0.75vw] h-[0.75vw]' : 'w-[0.9vw] h-[0.9vw]'} opacity-50 text-white`}
             />
             <span
-                className={`${isTablet ? 'text-[0.55vw]' : 'text-[0.68vw]'} font-bold tracking-wider uppercase opacity-85 whitespace-nowrap`}
+                className={`${isTablet ? 'text-[0.55vw]' : 'text-[0.68vw]'} font-semibold tracking-wider uppercase text-white/50 whitespace-nowrap`}
             >
                 YOUR LOGO
             </span>

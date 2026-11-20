@@ -126,6 +126,8 @@ router.get(['/customized-settings', '/customized_settings'], optionalAuth, contr
 router.get('/public/settings/:v_id', optionalAuth, controller.getPublicSettings);
 router.get('/public/settings', optionalAuth, controller.getPublicSettings);
 router.get('/public/get/:shareId', optionalAuth, controller.getPublicBook);
+router.get(['/preview-image/:shareId', '/public/preview-image/:shareId'], optionalAuth, controller.getPreviewImage);
+router.get(['/preview-card/:shareId', '/public/preview-card/:shareId'], optionalAuth, controller.getPreviewCard);
 router.post('/public/view/:shareId', optionalAuth, controller.recordPublicView);
 router.post('/public/rate/:shareId', optionalAuth, controller.submitPublicRating);
 router.put('/public/rate/:shareId/:ratingId', optionalAuth, controller.updatePublicRating);

@@ -100,24 +100,6 @@ const SmartOrbitVisual = () => {
 
           return (
             <g key={'badge-slot-' + index}>
-              {/* Radar Wave Aura */}
-              <motion.circle
-                cx={pos.cx}
-                cy={pos.cy}
-                r={22}
-                fill="none"
-                stroke="#EC5137"
-                strokeWidth="1.6"
-                animate={{ scale: [1, 1.4, 1], opacity: [0.75, 0, 0.75] }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 2.8,
-                  ease: 'easeInOut',
-                  delay: index * 0.35,
-                }}
-                style={{ transformOrigin: pos.cx + 'px ' + pos.cy + 'px' }}
-              />
-
               {/* Floating Badge Base */}
               <motion.g
                 animate={{ y: [-2.5, 2.5, -2.5] }}
@@ -129,6 +111,24 @@ const SmartOrbitVisual = () => {
                 }}
                 style={{ transformOrigin: pos.cx + 'px ' + pos.cy + 'px' }}
               >
+                {/* Radar Wave Aura — inside the floating group so it moves with the badge */}
+                <motion.circle
+                  cx={pos.cx}
+                  cy={pos.cy}
+                  r={22}
+                  fill="none"
+                  stroke="#EC5137"
+                  strokeWidth="1.6"
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.75, 0, 0.75] }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 2.8,
+                    ease: 'easeInOut',
+                    delay: index * 0.35,
+                  }}
+                  style={{ transformOrigin: pos.cx + 'px ' + pos.cy + 'px' }}
+                />
+
                 {/* Red Circular Badge with Crisp White Border and Soft Drop Shadow */}
                 <circle
                   cx={pos.cx}

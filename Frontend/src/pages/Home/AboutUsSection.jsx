@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import aboutUsImg from '../../assets/Home/final-images/about-us/about-us-image.png';
+import aboutUsImg from '../../assets/Home/AboutUs/about-us-image.webp';
 
 export default function AboutUsSection() {
   return (
@@ -9,14 +9,14 @@ export default function AboutUsSection() {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
       transition={{ duration: 0.8 }}
-      className="w-full bg-[#E2E2E2] font-poppins relative overflow-hidden pt-6 sm:pt-8 md:pt-10 lg:pt-[3.5vw] pb-0"
+      className="w-full bg-[#E2E2E2] font-poppins relative overflow-hidden pt-2 sm:pt-3 lg:pt-[1.2vw] pb-0"
     >
       {/* Top Header Tag: Aligned to the left margin on mobile/tablet, standard on desktop */}
-      <div className="w-full px-6 sm:px-8 md:px-10 lg:px-[4.5vw] mb-2 sm:mb-4 md:mb-6 lg:mb-[1.2vw] flex items-center justify-start gap-3 relative z-30">
-        <span className="text-[11px] sm:text-xs lg:text-[0.82vw] font-semibold tracking-[0.05em] text-[#222428] uppercase">
+      <div className="w-full px-6 sm:px-8 md:px-10 lg:px-[4.5vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex items-center justify-start gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] relative z-30">
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
           ABOUT US
         </span>
-        <div className="w-8 sm:w-10 lg:w-[2.8vw] h-[1.5px] bg-[#8d9095]"></div>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
       </div>
 
       {/* Main Section Content Area: Stacked vertically on Mobile & Tablet (< lg), Side-by-side on Desktop (lg+) */}
@@ -88,7 +88,7 @@ export default function AboutUsSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
               transition={{ duration: 0.9, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="w-full max-w-full lg:max-w-[26vw] flex flex-col items-start lg:items-end text-xs sm:text-[13.5px] md:text-[14.5px] lg:text-[0.88vw] text-[#2b2e34] font-normal leading-[1.6] sm:leading-[1.7] md:leading-[1.75] lg:leading-[1.5vw] text-justify lg:text-right pb-1 sm:pb-2 mt-2 sm:mt-3 md:mt-4 lg:mt-0"
+              className="w-full max-w-full lg:max-w-[26vw] flex flex-col items-start lg:items-end text-xs sm:text-[13.5px] md:text-[14.5px] lg:text-[0.88vw] text-[#2b2e34] font-normal leading-[1.6] sm:leading-[1.7] md:leading-[1.75] lg:leading-[1.5vw] text-left sm:text-justify lg:text-right pb-1 sm:pb-2 mt-2 sm:mt-3 md:mt-4 lg:mt-0"
             >
               <p className="leading-[1.6] sm:leading-[1.7] md:leading-[1.75] lg:leading-[1.5vw]">
                 FlipiBook by Fisto Tech Pvt Ltd turns static PDFs into interactive digital catalogues. Combine product videos, 3D models, and clickable links to help customers explore your products and understand how they work.
