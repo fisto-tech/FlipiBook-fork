@@ -53,12 +53,12 @@ export default function ArIntegrationSection() {
             transition={{ duration: 0.95, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="mb-2 sm:mb-3 lg:mb-[1.6vw] text-left w-full"
           >
-            <h2 className="text-[34px] xs:text-[36px] sm:text-[45px] lg:text-[3.2vw] xl:text-[3.4vw] font-bold text-[#2B3037] leading-[1.12] sm:leading-[1.1] tracking-tight uppercase">
+            <h2 className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-[#1f2937] leading-[1.12] tracking-tight uppercase font-sans">
               <span className="block">VISUALIZE PRODUCTS</span>
               <span className="block mt-0.5 sm:mt-1">
-                IN YOUR <span className="text-[#EC5137]">REAL SPACE,</span>
+                IN YOUR <span className="text-[#E75B3E]">REAL SPACE,</span>
               </span>
-              <span className="text-[#EC5137] block mt-0.5 sm:mt-1">IN REAL TIME.</span>
+              <span className="text-[#E75B3E] block mt-0.5 sm:mt-1">IN REAL TIME.</span>
             </h2>
           </motion.div>
 
