@@ -52,9 +52,11 @@ const Forum = lazy(() => import("./pages/Forum"));
 const Overview = lazy(() => import("./pages/Overview"));
 const LeadFormAnalytics = lazy(() => import("./pages/LeadFormAnalytics"));
 const Guide = lazy(() => import("./pages/Guide/Guide"));
-const TermsAndConditions = lazy(() => import("./pages/LegalTerms"));
-const PrivacyPolicy = lazy(() => import("./pages/LegalPrivacy"));
-const CookiePolicy = lazy(() => import("./pages/LegalCookies"));
+const TermsAndConditions = lazy(() => import("./pages/LegalFile/LegalTerms"));
+const PrivacyPolicy = lazy(() => import("./pages/LegalFile/LegalPrivacy"));
+const CookiePolicy = lazy(() => import("./pages/LegalFile/LegalCookies"));
+const RefundPolicy = lazy(() => import("./pages/LegalFile/LegalRefund"));
+const CopyrightPolicy = lazy(() => import("./pages/LegalFile/LegalCopyright"));
 
 // Preview & Share Pages
 const PreviewPage = lazy(() => import("./pages/PreviewPage"));
@@ -503,6 +505,38 @@ export default function App() {
                   element={
                     <Suspense fallback={null}>
                       <CookiePolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/refund-policy"
+                  element={
+                    <Suspense fallback={null}>
+                      <RefundPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/refund"
+                  element={
+                    <Suspense fallback={null}>
+                      <RefundPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/copyright-policy"
+                  element={
+                    <Suspense fallback={null}>
+                      <CopyrightPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/copyright"
+                  element={
+                    <Suspense fallback={null}>
+                      <CopyrightPolicy />
                     </Suspense>
                   }
                 />

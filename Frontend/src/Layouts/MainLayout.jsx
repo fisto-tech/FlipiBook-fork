@@ -39,7 +39,9 @@ export default function MainLayout({ children }) {
     pathname.startsWith('/help') ||
     pathname.startsWith('/explore') ||
     pathname.startsWith('/converter') ||
-    pathname.startsWith('/pricing');
+    pathname.startsWith('/pricing') ||
+    // Legal & policy pages (pages/LegalFile)
+    ['/terms', '/privacy', '/cookie', '/refund', '/copyright'].some((p) => pathname.startsWith(p));
 
   // Automatically close chat drawer if navigating to a page where chatbot is not allowed
   useEffect(() => {

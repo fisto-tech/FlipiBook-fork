@@ -52,6 +52,7 @@ const TurnBook = forwardRef(function TurnBook(
     onFlip,
     className = '',
     pageClassName = '',
+    singleBelow = 640, // viewport width (px) under which the book shows one page at a time
   },
   ref
 ) {
@@ -61,6 +62,8 @@ const TurnBook = forwardRef(function TurnBook(
   const onFlipRef = useRef(onFlip);
   const [ready, setReady] = useState(false);
   onFlipRef.current = onFlip;
+  const displayMode = () => (typeof window !== 'undefined' && window.innerWidth < singleBelow ? 'single' : 'double');
+  const modeRef = useRef(displayMode());
 
   const $book = () => (window.jQuery && bookRef.current ? window.jQuery(bookRef.current) : null);
   const isInit = () => {
@@ -84,7 +87,7 @@ const TurnBook = forwardRef(function TurnBook(
   const applyCenter = (view, animate = true) => {
     const el = shiftRef.current;
     if (!el || !Array.isArray(view)) return;
-    const shift = view[0] === 0 ? -25 : view[1] === 0 ? 25 : 0;
+    const shift = modeRef.current === 'single' ? 0 : view[0] === 0 ? -25 : view[1] === 0 ? 25 : 0;
     el.style.transition = animate ? `transform ${Math.round(duration * 0.7)}ms cubic-bezier(0.22, 0.61, 0.36, 1)` : 'none';
     el.style.transform = `translate3d(${shift}%, 0, 0)`;
   };
@@ -97,12 +100,13 @@ const TurnBook = forwardRef(function TurnBook(
     const cw = wrap.clientWidth;
     const ch = wrap.clientHeight || (cw / 2) * (height / width);
     if (!cw || !ch) return;
+    const across = modeRef.current === 'single' ? 1 : 2;
     const pageAspect = width / height;
     let bookH = ch;
-    let bookW = bookH * pageAspect * 2;
+    let bookW = bookH * pageAspect * across;
     if (bookW > cw) {
       bookW = cw;
-      bookH = bookW / (pageAspect * 2);
+      bookH = bookW / (pageAspect * across);
     }
     $b.turn('size', Math.floor(bookW), Math.floor(bookH));
   };
@@ -144,17 +148,19 @@ const TurnBook = forwardRef(function TurnBook(
         });
 
         const wrap = wrapRef.current;
+        modeRef.current = displayMode();
+        const across = modeRef.current === 'single' ? 1 : 2;
         const pageAspect = width / height;
         const cw = wrap?.clientWidth || 800;
-        const ch = wrap?.clientHeight || (cw / 2) / pageAspect;
+        const ch = wrap?.clientHeight || (cw / across) / pageAspect;
         let bookH = ch;
-        let bookW = bookH * pageAspect * 2;
-        if (bookW > cw) { bookW = cw; bookH = bookW / (pageAspect * 2); }
+        let bookW = bookH * pageAspect * across;
+        if (bookW > cw) { bookW = cw; bookH = bookW / (pageAspect * across); }
 
         $(bookEl).turn({
           width: Math.floor(bookW),
           height: Math.floor(bookH),
-          display: 'double',
+          display: modeRef.current,
           page: Math.min(Math.max(1, (startPage | 0) + 1), Math.max(1, pages.length)),
           autoCenter: false, // centring handled by applyCenter (starts on `turning`, not after the turn)
           acceleration: true,
@@ -191,7 +197,18 @@ const TurnBook = forwardRef(function TurnBook(
   // Keep the book fitted to its container
   useEffect(() => {
     if (!ready || !wrapRef.current) return undefined;
-    const ro = new ResizeObserver(() => fitSize());
+    const ro = new ResizeObserver(() => {
+      // Switch single <-> double page view when crossing the breakpoint
+      const mode = displayMode();
+      if (mode !== modeRef.current && isInit()) {
+        modeRef.current = mode;
+        try {
+          $book().turn('display', mode);
+          applyCenter($book().turn('view'), false);
+        } catch { /* noop */ }
+      }
+      fitSize();
+    });
     ro.observe(wrapRef.current);
     fitSize();
     return () => ro.disconnect();
