@@ -35,12 +35,12 @@ const SmartSolutionsSection = () => {
     <section ref={sectionRef} className="relative w-full min-h-fit sm:min-h-0 sm:h-auto lg:h-[100vh] bg-[#FAFAFA] font-sans pt-4 sm:pt-4 lg:pt-[0.6vw] pb-8 sm:pb-6 lg:pb-[1.2vw] px-4 sm:px-8 lg:px-[6vw] flex flex-col justify-between items-center overflow-hidden">
 
       {/* Top FEATURES Tag */}
-      <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-0 lg:pt-0">
-        <div className="flex items-center gap-2 sm:gap-3 lg:gap-[0.6vw] mt-2.5 sm:mt-3.5 lg:mt-[1.1vw]">
-          <span className="text-[10px] sm:text-xs lg:text-[0.68vw] font-bold tracking-[0.16em] sm:tracking-[0.25em] text-[#35363A] uppercase">
+      <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw]">
+          <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
             INTERACTIVE 3D PRODUCT VIEWER
           </span>
-          <div className="w-6 sm:w-8 lg:w-[2.4vw] h-[1.5px] lg:h-[0.1vw] bg-[#35363A]/40"></div>
+          <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
         </div>
       </div>
 

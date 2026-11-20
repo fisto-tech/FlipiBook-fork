@@ -64,7 +64,7 @@ export default function HeroSection({ navigate }) {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, amount: 0.3 }}
         transition={{ duration: 0.85, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-1 sm:pt-2 lg:pt-[1vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
         <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
           IDC FOR ALL INDUSTRY
@@ -101,13 +101,13 @@ export default function HeroSection({ navigate }) {
             {/* Extended red line with WITH positioned at the right under CATALOGUE */}
             <div className="flex items-center gap-2 sm:gap-2.5 lg:gap-[0.8vw] w-full max-w-[240px] sm:max-w-[280px] lg:max-w-[18vw] xl:max-w-[19vw]">
               <div className="flex-1 h-[1.5px] lg:h-[0.15vh] bg-[#EC5137]"></div>
-              <span className="text-[11px] sm:text-xs lg:text-[0.78vw] font-semibold text-[#555555] uppercase tracking-wider flex-shrink-0">
+              <span className="text-[12.5px] sm:text-sm lg:text-[0.92vw] font-bold text-[#555555] uppercase tracking-wider flex-shrink-0">
                 WITH
               </span>
             </div>
 
             {/* IMMERSIVE EXPERIENCE */}
-            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-[1.85vw] xl:text-[2.1vw] font-bold text-[#555555] tracking-tight uppercase mt-2.5 sm:mt-3 lg:mt-[3.8vh]">
+            <h2 className="text-[26px] xs:text-[29px] sm:text-[36px] md:text-[40px] lg:text-[2.85vw] xl:text-[3.05vw] font-bold text-[#555555] leading-[1.15] sm:leading-[1.12] tracking-tight uppercase mt-4 sm:mt-5 lg:mt-[3.8vh]">
               IMMERSIVE EXPERIENCE
             </h2>
           </motion.div>
@@ -118,7 +118,7 @@ export default function HeroSection({ navigate }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="text-xs sm:text-sm lg:text-[0.82vw] xl:text-[0.86vw] font-normal text-[#666666] leading-[165%] max-w-[480px] lg:max-w-[25vw] text-left mt-3.5 sm:mt-4 lg:mt-[2.5vh]"
+            className="text-xs sm:text-sm lg:text-[0.82vw] xl:text-[0.86vw] font-normal text-[#666666] leading-[165%] max-w-[480px] lg:max-w-[25vw] text-left mt-8 sm:mt-9 lg:mt-[6.2vh]"
           >
             Turn your PDF into an interactive digital catalogue with FlipiBook. Add product videos, 3D models, and clickable links so customers can see how your products work, explore the details, and contact your team. Share your catalogue through a single link.
           </motion.p>
@@ -129,7 +129,7 @@ export default function HeroSection({ navigate }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-center justify-start gap-2.5 sm:gap-3.5 lg:gap-[1vw] mt-5 sm:mt-6 lg:mt-[6.5vh] flex-wrap"
+            className="flex items-center justify-start gap-2.5 sm:gap-3.5 lg:gap-[1vw] mt-8 sm:mt-9 lg:mt-[9.2vh] flex-wrap"
           >
             {/* View Live Demo Button */}
             <button

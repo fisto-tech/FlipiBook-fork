@@ -169,12 +169,12 @@ export default function ThreeDInteractiveDetails({ navigate }) {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, amount: 0.3 }}
         transition={{ duration: 0.8 }}
-        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] mt-2 sm:mt-3 lg:mt-[1.2vh] mb-4 sm:mb-5 lg:mb-[1vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
-        <span className="text-xs sm:text-[13px] lg:text-[0.85vw] font-bold tracking-[0.24em] text-white uppercase">
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-white uppercase">
           INTERACTIVE 3D CATALOGUES
         </span>
-        <div className="w-10 sm:w-14 lg:w-[3.6vw] min-w-[35px] h-[1.5px] bg-[#3a3a40]"></div>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] min-w-[35px] h-[1.5px] lg:h-[0.15vh] bg-[#3a3a40]"></div>
       </motion.div>
 
       {/* Main 3-Column Layout: items-start on desktop, stacked on mobile */}
@@ -259,7 +259,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-[2.65vw] font-semibold text-white leading-[1.2] lg:leading-[1.25] tracking-tight"
+            className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-white leading-[1.12] tracking-tight text-left"
           >
             Give Customers <br />
             a <span className="text-[#EC5137]">Closer Look</span> <br />
