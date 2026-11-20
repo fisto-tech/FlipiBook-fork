@@ -32,10 +32,10 @@ const SmartSolutionsSection = () => {
   }, []);
 
   return (
-    <section ref={sectionRef} className="relative w-full min-h-fit sm:min-h-0 sm:h-auto lg:h-[100vh] bg-[#FAFAFA] font-sans pt-4 sm:pt-4 lg:pt-[0.6vw] pb-8 sm:pb-6 lg:pb-[1.2vw] px-4 sm:px-8 lg:px-[6vw] flex flex-col justify-between items-center overflow-hidden">
+    <section ref={sectionRef} className="relative w-full min-h-fit sm:min-h-0 sm:h-auto lg:h-[100vh] bg-[#FAFAFA] font-sans pt-2 sm:pt-3 lg:pt-[1.2vw] pb-8 sm:pb-6 lg:pb-[1.2vw] px-5 sm:px-8 lg:px-[5.5vw] flex flex-col justify-between items-center overflow-hidden">
 
       {/* Top FEATURES Tag */}
-      <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0">
+      <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0">
         <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw]">
           <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
             INTERACTIVE 3D PRODUCT VIEWER

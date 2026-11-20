@@ -37,12 +37,12 @@ export default function ArIntegrationSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-center gap-2.5 sm:gap-4 mb-1.5 sm:mb-2 lg:mb-[1vw]"
+            className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
           >
-            <span className="text-[10px] sm:text-[13px] lg:text-[0.82vw] font-semibold tracking-[0.22em] text-[#35363A] uppercase">
+            <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
               AR INTEGRATION
             </span>
-            <div className="w-8 sm:w-14 lg:w-[3.4vw] h-[1.5px] bg-[#35363A]/40"></div>
+            <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
           </motion.div>
 
           {/* 2. Headline: Left-aligned across all breakpoints */}

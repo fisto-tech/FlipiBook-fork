@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 // â”€â”€ Magnetic dock button (same as Layout1) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MagneticDockBtn = ({ iconEl, label, onClick, extraStyle = {}, extraClassName = '', mousePos, isTablet, addTextBelowIcons, textFont }) => {
@@ -658,32 +659,11 @@ const Grid7Layout = ({
 
                 {/* Right Logo */}
                 <div className="flex-1 flex items-center justify-end pointer-events-auto shrink-0 min-w-[10vw]">
-                    {(settings?.brandingProfile?.logo !== false) && logoSettings?.src && (
-                        logoSettings.url ? (
-                            <a 
-                                href={logoSettings.url.startsWith('http') ? logoSettings.url : `https://${logoSettings.url}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="transition-opacity hover:opacity-80"
-                            >
-                                <img
-                                    src={logoSettings.src}
-                                    alt="Logo"
-                                    className={`${isTablet ? 'h-[2vw]' : 'h-[2.8vw]'} w-auto transition-opacity mr-[0.5vw]`}
-                                    style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                                />
-                            </a>
-                        ) : (
-                            <button className="transition-opacity hover:opacity-80 cursor-default">
-                                <img
-                                    src={logoSettings.src}
-                                    alt="Logo"
-                                    className={`${isTablet ? 'h-[2vw]' : 'h-[2.8vw]'} w-auto transition-opacity mr-[0.5vw]`}
-                                    style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                                />
-                            </button>
-                        )
-                    )}
+                    <BrandLogo
+                        logoSettings={logoSettings}
+                        settings={settings}
+                        isTablet={isTablet}
+                    />
                 </div>
             </div>
 

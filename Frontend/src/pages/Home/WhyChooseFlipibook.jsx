@@ -57,7 +57,7 @@ export default function WhyChooseFlipibook() {
   }, []);
 
   return (
-    <motion.section initial={{ opacity: 0, y: 35 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: false, margin: "-50px 0px -50px 0px" }} transition={{ duration: 0.8 }} className="w-full bg-[#FAFAFA] text-[#1C1D21] pt-6 pb-10 sm:pt-7 sm:pb-12 lg:pt-[1.8vw] lg:pb-[3.2vw] px-6 sm:px-10 lg:px-[5vw] font-poppins relative overflow-hidden ">
+    <motion.section initial={{ opacity: 0, y: 35 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: false, margin: "-50px 0px -50px 0px" }} transition={{ duration: 0.8 }} className="w-full bg-[#FAFAFA] text-[#1C1D21] pt-2 sm:pt-3 lg:pt-[1.2vw] pb-10 sm:pb-12 lg:pb-[3.2vw] px-6 sm:px-10 lg:px-[5vw] font-poppins relative overflow-hidden ">
 
       {/* Top Header Tag Row with Sub-Labels */}
       <motion.div
@@ -65,22 +65,22 @@ export default function WhyChooseFlipibook() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
         transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-[1920px] mx-auto flex items-center justify-between mb-3 sm:mb-2.5 lg:mb-[0.5vw]"
+        className="w-full max-w-[1920px] mx-auto flex items-center justify-between pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh]"
       >
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <span className="text-[11px] md:text-[13px] lg:text-[0.85vw] font-semibold tracking-[0.22em] sm:tracking-[0.28em] text-[#35363A] uppercase">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw]">
+          <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
             WHY FLIPIBOOK
           </span>
-          <div className="w-8 sm:w-12 lg:w-[3vw] h-[1.5px] bg-[#35363A]/40"></div>
+          <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
         </div>
 
         <div className="hidden sm:flex items-start text-left gap-3">
-          <div className="w-[2px] h-[36px] lg:h-[2.4vw] bg-[#EC5137] rounded-full mt-0.5"></div>
+          <div className="w-[2.5px] h-[40px] lg:h-[2.8vw] bg-[#EC5137] rounded-full mt-0.5"></div>
           <div className="flex flex-col">
-            <span className="text-[13px] sm:text-[14px] lg:text-[0.78vw] font-semibold text-[#35363A] uppercase tracking-wider leading-snug">
+            <span className="text-[14.5px] sm:text-[16px] lg:text-[0.95vw] font-bold text-[#35363A] uppercase tracking-wider leading-snug">
               YOUR CATALOGUE.
             </span>
-            <span className="text-[11.5px] sm:text-[12px] lg:text-[0.68vw] font-medium text-[#EC5137] uppercase tracking-wider leading-snug">
+            <span className="text-[13px] sm:text-[14px] lg:text-[0.82vw] font-semibold text-[#EC5137] uppercase tracking-wider leading-snug">
               MORE INTERACTIVE.
             </span>
           </div>
@@ -94,7 +94,7 @@ export default function WhyChooseFlipibook() {
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
           transition={{ duration: 0.95, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-          className="text-[34px] sm:text-[42px] lg:text-[2.8vw] font-semibold tracking-tight text-[#35363A] leading-[1.15] sm:leading-[1.2] lg:max-w-[40vw]"
+          className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-[#1f2937] leading-[1.12] tracking-tight font-sans lg:max-w-[40vw]"
         >
           Give Customers <br />
           <span className="text-[#EC5137]">More Reasons</span> <br />
