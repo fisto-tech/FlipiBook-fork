@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PremiumDropdown from '../../components/PremiumDropdown';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, ChevronsLeft } from 'lucide-react';
 import OtherSetup from '../../components/OtherSetup';
 import BookmarkStylesPopup from '../../components/BookmarkStylesPopup';
 import Switch from '../../components/Switch';
@@ -11,8 +11,8 @@ import { fontFamilies } from '../../utils/fontConstants';
 // Reusable Section Header
 const SectionHeader = ({ title }) => (
   <div className="flex items-center gap-[0.5vw] mt-[1.2vw] mb-[0.8vw]">
-    <h4 className="text-[0.9vw] font-semibold text-gray-200 whitespace-nowrap pb-[0.5vw]">{title}</h4>
-    <div className="h-[0.0925vw] bg-[#28374d] flex-1" style={{ marginRight: '-1vw' }}> </div>
+    <h4 className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">{title}</h4>
+    <div className="h-[0.0925vw] bg-gray-200 flex-1" style={{ marginRight: '-1vw' }}> </div>
   </div>
 );
 
@@ -20,12 +20,12 @@ const Stepper = ({ value, onChange, unit = 's', min = 1, max = 20 }) => (
   <div className="flex items-center gap-[0.4vw]">
     <button
       onClick={(e) => { e.stopPropagation(); onChange(Math.max(min, value - 1)); }}
-      className="text-gray-400 hover:text-white transition-colors"
+      className="text-gray-400 hover:text-gray-700 transition-colors"
     >
       <Icon icon="lucide:chevron-left" className="w-[1vw] h-[1vw]" />
     </button>
     <div
-      className="w-[3.2vw] h-[2vw] border border-[#2c3d56] rounded-[0.4vw] flex items-center justify-center bg-[#1c2636] cursor-ew-resize select-none text-[0.85vw] text-gray-100 font-semibold shadow-sm"
+      className="w-[3.2vw] h-[2vw] border border-gray-200 rounded-[0.4vw] flex items-center justify-center bg-white cursor-ew-resize select-none text-[0.85vw] text-gray-800 font-semibold shadow-2xs"
       onMouseDown={(e) => {
         e.preventDefault();
         const startX = e.clientX;
@@ -44,7 +44,7 @@ const Stepper = ({ value, onChange, unit = 's', min = 1, max = 20 }) => (
     </div>
     <button
       onClick={(e) => { e.stopPropagation(); onChange(Math.min(max, value + 1)); }}
-      className="text-gray-400 hover:text-white transition-colors"
+      className="text-gray-400 hover:text-gray-700 transition-colors"
     >
       <Icon icon="lucide:chevron-right" className="w-[1vw] h-[1vw]" />
     </button>
@@ -53,7 +53,7 @@ const Stepper = ({ value, onChange, unit = 's', min = 1, max = 20 }) => (
 
 const SettingRow = ({ label, children, className = "" }) => (
   <div className={`flex items-center justify-between gap-[1vw] ${className}`}>
-    <span className="text-[0.75vw] font-semibold text-gray-300 whitespace-nowrap">{label}</span>
+    <span className="text-[0.75vw] font-semibold text-gray-700 whitespace-nowrap">{label}</span>
     {children}
   </div>
 );
@@ -61,20 +61,20 @@ const SettingRow = ({ label, children, className = "" }) => (
 // Menu Item Component (Card Style)
 const MenuItem = ({ label, enabled, onChange, hasSettings, isExpanded, onToggleSettings, onRedirect, children }) => (
   <div
-    className={`bg-[#223044] rounded-[0.8vw] shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-300 relative border border-[#2c3d56] ${isExpanded ? 'ring-1 ring-[#EC5137]/40 z-[100] !overflow-visible' : 'z-0 !overflow-visible'}`}
+    className={`bg-white rounded-[0.8vw] shadow-2xs transition-all duration-300 relative border border-gray-200 ${isExpanded ? 'ring-1 ring-[#EC5137]/40 z-[100] !overflow-visible' : 'z-0 !overflow-visible'}`}
   >
-    <div className={`flex items-center justify-between px-[0.5vw] py-[0.8vw] pl-[1vw] pr-[1vw] transition-all duration-300 ${isExpanded ? 'rounded-t-[0.8vw] border-b border-[#2c3d56]' : 'rounded-[0.8vw]'}`}>
-      <span className="text-[0.75vw] font-medium text-gray-100 whitespace-nowrap">{label}</span>
+    <div className={`flex items-center justify-between px-[0.5vw] py-[0.8vw] pl-[1vw] pr-[1vw] transition-all duration-300 ${isExpanded ? 'rounded-t-[0.8vw] border-b border-gray-100' : 'rounded-[0.8vw]'}`}>
+      <span className="text-[0.75vw] font-medium text-gray-900 whitespace-nowrap">{label}</span>
       <div className="flex items-center gap-[0.75vw]">
         {hasSettings && (
           <button
             onClick={onToggleSettings}
-            className={`p-[0.25vw] rounded-[0.7vw] transition-colors ${isExpanded ? 'bg-[#28374d] text-[#EC5137]' : 'hover:bg-[#28374d] text-gray-300'
+            className={`p-[0.25vw] rounded-[0.7vw] transition-colors ${isExpanded ? 'bg-gray-100 text-[#EC5137]' : 'hover:bg-gray-100 text-gray-400'
               }`}
           >
             <Icon
               icon="tdesign:adjustment-filled"
-              className={`w-[1vw] h-[1vw] rotate-90 transition-colors ${isExpanded ? 'text-[#EC5137]' : 'text-gray-300'}`}
+              className={`w-[1vw] h-[1vw] rotate-90 transition-colors ${isExpanded ? 'text-[#EC5137]' : 'text-gray-400'}`}
             />
           </button>
         )}
@@ -82,12 +82,12 @@ const MenuItem = ({ label, enabled, onChange, hasSettings, isExpanded, onToggleS
         {onRedirect && (
           <button
             onClick={onRedirect}
-            className="rounded-[0.7vw] transition-colors hover:bg-[#28374d] text-gray-300"
+            className="rounded-[0.7vw] transition-colors hover:bg-gray-100 text-gray-400"
             title="Go to Other Setup"
           >
             <Icon
               icon="lucide:external-link"
-              className="w-[1vw] h-[1vw] text-gray-300"
+              className="w-[1vw] h-[1vw] text-gray-400"
             />
           </button>
         )}
@@ -386,7 +386,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
   };
 
   return (
-    <div className="flex flex-col h-full bg-transparent text-white relative overflow-visible">
+    <div className="flex flex-col h-full bg-transparent text-gray-800 relative overflow-visible">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -398,14 +398,19 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
       `}</style>
 
       {/* Sub-header */}
-      <div className="h-[8vh] flex items-center justify-between px-[1vw] border-b border-[#26354a]">
-        <div className="flex items-center gap-[0.5vw]">
-          <Icon icon="fluent:layout-row-two-settings-24-regular" className="w-[1.2vw] h-[1.2vw] text-[#EC5137] font-semibold" />
-          <span className="text-[1vw] font-semibold text-white">Layout Settings</span>
+      <div className="h-[7.5vh] flex items-center justify-between px-[1.2vw] border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center gap-[0.75vw] text-gray-800">
+          <Icon icon="fluent:layout-row-two-settings-24-regular" className="w-[1.4vw] h-[1.4vw] text-black" />
+          <h2 className="text-[1vw] font-semibold text-gray-900">Layout Settings</h2>
         </div>
-        <button onClick={onBack} className="text-gray-400 hover:text-white transition-colors cursor-pointer">
-          <Icon icon="ic:round-arrow-back" className="w-[1.25vw] h-[1.25vw]" />
-        </button>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90"
+          >
+            <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-[1vw] pb-[1vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>

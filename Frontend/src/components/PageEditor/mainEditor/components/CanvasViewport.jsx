@@ -14,6 +14,7 @@ import {
   svgGlobalStyles
 } from '../utils/constants';
 import { normalizeForeignObjectNamespaces, healTableElementNode } from '../../LeftActionMenu/Elements/utils/tableElementUtils';
+import { applyTrimViewToSvg } from '../utils/trimViewUtils';
 
 export const CanvasViewport = ({
   zoomContainerRef,
@@ -125,10 +126,19 @@ export const CanvasViewport = ({
               willChange: 'transform',
               backfaceVisibility: 'hidden',
               WebkitBackfaceVisibility: 'hidden',
+              cursor: isSpaceDown
+                ? 'grab'
+                : (activeMainTool === 'shapes'
+                    ? SHAPE_CURSOR
+                    : (activeMainTool === 'pen'
+                        ? (selectedPenTool === 'pencil' ? PENCIL_CURSOR : PEN_CURSOR)
+                        : (activeMainTool === 'type'
+                            ? TYPE_CURSOR
+                            : (activeMainTool === 'hand' ? 'grab' : undefined)))),
             }}
           >
             {/* Pages Container Centered */}
-            <div className={`flex items-center justify-center gap-[0] relative z-10 ${localTrimView ? '' : 'shadow-[0_0_15px_rgba(0,0,0,0.20)]'} rounded-sm`}>
+            <div className="flex items-center justify-center gap-[0] relative z-10 shadow-[0_2px_10px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.04)] rounded-sm">
               {/* Single A4 Canvas Page */}
               {pages.length > 0 && pages[activePageIndex] && (
                 <div className="relative group/page">
@@ -253,6 +263,12 @@ export const CanvasViewport = ({
 
                                         el.__lastHtml = newHtml;
                                         el.__lastPageIndex = displayIndex;
+                                      }
+                                      if (localTrimView) {
+                                        const pageSvg = el.querySelector('svg');
+                                        if (pageSvg) {
+                                          applyTrimViewToSvg(pageSvg, true);
+                                        }
                                       }
                                     }
                                   }
@@ -514,18 +530,6 @@ export const CanvasViewport = ({
                             
                             {!pages[displayIndex]?.isHidden && (
                               <>
-                                {/* Trim View Backdrop Mat & Page Boundary */}
-                                {localTrimView && (
-                                  <div
-                                    key={`trim-view-mat-${displayIndex}`}
-                                    className="pointer-events-none absolute inset-0 z-10"
-                                    style={{
-                                      boxShadow: '0 0 0 99999px rgba(230, 231, 231, 0.55)',
-                                      border: '1px dashed #9f9fa0',
-                                    }}
-                                  />
-                                )}
-
                                 {/* Selection Overlay (Overlay rotated element perfectly) */}
                                 <svg
                                   id={`highlight-overlay-${displayIndex}`}
