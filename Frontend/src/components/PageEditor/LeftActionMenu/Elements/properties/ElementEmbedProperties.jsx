@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { StrokeWidthInput } from '../../../properties/Color';
 import { createPortal } from 'react-dom';
 import {
   Copy,
@@ -270,6 +271,25 @@ const formatEmbedUrl = (rawUrl, allowFs = true) => {
   return trimmed;
 };
 
+// Popular sites that send X-Frame-Options / frame-ancestors and can never load in an iframe.
+// Their embeddable variants (YouTube /embed, Google Maps /maps/embed, Docs /preview, etc.) are allowed.
+const FRAME_BLOCKED_HOSTS = [
+  'google.com', 'google.co.in', 'gmail.com', 'facebook.com', 'instagram.com', 'twitter.com', 'x.com',
+  'linkedin.com', 'amazon.com', 'amazon.in', 'github.com', 'stackoverflow.com', 'reddit.com',
+  'netflix.com', 'whatsapp.com', 'web.whatsapp.com', 'microsoft.com', 'apple.com', 'paypal.com',
+  'flipkart.com', 'chatgpt.com', 'openai.com', 'yahoo.com', 'bing.com',
+];
+const FRAME_ALLOWED_PATHS = [/^\/maps\/embed/i, /\/embed(\/|$)/i, /\/preview(\/|$|\?)/i];
+const isFrameBlockedUrl = (url) => {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (!FRAME_BLOCKED_HOSTS.some((h) => host === h || host.endsWith('.' + h))) return false;
+    if (/^(docs|drive|calendar|forms)\.google\.com$/.test(host) && FRAME_ALLOWED_PATHS.some((re) => re.test(u.pathname))) return false;
+    return !FRAME_ALLOWED_PATHS.some((re) => re.test(u.pathname));
+  } catch { return false; }
+};
+
 const getEmbedIframeContent = ({ via, targetUrl, code, allowFs }) => {
   const defaultPlaceholderHtml = `
     <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#64748b; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px; border-radius:0px; border:none;">
@@ -295,6 +315,19 @@ const getEmbedIframeContent = ({ via, targetUrl, code, allowFs }) => {
         src: '',
         srcdoc: placeholderDoc,
         html: `<iframe srcdoc="${escapeHtml(placeholderDoc)}" width="100%" height="100%" style="display:block; width:100%; height:100%; border:none; margin:0; padding:0; background:transparent; border-radius:0px;" scrolling="auto"></iframe>`
+      };
+    }
+    // Sites that always refuse to be shown inside another page (X-Frame-Options / CSP frame-ancestors):
+    // the browser would only draw a broken-page icon, so explain it instead.
+    if (isFrameBlockedUrl(formatted)) {
+      let host = formatted;
+      try { host = new URL(formatted).hostname.replace(/^www\./, ''); } catch { /* keep raw */ }
+      const blockedDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;width:100vw;height:100vh;overflow:hidden;}</style></head><body><div style="display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; height:100%; background:#f8fafc; color:#64748b; font-family:system-ui, -apple-system, sans-serif; text-align:center; box-sizing:border-box; padding:20px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><div style="font-size:16px; font-weight:600; color:#1e293b; margin-bottom:4px;">${escapeHtml(host)} can't be embedded</div><div style="font-size:12px; max-width:320px;">This website blocks being shown inside other pages. Use the "Open website" button, or paste an embeddable link (e.g. YouTube, Vimeo, Google Maps embed).</div></div></body></html>`;
+      return {
+        type: 'placeholder',
+        src: '',
+        srcdoc: blockedDoc,
+        html: `<iframe srcdoc="${escapeHtml(blockedDoc)}" width="100%" height="100%" style="display:block; width:100%; height:100%; border:none; margin:0; padding:0; background:transparent; border-radius:0px;" scrolling="auto"></iframe>`
       };
     }
     return {
@@ -1378,7 +1411,7 @@ const ElementEmbedProperties = ({
                   <button
                     type="button"
                     disabled={isStrokeDisabled}
-                    onClick={() => handleStrokeWidthChange(Math.max(0, strokeWidth - 1))}
+                    onClick={() => handleStrokeWidthChange(Math.max(0, Math.round((parseFloat(strokeWidth) - 1) * 100) / 100))}
                     className="w-[2.1vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     <span className="text-[1vw] leading-none mb-[0.1vw]">-</span>
@@ -1387,21 +1420,20 @@ const ElementEmbedProperties = ({
                     className="flex-grow h-full bg-white border border-gray-300 rounded-[0.45vw] flex items-center cursor-ew-resize shadow-2xs hover:border-gray-400 transition-colors"
                     onPointerDown={(e) => {
                       if (isStrokeDisabled) return;
-                      handleScrubHelper(e, strokeWidth, (v) => handleStrokeWidthChange(Math.max(0, parseInt(v) || 0)));
+                      handleScrubHelper(e, strokeWidth, (v) => handleStrokeWidthChange(Math.max(0, Math.round((parseFloat(v) || 0) * 10) / 10)));
                     }}
                   >
-                    <input
-                      type="number"
-                      disabled={isStrokeDisabled}
+                    {/* Accepts decimals (e.g. 0.5, 1.25) */}
+                    <StrokeWidthInput
                       value={strokeWidth}
-                      onChange={(e) => handleStrokeWidthChange(Math.max(0, parseInt(e.target.value || 0)))}
-                      className="w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent no-spin cursor-text disabled:cursor-not-allowed"
+                      onChange={(v) => { if (!isStrokeDisabled) handleStrokeWidthChange(Math.max(0, parseFloat(v) || 0)); }}
+                      className={`w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent no-spin cursor-text ${isStrokeDisabled ? 'pointer-events-none opacity-50' : ''}`}
                     />
                   </div>
                   <button
                     type="button"
                     disabled={isStrokeDisabled}
-                    onClick={() => handleStrokeWidthChange(strokeWidth + 1)}
+                    onClick={() => handleStrokeWidthChange(Math.round((parseFloat(strokeWidth) + 1) * 100) / 100)}
                     className="w-[2.1vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     <span className="text-[0.9vw] leading-none mb-[0.1vw]">+</span>

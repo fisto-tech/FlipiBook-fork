@@ -233,14 +233,15 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
   }, [isPlaying, flipToStep]);
 
   return (
-    <section ref={containerRef} className="relative w-full h-auto lg:h-[calc(100vh-7vh)] lg:max-h-[100vh] bg-[#fdfdfd] flex flex-col justify-between py-4 sm:py-6 lg:py-[1.2vh] px-4 sm:px-8 lg:px-[5vw] font-poppins overflow-hidden">
+    <section ref={containerRef} className="relative w-full h-auto lg:h-[calc(100vh-7vh)] lg:max-h-[100vh] bg-[#F6F6F6] flex flex-col justify-start pt-2 sm:pt-3 lg:pt-[1.2vw] pb-6 sm:pb-8 lg:pb-[2vh] px-5 sm:px-8 lg:px-[5.5vw] font-poppins overflow-hidden">
 
       {/* Top Tag: INTERACTIVE DIGITAL CATALOGUE and line */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: false, amount: 0.3 }}
         transition={{ duration: 0.85, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
         <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
           INTERACTIVE DIGITAL CATALOGUE
@@ -256,7 +257,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
           initial={{ opacity: 0, scale: 0.96, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-          className="lg:col-span-8 xl:col-span-8 lg:w-[106%] xl:w-[108%] bg-[#efefef] rounded-[16px] lg:rounded-[1.2vw] pt-4 sm:pt-6 lg:pt-[2.5vh] pb-3 sm:pb-4 lg:pb-[1.8vh] px-3 sm:px-6 lg:px-[2vw] flex flex-col justify-between items-center relative shadow-xs overflow-hidden h-auto lg:h-full lg:max-h-[76vh]"
+          className="lg:col-span-8 xl:col-span-8 lg:w-[106%] xl:w-[108%] bg-[#EBEBEB] rounded-[16px] lg:rounded-[1.2vw] pt-4 sm:pt-6 lg:pt-[2.5vh] pb-3 sm:pb-4 lg:pb-[1.8vh] px-3 sm:px-6 lg:px-[2vw] flex flex-col justify-between items-center relative shadow-xs overflow-hidden h-auto lg:h-full lg:max-h-[76vh]"
         >
           {/* Flipbook inside rounded stage box (Clean and perfectly centered like Modal Book) */}
           <div className="relative mx-auto aspect-[595/842] sm:aspect-[420/297] flex items-center justify-center w-[min(70%,52vh)] sm:w-[88%] lg:w-full max-w-[570px] sm:max-w-[650px] lg:max-w-[47vw] xl:max-w-[49vw] lg:max-h-[63vh] flex-none lg:flex-1 translate-y-1 sm:translate-y-2 lg:translate-y-[1.2vh]">
@@ -434,7 +435,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="text-[10px] sm:text-[11px] lg:text-[0.68vw] font-bold text-[#555555] tracking-widest uppercase mt-2 lg:mt-[0.8vh]"
+              className="text-[10px] sm:text-[11px] lg:text-[0.68vw] font-bold text-[#555555] tracking-widest uppercase mt-4 sm:mt-5 lg:mt-[1.8vh]"
             >
               THAT BRINGS YOUR PRODUCTS TO LIFE.
             </motion.p>

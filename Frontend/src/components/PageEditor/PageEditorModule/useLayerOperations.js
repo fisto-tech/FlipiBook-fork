@@ -5,6 +5,7 @@
  * hierarchical reordering, delete, copy, cut, paste, and duplicate.
  */
 import { safeSerializeSvg } from '../utils/editorUtils';
+import pageCacheManager from '../utils/PageCacheManager';
 
 export const useLayerOperations = ({
   pages,
@@ -448,19 +449,32 @@ export const useLayerOperations = ({
 
       const newHtml = safeSerializeSvg(doc) || page.html;
 
+      pageCacheManager.invalidatePage(targetPage.id);
+      pageCacheManager.setCachedLayers(targetPage.id, newHtml, newLayers);
+
       updated[pageIndex] = { ...targetPage, layers: newLayers, html: newHtml };
       return updated;
     });
 
-    if (idList.includes(selectedLayerId)) {
-      const rootId = page.layers?.[0]?.id;
-      if (rootId) {
-        setSelectedLayerId(rootId);
-        setMultiSelectedIds(new Set([rootId]));
-        if (setCurrentFrameId) setCurrentFrameId(rootId);
-      } else {
-        setSelectedLayerId(null);
+    if (typeof document !== 'undefined') {
+      const liveSvg = document.querySelector(`.page-svg-container[data-page-index="${pageIndex}"] svg`);
+      if (liveSvg) {
+        idList.forEach(id => {
+          try {
+            const el = liveSvg.querySelector(`[id="${CSS.escape(id)}"]`);
+            if (el) el.remove();
+          } catch {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+          }
+        });
       }
+      document.querySelectorAll('.selection-overlay-layer polygon, [id^="overlay-poly-"], [id^="highlight-overlay-html-"]').forEach(el => el.remove());
+    }
+
+    if (idList.includes(selectedLayerId)) {
+      setSelectedLayerId(null);
+      if (setCurrentFrameId) setCurrentFrameId(null);
     }
     setMultiSelectedIds(prev => {
       const next = new Set(prev);

@@ -735,8 +735,8 @@ export const useCanvasPointerEvents = ({
         pathEl.getAttribute?.('data-mask-enabled') === 'true' ||
         pathEl.getAttribute?.('data-masked-image-url') ||
         pathEl.closest?.('[data-mask-enabled="true"]') !== null ||
-        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern-')) ||
-        pathEl.closest?.('[fill*="url(#pattern-"]') !== null
+        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern')) ||
+        pathEl.closest?.('[fill*="url(#pattern"]') !== null
       );
       const rect = pathEl.getBoundingClientRect();
       const isInsideBbox = (
@@ -2105,8 +2105,8 @@ export const useCanvasPointerEvents = ({
         pathEl.getAttribute?.('data-mask-enabled') === 'true' ||
         pathEl.getAttribute?.('data-masked-image-url') ||
         pathEl.closest?.('[data-mask-enabled="true"]') !== null ||
-        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern-')) ||
-        pathEl.closest?.('[fill*="url(#pattern-"]') !== null
+        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern')) ||
+        pathEl.closest?.('[fill*="url(#pattern"]') !== null
       );
       if (!hasImageMask || !hasCustomImageInShape(pathEl)) return;
 
@@ -3357,7 +3357,7 @@ export const useCanvasPointerEvents = ({
           slotPath = under.find(el => el.closest && el.closest(`[id="${frameParent.id}"]`) && ['path', 'polygon', 'rect', 'circle', 'ellipse'].includes(el.tagName?.toLowerCase()));
         }
         if (!slotPath) {
-          slotPath = frameParent.querySelector('[fill*="url(#pattern-"]') || frameParent.querySelector('path, polygon, rect, circle, ellipse');
+          slotPath = frameParent.querySelector('[fill*="url(#pattern"]') || frameParent.querySelector('path, polygon, rect, circle, ellipse');
         }
         if (slotPath && hasCustomImageInShape(slotPath)) {
           const container = frameParent.closest('.page-svg-container');
@@ -3379,8 +3379,8 @@ export const useCanvasPointerEvents = ({
         const hasMask = Boolean(
           compoundParent.getAttribute('data-mask-enabled') === 'true' ||
           compoundParent.getAttribute('data-masked-image-url') ||
-          (compoundParent.getAttribute('fill') && compoundParent.getAttribute('fill').includes('url(#pattern-')) ||
-          compoundParent.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern-"]')
+          (compoundParent.getAttribute('fill') && compoundParent.getAttribute('fill').includes('url(#pattern')) ||
+          compoundParent.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern"]')
         );
         if (hasMask && hasCustomImageInShape(compoundParent)) {
           const container = compoundParent.closest('.page-svg-container');
@@ -3425,8 +3425,8 @@ export const useCanvasPointerEvents = ({
     const hasImageMaskTarget = Boolean(
       target?.getAttribute?.('data-mask-enabled') === 'true' ||
       target?.closest?.('[data-mask-enabled="true"]') !== null ||
-      (target?.getAttribute?.('fill') && target.getAttribute('fill').includes('url(#pattern-')) ||
-      target?.closest?.('[fill*="url(#pattern-"]') !== null
+      (target?.getAttribute?.('fill') && target.getAttribute('fill').includes('url(#pattern')) ||
+      target?.closest?.('[fill*="url(#pattern"]') !== null
     );
 
     const targetFrame = target?.closest?.(
@@ -3444,7 +3444,7 @@ export const useCanvasPointerEvents = ({
         slotPath = under.find(el => el.closest && el.closest(`[id="${targetFrame.id}"]`) && ['path', 'polygon', 'rect', 'circle', 'ellipse'].includes(el.tagName?.toLowerCase()));
       }
       if (!slotPath) {
-        slotPath = targetFrame.querySelector('[fill*="url(#pattern-"]') || targetFrame.querySelector('path, polygon, rect, circle, ellipse');
+        slotPath = targetFrame.querySelector('[fill*="url(#pattern"]') || targetFrame.querySelector('path, polygon, rect, circle, ellipse');
       }
       if (slotPath && hasCustomImageInShape(slotPath)) {
         const container = targetFrame.closest('.page-svg-container');
@@ -3472,8 +3472,8 @@ export const useCanvasPointerEvents = ({
       const hasMask = Boolean(
         targetCompound.getAttribute('data-mask-enabled') === 'true' ||
         targetCompound.getAttribute('data-masked-image-url') ||
-        (targetCompound.getAttribute('fill') && targetCompound.getAttribute('fill').includes('url(#pattern-')) ||
-        targetCompound.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern-"]')
+        (targetCompound.getAttribute('fill') && targetCompound.getAttribute('fill').includes('url(#pattern')) ||
+        targetCompound.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern"]')
       );
       if (hasMask && hasCustomImageInShape(targetCompound)) {
         const container = targetCompound.closest('.page-svg-container');

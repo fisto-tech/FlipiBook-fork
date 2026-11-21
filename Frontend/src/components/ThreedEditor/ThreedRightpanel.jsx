@@ -80,14 +80,43 @@ export default function RightPanel({
   cameraBgOpacity,
   onChangeCameraBgOpacity,
   selectedFrameId,
-  onSelectFrameId
+  onSelectFrameId,
+  isMinimized = false,
+  onToggleMinimize,
+  onSelectLeftTab
 }) {
-  // Determine Header Title based on active Left Sidebar Tab
-  
+  // Minimized Compact Rail View
+  if (isMinimized) {
+    return (
+      <div className="w-full h-full bg-white flex flex-col items-center py-[0.75vw] px-[0.4vw] select-none shrink-0 transition-all duration-200">
+        {/* Expand / Maximize Button */}
+        <button
+          type="button"
+          onClick={onToggleMinimize}
+          className="w-[2.2vw] h-[2.2vw] min-w-[32px] min-h-[32px] flex items-center justify-center rounded-[0.5vw] bg-gray-100 hover:bg-[#ea543a] text-gray-600 hover:text-white transition-all cursor-pointer shadow-2xs mb-[0.8vw]"
+          title="Expand Properties panel"
+        >
+          <Icon icon="solar:double-alt-arrow-left-linear" className="w-[1.2vw] h-[1.2vw]" />
+        </button>
+
+        {/* Minimized Icon */}
+        <div className="flex flex-col items-center gap-[0.6vw] w-full">
+          <button
+            type="button"
+            onClick={onToggleMinimize}
+            className="w-[2.2vw] h-[2.2vw] min-w-[32px] min-h-[32px] flex items-center justify-center rounded-[0.5vw] bg-[#ea543a]/10 text-[#ea543a] hover:bg-[#ea543a] hover:text-white transition-colors cursor-pointer"
+            title="Properties"
+          >
+            <Icon icon="qlementine-icons:properties-16" className="w-[1.2vw] h-[1.2vw]" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full bg-white flex flex-col overflow-hidden select-none font-sans">
-      {/* â”€â”€â”€ RIGHT PANEL HEADER â”€â”€â”€ */}
+      {/* ─── RIGHT PANEL HEADER ─── */}
       <div className="flex items-center justify-between border-b border-gray-100 bg-white shrink-0 px-[1.2vw] py-[0.75vw]">
         <div className="flex items-center gap-[0.55vw]">
           <Icon
@@ -98,6 +127,17 @@ export default function RightPanel({
             Properties
           </span>
         </div>
+
+        {onToggleMinimize && (
+          <button
+            type="button"
+            onClick={onToggleMinimize}
+            className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 hover:scale-110 active:scale-95 transition-all cursor-pointer p-[0.3vw] rounded-[0.35vw]"
+            title="Minimize Properties panel"
+          >
+            <Icon icon="solar:double-alt-arrow-right-linear" className="w-[1.2vw] h-[1.2vw] min-w-[18px] min-h-[18px]" />
+          </button>
+        )}
       </div>
 
       {/* â”€â”€â”€ PANEL CONTENT â”€â”€â”€ */}

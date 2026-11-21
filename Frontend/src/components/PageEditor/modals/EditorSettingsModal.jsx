@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -11,7 +12,8 @@ export default function EditorSettingsModal({
   isTrimView: initialTrimView = false,
   onToggleTrimView,
   isRulerEnabled: initialRuler = true,
-  onToggleRuler
+  onToggleRuler,
+  currentBook
 }) {
   const { user } = useAuth();
   const [isTrimView, setIsTrimView] = useState(() => {
@@ -96,9 +98,28 @@ export default function EditorSettingsModal({
     syncEditorSettings({ isRulerEnabled: next });
   };
 
+  // Close on Escape too
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
+  // Book converted from an uploaded PDF / DOC / PPT: its pages are fixed images, so Trim View and Ruler don't apply
+  const bookType = String(currentBook?.type || '').toLowerCase();
+  const bookName = String(currentBook?.flipbookName || currentBook?.title || currentBook?.name || '').toLowerCase();
+  const isConvertedBook =
+    (typeof document !== 'undefined' && !!document.querySelector('.page-svg-container.is-pdf-project')) ||
+    ['pdf', 'doc', 'docx', 'ppt', 'pptx'].includes(bookType) ||
+    /^(pdf|doc|docx|ppt|pptx)_/.test(bookName) ||
+    /\.(pdf|docx?|pptx?)$/.test(bookName);
+
+  // Portal to <body>: inside the editor navbar's stacking context the backdrop sat under the canvas,
+  // so clicks outside the card never reached it
+  return createPortal(
     <>
       {/* Light Dark Shade Backdrop without blur */}
       <div className="fixed inset-0 z-[150] cursor-default bg-black/15" onClick={onClose}></div>
@@ -123,6 +144,7 @@ export default function EditorSettingsModal({
         {/* Settings List */}
         <div className="flex flex-col gap-[1vw]">
           {/* Trim View */}
+          {!isConvertedBook && (
           <div className="flex items-center justify-between">
             <span className="text-[0.82vw] font-normal text-gray-600">Trim View</span>
             <div className="flex-1 border-b border-dashed border-gray-200 mx-[0.6vw]"></div>
@@ -140,6 +162,7 @@ export default function EditorSettingsModal({
               ></div>
             </button>
           </div>
+          )}
 
           {/* Auto Save */}
           <div className="flex items-center justify-between">
@@ -161,6 +184,7 @@ export default function EditorSettingsModal({
           </div>
 
           {/* Rules (Ruler) */}
+          {!isConvertedBook && (
           <div className="flex items-center justify-between">
             <span className="text-[0.82vw] font-normal text-gray-600">Ruler</span>
             <div className="flex-1 border-b border-dashed border-gray-200 mx-[0.6vw]"></div>
@@ -178,8 +202,10 @@ export default function EditorSettingsModal({
               ></div>
             </button>
           </div>
+          )}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

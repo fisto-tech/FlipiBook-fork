@@ -179,6 +179,35 @@ export const AddElementsModal = ({
     };
   }, []);
 
+  // Close panel when clicking outside (canvas, backdrop, outside editor)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDownOutside = (e) => {
+      // Don't close if clicking inside modal
+      if (modalRef.current && modalRef.current.contains(e.target)) {
+        return;
+      }
+      // Don't close if clicking the "Add Elements" button on the left sidebar
+      const elementsBtn = document.querySelector('button[title*="Add Elements"], button[title*="Elements"], [data-tool="elements"]');
+      if (elementsBtn && elementsBtn.contains(e.target)) {
+        return;
+      }
+      // Don't close while actively dragging an element from the modal onto the canvas
+      if (isDraggingElement || window.__isDraggingElementFromModal) {
+        return;
+      }
+      if (typeof onClose === 'function') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDownOutside, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDownOutside, true);
+    };
+  }, [isOpen, onClose, isDraggingElement]);
+
   const recordRecentElement = useCallback((item) => {
     if (!item || !item.id) return;
     try {
@@ -351,24 +380,25 @@ export const AddElementsModal = ({
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Top Header & Drag Handle Area */}
+          {/* 3vh Full-Width Sleek Gray Drag Bar */}
           <div
             onPointerDown={handleHeaderPointerDown}
-            className="px-[1.2vw] pt-[0.6vh] pb-[0.8vh] cursor-grab active:cursor-grabbing select-none"
+            className="w-full h-[3vh] min-h-[22px] bg-gradient-to-r from-[#E5E7EB] via-[#F3F4F6] to-[#E5E7EB] border-b border-gray-200/80 rounded-t-[0.75vw] flex items-center justify-center cursor-grab active:cursor-grabbing select-none shadow-xs transition-colors hover:brightness-95 flex-shrink-0"
+            style={{ touchAction: 'none' }}
+            title="Drag to move panel"
+          >
+            {/* Subtle Visual Drag Indicator */}
+            <div className="w-[3.5vw] min-w-[36px] h-[0.45vh] min-h-[3px] rounded-full bg-gray-400/80 shadow-xs pointer-events-none" />
+          </div>
+
+          {/* Top Header Area */}
+          <div
+            onPointerDown={handleHeaderPointerDown}
+            className="px-[1.2vw] pt-[0.8vh] pb-[0.8vh] cursor-grab active:cursor-grabbing select-none"
             style={{ touchAction: 'none' }}
           >
-            {/* Centered Six-Dot Drag Handle */}
-            <div className="flex justify-center items-center">
-              <div
-                className="flex items-center justify-center py-[0.1vh] px-[0.6vw] rounded-[0.35vw] text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-grab active:cursor-grabbing select-none"
-                title="Drag to move panel"
-              >
-                <Icon icon="ph:dots-six-bold" className="w-[1.3vw] h-[1.3vw] text-gray-400 hover:text-gray-600" />
-              </div>
-            </div>
-
             {/* Title & Close Row */}
-            <div className="flex items-start justify-between mt-[0.3vh]">
+            <div className="flex items-start justify-between">
               <div className="pointer-events-none">
                 <div className="flex items-center gap-[0.45vw]">
                   <Icon icon="ph:diamonds-four" className="w-[1.2vw] h-[1.2vw] text-gray-900" />

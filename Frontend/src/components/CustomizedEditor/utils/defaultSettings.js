@@ -42,8 +42,40 @@ export const createDefaultWatermarkSettings = (currentBook, locationState) => {
 export const createDefaultPreloaderSettings = (currentBook, locationState) => {
   const cb = currentBook?.Customized_Settings?.Branding || currentBook?.settings?.Branding || currentBook?.settings || {};
   const p = cb.preloaderSettings || cb.preloader || locationState?.preloaderSettings || locationState?.preloader;
-  if (p && typeof p === 'object' && Object.keys(p).length > 0) return p;
-  return {};
+  const defaults = {
+    enabled: true,
+    isCustom: false,
+    displayOption: 'preloader-only', // 'preloader-only' | 'logo-only' | 'both'
+    text: 'Preparing Flipbook...',
+    layout: 'spinner',
+    logoAnimation: 'bounce',
+    spinnerColor: '#E04752',
+    bgColor: '#22252A',
+    textColor: '#ffffff',
+    showPercentage: false,
+    logo: '',
+  };
+  if (p && typeof p === 'object' && Object.keys(p).length > 0 && p.isCustom) {
+    const rawText = p.text;
+    const resolvedText = (!rawText || rawText === 'Loading Modal Please Wait....') ? 'Preparing Flipbook...' : rawText;
+    const resolvedDisplayOption = p.displayOption || (p.layout === 'logo-only' ? 'logo-only' : (p.logo ? 'both' : 'preloader-only'));
+    const resolvedBgColor = (!p.bgColor || p.bgColor === '#D6E0F4') ? '#22252A' : p.bgColor;
+    const resolvedSpinnerColor = (!p.spinnerColor || p.spinnerColor === '#3B3C8A') ? '#E04752' : p.spinnerColor;
+    return {
+      ...defaults,
+      ...p,
+      isCustom: true,
+      displayOption: resolvedDisplayOption,
+      enabled: p.enabled !== undefined ? p.enabled : true,
+      text: resolvedText,
+      layout: p.layout === 'logo-only' ? 'spinner' : (p.layout || 'spinner'),
+      logoAnimation: p.logoAnimation || 'bounce',
+      bgColor: resolvedBgColor,
+      textColor: p.textColor || '#ffffff',
+      spinnerColor: resolvedSpinnerColor,
+    };
+  }
+  return defaults;
 };
 
 export const createDefaultProfileSettings = (currentBook, locationState) => {
