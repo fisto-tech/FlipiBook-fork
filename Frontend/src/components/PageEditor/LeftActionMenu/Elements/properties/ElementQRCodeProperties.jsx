@@ -651,7 +651,7 @@ const ElementQRCodeProperties = ({
   const galleryBtnRef = useRef(null);
 
   // Frames & Typography states
-  const [frame, setFrame] = useState('frame-curved-arrow');
+  const [frame, setFrame] = useState('frame-none');
   const [text, setText] = useState('Scan Me');
   const [fontFamily, setFontFamily] = useState('Poppins');
   const [fontSize, setFontSize] = useState(24);
@@ -1015,20 +1015,46 @@ const ElementQRCodeProperties = ({
       }
       setLogoAspect(initAspect);
 
+      const currentFrame = targetEl.getAttribute('data-qr-frame') || 'frame-none';
+      const isLightBg = currentFrame === 'frame-curved-arrow' || currentFrame === 'frame-simple-text';
+      const defaultTextColor = isLightBg ? '#000000' : '#FFFFFF';
+      const defaultFontFamily = currentFrame === 'frame-curved-arrow' ? 'Caveat' : 'Poppins';
+
       if (existingLogo) {
         loadImg(existingLogo).then((img) => {
           if (img && img.naturalWidth && img.naturalHeight) {
             const asp = img.naturalWidth / img.naturalHeight;
             setLogoAspect(asp);
-            updateQR({ logoAspect: asp });
+            // Pass THIS element's values: state from the previous render (default frame = curved arrow)
+            // would otherwise overwrite e.g. a No Frame QR.
+            const rawT = targetEl.getAttribute('data-qr-text');
+            updateQR({
+              logoAspect: asp,
+              url: resolvedUrl,
+              frame: currentFrame,
+              text: (rawT !== null ? rawT : (currentFrame === 'frame-curved-arrow' ? 'Scan Me' : (currentFrame === 'frame-none' ? '' : 'SCAN ME'))).slice(0, 30),
+              qrColor: targetEl.getAttribute('data-qr-color') || '#000000',
+              backdrop: targetEl.hasAttribute('data-qr-backdrop') ? targetEl.getAttribute('data-qr-backdrop') : '#FFFFFF',
+              patternStyle: targetEl.getAttribute('data-qr-pattern') || 'classic-square',
+              eyeFrame: targetEl.getAttribute('data-qr-eye-frame') || 'classic-square',
+              eyeBall: targetEl.getAttribute('data-qr-eye-ball') || 'square',
+              hasLogo: hasLogoAttr !== null ? hasLogoAttr === 'true' : true,
+              logoSrc: existingLogo,
+              logoName: targetEl.getAttribute('data-qr-logo-name') || 'Logo.png',
+              logoMeta: meta || '',
+              logoSize: parseInt(targetEl.getAttribute('data-qr-logo-size')) || 70,
+              logoRadius: targetEl.getAttribute('data-qr-logo-radius') !== null ? parseInt(targetEl.getAttribute('data-qr-logo-radius')) : 0,
+              logoBgColor: targetEl.getAttribute('data-qr-logo-bg-color') || '#FFFFFF',
+              fontFamily: targetEl.getAttribute('data-qr-font-family') || defaultFontFamily,
+              fontSize: parseInt(targetEl.getAttribute('data-qr-font-size')) || 24,
+              fontWeight: targetEl.getAttribute('data-qr-font-weight') || 'Semi Bold',
+              textColor: targetEl.getAttribute('data-qr-text-color') || defaultTextColor,
+              frameBgColor: targetEl.getAttribute('data-qr-frame-bg') || '#FFFFFF',
+              arrowColor: targetEl.getAttribute('data-qr-arrow-color') || '#000000',
+            });
           }
         });
       }
-
-      const currentFrame = targetEl.getAttribute('data-qr-frame') || 'frame-none';
-      const isLightBg = currentFrame === 'frame-curved-arrow' || currentFrame === 'frame-simple-text';
-      const defaultTextColor = isLightBg ? '#000000' : '#FFFFFF';
-      const defaultFontFamily = currentFrame === 'frame-curved-arrow' ? 'Caveat' : 'Poppins';
 
       setFrame(currentFrame);
       const rawText = targetEl.getAttribute('data-qr-text');

@@ -1525,9 +1525,9 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                 <div className="flex items-center justify-start gap-[1cqw] flex-wrap">
                                     {/* Embed */}
                                     <div
-                                        onClick={() => setShowEmbedCode(!showEmbedCode)}
-                                        title="Toggle Embed Code"
-                                        className={`w-[4cqw] h-[4cqw] rounded-[0.8cqw] border flex items-center justify-center transition-all cursor-pointer shadow-sm group ${showEmbedCode ? 'bg-gray-100 border-gray-400' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}
+                                        onClick={() => { if (isBookPublished) setShowEmbedCode(!showEmbedCode); }}
+                                        title={isBookPublished ? "Toggle Embed Code" : "Publish flipbook to get the embed code"}
+                                        className={`w-[4cqw] h-[4cqw] rounded-[0.8cqw] border flex items-center justify-center transition-all shadow-sm group ${!isBookPublished ? 'opacity-40 cursor-not-allowed border-gray-200' : showEmbedCode ? 'cursor-pointer bg-gray-100 border-gray-400' : 'cursor-pointer border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}
                                     >
                                         <Icon icon="lucide:code-2" className={`w-[1.8cqw] h-[1.8cqw] ${showEmbedCode ? 'text-gray-800' : 'text-gray-600'} transition-transform`} />
                                     </div>
@@ -1578,7 +1578,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                 </div>
 
                                 {/* Embed Code smoothly expanding */}
-                                <div className={`grid transition-all duration-300 ease-in-out ${showEmbedCode ? 'grid-rows-[1fr] opacity-100 mt-[1cqw]' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+                                <div className={`grid transition-all duration-300 ease-in-out ${showEmbedCode && isBookPublished ? 'grid-rows-[1fr] opacity-100 mt-[1cqw]' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
                                     <div className="overflow-hidden flex flex-col gap-[1cqw]">
                                         <div className="flex items-center gap-[1cqw]">
                                             <h3 className="text-[1.2cqw] font-bold text-gray-800 whitespace-nowrap">Embed Code</h3>
@@ -1866,9 +1866,9 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                     <div className="flex items-center gap-[0.6vw]">
                                         {/* Embed */}
                                         <div
-                                            onClick={() => setShowEmbedCode(!showEmbedCode)}
-                                            title="Toggle Embed Code"
-                                            className={`w-[2.8vw] h-[2.8vw] rounded-[0.5vw] border flex items-center justify-center transition-all cursor-pointer shadow-sm group ${showEmbedCode ? 'bg-gray-100 border-gray-400' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}
+                                            onClick={() => { if (isBookPublished) setShowEmbedCode(!showEmbedCode); }}
+                                            title={isBookPublished ? "Toggle Embed Code" : "Publish flipbook to get the embed code"}
+                                            className={`w-[2.8vw] h-[2.8vw] rounded-[0.5vw] border flex items-center justify-center transition-all shadow-sm group ${!isBookPublished ? 'opacity-40 cursor-not-allowed border-gray-200' : showEmbedCode ? 'cursor-pointer bg-gray-100 border-gray-400' : 'cursor-pointer border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}
                                         >
                                             <Icon icon="lucide:code-2" className={`w-[1.2vw] h-[1.2vw] ${showEmbedCode ? 'text-gray-800' : 'text-gray-600'} transition-transform`} />
                                         </div>
@@ -1919,7 +1919,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                     </div>
 
                                     {/* Embed Code smoothly expanding */}
-                                    <div className={`grid transition-all duration-300 ease-in-out ${showEmbedCode ? 'grid-rows-[1fr] opacity-100 mt-[0.5vw]' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+                                    <div className={`grid transition-all duration-300 ease-in-out ${showEmbedCode && isBookPublished ? 'grid-rows-[1fr] opacity-100 mt-[0.5vw]' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
                                         <div className="overflow-hidden flex flex-col gap-[0.6vw]">
                                             <div className="flex items-center gap-[0.6vw]">
                                                 <h3 className="text-[0.8vw] font-bold text-gray-800 whitespace-nowrap">Embed Code</h3>
