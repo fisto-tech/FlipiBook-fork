@@ -530,6 +530,18 @@ export const CanvasViewport = ({
                             
                             {!pages[displayIndex]?.isHidden && (
                               <>
+                                {/* Trim View Backdrop Mat & Page Boundary */}
+                                {localTrimView && (
+                                  <div
+                                    key={`trim-view-mat-${displayIndex}`}
+                                    className="pointer-events-none absolute inset-0 z-10"
+                                    style={{
+                                      boxShadow: '0 0 0 99999px rgba(244, 245, 247, 0.78)',
+                                      border: '1px dashed #9f9fa0',
+                                    }}
+                                  />
+                                )}
+
                                 {/* Selection Overlay (Overlay rotated element perfectly) */}
                                 <svg
                                   id={`highlight-overlay-${displayIndex}`}

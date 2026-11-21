@@ -26,6 +26,7 @@ import Color from '../../../properties/Color';
 import { ElementToggle, ElementSlider, ElementDropdown } from './ElementUIControls';
 import { update3FrameSlideshow, RingBuffer } from '../utils/slideshowElementUtils';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../../utils/imageOptimizer';
+import { createManagedBlobUrl, revokeManagedBlobUrl } from '../../../../../utils';
 
 // Clean up any lingering debuggers from Vite HMR
 ['my-slideshow-debug', 'my-slideshow-debug2', 'my-slideshow-debug3'].forEach(id => {
@@ -67,9 +68,9 @@ const processLocalImageFile = async (file) => {
 
     if (shouldOptimizeImage(file)) {
       try {
-        const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
-        if (opt?.dataUrl) {
-          finalDataUrl = opt.dataUrl;
+        const opt = await optimizeImageForWeb(file, { maxDimension: 1600, quality: 0.82 });
+        if (opt?.file || opt?.blob) {
+          finalDataUrl = createManagedBlobUrl(opt.file || opt.blob, 'slideshow_slide');
           imgWidth = opt.width;
           imgHeight = opt.height;
           compBytes = opt.compressedSize || opt.file?.size || compBytes;
@@ -80,12 +81,7 @@ const processLocalImageFile = async (file) => {
     }
 
     if (!finalDataUrl) {
-      finalDataUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(targetFile);
-      });
+      finalDataUrl = createManagedBlobUrl(targetFile, 'slideshow_slide');
     }
 
     if (!finalDataUrl) return null;

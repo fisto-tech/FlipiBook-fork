@@ -16,6 +16,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./Layouts/MainLayout";
 import LaunchLockGate from "./features/comingSoon/LaunchLockGate";
 import ScrollToTop from "./components/ScrollToTop";
+import SEOManager from "./components/common/SEOManager";
 import { DocumentUploadProvider } from "./context/DocumentUploadContext";
 
 function AuthRouteRedirect({ mode = "signin" }) {
@@ -105,6 +106,7 @@ export default function App() {
           <ConfirmationProvider>
             <Router>
               <DocumentUploadProvider>
+                <SEOManager />
                 <ScrollToTop />
                 <AuthModal />
                 <LaunchLockGate>

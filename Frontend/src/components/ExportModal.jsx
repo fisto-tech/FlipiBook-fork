@@ -1224,7 +1224,7 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
     if (!isOpen) {
       setModalPages(prev => prev.length === 0 ? prev : []);
       setIsLoadingPages(prev => !prev ? prev : false);
-      setProjectBaseUrl('');
+      setProjectBaseUrl(prev => prev === '' ? prev : '');
       return;
     }
 
@@ -1355,8 +1355,13 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
           fetchAllFromBackend();
         }
       } else {
-        setModalPages(normalizePages(pages));
-        setIsLoadingPages(false);
+        setModalPages(prev => {
+          if (prev.length === pages.length && prev.every((p, i) => (p.html || p.content) === (pages[i]?.html || pages[i]?.content) && p.name === (pages[i]?.name || pages[i]?.pageName))) {
+            return prev;
+          }
+          return normalizePages(pages);
+        });
+        setIsLoadingPages(prev => !prev ? prev : false);
       }
     } else if (currentBook && modalPages.length === 0) {
       fetchAllFromBackend();
@@ -1391,7 +1396,7 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
         return prev;
       });
     } else if (!isOpen) {
-      setSelectedPages(new Set());
+      setSelectedPages(prev => prev.size === 0 ? prev : new Set());
     }
   }, [isOpen, modalPages, currentPageIndex, activePages, exportType]);
 

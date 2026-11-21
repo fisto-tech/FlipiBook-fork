@@ -2227,12 +2227,14 @@ const Explore = () => {
             />
 
             {/* Export Modal */}
-            <ExportModal
-                isOpen={isExportModalOpen}
-                onClose={() => setIsExportModalOpen(false)}
-                currentBook={selectedBookForModal}
-                isFromMyFlipbooks={true}
-            />
+            {isExportModalOpen && (
+                <ExportModal
+                    isOpen={isExportModalOpen}
+                    onClose={() => setIsExportModalOpen(false)}
+                    currentBook={selectedBookForModal}
+                    isFromMyFlipbooks={true}
+                />
+            )}
 
             {/* Profile Modal */}
             <CreatorProfileModal
