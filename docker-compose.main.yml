@@ -17,6 +17,18 @@ services:
       - main-internal
       - dokploy-network
 
+  admin-frontend:
+    build:
+      context: ./Admin_Frontend
+      dockerfile: dockerfile
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    networks:
+      - main-internal
+      - dokploy-network
+
   backend:
     build: ./Backend
     expose:

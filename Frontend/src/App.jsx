@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthModal } from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./Layouts/MainLayout";
+import LaunchLockGate from "./features/comingSoon/LaunchLockGate";
 import ScrollToTop from "./components/ScrollToTop";
 import { DocumentUploadProvider } from "./context/DocumentUploadContext";
 
@@ -106,6 +107,7 @@ export default function App() {
               <DocumentUploadProvider>
                 <ScrollToTop />
                 <AuthModal />
+                <LaunchLockGate>
                 <Routes>
               {/* Direct visits to auth URLs automatically open the Auth Modal over home */}
               <Route
@@ -739,6 +741,7 @@ export default function App() {
               {/* Catch-all fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+                </LaunchLockGate>
           </DocumentUploadProvider>
           </Router>
           </ConfirmationProvider>

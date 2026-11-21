@@ -144,6 +144,16 @@ const TurnBook = forwardRef(function TurnBook(
           img.draggable = false;
           img.className = 'turnbook-img';
           page.appendChild(img);
+          // Spine (gutter) shadow on the inner edge of each page in an open spread.
+          // Page n (1-based): even = left page (shadow on its right edge), odd = right page (shadow on its left edge).
+          const n = i + 1;
+          const isFrontCover = n === 1;
+          const isBackCover = n === pages.length && n % 2 === 0;
+          // Covers get a narrower "hinge" shade on their binding edge (front: left, back: right).
+          const isCover = isFrontCover || isBackCover;
+          const gutter = document.createElement('div');
+          gutter.className = `turnbook-gutter ${n % 2 === 0 ? 'turnbook-gutter-left-page' : 'turnbook-gutter-right-page'}${isCover ? ' turnbook-gutter-cover' : ''}`;
+          page.appendChild(gutter);
           bookEl.appendChild(page);
         });
 
@@ -157,6 +167,7 @@ const TurnBook = forwardRef(function TurnBook(
         let bookW = bookH * pageAspect * across;
         if (bookW > cw) { bookW = cw; bookH = bookW / (pageAspect * across); }
 
+        bookEl.classList.toggle('turnbook-single', modeRef.current === 'single');
         $(bookEl).turn({
           width: Math.floor(bookW),
           height: Math.floor(bookH),
@@ -202,6 +213,7 @@ const TurnBook = forwardRef(function TurnBook(
       const mode = displayMode();
       if (mode !== modeRef.current && isInit()) {
         modeRef.current = mode;
+        bookRef.current?.classList.toggle('turnbook-single', mode === 'single');
         try {
           $book().turn('display', mode);
           applyCenter($book().turn('view'), false);
@@ -220,6 +232,26 @@ const TurnBook = forwardRef(function TurnBook(
       <style>{`
         .turnbook-page { background: #fff; overflow: hidden; }
         .turnbook-img { width: 100%; height: 100%; display: block; object-fit: cover; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+        .turnbook-page { position: relative; }
+        .turnbook-gutter { position: absolute; top: 0; bottom: 0; width: 14%; pointer-events: none; z-index: 2; }
+        .turnbook-gutter-left-page {
+          right: 0;
+          background: linear-gradient(to left, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.12) 18%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0) 100%);
+        }
+        .turnbook-gutter-right-page {
+          left: 0;
+          background: linear-gradient(to right, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.12) 18%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0) 100%);
+        }
+        /* Covers: narrow hinge crease along the binding edge */
+        .turnbook-gutter-cover { width: 6%; }
+        .turnbook-gutter-cover.turnbook-gutter-right-page {
+          background: linear-gradient(to right, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.10) 22%, rgba(255,255,255,0.22) 38%, rgba(0,0,0,0.06) 55%, rgba(0,0,0,0) 100%);
+        }
+        .turnbook-gutter-cover.turnbook-gutter-left-page {
+          background: linear-gradient(to left, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.10) 22%, rgba(255,255,255,0.22) 38%, rgba(0,0,0,0.06) 55%, rgba(0,0,0,0) 100%);
+        }
+        /* One page at a time (mobile): no spine */
+        .turnbook-single .turnbook-gutter { display: none; }
       `}</style>
       <div ref={shiftRef} style={{ willChange: 'transform' }}>
         <div ref={bookRef} className="turnbook select-none" />

@@ -10,9 +10,9 @@ import { COMING_SOON_FORCE_KEY } from '../../config/launchLock';
  */
 // "Coming Soon" popup shown every time the home page opens
 
-export default function ComingSoonModal() {
-  // Always open when Home loads (including on refresh); nothing is remembered across loads
-  const [open, setOpen] = useState(true);
+export default function ComingSoonModal({ openOnMount = true }) {
+  // Opens on mount when asked (Home load / refresh); otherwise only when requested by the lock
+  const [open, setOpen] = useState(openOnMount);
 
   const close = () => {
     setOpen(false);
