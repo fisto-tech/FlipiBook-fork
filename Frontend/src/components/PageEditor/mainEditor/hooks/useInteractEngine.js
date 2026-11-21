@@ -715,10 +715,16 @@ export const useInteractEngine = ({
                   item.startPointLocal = getLocalPoint(dragState.svgElement, item.element.parentNode, event.clientX, event.clientY);
                   item.element.setAttribute('data-dragging', 'true');
                   item.element.style.willChange = 'transform';
+                  if (!item.element._dragLocalBBox) {
+                    item.element._dragLocalBBox = getVisualBBox(item.element);
+                  }
                 }
               } else {
                 dragState.element.setAttribute('data-dragging', 'true');
                 dragState.element.style.willChange = 'transform';
+                if (!dragState.element._dragLocalBBox) {
+                  dragState.element._dragLocalBBox = getVisualBBox(dragState.element);
+                }
                 if (dragState.element?.getAttribute('data-type') === 'table-frame' || dragState.element?.id?.startsWith('table-')) {
                   const bColor = dragState.element.getAttribute('data-border-color') || '#cbd5e1';
                   dragState.element.querySelectorAll('td[data-cell-selected], th[data-cell-selected]').forEach(td => {

@@ -47,6 +47,7 @@ import {
 } from './LeftActionMenu';
 import { getTopLevelFrames, hitTest as hitTestExt, isPageRootElement } from './mainEditor/utils/frameHierarchyUtils';
 import { parseLayersFromSVG, sanitizeSvgXml } from './utils/editorUtils';
+import { DEFAULT_FRAME_IMAGE } from './LeftActionMenu/Elements/utils/imageFramingUtils';
 import { PageNavigationControls } from './mainEditor/components/PageNavigationControls';
 import { applyTrimViewToSvg, cleanTrimViewFromHtml, isElementCompletelyOutside } from './mainEditor/utils/trimViewUtils';
 import { drawShapeImageAdjustOverlay } from './penTool/penOverlayEngine';
@@ -490,6 +491,11 @@ const MainEditor = ({
       .replace(/<\s*br[^>]*>(?:<\/\s*br\s*>)?/gi, '<br/>')
       .replace(/<\/\s*br\s*>/gi, '');
     finalHtml = sanitizeSvgXml(finalHtml);
+
+    // Auto-purge legacy heavy 57KB JPEG frame placeholders to save disk space and memory
+    if (finalHtml.includes('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD')) {
+      finalHtml = finalHtml.replace(/data:image\/jpeg;base64,\/9j\/4AAQSkZJRgABAQAASABIAAD[A-Za-z0-9+/=]+/g, DEFAULT_FRAME_IMAGE);
+    }
 
     // Normalize any foreignObject so XHTML namespace is explicitly preserved
     finalHtml = normalizeForeignObjectNamespaces(finalHtml);
