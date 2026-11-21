@@ -14,6 +14,8 @@ import {
   svgGlobalStyles
 } from '../utils/constants';
 import { normalizeForeignObjectNamespaces, healTableElementNode } from '../../LeftActionMenu/Elements/utils/tableElementUtils';
+import { applyTrimViewToSvg } from '../utils/trimViewUtils';
+import { DEFAULT_FRAME_IMAGE } from '../../LeftActionMenu/Elements/utils/imageFramingUtils';
 
 export const CanvasViewport = ({
   zoomContainerRef,
@@ -54,6 +56,11 @@ export const CanvasViewport = ({
 
     // Auto-heal any corrupted asset URLs with trailing base64 garbage
     clean = clean.replace(/(assets\/(?:Image|video|gif|audio|3D_Model|download)\/[A-Za-z0-9_.-]+)(?:[\s/]+[A-Za-z0-9+/=_%-]+)+(?=["'])/g, "$1");
+
+    // Auto-purge legacy heavy 57KB JPEG frame placeholders to restore lightning speed
+    if (clean.includes('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD')) {
+      clean = clean.replace(/data:image\/jpeg;base64,\/9j\/4AAQSkZJRgABAQAASABIAAD[A-Za-z0-9+/=]+/g, DEFAULT_FRAME_IMAGE);
+    }
 
     // Auto-fix for corrupted templates: strip out the pink XML parsererror and any baked-in custom controls
     if (clean.includes('parsererror') || clean.includes('id="custom-ctrl-')) {
@@ -125,10 +132,19 @@ export const CanvasViewport = ({
               willChange: 'transform',
               backfaceVisibility: 'hidden',
               WebkitBackfaceVisibility: 'hidden',
+              cursor: isSpaceDown
+                ? 'grab'
+                : (activeMainTool === 'shapes'
+                    ? SHAPE_CURSOR
+                    : (activeMainTool === 'pen'
+                        ? (selectedPenTool === 'pencil' ? PENCIL_CURSOR : PEN_CURSOR)
+                        : (activeMainTool === 'type'
+                            ? TYPE_CURSOR
+                            : (activeMainTool === 'hand' ? 'grab' : undefined)))),
             }}
           >
             {/* Pages Container Centered */}
-            <div className={`flex items-center justify-center gap-[0] relative z-10 ${localTrimView ? '' : 'shadow-[0_0_15px_rgba(0,0,0,0.20)]'} rounded-sm`}>
+            <div className="flex items-center justify-center gap-[0] relative z-10 shadow-[0_4px_20px_rgba(0,0,0,0.10),0_1px_4px_rgba(0,0,0,0.06)] rounded-sm">
               {/* Single A4 Canvas Page */}
               {pages.length > 0 && pages[activePageIndex] && (
                 <div className="relative group/page">
@@ -253,6 +269,12 @@ export const CanvasViewport = ({
 
                                         el.__lastHtml = newHtml;
                                         el.__lastPageIndex = displayIndex;
+                                      }
+                                      if (localTrimView) {
+                                        const pageSvg = el.querySelector('svg');
+                                        if (pageSvg) {
+                                          applyTrimViewToSvg(pageSvg, true);
+                                        }
                                       }
                                     }
                                   }
@@ -514,14 +536,13 @@ export const CanvasViewport = ({
                             
                             {!pages[displayIndex]?.isHidden && (
                               <>
-                                {/* Trim View Backdrop Mat & Page Boundary */}
+                                {/* Trim View Backdrop Mat & Page Shadow */}
                                 {localTrimView && (
                                   <div
                                     key={`trim-view-mat-${displayIndex}`}
                                     className="pointer-events-none absolute inset-0 z-10"
                                     style={{
-                                      boxShadow: '0 0 0 99999px rgba(230, 231, 231, 0.55)',
-                                      border: '1px dashed #9f9fa0',
+                                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08), 0 0 0 99999px rgba(244, 245, 247, 0.78)',
                                     }}
                                   />
                                 )}

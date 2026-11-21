@@ -393,7 +393,24 @@ const GlbModelViewer = React.memo(({
   }, [url, timestamp]);
 
   return (
-    <Canvas camera={{ fov: 50, position: [0, 0, 5] }} style={{ background: 'transparent', width: '100%', height: '100%' }}>
+    <Canvas 
+      camera={{ fov: 50, position: [0, 0, 5] }} 
+      gl={{ powerPreference: 'high-performance', preserveDrawingBuffer: true }}
+      onCreated={({ gl }) => {
+        const canvasEl = gl.domElement;
+        if (canvasEl) {
+          canvasEl.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            console.warn('[3DPreview] WebGL context lost. Preventing crash.');
+          }, false);
+          canvasEl.addEventListener('webglcontextrestored', () => {
+            console.log('[3DPreview] WebGL context restored. Re-initializing textures.');
+            gl.renderLists?.dispose?.();
+          }, false);
+        }
+      }}
+      style={{ background: 'transparent', width: '100%', height: '100%' }}
+    >
       <React.Suspense fallback={null}>
         <ModelScene 
           url={finalUrl}

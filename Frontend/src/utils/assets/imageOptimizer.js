@@ -11,6 +11,7 @@
 
 import axios from 'axios';
 import { resolveUploadsPath } from './assetUtils';
+import { startInFlightActivity, endInFlightActivity } from '../storage/saveLockManager';
 
 /**
  * Checks whether an asset (File, Blob, or DataURL) should undergo client-side optimization.
@@ -284,6 +285,7 @@ export async function uploadAssetToStorage(file, params = {}) {
   formData.append('file', file);
   formData.append('page_v_id', params.page_v_id || 'global');
 
+  const activityId = startInFlightActivity(`upload_asset_${Date.now()}`);
   try {
     const res = await axios.post(`${backendUrl}/api/flipbook/upload-asset`, formData, {
       withCredentials: true,
@@ -302,6 +304,8 @@ export async function uploadAssetToStorage(file, params = {}) {
   } catch (err) {
     console.error('[imageOptimizer] Upload failed:', err);
     return { success: false, error: err.message };
+  } finally {
+    endInFlightActivity(activityId);
   }
 }
 

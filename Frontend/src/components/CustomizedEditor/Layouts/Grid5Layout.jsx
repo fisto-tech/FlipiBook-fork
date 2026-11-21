@@ -115,6 +115,8 @@ const Grid5Layout = ({
 
     const localOffset = React.useMemo(() => {
         if (offset === 0) return 0; // Use offset prop to respect single page mode
+        // Follow the offset sign from PreviewArea (set when a turn STARTS) so centring glides with the page
+        if (typeof offset === 'number') return offset < 0 ? -(dimWidth / 2) : (dimWidth / 2);
         // Shift left to center the front cover, shift right to center the back cover
         if (currentPage === 0) {
             return -(dimWidth / 2);
@@ -655,7 +657,8 @@ const Grid5Layout = ({
                 <div
                     className="relative transition-all duration-600 ease-in-out magazine-content-area"
                     style={{
-                        transform: `translateX(${localOffset}px) scale(${isMobileLandscape ? responsiveScale : 1})`,
+                        translate: `${localOffset}px 0`, transform: `scale(${isMobileLandscape ? responsiveScale : 1})`,
+                        transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.6s ease-in-out',
                         transformOrigin: 'center center',
                         width: dimWidth * 2,
                         height: dimHeight,
@@ -669,9 +672,10 @@ const Grid5Layout = ({
                         <button
                             className={`absolute top-1/2 -translate-y-1/2 -translate-x-full transition-all z-20 ${currentPage > 0 ? 'pointer-events-auto opacity-60 hover:opacity-100' : 'pointer-events-none opacity-0'}`}
                             style={{
-                                left: localOffset < 0 ? `calc(${dimWidth}px - 0.8vw)` : '-0.8vw',
+                                left: '-0.8vw',
+                                translate: `calc(-100% + ${localOffset < 0 ? dimWidth : 0}px) -50%`,
                                 color: getLayoutColor('toolbar-bg', '#555555'),
-                                transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease'
+                                transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease'
                             }}
                             onClick={() => {
                                 if (currentPage <= 0) return;
@@ -687,9 +691,10 @@ const Grid5Layout = ({
                         <button
                             className={`absolute top-1/2 -translate-y-1/2 translate-x-full transition-all z-20 ${currentPage < (pages?.length || 0) - 1 ? 'pointer-events-auto opacity-60 hover:opacity-100' : 'pointer-events-none opacity-0'}`}
                             style={{
-                                right: localOffset > 0 ? `calc(${dimWidth}px - 0.8vw)` : '-0.8vw',
+                                right: '-0.8vw',
+                                translate: `calc(100% - ${localOffset > 0 ? dimWidth : 0}px) -50%`,
                                 color: getLayoutColor('toolbar-bg', '#555555'),
-                                transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease'
+                                transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease'
                             }}
                             onClick={() => {
                                 if (currentPage >= (pages?.length || 0) - 1) return;

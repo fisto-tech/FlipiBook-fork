@@ -204,6 +204,25 @@ class PageCacheManager {
   }
 
   /**
+   * Invalidate all cached data (layers & thumbnail) for a given pageId
+   */
+  invalidatePage(pageId) {
+    if (!pageId) return;
+    const old = this.thumbnailCache.get(pageId);
+    if (old && old.blobUrl) {
+      try {
+        URL.revokeObjectURL(old.blobUrl);
+      } catch (e) {}
+    }
+    this.thumbnailCache.delete(pageId);
+    this.layerCache.delete(pageId);
+    if (this.debounceTimers.has(pageId)) {
+      clearTimeout(this.debounceTimers.get(pageId));
+      this.debounceTimers.delete(pageId);
+    }
+  }
+
+  /**
    * Progressive Queue: Schedule background preparation of non-active pages
    */
   queuePagesForProcessing(pages, activePageIndex = 0, processFn) {

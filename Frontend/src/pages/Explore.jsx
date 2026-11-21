@@ -421,7 +421,11 @@ const CreatorCard = ({ index, creator, onProfileClick, onToggleFollow, isFollowi
                         </svg>
                     </div>
 
-                    {!isSelf && (
+                    {isSelf ? (
+                        <div className="w-[5.2vw] h-[1.7vw] rounded-full text-[0.8vw] font-medium z-10 mb-[1vw] flex items-center justify-center bg-gray-100 text-gray-500 border border-gray-200">
+                            You
+                        </div>
+                    ) : (
                         <button
                             type="button"
                             onClick={(e) => {
@@ -453,9 +457,11 @@ const CreatorCard = ({ index, creator, onProfileClick, onToggleFollow, isFollowi
                 >
                     {creator.name || 'Creator'}
                 </h4>
-                <p className="text-[0.7vw] text-gray-400 truncate">{creator.industryType || creator.companyName || 'Product Designer'}</p>
+                <p className="text-[0.7vw] text-gray-400 truncate min-h-[1.2em]">
+                    {creator.industryType || creator.companyName || ''}
+                </p>
                 <p className="text-[0.7vw] text-gray-500 mt-[1vh] leading-relaxed line-clamp-3 flex-1 font-normal">
-                    {creator.about || '“Bring your content to life with a real, interactive experience”'}
+                    {creator.about ? `"${creator.about}"` : 'No bio specified'}
                 </p>
 
                 {/* Divider */}
@@ -793,7 +799,7 @@ const Explore = () => {
             try {
                 setIsCreatorsLoading(true);
                 const params = {};
-                if (currentUserEmail) params.excludeEmail = currentUserEmail;
+                if (currentUserEmail) params.currentEmail = currentUserEmail;
 
                 const res = await axios.get(`${backendUrl}/api/explore/top-creators`, { params });
                 if (res.data && res.data.creators) {
@@ -963,24 +969,24 @@ const Explore = () => {
     const getIndustryCount = (item) => {
         const norm = item.toLowerCase();
         return topCreators.filter(c => {
-            const ind = (c.industryType || c.companyName || 'Manufacturing').toLowerCase();
-            return ind.includes(norm);
+            const ind = (c.industryType || c.companyName || '').toLowerCase();
+            return ind ? ind.includes(norm) : false;
         }).length;
     };
 
     const getCreatorTypeCount = (item) => {
         const norm = item.toLowerCase();
         return topCreators.filter(c => {
-            const role = (c.role || c.creatorType || 'Individual').toLowerCase();
-            return role.includes(norm);
+            const role = (c.role || c.creatorType || '').toLowerCase();
+            return role ? role.includes(norm) : false;
         }).length;
     };
 
     const getSpecializationCount = (item) => {
         const norm = item.toLowerCase().split(' ')[0];
         return topCreators.filter(c => {
-            const spec = (c.specialization || c.industryType || 'Product Catalogues').toLowerCase();
-            return spec.includes(norm);
+            const spec = (c.specialization || c.industryType || '').toLowerCase();
+            return spec ? spec.includes(norm) : false;
         }).length;
     };
 
@@ -1026,20 +1032,20 @@ const Explore = () => {
         }
 
         if (selectedCreatorCategories.length > 0 && !selectedCreatorCategories.includes('All')) {
-            const ind = (creator.industryType || creator.companyName || 'Manufacturing').toLowerCase();
-            const isMatch = selectedCreatorCategories.some(cat => ind.includes(cat.toLowerCase().split(' ')[0]));
+            const ind = (creator.industryType || creator.companyName || '').toLowerCase();
+            const isMatch = ind && selectedCreatorCategories.some(cat => ind.includes(cat.toLowerCase().split(' ')[0]));
             if (!isMatch) return false;
         }
 
         if (selectedCreatorTypes.length > 0) {
-            const role = (creator.role || creator.creatorType || 'Individual').toLowerCase();
-            const isMatch = selectedCreatorTypes.some(type => role.includes(type.toLowerCase().split(' ')[0]));
+            const role = (creator.role || creator.creatorType || '').toLowerCase();
+            const isMatch = role && selectedCreatorTypes.some(type => role.includes(type.toLowerCase().split(' ')[0]));
             if (!isMatch) return false;
         }
 
         if (selectedSpecializations.length > 0) {
-            const spec = (creator.specialization || creator.industryType || 'Product Catalogues').toLowerCase();
-            const isMatch = selectedSpecializations.some(s => spec.includes(s.toLowerCase().split(' ')[0]));
+            const spec = (creator.specialization || creator.industryType || '').toLowerCase();
+            const isMatch = spec && selectedSpecializations.some(s => spec.includes(s.toLowerCase().split(' ')[0]));
             if (!isMatch) return false;
         }
 
@@ -2227,12 +2233,14 @@ const Explore = () => {
             />
 
             {/* Export Modal */}
-            <ExportModal
-                isOpen={isExportModalOpen}
-                onClose={() => setIsExportModalOpen(false)}
-                currentBook={selectedBookForModal}
-                isFromMyFlipbooks={true}
-            />
+            {isExportModalOpen && (
+                <ExportModal
+                    isOpen={isExportModalOpen}
+                    onClose={() => setIsExportModalOpen(false)}
+                    currentBook={selectedBookForModal}
+                    isFromMyFlipbooks={true}
+                />
+            )}
 
             {/* Profile Modal */}
             <CreatorProfileModal

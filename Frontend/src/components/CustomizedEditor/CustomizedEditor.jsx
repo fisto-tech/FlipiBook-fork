@@ -13,6 +13,8 @@ import { useCustomizedActions } from './hooks/useCustomizedActions';
 import { useCustomizedEditorData } from './hooks/useCustomizedEditorData';
 import { loadWindowFromIDB } from '../../utils/customizedEditor/pageWindowStore';
 import { clearRasterCache } from '../../utils/customizedEditor/pageRasterCache';
+import { getInFlightActivityCount } from '../../utils/storage/saveLockManager';
+import { subscribeEditorSync } from '../../utils/common/editorSyncChannel';
 import { queryClient } from '../../queryClient';
 import {
   createDefaultLogoSettings,
@@ -594,6 +596,33 @@ const CustomizedEditor = () => {
     triggerSaveSuccess
   });
 
+  // Enterprise Unload Guard: Prevent closing tab while saving or asset upload is in progress
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      const inFlight = getInFlightActivityCount();
+      if (hasUnsavedChanges || isSaving || inFlight > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, isSaving]);
+
+  // Real-time synchronization when PageEditor saves changes in another tab
+  useEffect(() => {
+    if (!v_id) return;
+    const unsub = subscribeEditorSync(v_id, (event) => {
+      if (event.type === 'book-saved') {
+        console.log('[CustomizedEditor] Background save detected from PageEditor. Invalidating caches.');
+        try { clearRasterCache(v_id); } catch (_) {}
+        try { queryClient.invalidateQueries(['flipbook', v_id]); } catch (_) {}
+      }
+    });
+    return unsub;
+  }, [v_id]);
+
   // Real-time synchronization of current book to Navbar and ShareModal
   useEffect(() => {
     if (setCurrentBook && bookName && v_id) {
@@ -674,57 +703,11 @@ const CustomizedEditor = () => {
     >
       <style>{`
         :root { ${layoutColorVars} }
-        .sub-panel-dark {
-          color: #f1f5f9 !important;
-        }
-        .sub-panel-dark .bg-white {
-          background-color: #223044 !important;
-          border-color: #2c3d56 !important;
-          color: #f1f5f9 !important;
-        }
-        .sub-panel-dark .bg-gray-50,
-        .sub-panel-dark .bg-gray-50\\/50,
-        .sub-panel-dark .bg-gray-100 {
-          background-color: #16202e !important;
-          border-color: #26354a !important;
-        }
-        .sub-panel-dark .border-gray-100,
-        .sub-panel-dark .border-gray-200,
-        .sub-panel-dark .border-gray-300 {
-          border-color: #26354a !important;
-        }
-        .sub-panel-dark .text-gray-900,
-        .sub-panel-dark .text-gray-800,
-        .sub-panel-dark .text-black {
-          color: #ffffff !important;
-        }
-        .sub-panel-dark .text-gray-700,
-        .sub-panel-dark .text-gray-600 {
-          color: #cbd5e1 !important;
-        }
-        .sub-panel-dark .text-gray-500,
-        .sub-panel-dark .text-gray-400 {
-          color: #94a3b8 !important;
-        }
-        .sub-panel-dark .hover\\:bg-gray-50:hover,
-        .sub-panel-dark .hover\\:bg-gray-100:hover {
-          background-color: #28374d !important;
-        }
-        .sub-panel-dark input,
-        .sub-panel-dark select,
-        .sub-panel-dark textarea {
-          background-color: #16202e !important;
-          color: #ffffff !important;
-          border-color: #2c3d56 !important;
-        }
-        .sub-panel-dark input::placeholder {
-          color: #64748b !important;
-        }
       `}</style>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main Sidebar - Always Visible */}
-        <div className="w-[16.25vw] h-full flex-shrink-0 bg-[#151c28] shadow-xl z-20 relative border-r border-[#1f293d] overflow-visible">
+        <div className="w-[16.25vw] h-full flex-shrink-0 bg-[#ffffff] shadow-sm z-20 relative border-r border-gray-200 overflow-visible">
           <Sidebar
             bookName={bookName}
             setBookName={setBookName}
@@ -742,7 +725,7 @@ const CustomizedEditor = () => {
 
         {/* Sub-side Panel (Detail View) - Opens next to Main Sidebar */}
         <div
-          className={`h-full bg-[#1a2332] text-[#f1f5f9] shadow-xl z-10 border-r border-[#26354a] transition-all duration-300 ease-in-out flex-shrink-0 sub-panel-dark ${
+          className={`h-full bg-[#fafafa] text-gray-800 shadow-sm z-10 border-r border-gray-200 transition-all duration-300 ease-in-out flex-shrink-0 ${
             activeSubView && !isPanelCollapsed
               ? 'w-[21.25vw] opacity-100 translate-x-0 overflow-visible'
               : 'w-0 opacity-0 -translate-x-full pointer-events-none overflow-hidden'
@@ -751,14 +734,14 @@ const CustomizedEditor = () => {
           {isLoading ? (
             <div className="p-[1.2vw] flex flex-col gap-[1vw] animate-pulse">
               <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.5vw] h-[1.5vw] bg-[#28374d] rounded-[0.4vw]"></div>
-                <div className="h-[1vw] bg-[#28374d] rounded-[0.3vw] w-1/2"></div>
+                <div className="w-[1.5vw] h-[1.5vw] bg-gray-200 rounded-[0.4vw]"></div>
+                <div className="h-[1vw] bg-gray-200 rounded-[0.3vw] w-1/2"></div>
               </div>
-              <div className="h-[1px] bg-[#26354a] my-[0.4vw]"></div>
+              <div className="h-[1px] bg-gray-200 my-[0.4vw]"></div>
               <div className="flex flex-col gap-[0.8vw]">
-                <div className="h-[2vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
-                <div className="h-[2vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
-                <div className="h-[4vw] bg-[#223044] rounded-[0.5vw] w-full"></div>
+                <div className="h-[2vw] bg-gray-100 rounded-[0.5vw] w-full"></div>
+                <div className="h-[2vw] bg-gray-100 rounded-[0.5vw] w-full"></div>
+                <div className="h-[4vw] bg-gray-100 rounded-[0.5vw] w-full"></div>
               </div>
             </div>
           ) : (

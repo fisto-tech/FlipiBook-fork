@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import bookShowImg from '../../assets/Home/final-images/features/features-image.webp';
+import bookShowImg from '../../assets/Home/ReadingExperience/features-image.webp';
 
 export default function ReadingExperienceDark({ onOpenCreateModal }) {
   const features = [
@@ -98,7 +98,7 @@ export default function ReadingExperienceDark({ onOpenCreateModal }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
               transition={{ duration: 0.85, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="text-xs sm:text-[14px] md:text-[15px] lg:text-[0.92vw] text-[#A6ABB3] lg:text-[#D9D9D9] font-normal leading-[1.65] sm:leading-[1.75] text-justify lg:text-left w-full max-w-full sm:max-w-[560px] md:max-w-[620px] lg:max-w-none lg:w-[15vw]"
+              className="text-xs sm:text-[14px] md:text-[15px] lg:text-[0.92vw] text-[#A6ABB3] lg:text-[#D9D9D9] font-normal leading-[1.65] sm:leading-[1.75] text-left sm:text-justify lg:text-left w-full max-w-full sm:max-w-[560px] md:max-w-[620px] lg:max-w-none lg:w-[15vw]"
             >
               Bring 3D product models into your FlipiBook catalogue. Let customers rotate products, inspect details, and discover features through clickable hotspots, videos, and audio.
             </motion.p>

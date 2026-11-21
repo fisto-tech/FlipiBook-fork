@@ -25,14 +25,14 @@ import FAQSection from './Home/FAQSection';
 import BuildYourDreamCta from './Home/BuildYourDreamCta';
 
 // Assets for Hero Flipbook
-import page1 from '../assets/Home/Home1.png';
-import page2 from '../assets/Home/home2.png';
-import page3 from '../assets/Home/home3.png';
-import page4 from '../assets/Home/home4.png';
-import page5 from '../assets/Home/home5.png';
-import page6 from '../assets/Home/home6.png';
-import page7 from '../assets/Home/home7.png';
-import page8 from '../assets/Home/home8.png';
+import page1 from '../assets/Home/FlipbookPreview/Home1.webp';
+import page2 from '../assets/Home/FlipbookPreview/home2.webp';
+import page3 from '../assets/Home/FlipbookPreview/home3.webp';
+import page4 from '../assets/Home/FlipbookPreview/home4.webp';
+import page5 from '../assets/Home/FlipbookPreview/home5.webp';
+import page6 from '../assets/Home/FlipbookPreview/home6.webp';
+import page7 from '../assets/Home/FlipbookPreview/home7.webp';
+import page8 from '../assets/Home/FlipbookPreview/home8.webp';
 
 export default function Home() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

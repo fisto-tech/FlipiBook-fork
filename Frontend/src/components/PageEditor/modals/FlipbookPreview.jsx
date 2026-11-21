@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import PreviewArea from '../../CustomizedEditor/PreviewArea';
+import PreloaderOverlay from '../../CustomizedEditor/components/PreloaderOverlay';
 import { LAYOUT_DEFAULT_COLORS } from '../../CustomizedEditor/utils/layoutColors';
 import { Icon } from '@iconify/react';
 import { useParams } from 'react-router-dom';
@@ -123,24 +124,40 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
         setLoadingProgress((prev) => {
           if (prev >= 100) {
             clearInterval(progressInterval);
-            if (settingsLoaded) {
-              setTimeout(() => setIsLoading(false), 300);
-            }
+            setTimeout(() => setIsLoading(false), 200);
             return 100;
           }
-          const increment = prev < 80 ? 5 : (settingsLoaded ? 10 : 1);
+          const increment = prev < 80 ? 8 : (settingsLoaded ? 12 : 3);
           return Math.min(prev + increment, 100);
         });
-      }, 50);
+      }, 40);
     }
     return () => clearInterval(progressInterval);
   }, [isLoading, settingsLoaded]);
 
   useEffect(() => {
-    if (Object.keys(localSettings).length > 0 && !isLoadingParent) {
+    if ((Object.keys(localSettings).length > 0 || (pages && pages.length > 0)) && !isLoadingParent) {
       setSettingsLoaded(true);
     }
-  }, [localSettings, isLoadingParent]);
+  }, [localSettings, isLoadingParent, pages]);
+
+  useEffect(() => {
+    if (settingsLoaded && loadingProgress >= 90) {
+      const timer = setTimeout(() => {
+        setLoadingProgress(100);
+        setIsLoading(false);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [settingsLoaded, loadingProgress]);
+
+  // Safety fallback: ensure preloader always hides cleanly once page is ready
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+    return () => clearTimeout(fallbackTimer);
+  }, []);
   // 3D model states moved to PreviewArea
 
   useEffect(() => {
@@ -694,86 +711,22 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
 
       {(() => {
         const preloader = localSettings?.preloader || localSettings?.preloaderSettings || settings?.preloader || settings?.preloaderSettings || settings?.Branding?.preloaderSettings || {
-          text: 'Loading Modal Please Wait....',
+          enabled: true,
+          text: 'Preparing Flipibook',
           bgColor: '#2D2F33',
           textColor: '#ffffff',
           spinnerColor: '#3B3C8A',
-          showPercentage: true,
-          layout: 'spinner'
+          showPercentage: false,
+          layout: 'spinner',
+          logoAnimation: 'bounce'
         };
 
-        if (!isLoading) return null;
-
         return (
-          <div
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center transition-opacity duration-300"
-            style={{
-              backgroundColor: preloader.bgColor || '#2D2F33',
-              color: preloader.textColor || '#ffffff',
-              opacity: loadingProgress === 100 ? 0 : 1,
-              pointerEvents: 'none'
-            }}
-          >
-            <div className="flex flex-col items-center gap-6">
-              {preloader?.layout !== 'spinner' && preloader?.logo && (
-                <img src={preloader.logo} alt="Preloader Logo" className="h-[60px] object-contain" />
-              )}
-              {preloader.layout === 'bar' ? (
-                <div className="flex flex-col items-center gap-3 w-[250px]">
-                  <div className="w-full bg-gray-600/40 h-[6px] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-75"
-                      style={{
-                        width: `${loadingProgress}%`,
-                        backgroundColor: preloader.spinnerColor || '#3B3C8A'
-                      }}
-                    ></div>
-                  </div>
-                  {preloader.showPercentage && (
-                    <span className="text-sm font-semibold">{loadingProgress}%</span>
-                  )}
-                </div>
-              ) : preloader.layout === 'dots' ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full animate-bounce [animation-delay:-0.3s]" style={{ backgroundColor: preloader.spinnerColor || '#3B3C8A' }}></div>
-                    <div className="w-3 h-3 rounded-full animate-bounce [animation-delay:-0.15s]" style={{ backgroundColor: preloader.spinnerColor || '#3B3C8A' }}></div>
-                    <div className="w-3 h-3 rounded-full animate-bounce" style={{ backgroundColor: preloader.spinnerColor || '#3B3C8A' }}></div>
-                  </div>
-                  {preloader.showPercentage && (
-                    <span className="text-sm font-semibold">{loadingProgress}%</span>
-                  )}
-                </div>
-              ) : (
-                // circular spinner
-                <div className="relative flex flex-col items-center justify-center">
-                  <div className="relative flex items-center justify-center">
-                    <div
-                      className={`${preloader?.logo ? 'w-[80px] h-[80px]' : 'w-12 h-12'} border-4 border-t-transparent rounded-full animate-spin`}
-                      style={{
-                        borderColor: `${preloader.spinnerColor || '#3B3C8A'} ${preloader.spinnerColor || '#3B3C8A'} ${preloader.spinnerColor || '#3B3C8A'} transparent`
-                      }}
-                    ></div>
-                    {preloader?.logo && (
-                      <img src={preloader.logo} alt="Preloader Logo" className="absolute h-[45px] max-w-[60px] object-contain" />
-                    )}
-                    {preloader.showPercentage && !preloader?.logo && (
-                      <span className="absolute text-[11px] font-bold">{loadingProgress}%</span>
-                    )}
-                  </div>
-                  {preloader.showPercentage && preloader?.logo && (
-                    <span className="text-[11px] font-bold mt-2">{loadingProgress}%</span>
-                  )}
-                </div>
-              )}
-              <p
-                className="text-base font-semibold text-center max-w-[300px] truncate"
-                style={{ fontFamily: preloader.font || 'Poppins' }}
-              >
-                {preloader.text || 'Loading Modal Please Wait....'}
-              </p>
-            </div>
-          </div>
+          <PreloaderOverlay
+            isLoading={isLoading}
+            preloaderSettings={preloader}
+            loadingProgress={loadingProgress}
+          />
         );
       })()}
 

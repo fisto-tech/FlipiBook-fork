@@ -15,6 +15,7 @@ import {
 import axios from "axios";
 import { getPageEditorState, savePageEditorState, ensureCleanBook } from "../../utils/storage/dbUtils";
 import { saveAllPagesToIDB } from "../../utils/customizedEditor/pageWindowStore";
+import { getInFlightActivityCount } from "../../utils/storage/saveLockManager";
 import Layer from "./panels/Layer";
 import MainEditor from "./MainEditor.jsx";
 import RightSidebar from "./panels/RightSidebar";
@@ -1028,7 +1029,10 @@ const PageEditor = () => {
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       flushPageEditorToDBRef.current?.();
-      if (!isAutoSaveEnabledRef.current && hasUnsavedChangesRef.current) {
+      const inFlight = getInFlightActivityCount();
+      const hasUnsaved = hasUnsavedChangesRef.current;
+      const isAutoSave = isAutoSaveEnabledRef.current;
+      if (inFlight > 0 || (!isAutoSave && hasUnsaved)) {
         e.preventDefault();
         e.returnValue = '';
         return '';

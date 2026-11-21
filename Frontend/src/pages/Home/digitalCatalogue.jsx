@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import HTMLFlipBook from 'react-pageflip';
+import TurnBook from '../../components/common/TurnBook';
 import softCoverAudio from '../../assets/Audios/Soft cover page.mp3';
-import trustedAvatar1 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-1.webp';
-import trustedAvatar2 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-2.webp';
-import trustedAvatar3 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-3.webp';
-import trustedAvatar4 from '../../assets/Home/final-images/trusted-avatar/trusted-avatar-4.webp';
+import trustedAvatar1 from '../../assets/Home/TrustedAvatar/trusted-avatar-1.webp';
+import trustedAvatar2 from '../../assets/Home/TrustedAvatar/trusted-avatar-2.webp';
+import trustedAvatar3 from '../../assets/Home/TrustedAvatar/trusted-avatar-3.webp';
+import trustedAvatar4 from '../../assets/Home/TrustedAvatar/trusted-avatar-4.webp';
 
 export default function HeroSection({ navigate, page1, page2, page3, page4, page5, page6, page7, page8 }) {
   const containerRef = useRef(null);
@@ -85,9 +85,23 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
   }, [isFlipAudioMuted]);
 
   const [coverState, setCoverState] = useState('front'); // 'front' | 'open' | 'back'
+  const [isMobileView, setIsMobileView] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const onResize = () => setIsMobileView(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const sliderMax = isMobileView ? heroPages.length : 5;
+  const sliderValue = isMobileView ? Math.min(Math.max(currentPage, 1), heroPages.length) : activeStep;
+  const sliderPct = ((sliderValue - 1) / Math.max(1, sliderMax - 1)) * 100;
 
   // Helper function to format page numbers for double-page spreads
   const getPageDisplay = () => {
+    const total = String(heroPages.length).padStart(2, '0');
+    // Mobile shows one page at a time -> count single pages
+    if (isMobileView) {
+      return `${String(Math.min(Math.max(currentPage, 1), heroPages.length)).padStart(2, '0')} / ${total}`;
+    }
     if (currentPage <= 1) {
       return `01 / ${String(heroPages.length).padStart(2, '0')}`;
     }
@@ -219,33 +233,34 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
   }, [isPlaying, flipToStep]);
 
   return (
-    <section ref={containerRef} className="relative w-full h-[calc(100vh-56px)] md:h-[calc(100vh-7vh)] max-h-[100vh] bg-[#fdfdfd] flex flex-col justify-between py-2 sm:py-3 lg:py-[1.2vh] px-4 sm:px-8 lg:px-[5vw] font-poppins overflow-hidden">
+    <section ref={containerRef} className="relative w-full h-auto lg:h-[calc(100vh-7vh)] lg:max-h-[100vh] bg-[#F6F6F6] flex flex-col justify-start pt-2 sm:pt-3 lg:pt-[1.2vw] pb-6 sm:pb-8 lg:pb-[2vh] px-5 sm:px-8 lg:px-[5.5vw] font-poppins overflow-hidden">
 
       {/* Top Tag: INTERACTIVE DIGITAL CATALOGUE and line */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: false, amount: 0.3 }}
         transition={{ duration: 0.85, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full flex items-center gap-3 mb-1 sm:mb-2 lg:mb-[0.8vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
-        <span className="text-xs sm:text-sm lg:text-[0.95vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
           INTERACTIVE DIGITAL CATALOGUE
         </span>
-        <div className="w-10 lg:w-[2.5vw] h-[1.5px] bg-[#35363A]"></div>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
       </motion.div>
 
       {/* Main Container: Left Rounded Panel & Right Pitch */}
-      <div className="w-full flex-1 min-h-0 mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-[1.5vw] items-center">
+      <div className="w-full lg:flex-1 lg:min-h-0 mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-[1.5vw] items-center">
 
         {/* Left Column: Rounded Grey Stage Box (Expanded modal width, book centered) */}
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-          className="lg:col-span-8 xl:col-span-8 lg:w-[106%] xl:w-[108%] bg-[#efefef] rounded-[16px] lg:rounded-[1.2vw] pt-4 sm:pt-6 lg:pt-[2.5vh] pb-3 sm:pb-4 lg:pb-[1.8vh] px-3 sm:px-6 lg:px-[2vw] flex flex-col justify-between items-center relative shadow-xs overflow-hidden h-full max-h-[76vh]"
+          className="lg:col-span-8 xl:col-span-8 lg:w-[106%] xl:w-[108%] bg-[#EBEBEB] rounded-[16px] lg:rounded-[1.2vw] pt-4 sm:pt-6 lg:pt-[2.5vh] pb-3 sm:pb-4 lg:pb-[1.8vh] px-3 sm:px-6 lg:px-[2vw] flex flex-col justify-between items-center relative shadow-xs overflow-hidden h-auto lg:h-full lg:max-h-[76vh]"
         >
           {/* Flipbook inside rounded stage box (Clean and perfectly centered like Modal Book) */}
-          <div className="relative mx-auto aspect-[420/297] flex items-center justify-center w-full max-w-[570px] sm:max-w-[650px] lg:max-w-[47vw] xl:max-w-[49vw] max-h-[63vh] flex-1 translate-y-1 sm:translate-y-2 lg:translate-y-[1.2vh]">
+          <div className="relative mx-auto aspect-[595/842] sm:aspect-[420/297] flex items-center justify-center w-[min(70%,52vh)] sm:w-[88%] lg:w-full max-w-[570px] sm:max-w-[650px] lg:max-w-[47vw] xl:max-w-[49vw] lg:max-h-[63vh] flex-none lg:flex-1 translate-y-1 sm:translate-y-2 lg:translate-y-[1.2vh]">
             {/* Left Previous Arrow */}
             <button
               type="button"
@@ -263,49 +278,18 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
             {/* Flipbook Canvas */}
             <div
               key="hero-digital-catalogue-book"
-              className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${coverState === 'front'
-                ? '-translate-x-[25%]'
-                : coverState === 'back'
-                  ? 'translate-x-[25%]'
-                  : 'translate-x-0'
-                }`}
+              className="w-full h-full flex items-center justify-center"
             >
-              <HTMLFlipBook
+              <TurnBook
+                ref={heroBookRef}
+                pages={heroPages}
                 width={595}
                 height={842}
-                size="stretch"
-                minWidth={210}
-                maxWidth={1200}
-                minHeight={297}
-                maxHeight={1700}
-                maxShadowOpacity={0.5}
-                showCover={true}
-                mobileScrollSupport={true}
-                clickEventForward={false}
-                useMouseEvents={true}
-                onFlip={onHeroBookFlip}
-                flippingTime={900}
-                swipeDistance={30}
-                ref={heroBookRef}
+                duration={900}
                 startPage={0}
-                className="w-full h-full mx-auto"
-              >
-                {heroPages.map((pageSrc, index) => {
-                  return (
-                    <div
-                      key={index}
-                      className="bg-white overflow-hidden shadow-inner flex items-center justify-center w-full h-full"
-                    >
-                      <img
-                        src={pageSrc}
-                        alt={`Page ${index + 1}`}
-                        className="w-full h-full block object-cover select-none pointer-events-none"
-                        style={{ margin: 0, padding: 0 }}
-                      />
-                    </div>
-                  );
-                })}
-              </HTMLFlipBook>
+                onFlip={onHeroBookFlip}
+                className="mx-auto"
+              />
             </div>
 
             {/* Right Next Arrow */}
@@ -351,10 +335,10 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
                   aria-label={isPlaying ? "Pause autoplay" : "Play flipbook"}
                 >
                   {isPlaying ? (
-                    <Icon icon="lucide:pause" className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />
+                    <Icon icon="lucide:pause" className="w-5 h-5 sm:w-5.5 sm:h-5.5 fill-current" />
                   ) : (
                     <svg
-                      className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current"
+                      className="w-5 h-5 sm:w-5.5 sm:h-5.5 fill-current"
                       viewBox="0 0 24 24"
                       xmlns="http://www.w3.org/2000/svg"
                     >
@@ -383,12 +367,16 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
                 <input
                   type="range"
                   min={1}
-                  max={5}
-                  value={activeStep}
-                  onChange={(e) => flipToStep(Number(e.target.value))}
+                  max={sliderMax}
+                  value={sliderValue}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (isMobileView) heroBookRef.current?.pageFlip()?.turnToPage(v - 1);
+                    else flipToStep(v);
+                  }}
                   className="w-full h-1.5 bg-[#dcdfe4] rounded-full appearance-none cursor-pointer outline-none focus:outline-none accent-[#555555]"
                   style={{
-                    background: `linear-gradient(to right, #555555 0%, #555555 ${((activeStep - 1) / 4) * 100}%, #dcdfe4 ${((activeStep - 1) / 4) * 100}%, #dcdfe4 100%)`
+                    background: `linear-gradient(to right, #555555 0%, #555555 ${sliderPct}%, #dcdfe4 ${sliderPct}%, #dcdfe4 100%)`
                   }}
                   aria-label="Book page progress slider"
                 />
@@ -414,7 +402,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.45vw] font-bold uppercase leading-tight tracking-[0.03em] select-none text-[#111111]"
+              className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold uppercase leading-[1.12] tracking-tight select-none text-[#1f2937] font-sans"
             >
               INTERACTIVE
             </motion.h2>
@@ -425,7 +413,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.45vw] font-bold uppercase leading-tight tracking-[0.03em] select-none text-[#111111] mt-0.5"
+              className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold uppercase leading-[1.12] tracking-tight select-none text-[#1f2937] font-sans mt-0.5"
             >
               DIGITAL
             </motion.h2>
@@ -436,7 +424,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.45vw] font-bold uppercase leading-tight tracking-[0.03em] select-none text-[#EC5137] mt-0.5"
+              className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold uppercase leading-[1.12] tracking-tight select-none text-[#E75B3E] font-sans mt-0.5"
             >
               CATALOGUE
             </motion.h2>
@@ -447,7 +435,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="text-[10px] sm:text-[11px] lg:text-[0.68vw] font-bold text-[#555555] tracking-widest uppercase mt-2 lg:mt-[0.8vh]"
+              className="text-[10px] sm:text-[11px] lg:text-[0.68vw] font-bold text-[#555555] tracking-widest uppercase mt-4 sm:mt-5 lg:mt-[1.8vh]"
             >
               THAT BRINGS YOUR PRODUCTS TO LIFE.
             </motion.p>
@@ -458,7 +446,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ scaleX: 1, opacity: 1 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full h-[1px] bg-[#e5e5e5] my-2 lg:my-[1vh] origin-left"
+              className="w-full h-[1px] bg-[#e5e5e5] my-3.5 sm:my-4 lg:my-[1.8vh] origin-left"
             />
 
             {/* Description Paragraph */}
@@ -467,7 +455,7 @@ export default function HeroSection({ navigate, page1, page2, page3, page4, page
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.7, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-xs sm:text-[13.5px] lg:text-[0.82vw] font-medium text-[#555555] leading-[1.65] max-w-[260px] sm:max-w-[310px] lg:max-w-[15.5vw]"
+              className="text-xs sm:text-[13.5px] lg:text-[0.82vw] font-medium text-[#555555] leading-[1.65] max-w-full lg:max-w-[15.5vw]"
             >
               Transform your PDFs into engaging digital catalogues with FlipiBook. Add videos, interactive 3D models, clickable links, and rich product details to create an immersive browsing experience. Showcase your products, connect with customers, and share everything through a single link.
             </motion.p>

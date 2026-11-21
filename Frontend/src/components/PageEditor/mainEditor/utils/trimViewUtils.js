@@ -23,7 +23,6 @@ export const isExcludedFromTrim = (el) => {
     tag === 'style' ||
     dn === 'Overlay' ||
     dt === 'background' ||
-    dt === 'frame' ||
     dn === 'Document Shield' ||
     id.startsWith('shield-') ||
     id.startsWith('trim-view-')
@@ -54,39 +53,30 @@ export const applyTrimViewToSvg = (svg, isTrimView) => {
   if (!svg) return;
 
   if (!isTrimView) {
-    svg.querySelectorAll('[data-trim-outside]').forEach(el => {
-      el.removeAttribute('data-trim-outside');
-    });
+    cleanTrimViewFromHtml(svg);
     return;
   }
 
-  const processNode = (node) => {
-    if (isExcludedFromTrim(node)) return;
-
-    if (isElementCompletelyOutside(node, svg)) {
-      node.setAttribute('data-trim-outside', 'true');
+  // Tag elements outside page boundaries for semantic tracking & fade styling
+  const elements = svg.querySelectorAll('[data-type="shape"], [data-type="text"], [data-type="image"], [data-type="free-frame"], [data-type="icon"], [data-type="table-frame"], [data-type="embed-frame"]');
+  elements.forEach(el => {
+    if (isElementCompletelyOutside(el, svg)) {
+      el.setAttribute('data-trim-outside', 'true');
     } else {
-      node.removeAttribute('data-trim-outside');
+      el.removeAttribute('data-trim-outside');
     }
-
-    if (node.children && node.children.length > 0) {
-      Array.from(node.children).forEach(child => {
-        if (isExcludedFromTrim(child)) return;
-        if (isElementCompletelyOutside(child, svg)) {
-          child.setAttribute('data-trim-outside', 'true');
-        } else {
-          child.removeAttribute('data-trim-outside');
-        }
-      });
-    }
-  };
-
-  Array.from(svg.children).forEach(child => processNode(child));
+  });
 };
 
 export const cleanTrimViewFromHtml = (containerOrSvg) => {
   if (!containerOrSvg) return;
   containerOrSvg.querySelectorAll('[data-trim-outside]').forEach(el => {
     el.removeAttribute('data-trim-outside');
+  });
+  containerOrSvg.querySelectorAll('[mask*="trim-view"]').forEach(el => {
+    el.removeAttribute('mask');
+  });
+  containerOrSvg.querySelectorAll('mask[id*="trim-view"]').forEach(el => {
+    el.remove();
   });
 };

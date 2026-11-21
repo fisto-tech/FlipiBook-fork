@@ -20,10 +20,10 @@ const SidebarItem = ({
       <button
         id={id}
         onClick={onClick}
-        className={`relative w-full flex items-center justify-between p-[0.75vw] rounded-[0.45vw] transition-all duration-200 group cursor-pointer overflow-hidden border border-transparent ${
+        className={`relative w-full flex items-center justify-between p-[0.75vw] rounded-[0.55vw] transition-all duration-200 group cursor-pointer overflow-hidden border border-transparent ${
           isActive 
-            ? 'bg-gradient-to-r from-[#d54d23] via-[#DE5E29] to-[#BF4D1F] text-white active-sidebar-item shadow-[0_4px_14px_rgba(180,65,25,0.3)]' 
-            : 'bg-transparent text-gray-300 hover:bg-[#1e2738] hover:text-white'
+            ? 'bg-gradient-to-r from-[#F05B42] via-[#EC5137] to-[#E24429] text-white active-sidebar-item shadow-[0_4px_14px_rgba(236,81,55,0.32)]' 
+            : 'bg-transparent text-gray-800 hover:bg-gray-100 hover:text-black'
         }`}
       >
         {/* Subtle, soft silver shine */}
@@ -34,14 +34,24 @@ const SidebarItem = ({
         )}
 
         <div className="flex items-center gap-[1vw] relative z-10">
-          <Icon 
-            icon={icon} 
-            className={`w-[1.25vw] h-[1.25vw] transition-colors ${
-              isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'
-            }`} 
-          />
+          {typeof icon === 'string' ? (
+            <Icon 
+              icon={icon} 
+              className={`w-[1.25vw] h-[1.25vw] transition-colors ${
+                isActive ? 'text-white' : 'text-gray-700 group-hover:text-black'
+              }`} 
+            />
+          ) : React.isValidElement(icon) ? (
+            React.cloneElement(icon, {
+              className: `w-[1.25vw] h-[1.25vw] transition-colors ${
+                isActive ? 'text-white' : 'text-gray-700 group-hover:text-black'
+              }`
+            })
+          ) : (
+            icon
+          )}
           <span className={`text-[0.8125vw] font-semibold transition-colors ${
-            isActive ? 'text-white tracking-wide' : 'text-gray-300 group-hover:text-white'
+            isActive ? 'text-white tracking-wide' : 'text-gray-800 group-hover:text-black'
           }`}>
             {label}
           </span>
@@ -50,7 +60,7 @@ const SidebarItem = ({
           <Icon
             icon="lucide:chevron-down"
             className={`w-[1vw] h-[1vw] transition-all duration-200 relative z-10 ${
-              isActive ? 'text-white/90' : 'text-gray-400 group-hover:text-white'
+              isActive ? 'text-white/90' : 'text-gray-400 group-hover:text-gray-700'
             } ${isOpen ? "rotate-180" : "rotate-0"}`}
           />
         )}
