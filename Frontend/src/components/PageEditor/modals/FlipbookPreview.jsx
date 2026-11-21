@@ -712,10 +712,11 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
       {(() => {
         const preloader = localSettings?.preloader || localSettings?.preloaderSettings || settings?.preloader || settings?.preloaderSettings || settings?.Branding?.preloaderSettings || {
           enabled: true,
-          text: 'Preparing Flipibook',
-          bgColor: '#2D2F33',
+          isCustom: false,
+          text: 'Preparing Flipbook...',
+          bgColor: '#22252A',
           textColor: '#ffffff',
-          spinnerColor: '#3B3C8A',
+          spinnerColor: '#E04752',
           showPercentage: false,
           layout: 'spinner',
           logoAnimation: 'bounce'
