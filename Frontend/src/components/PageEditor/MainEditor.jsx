@@ -29,7 +29,7 @@ import { useSelectionOverlays } from './mainEditor/hooks/useSelectionOverlays';
 import { useInteractEngine } from './mainEditor/hooks/useInteractEngine';
 import { convertTextToForeignObject } from './mainEditor/utils/textConversionUtils';
 // Encapsulated in useCanvasPointerEvents
-import { useCanvasZoomPan } from './mainEditor/hooks/useCanvasZoomPan';
+import { useCanvasZoomPan, computePanBounds } from './mainEditor/hooks/useCanvasZoomPan';
 import { alignSelectedElements } from './mainEditor/utils/alignmentUtils';
 import { useCanvasTransforms } from './mainEditor/hooks/useCanvasTransforms';
 import { useCanvasAssetInsertion } from './mainEditor/hooks/useCanvasAssetInsertion';
@@ -1581,20 +1581,14 @@ const getDraggableElement = (target, canvasRoot) => {
 
             if (!editorContainerRef.current) return;
 
-            const containerWidth = editorContainerRef.current.clientWidth;
-            const containerHeight = editorContainerRef.current.clientHeight;
-
-            const baseVhHeight = window.innerHeight * 0.78;
             const currentScale = zoom / 100;
-
-            const bounds = getCanvasBounds(null, baseWidth, baseHeight);
-            const canvasWidthMM = bounds.canvasWidthMM || 1600;
-
-            const scaledCanvasW = (baseVhHeight * (canvasWidthMM / baseHeight)) * currentScale;
-            const scaledCanvasH = (baseVhHeight * (1000 / baseHeight)) * currentScale;
-
-            const maxPanX = Math.max(containerWidth * 1.5, scaledCanvasW);
-            const maxPanY = Math.max(containerHeight * 1.5, scaledCanvasH);
+            const { maxPanX, maxPanY } = computePanBounds(
+              editorContainerRef.current,
+              zoomContainerRef.current,
+              currentScale,
+              baseWidth,
+              baseHeight
+            );
 
             const boundedX = Math.min(Math.max(newX, -maxPanX), maxPanX);
             const boundedY = Math.min(Math.max(newY, -maxPanY), maxPanY);

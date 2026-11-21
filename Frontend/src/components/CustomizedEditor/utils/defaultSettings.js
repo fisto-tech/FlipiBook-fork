@@ -42,8 +42,35 @@ export const createDefaultWatermarkSettings = (currentBook, locationState) => {
 export const createDefaultPreloaderSettings = (currentBook, locationState) => {
   const cb = currentBook?.Customized_Settings?.Branding || currentBook?.settings?.Branding || currentBook?.settings || {};
   const p = cb.preloaderSettings || cb.preloader || locationState?.preloaderSettings || locationState?.preloader;
-  if (p && typeof p === 'object' && Object.keys(p).length > 0) return p;
-  return {};
+  const defaults = {
+    enabled: true,
+    isCustom: false,
+    displayOption: 'preloader-only', // 'preloader-only' | 'logo-only' | 'both'
+    text: 'Preparing Flipibook',
+    layout: 'spinner',
+    logoAnimation: 'bounce',
+    spinnerColor: '#3B3C8A',
+    bgColor: '#D6E0F4',
+    textColor: '#1E293B',
+    showPercentage: false,
+  };
+  if (p && typeof p === 'object' && Object.keys(p).length > 0) {
+    const rawText = p.text;
+    const resolvedText = (!rawText || rawText === 'Loading Modal Please Wait....') ? 'Preparing Flipibook' : rawText;
+    const resolvedDisplayOption = p.displayOption || (p.layout === 'logo-only' ? 'logo-only' : (p.logo ? 'both' : 'preloader-only'));
+    const isCustom = p.isCustom !== undefined ? p.isCustom : (!!p.logo || !!p.displayOption || p.layout === 'logo-only' || (p.text && p.text !== 'Preparing Flipibook'));
+    return {
+      ...defaults,
+      ...p,
+      isCustom,
+      displayOption: resolvedDisplayOption,
+      enabled: p.enabled !== undefined ? p.enabled : true,
+      text: resolvedText,
+      layout: p.layout === 'logo-only' ? 'spinner' : (p.layout || 'spinner'),
+      logoAnimation: p.logoAnimation || 'bounce',
+    };
+  }
+  return defaults;
 };
 
 export const createDefaultProfileSettings = (currentBook, locationState) => {
