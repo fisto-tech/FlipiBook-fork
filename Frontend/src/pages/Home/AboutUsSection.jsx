@@ -9,7 +9,7 @@ export default function AboutUsSection() {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
       transition={{ duration: 0.8 }}
-      className="w-full bg-[#E2E2E2] font-poppins relative overflow-hidden pt-2 sm:pt-3 lg:pt-[1.2vw] pb-0"
+      className="w-full bg-white font-poppins relative overflow-hidden pt-2 sm:pt-3 lg:pt-[1.2vw] pb-0"
     >
       {/* Top Header Tag: Aligned to the left margin on mobile/tablet, standard on desktop */}
       <div className="w-full px-6 sm:px-8 md:px-10 lg:px-[4.5vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex items-center justify-start gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] relative z-30">
@@ -45,7 +45,7 @@ export default function AboutUsSection() {
             <div
               className="w-full flex flex-col items-start lg:items-end"
             >
-              {/* Headline Group: 'We Make' on single line & 'Your Products Interactive' */}
+              {/* Headline Group: Exact original styling with text size & font weight from 'Let Customers' */}
               <motion.div
                 initial={{ opacity: 0, y: -25 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -53,33 +53,34 @@ export default function AboutUsSection() {
                 transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1] }}
                 className="flex flex-col items-start lg:items-end w-full"
               >
-                {/* Line 1: 'We Make' in a single line on all screen sizes */}
-                <div className="flex items-baseline justify-start lg:justify-end gap-2.5 sm:gap-3.5 md:gap-4 lg:gap-[0.8vw]">
-                  <span className="text-[34px] sm:text-5xl md:text-5xl lg:text-[3.8vw] font-bold text-[#0D0F11] tracking-tight leading-[1.08] inline-block">
-                    We
+                {/* Line 1: 'We Make' */}
+                <div className="flex items-baseline justify-start lg:justify-end">
+                  <span className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-[#0D0F11] tracking-tight leading-[1.12] inline-block font-sans">
+                    We Make
                   </span>
-                  
-                  <h2
-                    className="text-[34px] sm:text-5xl md:text-5xl lg:text-[3.8vw] font-bold tracking-tight leading-[1.08] inline-block text-[#8E9298] lg:text-transparent lg:[-webkit-text-stroke:0.07vw_#878c92]"
-                  >
-                    Make
-                  </h2>
                 </div>
 
-                {/* Line 2: 'Your Products Interactive' */}
-                <span className="text-[34px] sm:text-4xl md:text-5xl lg:text-[3.4vw] font-bold text-[#0D0F11] tracking-tight leading-[1.08] block mt-0.5 sm:mt-1 lg:mt-[0.2vw]">
-                  Your Products <span className="text-[#EC5137]">Interactive</span>
-                </span>
-              </motion.div>
+                {/* Line 2: 'Your Products' with crisp, clear outlined stroke */}
+                <div className="flex items-baseline justify-start lg:justify-end mt-0.5 sm:mt-1 lg:mt-[0.2vw]">
+                  <span
+                    className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold tracking-tight leading-[1.12] inline-block font-sans text-transparent [-webkit-text-stroke:1.5px_#555a62] lg:[-webkit-text-stroke:0.1vw_#555a62]"
+                    style={{
+                      WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 50%, rgba(0,0,0,0.3) 100%)',
+                      maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 50%, rgba(0,0,0,0.3) 100%)',
+                    }}
+                  >
+                    Your Products
+                  </span>
+                </div>
 
-              {/* Subtle Separator Line beneath Headline */}
-              <motion.div
-                initial={{ scaleX: 0 }}
-                whileInView={{ scaleX: 1 }}
-                viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
-                transition={{ duration: 0.85, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="w-full max-w-[260px] sm:max-w-[360px] md:max-w-[460px] lg:max-w-full h-[1px] bg-[#c2c5c9] mt-2.5 sm:mt-3.5 md:mt-4 lg:mt-[1.2vw] mb-2.5 sm:mb-3.5 md:mt-4 lg:mb-[1vw] origin-left lg:origin-right"
-              ></motion.div>
+                {/* Line 3: 'Interactive' with red underline */}
+                <div className="flex flex-col items-start lg:items-end mt-0.5 sm:mt-1 lg:mt-[0.2vw]">
+                  <h2 className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-[#0D0F11] tracking-tight leading-[1.12] inline-block font-sans">
+                    Interactive
+                  </h2>
+                  <div className="w-[82%] h-[1.5px] bg-[#EC5137] mt-2 sm:mt-2.5 lg:mt-[0.5vw]"></div>
+                </div>
+              </motion.div>
             </div>
 
             {/* Bottom/Narrative Paragraphs Container: Full width and justify alignment on mobile & tablet */}

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
-import { Plus, Trash2, Mail } from 'lucide-react';
+import { Plus, Trash2, Mail, Sliders } from 'lucide-react';
 import PremiumDropdown from '../../components/PremiumDropdown';
 import ColorPallet from '../../../ColorPallet';
 
@@ -696,42 +696,325 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
       >
         <div className={`space-y-[1vw] transition-all duration-300 ${!settings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
 
-          {/* Quick Template Section */}
+          {/* Lead form should Appears at & Lead Form Mode Section */}
           <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] p-[1vw] space-y-[0.8vw]">
-            <div className="flex flex-col gap-[0.15vw]">
-              <span className="text-[0.82vw] font-semibold text-gray-800">Quick Template</span>
-              <span className="text-[0.65vw] text-gray-500 font-normal">Choose a ready-made template.</span>
+            <div className="flex items-center gap-[0.5vw]">
+              <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Lead form should Appears at</span>
+              <div className="h-[1px] bg-gray-200 flex-1"></div>
             </div>
 
-            <div className="grid grid-cols-3 gap-[0.6vw] w-full pt-[0.2vw]">
-              {quickTemplates.map((template) => {
-                const isSelected = settings.selectedTemplateId
-                  ? settings.selectedTemplateId === template.id
-                  : (settings.formTitle ? settings.formTitle === template.config.formTitle : template.id === 'basic-contact');
-
+            <div className="space-y-[0.5vw] pl-[0.2vw]">
+              {[
+                { id: 'before', label: 'Before opening the flipbook' },
+                { id: 'after-pages', label: 'Show on selected page' },
+                { id: 'after-seconds', label: 'After X seconds' },
+                { id: 'end', label: 'At the end of the flipbook' }
+              ].map((opt) => {
+                const isSelected = settings.appearance.timing === opt.id;
                 return (
-                  <div
-                    key={template.id}
-                    onClick={() => handleSelectTemplate(template)}
-                    className={`flex flex-col items-center justify-between cursor-pointer group rounded-[0.6vw] p-[0.45vw] transition-all bg-white border ${
-                      isSelected
-                        ? 'border-[#E05638] shadow-[0_0.2vw_0.6vw_rgba(224,86,56,0.18)]'
-                        : 'border-gray-200 shadow-[0_0.1vw_0.3vw_rgba(0,0,0,0.03)] hover:border-gray-300 hover:shadow-sm'
-                    }`}
-                  >
-                    <div className="w-full flex items-center justify-center rounded-[0.4vw] p-[0.2vw] mb-[0.4vw] transition-colors aspect-[1/1] overflow-hidden bg-white">
-                      <img src={template.icon} alt={template.name} className="w-full h-full object-contain rounded-[0.3vw]" />
-                    </div>
-                    <span className="text-[0.62vw] font-medium text-center leading-tight transition-colors text-gray-800 group-hover:text-black mt-auto whitespace-pre-line px-[0.1vw]">
-                      {template.name}
-                    </span>
+                  <div key={opt.id} className="space-y-[0.4vw]">
+                    <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
+                      <div className="relative flex items-center justify-center">
+                        <input
+                          type="radio"
+                          name="timing"
+                          checked={isSelected}
+                          onChange={() => updateAppearance('timing', opt.id)}
+                          className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
+                        />
+                        <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
+                      </div>
+                      <span className={`text-[0.72vw] transition-colors ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
+                        {opt.label}
+                      </span>
+                    </label>
+
+                    {opt.id === 'after-pages' && isSelected && (
+                      <div className="ml-[1.6vw] mt-[0.2vw]">
+                        <div className="relative inline-block w-[6.5vw]">
+                          <select
+                            value={settings.appearance.afterPages || 1}
+                            onChange={(e) => updateAppearance('afterPages', parseInt(e.target.value))}
+                            className="w-full appearance-none bg-white border border-gray-200 shadow-xs rounded-[0.4vw] py-[0.35vw] pl-[0.6vw] pr-[1.8vw] text-[0.7vw] text-gray-800 font-medium focus:outline-none focus:border-[#E05638] cursor-pointer"
+                          >
+                            {pages.length > 0 ? (
+                              pages.map((_, idx) => (
+                                <option key={idx} value={idx + 1}>Page {idx + 1}</option>
+                              ))
+                            ) : (
+                              [1, 2, 3, 4, 5].map(num => (
+                                <option key={num} value={num}>Page {num}</option>
+                              ))
+                            )}
+                          </select>
+                          <div className="absolute right-[0.5vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                            <Icon icon="fluent:chevron-down-12-regular" className="w-[0.8vw] h-[0.8vw]" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {opt.id === 'after-seconds' && isSelected && (
+                      <div className="ml-[1.6vw] mt-[0.2vw] flex items-center border border-gray-200 rounded-[0.4vw] px-[0.6vw] py-[0.3vw] bg-white w-fit gap-[0.5vw] shadow-xs">
+                        <button
+                          type="button"
+                          onClick={() => updateAppearance('afterSeconds', Math.max(1, (settings.appearance.afterSeconds || 30) - 1))}
+                          className="text-gray-600 hover:text-gray-900 transition-colors p-[0.1vw]"
+                        >
+                          <Icon icon="lucide:play" className="w-[0.7vw] h-[0.7vw] rotate-180 fill-current text-gray-600" />
+                        </button>
+                        <span className="text-[0.72vw] text-gray-800 font-semibold min-w-[1.2vw] text-center">
+                          {settings.appearance.afterSeconds || 30}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateAppearance('afterSeconds', (settings.appearance.afterSeconds || 30) + 1)}
+                          className="text-gray-600 hover:text-gray-900 transition-colors p-[0.1vw]"
+                        >
+                          <Icon icon="lucide:play" className="w-[0.7vw] h-[0.7vw] fill-current text-gray-600" />
+                        </button>
+                        <span className="text-[0.7vw] text-gray-600 ml-[0.2vw]">Seconds</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+
+            {/* Lead Form Mode */}
+            <div className="space-y-[0.6vw] pt-[0.4vw]">
+              <div className="flex items-center gap-[0.5vw]">
+                <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Lead Form Mode</span>
+                <div className="h-[1px] bg-gray-200 flex-1"></div>
+              </div>
+
+              <div className="space-y-[0.5vw] pl-[0.2vw]">
+                {/* Mandatory */}
+                <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
+                  <div className="relative flex items-center justify-center">
+                    <input
+                      type="radio"
+                      name="allowSkip"
+                      checked={!settings.appearance.allowSkip}
+                      onChange={() => updateAppearance('allowSkip', false)}
+                      className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
+                    />
+                    <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
+                  </div>
+                  <span className={`text-[0.72vw] transition-colors ${!settings.appearance.allowSkip ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
+                    Mandatory (Require Submission)
+                  </span>
+                </label>
+
+                {/* Optional */}
+                <div className="space-y-[0.4vw]">
+                  <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
+                    <div className="relative flex items-center justify-center">
+                      <input
+                        type="radio"
+                        name="allowSkip"
+                        checked={Boolean(settings.appearance.allowSkip)}
+                        onChange={() => updateAppearance('allowSkip', true)}
+                        className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
+                      />
+                      <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
+                    </div>
+                    <span className={`text-[0.72vw] transition-colors ${settings.appearance.allowSkip ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
+                      Optional (Allow Skip)
+                    </span>
+                  </label>
+
+                  {settings.appearance.allowSkip && (
+                    <div className="flex items-center gap-[0.6vw] pl-[1.6vw] pt-[0.2vw]">
+                      <span className="text-[0.68vw] text-gray-500 font-normal whitespace-nowrap">If Skipped :</span>
+                      <div className="relative inline-block flex-1 max-w-[14vw]">
+                        <select
+                          value={settings.appearance.skipBehavior || 'never'}
+                          onChange={(e) => updateAppearance('skipBehavior', e.target.value)}
+                          className="w-full appearance-none bg-white border border-gray-200 rounded-[0.5vw] py-[0.4vw] pl-[0.7vw] pr-[2vw] text-[0.7vw] text-gray-700 outline-none focus:border-[#E05638] cursor-pointer shadow-xs"
+                        >
+                          <option value="never">Never Show again</option>
+                          <option value="1_day">Show again after 1 day</option>
+                          <option value="next_visit">Show again on next visit</option>
+                        </select>
+                        <div className="absolute right-[0.6vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                          <Icon icon="fluent:chevron-down-12-regular" className="w-[0.8vw] h-[0.8vw]" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Add Enquiry Button in Layout Card */}
+            <div className="pt-[0.4vw] border-t border-gray-100">
+              <div className="border border-gray-200 rounded-[0.6vw] bg-white p-[0.6vw] shadow-xs">
+                {/* Header row */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[0.75vw] font-medium text-gray-900">Add Enquiry Button in Layout</span>
+                  <div className="flex items-center gap-[0.6vw]">
+                    <button
+                      type="button"
+                      disabled={settings.enquiryButton?.enabled === false}
+                      onClick={() => setIsEnquiryBtnOpen(!isEnquiryBtnOpen)}
+                      className={`p-[0.2vw] rounded transition-colors ${
+                        settings.enquiryButton?.enabled === false
+                          ? 'text-gray-300 opacity-40 cursor-not-allowed'
+                          : isEnquiryBtnOpen
+                          ? 'text-[#E05638] bg-orange-50'
+                          : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                      title="Enquiry Button Properties"
+                    >
+                      <Sliders className="w-[0.9vw] h-[0.9vw]" />
+                    </button>
+                    <Switch
+                      enabled={settings.enquiryButton?.enabled !== false}
+                      onChange={(val) => {
+                        updateNested('enquiryButton', 'enabled', val);
+                        if (!val) {
+                          setIsEnquiryBtnOpen(false);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Expanded Properties */}
+                {isEnquiryBtnOpen && settings.enquiryButton?.enabled !== false && (
+                  <div className="mt-[0.8vw] pt-[0.8vw] border-t border-gray-100 space-y-[0.9vw]">
+                    {/* Edit Button Header */}
+                    <div className="space-y-[0.6vw]">
+                      <div className="flex items-center gap-[0.5vw]">
+                        <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Edit Button</span>
+                        <div className="h-[1px] bg-gray-200 flex-1"></div>
+                      </div>
+
+                      {/* Button Icon selector */}
+                      <div className="space-y-[0.35vw]">
+                        <span className="text-[0.68vw] text-gray-500 font-medium">Button Icon</span>
+                        <div className="grid grid-cols-5 gap-[0.4vw]">
+                          {[
+                            'lucide:message-square',
+                            'lucide:message-circle',
+                            'lucide:mail',
+                            'lucide:phone',
+                            'lucide:send'
+                          ].map((iconId) => {
+                            const isSelected = (settings.enquiryButton?.icon || 'lucide:message-square') === iconId;
+                            return (
+                              <button
+                                key={iconId}
+                                type="button"
+                                onClick={() => updateNested('enquiryButton', 'icon', iconId)}
+                                className={`flex items-center justify-center h-[2.5vw] rounded-[0.45vw] border transition-all ${
+                                  isSelected
+                                    ? 'border-[#E05638] bg-white text-[#E05638] shadow-xs'
+                                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                }`}
+                              >
+                                <Icon icon={iconId} className="w-[1.2vw] h-[1.2vw]" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Button Text */}
+                      <div className="space-y-[0.3vw]">
+                        <div className="flex items-center gap-[0.3vw]">
+                          <span className="text-[0.68vw] text-gray-700 font-medium">Button Text</span>
+                          <span className="text-[0.62vw] text-gray-400 font-normal">(Optional)</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={settings.enquiryButton?.text !== undefined ? settings.enquiryButton.text : 'Enquiry Now'}
+                          onChange={(e) => updateNested('enquiryButton', 'text', e.target.value)}
+                          placeholder="Enter Text"
+                          className="w-full border border-gray-200 rounded-[0.45vw] px-[0.6vw] py-[0.45vw] text-[0.7vw] text-gray-700 outline-none focus:border-[#E05638] bg-white shadow-xs placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Button Colors Header */}
+                    <div className="space-y-[0.6vw]">
+                      <div className="flex items-center gap-[0.5vw]">
+                        <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Button Colors</span>
+                        <div className="h-[1px] bg-gray-200 flex-1"></div>
+                      </div>
+
+                      <div className="space-y-[0.5vw]">
+                        <ColorPickerItem
+                          label="Icon Color"
+                          color={settings.enquiryButton?.iconColor || '#ffffff'}
+                          opacity={settings.enquiryButton?.iconOpacity ?? 100}
+                          onChange={(val) => updateNested('enquiryButton', 'iconColor', val)}
+                          onOpacityChange={(val) => updateNested('enquiryButton', 'iconOpacity', val)}
+                        />
+                        <ColorPickerItem
+                          label="Text Color"
+                          color={settings.enquiryButton?.textColor || '#ffffff'}
+                          opacity={settings.enquiryButton?.textOpacity ?? 100}
+                          onChange={(val) => updateNested('enquiryButton', 'textColor', val)}
+                          onOpacityChange={(val) => updateNested('enquiryButton', 'textOpacity', val)}
+                        />
+                        <ColorPickerItem
+                          label="Button Color"
+                          color={settings.enquiryButton?.bgFill || '#CE3439'}
+                          opacity={settings.enquiryButton?.bgOpacity ?? 100}
+                          onChange={(val) => updateNested('enquiryButton', 'bgFill', val)}
+                          onOpacityChange={(val) => updateNested('enquiryButton', 'bgOpacity', val)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Button Placement Header */}
+                    <div className="space-y-[0.6vw]">
+                      <div className="flex items-center gap-[0.5vw]">
+                        <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Button Placement</span>
+                        <div className="h-[1px] bg-gray-200 flex-1"></div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-[0.4vw]">
+                        {[
+                          { id: 'top-left', label: 'Top Left', icon: 'lucide:arrow-up-left' },
+                          { id: 'top-right', label: 'Top Right', icon: 'lucide:arrow-up-right' },
+                          { id: 'bottom-left', label: 'Bottom Left', icon: 'lucide:arrow-down-left' },
+                          { id: 'bottom-right', label: 'Bottom Right', icon: 'lucide:arrow-down-right' }
+                        ].map((pos) => {
+                          const currentPos = settings.enquiryButton?.position || 'bottom-right';
+                          const isSelected = currentPos === pos.id;
+                          return (
+                            <button
+                              key={pos.id}
+                              type="button"
+                              onClick={() => updateNested('enquiryButton', 'position', pos.id)}
+                              className={`flex items-center justify-center gap-[0.35vw] py-[0.45vw] px-[0.6vw] border rounded-[0.45vw] text-[0.68vw] font-medium transition-all ${
+                                isSelected
+                                  ? 'border-[#E05638] bg-orange-50 text-[#E05638] shadow-xs'
+                                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-800'
+                              }`}
+                            >
+                              <Icon icon={pos.icon} className="w-[0.85vw] h-[0.85vw]" />
+                              <span>{pos.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Customize Fields Accordion Card */}
+          {/* Customization Options Header */}
+          <div className="pt-[0.4vw]">
+            <span className="text-[0.78vw] font-semibold text-gray-500">Customization Options</span>
+          </div>
+
+          {/* Form Customization Accordion Card */}
           <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
             {/* Accordion Header */}
             <button
@@ -739,10 +1022,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
               onClick={() => setIsCustomizeFieldsOpen(!isCustomizeFieldsOpen)}
               className="w-full flex items-center justify-between p-[0.9vw] bg-white hover:bg-gray-50/50 transition-colors"
             >
-              <div className="flex flex-col text-left">
-                <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Customize Fields</span>
-                <span className="text-[0.65vw] text-gray-500 font-normal mt-[0.1vw]">Add or edit form fields.</span>
-              </div>
+              <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Form Customization</span>
               <Icon
                 icon="fluent:chevron-down-12-regular"
                 className={`w-[0.9vw] h-[0.9vw] text-gray-400 transition-transform duration-200 ${isCustomizeFieldsOpen ? 'rotate-180' : ''}`}
@@ -751,9 +1031,58 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
 
             {isCustomizeFieldsOpen && (
               <div className="p-[0.9vw] pt-[0.4vw] border-t border-gray-100 space-y-[0.9vw]">
+                {/* Use Quick Form Templates Row */}
+                <div className="rounded-[0.5vw] border border-gray-100 bg-gray-50/50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setIsTemplatesOpen(!isTemplatesOpen)}
+                    className="w-full flex items-center justify-between p-[0.6vw] hover:bg-gray-100/70 transition-colors"
+                  >
+                    <div className="flex items-center gap-[0.5vw]">
+                      <Icon icon="fluent:form-48-regular" className="w-[1.1vw] h-[1.1vw] text-[#E05638]" />
+                      <span className="text-[0.72vw] font-medium text-gray-800">Use Quick Form Templates</span>
+                    </div>
+                    <Icon
+                      icon="lucide:arrow-right"
+                      className={`w-[0.9vw] h-[0.9vw] text-gray-400 transition-transform duration-200 ${isTemplatesOpen ? 'rotate-90' : ''}`}
+                    />
+                  </button>
+
+                  {isTemplatesOpen && (
+                    <div className="p-[0.6vw] pt-0 border-t border-gray-100/80 bg-white">
+                      <div className="grid grid-cols-3 gap-[0.5vw] w-full pt-[0.5vw]">
+                        {quickTemplates.map((template) => {
+                          const isSelected = settings.selectedTemplateId
+                            ? settings.selectedTemplateId === template.id
+                            : (settings.formTitle ? settings.formTitle === template.config.formTitle : template.id === 'basic-contact');
+
+                          return (
+                            <div
+                              key={template.id}
+                              onClick={() => handleSelectTemplate(template)}
+                              className={`flex flex-col items-center justify-between cursor-pointer group rounded-[0.5vw] p-[0.4vw] transition-all bg-white border ${
+                                isSelected
+                                  ? 'border-[#E05638] shadow-[0_0.2vw_0.6vw_rgba(224,86,56,0.18)]'
+                                  : 'border-gray-200 shadow-[0_0.1vw_0.3vw_rgba(0,0,0,0.03)] hover:border-gray-300 hover:shadow-xs'
+                              }`}
+                            >
+                              <div className="w-full flex items-center justify-center rounded-[0.35vw] p-[0.2vw] mb-[0.3vw] transition-colors aspect-[1/1] overflow-hidden bg-white">
+                                <img src={template.icon} alt={template.name} className="w-full h-full object-contain rounded-[0.25vw]" />
+                              </div>
+                              <span className="text-[0.6vw] font-medium text-center leading-tight transition-colors text-gray-800 group-hover:text-black mt-auto whitespace-pre-line px-[0.1vw]">
+                                {template.name}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Form Layout: 1 column vs 2 Column */}
-                <div className="flex items-center justify-between pt-[0.3vw]">
-                  <span className="text-[0.72vw] font-semibold text-gray-900">Form Layout (Desktop):</span>
+                <div className="flex items-center justify-between pt-[0.2vw]">
+                  <span className="text-[0.72vw] font-semibold text-gray-900">Form Layout :</span>
                   <div className="flex items-center border border-gray-200 rounded-[0.4vw] p-[0.15vw] bg-white">
                     <button
                       type="button"
@@ -778,45 +1107,54 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                   </div>
                 </div>
 
+                {/* Custom Form Fields Header */}
+                <div className="flex items-center gap-[0.5vw] pt-[0.2vw]">
+                  <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Custom Form Fields</span>
+                  <div className="h-[1px] bg-gray-200 flex-1"></div>
+                </div>
+
                 {/* Form Meta Inputs */}
-                <div className="space-y-[0.8vw]">
-                  <div className="flex flex-col gap-[0.3vw]">
-                    <label className="text-[0.7vw] font-medium text-gray-900">Title :</label>
+                <div className="space-y-[0.7vw]">
+                  <div className="flex flex-col gap-[0.25vw]">
+                    <label className="text-[0.7vw] font-medium text-gray-800">Title :</label>
                     <input
                       type="text"
                       value={settings.formTitle !== undefined ? settings.formTitle : 'Get in Touch'}
                       onChange={(e) => onUpdate({ ...settings, formTitle: e.target.value })}
-                      className="w-full border border-gray-200 rounded-[0.5vw] px-[0.6vw] py-[0.5vw] text-[0.7vw] text-gray-700 focus:outline-none focus:border-[#E05638] bg-white shadow-xs placeholder:text-gray-400"
+                      className="w-full border border-gray-200 rounded-[0.45vw] px-[0.6vw] py-[0.45vw] text-[0.7vw] text-gray-700 focus:outline-none focus:border-[#E05638] bg-white shadow-xs placeholder:text-gray-400"
                       placeholder="Get in Touch"
                     />
                   </div>
 
-                  <div className="flex flex-col gap-[0.3vw]">
-                    <label className="text-[0.7vw] font-medium text-gray-900">Description :</label>
+                  <div className="flex flex-col gap-[0.25vw]">
+                    <label className="text-[0.7vw] font-medium text-gray-800">Description :</label>
                     <textarea
                       value={settings.leadText !== undefined ? settings.leadText : 'Share your details and we will contact you shortly.'}
                       onChange={(e) => onUpdate({ ...settings, leadText: e.target.value })}
-                      className="w-full h-[3.8vw] border border-gray-200 rounded-[0.5vw] px-[0.6vw] py-[0.5vw] text-[0.7vw] text-gray-700 focus:outline-none focus:border-[#E05638] resize-none bg-white shadow-xs placeholder:text-gray-400"
+                      className="w-full h-[3.8vw] border border-gray-200 rounded-[0.45vw] px-[0.6vw] py-[0.45vw] text-[0.7vw] text-gray-700 focus:outline-none focus:border-[#E05638] resize-none bg-white shadow-xs placeholder:text-gray-400"
                       placeholder="Share your details and we will contact you shortly."
                     />
                   </div>
 
-                  <div className="flex flex-col gap-[0.3vw]">
-                    <label className="text-[0.7vw] font-medium text-gray-900">Button Text :</label>
+                  <div className="flex flex-col gap-[0.25vw]">
+                    <label className="text-[0.7vw] font-medium text-gray-800">Button Text :</label>
                     <input
                       type="text"
                       value={settings.buttonText !== undefined ? settings.buttonText : 'Request Callback'}
                       onChange={(e) => onUpdate({ ...settings, buttonText: e.target.value })}
-                      className="w-full border border-gray-200 rounded-[0.5vw] px-[0.6vw] py-[0.5vw] text-[0.7vw] text-gray-700 focus:outline-none focus:border-[#E05638] bg-white shadow-xs placeholder:text-gray-400"
+                      className="w-full border border-gray-200 rounded-[0.45vw] px-[0.6vw] py-[0.45vw] text-[0.7vw] text-gray-700 focus:outline-none focus:border-[#E05638] bg-white shadow-xs placeholder:text-gray-400"
                       placeholder="Request Callback"
                     />
                   </div>
+                </div>
 
-
+                {/* Fields Section Header */}
+                <div className="pt-[0.2vw]">
+                  <span className="text-[0.65vw] font-medium text-gray-400">Fields</span>
                 </div>
 
                 {/* Form Fields List */}
-                <div className="space-y-[0.7vw] font-sans pt-[0.2vw]">
+                <div className="space-y-[0.7vw] font-sans">
                   {settings.fields?.map((field) => {
                     const isRequired = field.required === true;
 
@@ -1202,7 +1540,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                                 {isRequired && <Icon icon="lucide:check" className="w-[0.65vw] h-[0.65vw] stroke-[3]" />}
                               </div>
                               <span className="text-[0.68vw] font-medium text-gray-600">
-                                Required <span className="text-red-500">*</span>
+                                Mandatory
                               </span>
                             </button>
                             <div className="relative" id={`delete-menu-${field.id}`}>
@@ -1327,7 +1665,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
             )}
           </div>
 
-          {/* Form Appearance Accordion Card */}
+          {/* Form Style Customization Accordion Card */}
           <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
             {/* Accordion Header */}
             <button
@@ -1335,10 +1673,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
               onClick={() => setIsColorOpen(!isColorOpen)}
               className="w-full flex items-center justify-between p-[0.9vw] bg-white hover:bg-gray-50/50 transition-colors"
             >
-              <div className="flex flex-col text-left">
-                <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Form Appearance</span>
-                <span className="text-[0.65vw] text-gray-500 font-normal mt-[0.1vw]">Customize colors for your form.</span>
-              </div>
+              <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Form Style Customization</span>
               <Icon
                 icon="fluent:chevron-down-12-regular"
                 className={`w-[0.9vw] h-[0.9vw] text-gray-400 transition-transform duration-200 ${isColorOpen ? 'rotate-180' : ''}`}
@@ -1346,456 +1681,68 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
             </button>
 
             {isColorOpen && (
-              <div className="p-[0.9vw] pt-[0.4vw] border-t border-gray-100 space-y-[0.8vw]">
-                {/* Text Properties */}
-                  <div className="space-y-[0.75vw] ">
-                    <div className="flex items-center gap-[0.5vw]">
-                      <h4 className="text-[0.75vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">Text Properties</h4>
-                      <div className="h-[0.0925vw] bg-gray-200 flex-1" style={{ marginRight: '-1.1vw' }}> </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-[0.7vw] font-semibold text-gray-900">Choose the Text Style:</span>
-                      <PremiumDropdown
-                        options={fontFamilies}
-                        value={settings.appearance.fontStyle}
-                        onChange={(val) => updateAppearance('fontStyle', val)}
-                        width="8.5vw"
-                        isFont={true}
-                        buttonClassName="!border-gray-600 !rounded-[0.5vw]"
-                        align="right"
-                      />
-                    </div>
-                    <ColorPickerItem
-                      label="Fill :"
-                      color={settings.appearance.textFill}
-                      opacity={settings.appearance.textFillOpacity ?? 100}
-                      onChange={(val) => updateAppearance('textFill', val)}
-                      onOpacityChange={(val) => updateAppearance('textFillOpacity', val)}
+              <div className="p-[0.9vw] pt-[0.6vw] border-t border-gray-100 space-y-[0.7vw]">
+                {/* Text Styles Dropdown Row */}
+                <div className="flex items-center gap-[0.25vw]">
+                  <span className="w-[6.8vw] text-[0.7vw] pl-[0.2vw] font-semibold text-gray-700 shrink-0 whitespace-nowrap">Text Styles</span>
+                  <span className="text-[0.7vw] font-semibold text-gray-500 mr-[0.25vw]">:</span>
+                  <div className="flex-1 min-w-0">
+                    <PremiumDropdown
+                      options={fontFamilies}
+                      value={settings.appearance?.fontStyle || 'Poppins'}
+                      onChange={(val) => updateAppearance('fontStyle', val)}
+                      width="100%"
+                      isFont={true}
+                      buttonClassName="!border-gray-200 !rounded-[0.4vw] !h-[1.8vw] !py-[0.2vw] !text-[0.68vw]"
+                      align="left"
                     />
-                    <ColorPickerItem
-                      label="Stroke :"
-                      color={settings.appearance.textStroke}
-                      opacity={settings.appearance.textStrokeOpacity ?? 100}
-                      onChange={(val) => updateAppearance('textStroke', val)}
-                      onOpacityChange={(val) => updateAppearance('textStrokeOpacity', val)}
-                    />
-                  </div>
-
-                  {/* Background Color */}
-                  <div className="space-y-[0.75vw]">
-                    <div className="flex items-center gap-[0.5vw]">
-                      <h4 className="text-[0.75vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">Background Color</h4>
-                      <div className="h-[0.0925vw] bg-gray-200 flex-1" style={{ marginRight: '-1vw' }}> </div>
-                    </div>
-                    <ColorPickerItem
-                      label="Fill :"
-                      color={settings.appearance.bgFill}
-                      opacity={settings.appearance.bgFillOpacity ?? 100}
-                      onChange={(val) => updateAppearance('bgFill', val)}
-                      onOpacityChange={(val) => updateAppearance('bgStrokeOpacity', val)}
-                    />
-                    <ColorPickerItem
-                      label="Stroke :"
-                      color={settings.appearance.bgStroke}
-                      opacity={settings.appearance.bgStrokeOpacity ?? 100}
-                      onChange={(val) => updateAppearance('bgStroke', val)}
-                      onOpacityChange={(val) => updateAppearance('bgStrokeOpacity', val)}
-                    />
-                  </div>
-
-                  {/* Button */}
-                  <div className="space-y-[0.75vw]">
-                    <div className="flex items-center gap-[0.5vw]">
-                      <h4 className="text-[0.75vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">Button</h4>
-                      <div className="h-[0.0925vw] bg-gray-200 flex-1" style={{ marginRight: '-1vw' }}> </div>
-                    </div>
-                    <ColorPickerItem
-                      label="Fill :"
-                      color={settings.appearance.btnFill}
-                      opacity={settings.appearance.btnFillOpacity ?? 100}
-                      onChange={(val) => updateAppearance('btnFill', val)}
-                      onOpacityChange={(val) => updateAppearance('btnFillOpacity', val)}
-                    />
-                    <ColorPickerItem
-                      label="Stroke :"
-                      color={settings.appearance.btnStroke}
-                      opacity={settings.appearance.btnStrokeOpacity ?? 100}
-                      onChange={(val) => updateAppearance('btnStroke', val)}
-                      onOpacityChange={(val) => updateAppearance('btnStrokeOpacity', val)}
-                    />
-                    <ColorPickerItem
-                      label="Text :"
-                      color={settings.appearance.btnText}
-                      opacity={settings.appearance.btnTextOpacity ?? 100}
-                      onChange={(val) => updateAppearance('btnText', val)}
-                      onOpacityChange={(val) => updateAppearance('btnTextOpacity', val)}
-                    />
-                  </div>
-
-                  {/* Skip / Close Button Colors */}
-                  {settings.appearance.allowSkip && (
-                    <div className="space-y-[0.75vw]">
-                      <div className="flex items-center gap-[0.5vw]">
-                        <h4 className="text-[0.75vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">Skip / Cancel Button</h4>
-                        <div className="h-[0.0925vw] bg-gray-200 flex-1" style={{ marginRight: '-1vw' }}> </div>
-                      </div>
-                      <ColorPickerItem
-                        label="Color :"
-                        color={settings.appearance.skipColor || '#3E4491'}
-                        opacity={settings.appearance.skipOpacity ?? 100}
-                        onChange={(val) => updateAppearance('skipColor', val)}
-                        onOpacityChange={(val) => updateAppearance('skipOpacity', val)}
-                      />
-                      {settings.appearance.skipType === 'icon' && (
-                        <>
-                          <ColorPickerItem
-                            label="Fill :"
-                            color={settings.appearance.skipBgFill || 'transparent'}
-                            opacity={settings.appearance.skipBgFillOpacity ?? 100}
-                            onChange={(val) => updateAppearance('skipBgFill', val)}
-                            onOpacityChange={(val) => updateAppearance('skipBgFillOpacity', val)}
-                          />
-                          <ColorPickerItem
-                            label="Stroke :"
-                            color={settings.appearance.skipBgStroke || 'transparent'}
-                            opacity={settings.appearance.skipBgStrokeOpacity ?? 100}
-                            onChange={(val) => updateAppearance('skipBgStroke', val)}
-                            onOpacityChange={(val) => updateAppearance('skipBgStrokeOpacity', val)}
-                          />
-                        </>
-                      )}
-                    </div>
-                  )}
-              </div>
-            )}
-          </div>
-
-          {/* Form Display Setting Accordion Card */}
-          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
-            {/* Accordion Header */}
-            <button
-              type="button"
-              onClick={() => setIsEnquiryBtnOpen(!isEnquiryBtnOpen)}
-              className="w-full flex items-center justify-between p-[0.9vw] bg-white hover:bg-gray-50/50 transition-colors"
-            >
-              <div className="flex flex-col text-left">
-                <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Form Display Setting</span>
-                <span className="text-[0.65vw] text-gray-500 font-normal mt-[0.1vw]">Choose where to display the form.</span>
-              </div>
-              <Icon
-                icon="fluent:chevron-down-12-regular"
-                className={`w-[0.9vw] h-[0.9vw] text-gray-400 transition-transform duration-200 ${isEnquiryBtnOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {isEnquiryBtnOpen && (
-              <div className="p-[0.9vw] pt-[0.4vw] border-t border-gray-100 space-y-[0.8vw]">
-                {/* Add Enquiry Button in Layout */}
-                <div className="flex items-center justify-between pt-[0.2vw]">
-                  <div className="flex items-center gap-[0.5vw] flex-1 mr-[0.8vw]">
-                    <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Add Enquiry Button in Layout</span>
-                    <div className="h-[1px] bg-gray-200 flex-1"></div>
-                  </div>
-                  <Switch
-                    enabled={settings.enquiryButton?.enabled !== false}
-                    onChange={(val) => updateNested('enquiryButton', 'enabled', val)}
-                  />
-                </div>
-
-                {settings.enquiryButton?.enabled !== false && (
-                  <div className="space-y-[0.8vw] pt-[0.2vw]">
-                    {/* Button Icon & Add Text in button row */}
-                    <div className="grid grid-cols-2 gap-[0.8vw] items-start">
-                      {/* Button Icon selector */}
-                      <div className="flex flex-col gap-[0.3vw] relative">
-                        <span className="text-[0.7vw] font-medium text-gray-800">Button Icon</span>
-                        <div
-                          onClick={() => setIsIconPickerOpen(!isIconPickerOpen)}
-                          className="w-full h-[4vw] border border-gray-200 hover:border-gray-300 rounded-[0.5vw] bg-white flex items-center justify-center cursor-pointer relative shadow-xs transition-colors group"
-                        >
-                          <Icon
-                            icon={settings.enquiryButton?.icon && settings.enquiryButton?.icon !== 'none' ? settings.enquiryButton.icon : 'lucide:message-square'}
-                            className="w-[1.6vw] h-[1.6vw] text-gray-700"
-                          />
-                          <div className="absolute top-[0.3vw] right-[0.4vw] text-gray-400 group-hover:text-gray-600 transition-colors" title="Change icon">
-                            <Icon icon="lucide:arrow-left-right" className="w-[0.75vw] h-[0.75vw]" />
-                          </div>
-                        </div>
-
-                        {/* Icon picker flyout */}
-                        {isIconPickerOpen && (
-                          <div className="absolute top-[5.2vw] left-0 z-50 bg-white rounded-[0.5vw] shadow-lg p-[0.5vw] w-[13vw] border border-gray-200 animate-in fade-in zoom-in-95 duration-100">
-                            <div className="flex items-center justify-between pb-[0.3vw] mb-[0.3vw] border-b border-gray-100">
-                              <span className="text-[0.65vw] font-semibold text-gray-700">Select Icon</span>
-                              <button
-                                type="button"
-                                onClick={() => setIsIconPickerOpen(false)}
-                                className="text-gray-400 hover:text-gray-600"
-                              >
-                                <Icon icon="lucide:x" className="w-[0.75vw] h-[0.75vw]" />
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-4 gap-[0.3vw]">
-                              {[
-                                { id: 'lucide:message-square', label: 'Message' },
-                                { id: 'lucide:mail', label: 'Mail' },
-                                { id: 'lucide:phone', label: 'Phone' },
-                                { id: 'lucide:send', label: 'Send' },
-                                { id: 'lucide:help-circle', label: 'Help' },
-                                { id: 'lucide:user-check', label: 'Contact' },
-                                { id: 'lucide:clipboard-list', label: 'Form' },
-                                { id: 'lucide:info', label: 'Info' }
-                              ].map(item => (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => {
-                                    updateNested('enquiryButton', 'icon', item.id);
-                                    setIsIconPickerOpen(false);
-                                  }}
-                                  className={`flex flex-col items-center justify-center p-[0.35vw] rounded-[0.35vw] border transition-all ${(settings.enquiryButton?.icon || 'lucide:message-square') === item.id
-                                      ? 'border-[#E05638] bg-orange-50 text-[#E05638]'
-                                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                                    }`}
-                                  title={item.label}
-                                >
-                                  <Icon icon={item.id} className="w-[1vw] h-[1vw]" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Add Text in button */}
-                      <div className="flex flex-col gap-[0.3vw]">
-                        <div className="flex items-center justify-between h-[1.3vw]">
-                          <span className="text-[0.7vw] font-medium text-gray-800">Add Text in button</span>
-                          <Switch
-                            enabled={settings.enquiryButton?.showText !== false}
-                            onChange={(val) => updateNested('enquiryButton', 'showText', val)}
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={settings.enquiryButton?.text !== undefined ? settings.enquiryButton.text : 'Enquiry Now'}
-                          onChange={(e) => updateNested('enquiryButton', 'text', e.target.value)}
-                          placeholder="Enquiry Now"
-                          disabled={settings.enquiryButton?.showText === false}
-                          className={`w-full border border-gray-200 rounded-[0.5vw] px-[0.6vw] py-[0.55vw] text-[0.7vw] text-gray-700 outline-none focus:border-[#E05638] bg-white shadow-xs placeholder:text-gray-400 ${settings.enquiryButton?.showText === false ? 'opacity-40 cursor-not-allowed bg-gray-50' : ''}`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Color Customizations */}
-                    <div className="space-y-[0.5vw] pt-[0.2vw]">
-                      <ColorPickerItem
-                        label="Icon Color :"
-                        color={settings.enquiryButton?.iconColor || '#FFFFFF'}
-                        opacity={settings.enquiryButton?.iconOpacity ?? 100}
-                        onChange={(val) => updateNested('enquiryButton', 'iconColor', val)}
-                        onOpacityChange={(val) => updateNested('enquiryButton', 'iconOpacity', val)}
-                      />
-                      <ColorPickerItem
-                        label="Text Color :"
-                        color={settings.enquiryButton?.textColor || '#FFFFFF'}
-                        opacity={settings.enquiryButton?.textOpacity ?? 100}
-                        onChange={(val) => updateNested('enquiryButton', 'textColor', val)}
-                        onOpacityChange={(val) => updateNested('enquiryButton', 'textOpacity', val)}
-                      />
-                      <ColorPickerItem
-                        label="Button Color :"
-                        color={settings.enquiryButton?.bgFill || '#E05638'}
-                        opacity={settings.enquiryButton?.bgOpacity ?? 100}
-                        onChange={(val) => updateNested('enquiryButton', 'bgFill', val)}
-                        onOpacityChange={(val) => updateNested('enquiryButton', 'bgOpacity', val)}
-                      />
-                    </div>
-
-                    {/* Where Should Button Appear */}
-                    <div className="space-y-[0.4vw] pt-[0.3vw]">
-                      <span className="text-[0.72vw] font-medium text-gray-700">Where Should Button Appear</span>
-                      <div className="grid grid-cols-2 gap-[0.5vw]">
-                        {[
-                          { id: 'top-left', label: 'Top Left', icon: 'lucide:arrow-up-left' },
-                          { id: 'top-right', label: 'Top Right', icon: 'lucide:arrow-up-right' },
-                          { id: 'bottom-left', label: 'Bottom Left', icon: 'lucide:arrow-down-left' },
-                          { id: 'bottom-right', label: 'Bottom Right', icon: 'lucide:arrow-down-right' }
-                        ].map(pos => {
-                          const currentPos = settings.enquiryButton?.position || 'bottom-right';
-                          const isSelected = currentPos === pos.id;
-                          return (
-                            <button
-                              key={pos.id}
-                              type="button"
-                              onClick={() => updateNested('enquiryButton', 'position', pos.id)}
-                              className={`flex items-center justify-center gap-[0.3vw] py-[0.55vw] px-[0.6vw] border rounded-[0.5vw] text-[0.68vw] font-medium transition-all ${isSelected
-                                  ? 'border-[#E05638] bg-orange-50 text-[#E05638] shadow-xs'
-                                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-800'
-                                }`}
-                            >
-                              <Icon icon={pos.icon} className="w-[0.85vw] h-[0.85vw]" />
-                              <span>{pos.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Lead form should Appears at */}
-                <div className="space-y-[0.6vw] pt-[0.4vw] border-t border-gray-100">
-                  <div className="flex items-center gap-[0.5vw]">
-                    <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Lead form should Appears at</span>
-                    <div className="h-[1px] bg-gray-200 flex-1"></div>
-                  </div>
-
-                  <div className="space-y-[0.5vw] pl-[0.2vw]">
-                    {[
-                      { id: 'before', label: 'Before opening the flipbook' },
-                      { id: 'after-pages', label: 'Show on selected page' },
-                      { id: 'after-seconds', label: 'After X seconds' },
-                      { id: 'end', label: 'At the end of the flipbook' }
-                    ].map((opt) => {
-                      const isSelected = settings.appearance.timing === opt.id;
-                      return (
-                        <div key={opt.id} className="space-y-[0.4vw]">
-                          <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
-                            <div className="relative flex items-center justify-center">
-                              <input
-                                type="radio"
-                                name="timing"
-                                checked={isSelected}
-                                onChange={() => updateAppearance('timing', opt.id)}
-                                className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
-                              />
-                              <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
-                            </div>
-                            <span className={`text-[0.72vw] transition-colors ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
-                              {opt.label}
-                            </span>
-                          </label>
-
-                          {opt.id === 'after-pages' && isSelected && (
-                            <div className="ml-[1.6vw] mt-[0.2vw]">
-                              <div className="relative inline-block w-[6.5vw]">
-                                <select
-                                  value={settings.appearance.afterPages || 1}
-                                  onChange={(e) => updateAppearance('afterPages', parseInt(e.target.value))}
-                                  className="w-full appearance-none bg-white border border-gray-200 shadow-xs rounded-[0.4vw] py-[0.35vw] pl-[0.6vw] pr-[1.8vw] text-[0.7vw] text-gray-800 font-medium focus:outline-none focus:border-[#E05638] cursor-pointer"
-                                >
-                                  {pages.length > 0 ? (
-                                    pages.map((_, idx) => (
-                                      <option key={idx} value={idx + 1}>Page {idx + 1}</option>
-                                    ))
-                                  ) : (
-                                    [1, 2, 3, 4, 5].map(num => (
-                                      <option key={num} value={num}>Page {num}</option>
-                                    ))
-                                  )}
-                                </select>
-                                <div className="absolute right-[0.5vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                                  <Icon icon="fluent:chevron-down-12-regular" className="w-[0.8vw] h-[0.8vw]" />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {opt.id === 'after-seconds' && isSelected && (
-                            <div className="ml-[1.6vw] mt-[0.2vw] flex items-center border border-gray-200 rounded-[0.4vw] px-[0.6vw] py-[0.3vw] bg-white w-fit gap-[0.5vw] shadow-xs">
-                              <button
-                                type="button"
-                                onClick={() => updateAppearance('afterSeconds', Math.max(1, (settings.appearance.afterSeconds || 30) - 1))}
-                                className="text-gray-600 hover:text-gray-900 transition-colors p-[0.1vw]"
-                              >
-                                <Icon icon="lucide:play" className="w-[0.7vw] h-[0.7vw] rotate-180 fill-current text-gray-600" />
-                              </button>
-                              <span className="text-[0.72vw] text-gray-800 font-semibold min-w-[1.2vw] text-center">
-                                {settings.appearance.afterSeconds || 30}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => updateAppearance('afterSeconds', (settings.appearance.afterSeconds || 30) + 1)}
-                                className="text-gray-600 hover:text-gray-900 transition-colors p-[0.1vw]"
-                              >
-                                <Icon icon="lucide:play" className="w-[0.7vw] h-[0.7vw] fill-current text-gray-600" />
-                              </button>
-                              <span className="text-[0.7vw] text-gray-600 ml-[0.2vw]">Seconds</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
 
-                {/* Lead Form Mode */}
-                <div className="space-y-[0.6vw] pt-[0.4vw] border-t border-gray-100">
-                  <div className="flex items-center gap-[0.5vw]">
-                    <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Lead Form Mode</span>
-                    <div className="h-[1px] bg-gray-200 flex-1"></div>
-                  </div>
+                {/* Button Color */}
+                <ColorPickerItem
+                  label="Button Color"
+                  color={settings.appearance?.btnFill || '#E05638'}
+                  opacity={settings.appearance?.btnFillOpacity ?? 100}
+                  onChange={(val) => updateAppearance('btnFill', val)}
+                  onOpacityChange={(val) => updateAppearance('btnFillOpacity', val)}
+                />
 
-                  <div className="space-y-[0.5vw] pl-[0.2vw]">
-                    {/* Mandatory */}
-                    <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
-                      <div className="relative flex items-center justify-center">
-                        <input
-                          type="radio"
-                          name="allowSkip"
-                          checked={!settings.appearance.allowSkip}
-                          onChange={() => updateAppearance('allowSkip', false)}
-                          className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
-                        />
-                        <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
-                      </div>
-                      <span className={`text-[0.72vw] transition-colors ${!settings.appearance.allowSkip ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
-                        Mandatory (Require Submission)
-                      </span>
-                    </label>
+                {/* Button Text Color */}
+                <ColorPickerItem
+                  label="Button Text Color"
+                  color={settings.appearance?.btnText || '#FFFFFF'}
+                  opacity={settings.appearance?.btnTextOpacity ?? 100}
+                  onChange={(val) => updateAppearance('btnText', val)}
+                  onOpacityChange={(val) => updateAppearance('btnTextOpacity', val)}
+                />
 
-                    {/* Optional */}
-                    <div className="space-y-[0.4vw]">
-                      <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
-                        <div className="relative flex items-center justify-center">
-                          <input
-                            type="radio"
-                            name="allowSkip"
-                            checked={Boolean(settings.appearance.allowSkip)}
-                            onChange={() => updateAppearance('allowSkip', true)}
-                            className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
-                          />
-                          <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
-                        </div>
-                        <span className={`text-[0.72vw] transition-colors ${settings.appearance.allowSkip ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
-                          Optional (Allow Skip)
-                        </span>
-                      </label>
+                {/* Background Color */}
+                <ColorPickerItem
+                  label="Background Color"
+                  color={settings.appearance?.bgFill || '#000000'}
+                  opacity={settings.appearance?.bgFillOpacity ?? 100}
+                  onChange={(val) => updateAppearance('bgFill', val)}
+                  onOpacityChange={(val) => updateAppearance('bgFillOpacity', val)}
+                />
 
-                      {settings.appearance.allowSkip && (
-                        <div className="ml-[1.6vw] space-y-[0.4vw] pt-[0.2vw]">
-                          <span className="block text-[0.68vw] text-gray-500 font-normal">If Skipped</span>
-                          <div className="relative inline-block w-full max-w-[14vw]">
-                            <select
-                              value={settings.appearance.skipBehavior || 'never'}
-                              onChange={(e) => updateAppearance('skipBehavior', e.target.value)}
-                              className="w-full appearance-none bg-white border border-gray-200 rounded-[0.5vw] py-[0.45vw] pl-[0.7vw] pr-[2vw] text-[0.7vw] text-gray-700 outline-none focus:border-[#E05638] cursor-pointer shadow-xs"
-                            >
-                              <option value="never">Never Show again</option>
-                              <option value="1_day">Show again after 1 day</option>
-                              <option value="next_visit">Show again on next visit</option>
-                            </select>
-                            <div className="absolute right-[0.6vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                              <Icon icon="fluent:chevron-down-12-regular" className="w-[0.8vw] h-[0.8vw]" />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                {/* Text Color */}
+                <ColorPickerItem
+                  label="Text Color"
+                  color={settings.appearance?.textFill || '#FFFFFF'}
+                  opacity={settings.appearance?.textFillOpacity ?? 100}
+                  onChange={(val) => updateAppearance('textFill', val)}
+                  onOpacityChange={(val) => updateAppearance('textFillOpacity', val)}
+                />
+
+                {/* Input Field Color */}
+                <ColorPickerItem
+                  label="Input Field Color"
+                  color={settings.appearance?.inputBg || '#FFFFFF'}
+                  opacity={settings.appearance?.inputBgOpacity ?? 100}
+                  onChange={(val) => updateAppearance('inputBg', val)}
+                  onOpacityChange={(val) => updateAppearance('inputBgOpacity', val)}
+                />
               </div>
             )}
           </div>
@@ -2283,12 +2230,14 @@ const ColorPickerItem = ({ label, color, opacity = 100, onChange, onOpacityChang
   const isColorSet = Boolean(color && color !== '#' && color !== 'transparent');
 
   return (
-    <div className="flex items-center gap-[0.4vw] relative group/citem">
-      <span className="w-[4.6vw] text-[0.7vw] pl-[0.2vw] font-semibold text-gray-700 shrink-0 whitespace-nowrap">{label}</span>
+    <div className="flex items-center gap-[0.25vw] relative group/citem">
+      <span className="w-[6.8vw] text-[0.7vw] pl-[0.2vw] font-semibold text-gray-700 shrink-0 whitespace-nowrap">{label}</span>
+      <span className="text-[0.7vw] font-semibold text-gray-500 mr-[0.25vw]">:</span>
       <div className="flex-1 flex items-center gap-[0.4vw] min-w-0">
+        {/* Color Swatch */}
         <div
           ref={swatchRef}
-          className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-900 cursor-pointer overflow-hidden relative shadow-sm color-picker-trigger shrink-0 hover:scale-105 transition-transform"
+          className="w-[2vw] h-[2vw] rounded-[0.45vw] border border-gray-200 cursor-pointer overflow-hidden relative shadow-xs color-picker-trigger shrink-0 hover:scale-105 transition-transform"
           style={{
             backgroundColor: !isColorSet
               ? 'white'
@@ -2303,7 +2252,9 @@ const ColorPickerItem = ({ label, color, opacity = 100, onChange, onOpacityChang
             <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[0.1vw] bg-red-500 rotate-45"></div>
           )}
         </div>
-        <div className="flex-1 flex items-center bg-white border border-gray-900 rounded-[0.4vw] px-[0.4vw] py-[0.2vw] h-[1.8vw] shadow-[0_2px_10px_rgba(0,0,0,0.02)] min-w-0 overflow-hidden relative group/box">
+
+        {/* Hex and Opacity Box */}
+        <div className="flex-1 flex items-center bg-white border border-gray-200 rounded-[0.45vw] px-[0.5vw] h-[2vw] shadow-xs min-w-0">
           <input
             type="text"
             value={color && color.length > 1 ? color.toUpperCase() : '#'}
@@ -2316,26 +2267,9 @@ const ColorPickerItem = ({ label, color, opacity = 100, onChange, onOpacityChang
               }
             }}
             placeholder="#"
-            className="text-[0.68vw] font-medium text-gray-700 flex-1 truncate bg-transparent outline-none uppercase min-w-0"
+            className="text-[0.68vw] font-medium text-gray-700 flex-1 min-w-0 bg-transparent outline-none uppercase"
           />
-
-          {/* Quick remove color icon button */}
-          {isColorSet && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange('');
-              }}
-              className="p-[0.1vw] rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors shrink-0 mr-[0.2vw]"
-              title="Remove color / Clear"
-            >
-              <Icon icon="lucide:x" className="w-[0.7vw] h-[0.7vw]" />
-            </button>
-          )}
-
-          <div className="w-[1px] h-[70%] bg-gray-200 mx-[0.2vw] shrink-0"></div>
-          <div className="text-[0.68vw] font-semibold text-gray-800 shrink-0 text-right">{displayOpacity}%</div>
+          <div className="text-[0.68vw] font-medium text-gray-500 shrink-0 text-right pl-[0.2vw]">{displayOpacity}%</div>
         </div>
       </div>
       {isOpen && createPortal(
