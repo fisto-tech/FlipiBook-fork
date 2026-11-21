@@ -364,6 +364,8 @@ const Grid3Layout = ({
 
     const localOffset = useMemo(() => {
         if (offset === 0) return 0; // Use offset prop to respect single page mode
+        // Follow the offset sign from PreviewArea (set when a turn STARTS) so centring glides with the page
+        if (typeof offset === 'number') return offset < 0 ? -(dimWidth / 2) : (dimWidth / 2);
         // Shift left to center the front cover, shift right to center the back cover
         if (currentPage === 0) {
             return -(dimWidth / 2);
@@ -859,8 +861,10 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                 : (dimWidth * currentScale);
 
                             const gap = (isTablet ? 3.5 : 4.5);
-                            const leftPos = `calc(50% - ${bookHalfWidth}px - ${gap}vw)`;
-                            const rightPos = `calc(50% - ${bookHalfWidth}px - ${gap}vw)`;
+                            // Arrows sit at the spread position; the cover/back-cover shift is a GPU `translate` (no per-frame layout)
+                            const arrowShift = (isCover || isBackCover) && !isPortraitLayout ? bookHalfWidth : 0;
+                            const leftPos = `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`;
+                            const rightPos = `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`;
 
                             return (
                                 <>
@@ -873,7 +877,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                                 color: getLayoutColor('toolbar-icon', '#FFFFFF'),
                                                 opacity: hasPrev ? 'var(--toolbar-icon-opacity, 1)' : 0,
                                                 pointerEvents: hasPrev ? 'auto' : 'none',
-                                                transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                                translate: `calc(${arrowShift}px - var(--fbe-arrow-nudge, 0px)) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                             }}
                                             onClick={() => {
                                                 if (!hasPrev) return;
@@ -892,7 +897,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                                 color: getLayoutColor('toolbar-icon', '#FFFFFF'),
                                                 opacity: hasNext ? 'var(--toolbar-icon-opacity, 1)' : 0,
                                                 pointerEvents: hasNext ? 'auto' : 'none',
-                                                transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                                translate: `calc(var(--fbe-arrow-nudge, 0px) - ${arrowShift}px) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                             }}
                                             onClick={() => {
                                                 if (!hasNext) return;
@@ -910,9 +916,9 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                         <div
                             className="relative flex items-center justify-center magazine-content-area"
                             style={{
-                                transform: `translateX(${localOffset}px) scale(${isMobileLandscape ? responsiveScale : 1})`,
+                                translate: `${localOffset}px 0`, transform: `scale(${isMobileLandscape ? responsiveScale : 1})`,
                                 transformOrigin: 'center center',
-                                transition: 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
+                                transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
                                 top: isMobileLandscape ? '0.5vw' : '0'
                             }}
                         >

@@ -424,7 +424,7 @@ const TabletLayout1 = ({ children, bookRef, currentPage, pages, offset = 0, sett
 
                     {/* The Book (Placeholder or Children) */}
                     <div
-                        style={{ transform: `translateX(${offset}px) scale(${currentZoom})`, transition: 'transform 0.5s ease-out', transformOrigin: 'center center' }}
+                        style={{ translate: `${offset}px 0`, transform: `scale(${currentZoom})`, transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.5s ease-out', transformOrigin: 'center center' }}
                         className="flex items-center justify-center shrink-0 max-w-[calc(100%-14cqw)]"
                     >
                         {children ? (

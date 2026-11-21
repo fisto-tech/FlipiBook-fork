@@ -194,7 +194,7 @@ const TabletLayout6 = ({
                 </button>
 
                 {/* Flipbook Container */}
-                <div className="relative z-0 shadow-[0_15px_30px_rgba(0,0,0,0.15)] flex items-center justify-center transition-transform duration-500" style={{ transform: `translateX(${offset}px) scale(${zoom})` }}>
+                <div className="relative z-0 shadow-[0_15px_30px_rgba(0,0,0,0.15)] flex items-center justify-center transition-transform duration-500" style={{ translate: `${offset}px 0`, transform: `scale(${zoom})`, transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.5s ease' }}>
                     {children}
                 </div>
 
