@@ -106,28 +106,28 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
   // Dynamic pages for active book: foodPages for Food (book 0), dressPages for Dress (book 1), hospitalPages for Hospital (book 2), travelPages for Travel (book 3), companyPages for Company (book 4), defaultPages for others
   const isCustomBook = !!(activeModalBook?.isFood || activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany);
-  // Light Theme styling for modal bars matching each book's background aesthetic
+  // Light Theme styling for modal bars matching each book's background aesthetic (with a slightly deeper, richer tint)
   const themeBgColor = activeModalBook?.isDress
-    ? '#EFEBE7'
+    ? '#DED6CE'
     : activeModalBook?.isHospital
-      ? '#E8F1F7'
+      ? '#B8D1E2'
       : activeModalBook?.isTravel
-        ? '#E9EFF4'
+        ? '#B8CDDC'
         : activeModalBook?.isCompany
-          ? '#EFECE6'
-          : '#E9EFE9';
+          ? '#DDD6CC'
+          : '#D4DDD4';
 
   const themeTextColor = activeModalBook?.isDress
-    ? '#4A3B32'
+    ? '#382B23'
     : activeModalBook?.isHospital
-      ? '#1E4A6D'
+      ? '#0E283E'
       : activeModalBook?.isTravel
-        ? '#1D4568'
+        ? '#0F2B42'
         : activeModalBook?.isCompany
-          ? '#4E3E2E'
-          : '#234433';
+          ? '#3C2E21'
+          : '#163324';
 
-  const themeBorderColor = 'rgba(0, 0, 0, 0.08)';
+  const themeBorderColor = 'rgba(0, 0, 0, 0.12)';
   const themeColor = themeTextColor;
   const activePages = activeModalBook?.isFood
     ? foodPages
