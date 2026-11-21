@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
+import { ChevronsLeft } from 'lucide-react';
 import axios from 'axios';
 import { Switch } from '../../components';
 import { useToast } from '../../../CustomToast';
@@ -852,9 +853,9 @@ const Visibility = ({ onBack, settings, onUpdate, bookName, v_id, folder }) => {
         </div>
         <button
           onClick={onBack}
-          className="p-[0.4vw] hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+          className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90"
         >
-          <Icon icon="ic:round-arrow-back" className="w-[1.1vw] h-[1.1vw] text-gray-600" />
+          <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
         </button>
       </div>
 

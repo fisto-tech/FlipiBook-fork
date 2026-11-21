@@ -51,6 +51,7 @@ import { PageNavigationControls } from './mainEditor/components/PageNavigationCo
 import { applyTrimViewToSvg, cleanTrimViewFromHtml, isElementCompletelyOutside } from './mainEditor/utils/trimViewUtils';
 import { drawShapeImageAdjustOverlay } from './penTool/penOverlayEngine';
 import { normalizeForeignObjectNamespaces } from './LeftActionMenu/Elements/utils/tableElementUtils';
+import { SHAPE_CURSOR, PENCIL_CURSOR, PEN_CURSOR, TYPE_CURSOR } from './mainEditor/utils/constants';
 
 // Re-export geometry utilities for backward compatibility with external components
 
@@ -1471,6 +1472,22 @@ const getDraggableElement = (target, canvasRoot) => {
   };
 
 
+  const activeCanvasCursor = (() => {
+    if (isSpaceDown || activeMainTool === 'hand') {
+      return isPanningRef.current ? 'grabbing' : 'grab';
+    }
+    if (activeMainTool === 'shapes') {
+      return SHAPE_CURSOR;
+    }
+    if (activeMainTool === 'pen') {
+      return selectedPenTool === 'pencil' ? PENCIL_CURSOR : PEN_CURSOR;
+    }
+    if (activeMainTool === 'type') {
+      return TYPE_CURSOR;
+    }
+    return 'default';
+  })();
+
   return (
     <div
       className={`flex-1 flex flex-col overflow-hidden h-full ${isPopupEditor ? 'bg-[#E5E7EB]' : 'bg-white'}`}
@@ -1522,7 +1539,7 @@ const getDraggableElement = (target, canvasRoot) => {
         data-editor-canvas="true"
         className="flex-1 relative flex items-center justify-center overflow-hidden"
         style={{
-          cursor: isSpaceDown ? (isPanningRef.current ? 'grabbing' : 'grab') : 'default',
+          cursor: activeCanvasCursor,
           background: computedCanvaBackground
         }}
         onContextMenu={(e) => {
@@ -1719,11 +1736,22 @@ const getDraggableElement = (target, canvasRoot) => {
         {/* Canvas Area container */}
         <div
           className={`w-full h-full flex items-center justify-center relative ${isPopupEditor ? 'overflow-visible' : 'overflow-hidden'} bg-transparent`}
+          style={{ cursor: activeCanvasCursor }}
           onMouseDown={(e) => {
             if (e.button === 0 && !isSpaceDownRef.current && activeMainTool !== 'hand' && !e.target.closest('[id^="canvas-content-"]') && !e.target.closest('.resize-handle') && !e.target.closest('button') && !e.target.closest('input') && !e.target.closest('.z-50')) {
               if (handleSvgMouseDown) {
                 handleSvgMouseDown(activePageIndex, e);
               }
+            }
+          }}
+          onMouseMove={(e) => {
+            if (handleSvgMouseMove) {
+              handleSvgMouseMove(activePageIndex, e);
+            }
+          }}
+          onMouseUp={(e) => {
+            if (handleSvgMouseUp) {
+              handleSvgMouseUp(e);
             }
           }}
           onDragOver={(e) => {

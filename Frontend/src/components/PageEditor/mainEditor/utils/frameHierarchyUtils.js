@@ -48,32 +48,33 @@ export const getDirectChildFrames = (el) => {
     return [];
   }
 
-  // If this element is an image/video/gif group or compound element (embed/map/audio/table/qr/slideshow/button/shape), it acts as a single layer
-  const dataType = el.getAttribute?.('data-type');
-  if (
-    el.getAttribute('data-is-image-group') ||
-    el.getAttribute('data-is-video-group') ||
-    el.getAttribute('data-is-gif-group') ||
-    el.getAttribute('data-is-element-button') === 'true' ||
-    dataType === 'button' ||
-    (el.id && el.id.startsWith('button-')) ||
-    el.getAttribute('data-is-element-shape') === 'true' ||
-    el.getAttribute('data-shape-type') ||
-    dataType === 'shape' ||
-    (el.id && el.id.startsWith('shape-')) ||
-    (typeof el.querySelector === 'function' && el.querySelector('[data-shape-type], [data-is-element-shape="true"]')) ||
-    dataType === 'embed-frame' ||
-    dataType === 'map' ||
-    dataType === 'audio-frame' ||
-    (el.id && el.id.startsWith('audio-')) ||
-    dataType === 'table-frame' ||
-    dataType === 'qrcode' ||
-    dataType === 'slideshow' ||
-    (el.id && el.id.startsWith('embed-')) ||
-    (el.id && el.id.startsWith('map-')) ||
-    (typeof el.querySelector === 'function' && el.querySelector('[data-type="embed-frame"]'))
-  ) {
-    return [];
+  // If this is a page root container or svg, never treat it as a compound leaf; always return its children
+  const isPage = isPageRootElement(el);
+  if (!isPage) {
+    const dataType = el.getAttribute?.('data-type');
+    if (
+      el.getAttribute('data-is-image-group') ||
+      el.getAttribute('data-is-video-group') ||
+      el.getAttribute('data-is-gif-group') ||
+      el.getAttribute('data-is-element-button') === 'true' ||
+      dataType === 'button' ||
+      (el.id && el.id.startsWith('button-')) ||
+      el.getAttribute('data-is-element-shape') === 'true' ||
+      el.getAttribute('data-shape-type') ||
+      dataType === 'shape' ||
+      (el.id && el.id.startsWith('shape-')) ||
+      dataType === 'embed-frame' ||
+      dataType === 'map' ||
+      dataType === 'audio-frame' ||
+      (el.id && el.id.startsWith('audio-')) ||
+      dataType === 'table-frame' ||
+      dataType === 'qrcode' ||
+      dataType === 'slideshow' ||
+      (el.id && el.id.startsWith('embed-')) ||
+      (el.id && el.id.startsWith('map-'))
+    ) {
+      return [];
+    }
   }
 
   return Array.from(el.children).filter(child => {
@@ -88,6 +89,33 @@ export const getDirectChildFrames = (el) => {
       child.getAttribute('data-locked') !== 'true' &&
       child.getAttribute('data-name') !== 'Overlay'
     );
+  });
+};
+
+/**
+ * Returns all selectable elements on a given page SVG (excluding backgrounds, shields, overlays, hidden/locked).
+ */
+export const getAllSelectablePageElements = (svg) => {
+  if (!svg) return [];
+  const topFrames = getTopLevelFrames(svg);
+  const candidates = [];
+  topFrames.forEach(el => {
+    if (isPageRootElement(el, svg)) {
+      candidates.push(...getDirectChildFrames(el));
+    } else {
+      candidates.push(el);
+    }
+  });
+
+  return candidates.filter(el => {
+    if (!el || !el.id) return false;
+    if (isPageRootElement(el, svg)) return false;
+    const isOverlay = el.getAttribute('data-name') === 'Overlay' || el.id === 'ghost-layer' || el.classList?.contains('selection-overlay-layer');
+    const isPageBackground = el.getAttribute('data-page-background') === 'true' || el.getAttribute('data-is-background') === 'true';
+    const isPdfBg = el.getAttribute('data-name')?.includes('PDF Background') || el.getAttribute('data-type') === 'pdf-vector-layer';
+    const isShield = el.getAttribute('data-name') === 'Document Shield' || el.getAttribute('data-type') === 'shield';
+    const isHiddenOrLocked = el.getAttribute('data-hidden') === 'true' || el.getAttribute('data-locked') === 'true';
+    return !isHiddenOrLocked && !isOverlay && !isPageBackground && !isPdfBg && !isShield;
   });
 };
 
@@ -111,16 +139,6 @@ const getCachedElementsFromPoint = (x, y) => {
 export const hitTest = (el, clientX, clientY, buffer = 0, selectedLayerId = null, multiSelectedIds = null) => {
   if (!el) return false;
 
-  // If element is completely outside in Trim View and NOT currently selected, NEVER hit test it
-  const isTrimOutside = el.getAttribute?.('data-trim-outside') === 'true' || (typeof el.closest === 'function' && el.closest('[data-trim-outside="true"]'));
-  if (isTrimOutside) {
-    const isSelected = (selectedLayerId && (selectedLayerId === el.id || el.closest?.(`[id="${selectedLayerId}"]`))) ||
-      (multiSelectedIds && (multiSelectedIds.has(el.id) || (el.id && multiSelectedIds.has(el.id))));
-    if (!isSelected) {
-      return false;
-    }
-  }
-
   const isCroppedEl = isElementCropped(el);
 
   // 1. Native browser hit testing (with coordinate-level caching)
@@ -130,16 +148,8 @@ export const hitTest = (el, clientX, clientY, buffer = 0, selectedLayerId = null
     if (!isCroppedEl) return true;
   }
 
-  const isVectorPath = el.getAttribute('data-type') === 'vector-path' || (el.tagName && el.tagName.toLowerCase() === 'path');
-  if (isVectorPath) {
-    const isSelected = (selectedLayerId && selectedLayerId === el.id) ||
-      (multiSelectedIds && multiSelectedIds.has(el.id));
-    if (!isSelected) {
-      return false;
-    }
-  }
-
-  // 2. Extrapolated local Bounding Box hit testing
+  // 2. Extrapolated local Bounding Box hit testing with generous buffer for effortless targeting
+  const effectiveBuffer = Math.max(buffer, 6);
   if (typeof el.getScreenCTM === 'function') {
     const svg = el.ownerSVGElement || (el.tagName && el.tagName.toLowerCase() === 'svg' ? el : null);
     if (svg && typeof svg.createSVGPoint === 'function') {
@@ -151,7 +161,7 @@ export const hitTest = (el, clientX, clientY, buffer = 0, selectedLayerId = null
         if (ctm) {
           const localPt = pt.matrixTransform(ctm.inverse());
           const scale = Math.sqrt(ctm.a * ctm.a + ctm.b * ctm.b) || 1;
-          const localBuffer = buffer / scale;
+          const localBuffer = effectiveBuffer / scale;
 
           let bbox = getVisualBBox(el);
           if (!bbox || (bbox.width === 0 && bbox.height === 0)) {

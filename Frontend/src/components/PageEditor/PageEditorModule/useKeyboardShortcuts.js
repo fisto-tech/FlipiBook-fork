@@ -7,6 +7,7 @@
 import { useEffect } from 'react';
 import { checkIsAnimatedWebp } from '../utils/editorUtils';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
+import { getTopLevelFrames, getDirectChildFrames, isPageRootElement, getAllSelectablePageElements } from '../mainEditor/utils/frameHierarchyUtils';
 
 export const useKeyboardShortcuts = ({
   selectedLayerId,
@@ -61,6 +62,26 @@ export const useKeyboardShortcuts = ({
         } else if (e.key.toLowerCase() === 'v') {
           if (clipboard) {
             pasteLayer(activePageIndex);
+          }
+        } else if (e.key.toLowerCase() === 'a') {
+          e.preventDefault();
+          const iframeDoc = document.getElementById('main-flipbook-editor')?.contentDocument;
+          const docs = [iframeDoc, document].filter(Boolean);
+          let svg = null;
+          for (const doc of docs) {
+            const activeContainer = doc.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+            if (activeContainer) {
+              svg = activeContainer.querySelector('svg');
+              if (svg) break;
+            }
+          }
+          if (svg) {
+            const selectable = getAllSelectablePageElements(svg);
+            const ids = selectable.map(el => el.id).filter(Boolean);
+            if (ids.length > 0) {
+              setMultiSelectedIds(new Set(ids));
+              setSelectedLayerId(ids[ids.length - 1]);
+            }
           }
         }
       } else {

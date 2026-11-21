@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
-import { Icon } from '@iconify/react';
-import { ArrowLeftRight, Minus, ChevronDown, X, Check } from 'lucide-react';
+import { Icon, addIcon } from '@iconify/react';
+import { ArrowLeftRight, Minus, ChevronDown, X, Check, ChevronsLeft } from 'lucide-react';
+
+// Register background icon with NO inside gray color shade (fully transparent interior)
+addIcon('andrsrxn:background', {
+  width: 24,
+  height: 24,
+  body: '<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.68 21.32h2.64c3.77 0 5.66 0 6.83-1.17s1.17-3.06 1.17-6.83v-2.64c0-3.77 0-5.66-1.17-6.83s-3.06-1.17-6.83-1.17h-2.64c-3.77 0-5.66 0-6.83 1.17s-1.17 3.06-1.17 6.83v2.64c0 3.77 0 5.66 1.17 6.83s3.06 1.17 6.83 1.17m-7.64-9.4l9.23 9.24M3.9 3.8l16.28 16.28M11.75 2.86l9.2 9.2"/>'
+});
 import backgroundComponents from '../../Backgrounds';
 import animationComponents from '../../Animations';
 import PremiumDropdown from '../../components/PremiumDropdown';
@@ -14,7 +21,8 @@ import {
   CustomColorPicker,
   AdjustmentSlider,
   DraggableSpan,
-  ImageCropOverlay
+  ImageCropOverlay,
+  BackgroundIcon
 } from '../../AppearanceShared';
 import ReplaceMediaModal from '../../../PageEditor/modals/ReplaceMediaModal';
 import { useAuth } from '../../../../context/AuthContext';
@@ -1052,7 +1060,7 @@ const BackgroundSection = ({
       {/* Panel Header */}
       <div className="h-[7.5vh] flex items-center justify-between px-[1.2vw] border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center gap-[0.75vw] text-gray-800">
-          <Icon icon="andrsrxn:background" className="w-[1.4vw] h-[1.4vw] text-black" />
+          <BackgroundIcon className="w-[1.4vw] h-[1.4vw] text-black" />
           <h2 className="text-[1vw] font-semibold text-gray-900">Background</h2>
         </div>
         {onBack && (
@@ -1060,14 +1068,14 @@ const BackgroundSection = ({
             onClick={onBack} 
             className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90"
           >
-            <Icon icon="ph:arrow-left-bold" className="w-[1.1vw] h-[1.1vw]" />
+            <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
           </button>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto bg-transparent pb-[2.5vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="px-[1vw] flex flex-col relative">
-      <div className="sticky top-0 z-[50] bg-[#1a2332] mb-[0.5vw] -mx-[1vw] px-[1.5vw] border-b border-[#26354a]">
+      <div className="sticky top-0 z-[50] bg-[#fafafa] mb-[0.5vw] -mx-[1vw] px-[1.5vw] border-b border-gray-200">
         <div className="flex items-center justify-center">
           {['Background', 'Themes', 'Animations'].map((tab) => (
             <button
@@ -1154,9 +1162,9 @@ const BackgroundSection = ({
 
                 onUpdateBackground(updates);
               }}
-              className={`pb-[1vw] pt-[0.5vw] mb-[-0.15vw] mt-[0.5vw] text-[0.85vw] font-medium transition-all border-b-[0.15vw] flex-1 ${activeTab === tab
-                  ? 'text-gray-900 border-[#EC5137]'
-                  : 'text-gray-400 border-transparent hover:text-gray-600'
+              className={`pb-[0.8vw] pt-[0.6vw] mb-[-0.08vw] text-[0.85vw] font-medium transition-all border-b-[2px] flex-1 ${activeTab === tab
+                  ? 'text-[#EC5137] border-[#EC5137]'
+                  : 'text-gray-500 border-transparent hover:text-gray-800'
                 }`}
             >
               {tab}
@@ -1178,9 +1186,9 @@ const BackgroundSection = ({
                 <button
                   key={styleLabel}
                   onClick={() => handleStyleChange(mappedStyle)}
-                  className={`flex-1 py-[0.45vw] text-[0.88vw] font-semibold rounded-[0.5vw] transition-all border border-transparent ${isSelected
-                      ? 'bg-white text-[#EC5137] shadow-[inset_0.2vw_0.2vw_0.4vw_rgba(0,0,0,0.08),inset_-0.2vw_-0.2vw_0.4vw_rgba(255,255,255,0.9)]'
-                      : 'bg-white text-gray-400 shadow-[0.2vw_0.2vw_0.5vw_rgba(0,0,0,0.05),-0.1vw_-0.1vw_0.3vw_rgba(255,255,255,1)] hover:shadow-[0.3vw_0.3vw_0.7vw_rgba(0,0,0,0.08)]'
+                  className={`flex-1 py-[0.45vw] text-[0.88vw] font-semibold rounded-[0.5vw] transition-all border ${isSelected
+                      ? 'bg-white text-[#EC5137] border-gray-200 shadow-sm'
+                      : 'bg-white text-gray-500 border-gray-200 hover:text-gray-800 shadow-2xs'
                     }`}
                 >
                   {styleLabel}
@@ -1202,7 +1210,7 @@ const BackgroundSection = ({
                   <span className="text-[0.75vw] font-semibold text-gray-700">Fill :</span>
                   <div className="flex-1 flex gap-[0.5vw] items-center color-picker-trigger">
                     <div
-                      className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] shadow-[0_2px_4px_rgba(0,0,0,0.06)] cursor-pointer hover:border-indigo-400 transition-colors"
+                      className="w-[2vw] h-[2vw] border border-gray-200 rounded-[0.5vw] shadow-sm cursor-pointer hover:border-indigo-400 transition-colors"
                       style={{ backgroundColor: (backgroundSettings.style === 'ReactBits' && backgroundSettings.savedSolidColor) ? backgroundSettings.savedSolidColor : backgroundSettings.color }}
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -1210,7 +1218,7 @@ const BackgroundSection = ({
                         setShowColorPicker(true);
                       }}
                     />
-                    <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
+                    <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-2xs">
                       <input
                         type="text"
                         value={(() => {
@@ -1234,8 +1242,10 @@ const BackgroundSection = ({
                           }
                           onUpdateBackground({ ...backgroundSettings, style: 'Solid', color: validHex + alphaHex });
                         }}
-                        className="text-[0.85vw] font-medium text-gray-700 font-mono bg-transparent w-[5vw] outline-none"
+                        style={{ backgroundColor: 'transparent' }}
+                        className="text-[0.85vw] font-medium text-gray-800 font-mono bg-transparent w-[5vw] outline-none"
                       />
+                      <div className="w-[1px] h-[1.1vw] bg-gray-200 mx-[0.3vw]" />
                       <DraggableSpan
                         label={`${(() => {
                           const colorStr = (backgroundSettings.style === 'ReactBits' && backgroundSettings.savedSolidColor) ? backgroundSettings.savedSolidColor : backgroundSettings.color;
@@ -1258,7 +1268,7 @@ const BackgroundSection = ({
                         }}
                         min={0}
                         max={100}
-                        className="text-[0.85vw] font-medium text-gray-400 font-mono"
+                        className="text-[0.85vw] font-medium text-gray-600 font-mono cursor-ew-resize select-none"
                       />
                     </div>
                     {window.EyeDropper && (
@@ -2010,16 +2020,16 @@ const BackgroundSection = ({
             </div>
           )}
           <div className="flex flex-col gap-[0.5vw] ">
-            <div className="sticky top-0 z-[50] flex items-center justify-between gap-[0.5vw] w-full mb-[0.5vw] bg-white py-[0.5vw]">
+            <div className="sticky top-0 z-[50] flex items-center justify-between gap-[0.5vw] w-full mb-[0.5vw] bg-[#fafafa] py-[0.5vw]">
               {['Static', 'Dynamic'].map((tabLabel) => {
                 const tabValue = tabLabel === 'Static' ? 'Background Themes' : 'Animated Themes';
                 return (
                   <button
                     key={tabValue}
                     onClick={() => setThemeType(tabValue)}
-                    className={`flex-1 py-[0.59vw] text-[0.80vw] font-semibold rounded-[0.5vw] transition-all border border-transparent ${themeType === tabValue
-                        ? 'bg-white text-gray-900 shadow-[inset_0.2vw_0.2vw_0.4vw_rgba(0,0,0,0.08),inset_-0.2vw_-0.2vw_0.4vw_rgba(255,255,255,0.9)]'
-                        : 'bg-white text-gray-400 shadow-[0.2vw_0.2vw_0.5vw_rgba(0,0,0,0.05),-0.1vw_-0.1vw_0.3vw_rgba(255,255,255,1)] hover:shadow-[0.3vw_0.3vw_0.7vw_rgba(0,0,0,0.08)]'
+                    className={`flex-1 py-[0.59vw] text-[0.80vw] font-semibold rounded-[0.5vw] transition-all border ${themeType === tabValue
+                        ? 'bg-white text-gray-900 border-gray-200 shadow-sm'
+                        : 'bg-white text-gray-400 border-gray-200 hover:text-gray-700 shadow-2xs'
                       }`}
                   >
                     {tabLabel}

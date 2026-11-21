@@ -286,21 +286,60 @@ const uploadAsset = async (req, res) => {
         let oldAsset = null;
         if (replacing_file_v_id) {
           oldAsset = await FlipbookAsset.findOne({ file_v_id: replacing_file_v_id });
-        } else if (replacing_file_url) {
-          const urlQuery = decodeURIComponent(replacing_file_url);
+        }
+        if (!oldAsset && replacing_file_url) {
+          const urlQuery = decodeURIComponent(replacing_file_url).split('?')[0];
           oldAsset = await FlipbookAsset.findOne({
             url: { $regex: urlQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$' }
           });
         }
 
-        if (oldAsset) {
-          if (oldAsset.fileName) {
-            const oldFilePath = path.join(targetDir, oldAsset.fileName);
-            if (fs.existsSync(oldFilePath)) {
-              try { fs.unlinkSync(oldFilePath); } catch (e) {}
+        // Determine target file name and potential disk locations to remove
+        const oldName = oldAsset?.fileName || (replacing_file_url ? path.basename(decodeURIComponent(replacing_file_url).split('?')[0]) : null);
+        const resolvedStorageRoot = path.resolve(storageRoot);
+
+        if (oldName) {
+          const candidatePaths = [
+            path.join(targetDir, oldName),
+            path.join(storageRoot, userFolder, 'books', safeFolderName, safeFlipbookName, 'assets', subFolder, oldName)
+          ];
+
+          // If replacing_file_url provides a storage path, extract and test
+          if (replacing_file_url) {
+            const cleanUrl = decodeURIComponent(replacing_file_url).split('?')[0];
+            const storageIdx = cleanUrl.indexOf('/storage/');
+            if (storageIdx !== -1) {
+              const relStoragePath = cleanUrl.substring(storageIdx + '/storage/'.length);
+              candidatePaths.push(path.join(storageRoot, relStoragePath));
             }
           }
+
+          // Check gallery subdirectories as fallback
+          const gallerySubs = ['images', 'Images', 'videos', 'Videos', 'gifs', 'audio', '3d_models', '3D_Models'];
+          for (const sub of gallerySubs) {
+            candidatePaths.push(path.join(storageRoot, userFolder, 'gallery', 'pageEditorgallery', sub, oldName));
+            candidatePaths.push(path.join(storageRoot, userFolder, 'Gallery', 'pageEditorgallery', sub, oldName));
+          }
+
+          for (const candPath of candidatePaths) {
+            const resolvedPath = path.resolve(candPath);
+            if (resolvedPath.startsWith(resolvedStorageRoot) && fs.existsSync(resolvedPath)) {
+              try { fs.unlinkSync(resolvedPath); } catch (e) {}
+            }
+          }
+        }
+
+        if (oldAsset) {
           await FlipbookAsset.deleteOne({ _id: oldAsset._id });
+          if (oldAsset.assetType === '3D_Model' || (oldAsset.fileName && oldAsset.fileName.toLowerCase().endsWith('.glb'))) {
+            await InteractionThreedModel.deleteMany({
+              $or: [
+                { fileName: oldAsset.fileName },
+                { v_id: oldAsset.file_v_id },
+                { url: oldAsset.url }
+              ]
+            }).catch(() => {});
+          }
         }
 
         // Also remove from UserGallery if it was a gallery asset

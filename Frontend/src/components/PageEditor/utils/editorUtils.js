@@ -1375,6 +1375,11 @@ export const sanitizeSvgXml = (rawContent) => {
   str = str.replace(/<[^>]*id="(?:vectra-overlay-group|node-edit-overlay-group|multi-selection-bounds|temp-blink-clone)"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
   str = str.replace(/<[^>]*id="(?:temp-blink-clone|temp-blink-[^"]*)"[^>]*\/?>/gi, '');
   str = str.replace(/<[^>]*class="[^"]*(?:slideshow-transition-clone|video-damage-rect)[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
+
+  // Enterprise Security Sanitization: Strip executable scripts, inline event handlers, and javascript: links
+  str = str.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+  str = str.replace(/\s+on(?:load|error|click|mouseover|mouseenter|focus|blur)\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '');
+  str = str.replace(/(?:href|xlink:href)\s*=\s*["']\s*javascript:[^"']*["']/gi, 'href=""');
   // Video control bars are nested markup: remove them with the DOM (below), not regex,
   // otherwise inner pieces (3s, play, time) are left behind and show as duplicate controls.
   const VIDEO_CTRL_SEL = '.custom-video-overlay, [id^="custom-ctrl-"], .custom-top-container, .custom-center-container, .custom-bottom-container, .custom-center-play-btn, .custom-time-wrapper, .custom-time-display, .custom-prog-container, .custom-play-btn, .custom-rewind-btn, .custom-forward-btn, .custom-repeat-btn, .custom-download-btn, .custom-fs-btn, .custom-vol-btn, .pv-center-play-btn';

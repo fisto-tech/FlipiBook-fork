@@ -8,7 +8,7 @@ import {
   parseSingleMatrix
 } from '../../penTool';
 import { getElementMatrix, matrixToTransform } from '../utils/geometryUtils';
-import { getTopLevelFrames } from '../utils/frameHierarchyUtils';
+import { getTopLevelFrames, getDirectChildFrames, isPageRootElement, getAllSelectablePageElements } from '../utils/frameHierarchyUtils';
 import { updateShapeMaskTransform, applySvgGradientOrSolid } from '../../LeftActionMenu/Elements/utils/shapeMaskUtils';
 
 /**
@@ -128,6 +128,24 @@ export const useCanvasKeyboardShortcuts = ({
       } else if (e.key.toLowerCase() === 'e' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('trigger-flatten'));
+      } else if (e.key.toLowerCase() === 'a' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const activeContainer = document.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+        const svg = activeContainer?.querySelector('svg');
+        if (!svg) return;
+
+        const selectable = getAllSelectablePageElements(svg);
+        const ids = selectable.map(el => el.id).filter(Boolean);
+        if (ids.length > 0) {
+          const newSet = new Set(ids);
+          if (setMultiSelectedIds) setMultiSelectedIds(newSet);
+          if (multiSelectedIdsRef) multiSelectedIdsRef.current = newSet;
+          if (setSelectedLayerId) setSelectedLayerId(ids[ids.length - 1]);
+          if (selectedLayerIdRef) selectedLayerIdRef.current = ids[ids.length - 1];
+          if (drawMultiSelectionHighlight) {
+            drawMultiSelectionHighlight(newSet, 'selected');
+          }
+        }
       } else if (e.key.toLowerCase() === 'g' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
 
