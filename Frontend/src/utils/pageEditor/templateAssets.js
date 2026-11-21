@@ -1,8 +1,5 @@
 // Frontend/src/utils/templateAssets.js
-
-export const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || '')
-  .trim()
-  .replace(/\/+$/, '');
+import { BACKEND_URL } from '../assets/assetUtils';
 
 /**
  * Returns the full backend URL for a template in Backend/assets/Templates/
