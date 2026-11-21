@@ -1788,14 +1788,18 @@ const PreviewArea = React.memo(({
     }, [activeSubView]);
 
     const prevEnabledRef = useRef(leadFormSettings?.enabled);
+    const prevTemplateKeyRef = useRef(leadFormSettings?._previewKey);
     useEffect(() => {
         const currentEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
         const prevEnabled = prevEnabledRef.current === true || prevEnabledRef.current === 'true';
-        if (currentEnabled && !prevEnabled && !isPublishedPreview) {
+        const templateChanged = leadFormSettings?._previewKey && leadFormSettings?._previewKey !== prevTemplateKeyRef.current;
+        if ((currentEnabled && !prevEnabled && !isPublishedPreview) || templateChanged) {
             setLeadFormSubmitted(false);
+            setShowLeadForm(true);
         }
         prevEnabledRef.current = leadFormSettings?.enabled;
-    }, [leadFormSettings?.enabled, isPublishedPreview]);
+        prevTemplateKeyRef.current = leadFormSettings?._previewKey;
+    }, [leadFormSettings?.enabled, leadFormSettings?._previewKey, isPublishedPreview]);
 
     useEffect(() => {
         const isEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';

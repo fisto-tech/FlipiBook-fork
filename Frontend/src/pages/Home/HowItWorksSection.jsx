@@ -72,7 +72,7 @@ export default function HowItWorksSection() {
         transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
         className="text-center w-full mb-7 sm:mb-9 md:mb-11 lg:mb-[3.2vw] space-y-2 sm:space-y-2.5 lg:space-y-[0.7vw]"
       >
-        <h2 className="text-2xl sm:text-4xl lg:text-[3vw] font-semibold text-[#1b222c] tracking-tight leading-tight">
+        <h2 className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-[#1b222c] leading-[1.12] tracking-tight font-sans">
           Create Your Interactive Digital Catalogue <br />
           <span className="text-[#ea543a]">in 4 Simple Steps</span>
         </h2>
