@@ -705,8 +705,10 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
   useEffect(() => {
     slots.forEach(slot => {
       if (slot.currentImage && !slotMeta[slot.id]) {
-        const isDefault = slot.currentImage === DEFAULT_FRAME_IMAGE ||
-          slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD');
+        const isDefault = !slot.currentImage ||
+          slot.currentImage === DEFAULT_FRAME_IMAGE ||
+          slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD') ||
+          slot.currentImage.startsWith('data:image/svg+xml');
 
         const shapeEl = selectedElement?.querySelector(`[fill="url(#${slot.id})"]`) ||
           selectedElement?.querySelector(`[data-pattern-id="${slot.id}"]`);
@@ -1314,7 +1316,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
       </div>
 
       {/* ── 1. Top Section: Add Images Dashed Button (shown before upload) ── */}
-      {!slots.some(s => s.currentImage && s.currentImage !== DEFAULT_FRAME_IMAGE) && (
+      {!slots.some(s => s.currentImage && s.currentImage !== DEFAULT_FRAME_IMAGE && !s.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD') && !s.currentImage.startsWith('data:image/svg+xml')) && (
         <div
           onClick={() => {
             const targetSlot = slots.find(s => s.id === activeSlotId) || slots[0];
@@ -1337,7 +1339,8 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
             const meta = slotMeta[slot.id] || {};
             const isDefault = !slot.currentImage ||
               slot.currentImage === DEFAULT_FRAME_IMAGE ||
-              slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD');
+              slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD') ||
+              slot.currentImage.startsWith('data:image/svg+xml');
             const hasUploaded = Boolean(
               meta.hasUploaded ||
               (meta.name && meta.name !== 'Image Name .jpg') ||

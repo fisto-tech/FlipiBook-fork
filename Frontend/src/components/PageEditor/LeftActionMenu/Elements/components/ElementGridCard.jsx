@@ -5,9 +5,9 @@ import React, { useRef } from 'react';
  * Renders an individual draggable & clickable element card in the Add Elements grid
  */
 export function ElementGridCard({ item, onInsert }) {
-  if (!item) return null;
-
   const previewRef = useRef(null);
+
+  if (!item) return null;
 
   const handleDragStart = (e) => {
     let ghostWidth = 60;

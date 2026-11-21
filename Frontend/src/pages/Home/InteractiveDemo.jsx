@@ -711,7 +711,6 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
         {activeModalBook && (
           <div
             className={`fixed inset-0 z-[1000] flex items-center justify-center ${isFullScreen ? 'p-0' : 'p-3 pt-[6vh] sm:p-[2vw] sm:pt-[7vh]'} bg-black/60 backdrop-blur-sm`}
-            onClick={() => setActiveModalBook(null)}
           >
             <motion.div
               ref={modalContainerRef}

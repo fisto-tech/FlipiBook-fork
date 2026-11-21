@@ -47,6 +47,7 @@ function cleanStaticHtml(html) {
       }
       rootSvg.setAttribute('width',  '100%');
       rootSvg.setAttribute('height', '100%');
+      rootSvg.setAttribute('preserveAspectRatio', 'none'); // fill edge to edge (no sub-pixel letterbox strip at the spine)
     }
 
     // Keep real map iframes intact with pointer-events: none during peel/turn and orange loading spinner
@@ -130,6 +131,7 @@ function sanitizePageHtmlForPreview(html) {
       }
       rootSvg.setAttribute('width',  '100%');
       rootSvg.setAttribute('height', '100%');
+      rootSvg.setAttribute('preserveAspectRatio', 'none'); // fill edge to edge (no sub-pixel letterbox strip at the spine)
     }
 
     doc.querySelectorAll('iframe').forEach(iframe => {

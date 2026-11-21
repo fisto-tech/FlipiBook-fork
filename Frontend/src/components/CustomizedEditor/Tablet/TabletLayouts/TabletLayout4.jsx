@@ -389,7 +389,7 @@ const TabletLayout4 = ({
                     {/* The Actual Book Content */}
                     <div 
                         className="w-full h-full flex items-center justify-center max-w-[80cqw] mx-auto z-0"
-                        style={{ transform: `translateX(${offset}px)`, transition: 'transform 0.5s ease-out' }}
+                        style={{ translate: `${offset}px 0`, transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.5s ease-out' }}
                     >
                          {children}
                     </div>

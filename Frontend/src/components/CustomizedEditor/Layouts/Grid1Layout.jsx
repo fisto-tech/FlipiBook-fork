@@ -840,8 +840,10 @@ const Grid1Layout = React.memo((props) => {
                         : (dimWidth * responsiveScale);
 
                     const gap = (isTablet ? 3.5 : 4.5);
-                    const leftPos = `calc(50% - ${bookHalfWidth}px - ${gap}vw)`;
-                    const rightPos = `calc(50% - ${bookHalfWidth}px - ${gap}vw)`;
+                    // Arrows sit at the spread position; the cover/back-cover shift is a GPU `translate` (no per-frame layout)
+                    const arrowShift = (isCover || isBackCover) && !isPortraitLayout ? bookHalfWidth : 0;
+                    const leftPos = `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`;
+                    const rightPos = `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`;
 
                     return (
                         <>
@@ -854,7 +856,8 @@ const Grid1Layout = React.memo((props) => {
                                         color: getLayoutColor('toolbar-text-main', '#FFFFFF'),
                                         opacity: hasPrev ? 1 : 0,
                                         pointerEvents: hasPrev ? 'auto' : 'none',
-                                        transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                        translate: `calc(${arrowShift}px - var(--fbe-arrow-nudge, 0px)) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                     }}
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -876,7 +879,8 @@ const Grid1Layout = React.memo((props) => {
                                         color: getLayoutColor('toolbar-text-main', '#FFFFFF'),
                                         opacity: hasNext ? 1 : 0,
                                         pointerEvents: hasNext ? 'auto' : 'none',
-                                        transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                        translate: `calc(var(--fbe-arrow-nudge, 0px) - ${arrowShift}px) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                     }}
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -968,9 +972,9 @@ const Grid1Layout = React.memo((props) => {
                 <div
                     className="relative flipbook-magazine-wrapper"
                     style={{
-                        transform: `translateX(${localOffset}px) scale(${responsiveScale})`,
+                        translate: `${localOffset}px 0`, transform: `scale(${responsiveScale})`,
                         transformOrigin: 'center center',
-                        transition: 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
+                        transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
                         width: isPortraitLayout ? dimWidth : dimWidth * 2,
                         height: dimHeight
                     }}
