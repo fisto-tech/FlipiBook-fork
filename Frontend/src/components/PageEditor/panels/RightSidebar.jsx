@@ -410,6 +410,23 @@ const RightSidebar = ({
 
   const selectedElementProps = useMemo(() => {
     if (!selectedLayerId) return null;
+
+    // Check live canvas DOM first: if the canvas container is mounted and element was removed, return null immediately
+    if (typeof document !== 'undefined') {
+      const pageContainer = document.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+      if (pageContainer) {
+        let liveEl = null;
+        try {
+          liveEl = pageContainer.querySelector(`[id="${CSS.escape(selectedLayerId)}"]`);
+        } catch {
+          liveEl = document.getElementById(selectedLayerId);
+        }
+        if (!liveEl) {
+          return null;
+        }
+      }
+    }
+
     const page = pages[activePageIndex];
     if (page && page.html) {
       const parser = new DOMParser();

@@ -1678,17 +1678,20 @@ const Layer = ({
                                     Page is hidden
                                   </div>
                                 ) : (() => {
-                                  let effectiveLayers = [];
+                                  let effectiveLayers = null;
                                   if (index === activePageIndex && typeof document !== 'undefined') {
                                     const liveSvg = document.querySelector(`.page-svg-container[data-page-index="${index}"] svg`);
                                     if (liveSvg) {
                                       try {
                                         const parsed = parseLayersFromSVG(liveSvg);
-                                        if (parsed && parsed.length > 0) effectiveLayers = parsed;
+                                        if (Array.isArray(parsed)) {
+                                          effectiveLayers = parsed;
+                                          pageCacheManager.setCachedLayers(page.id, page.html, parsed);
+                                        }
                                       } catch (e) {}
                                     }
                                   }
-                                  if (!effectiveLayers || effectiveLayers.length === 0) {
+                                  if (effectiveLayers === null) {
                                     effectiveLayers = (page.layers && page.layers.length > 0)
                                       ? page.layers
                                       : (pageCacheManager.getCachedLayers(page.id, page.html) || []);

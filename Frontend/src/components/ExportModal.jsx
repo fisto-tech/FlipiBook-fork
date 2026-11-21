@@ -596,7 +596,19 @@ const SQUARE_BLACK_INK_ICONS = {
   ),
 };
 
-const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageIndex = 0, activePages = [], isFromMyFlipbooks = false, isAbsolutePosition = false }) => {
+const EMPTY_PAGES_ARRAY = [];
+const EMPTY_ACTIVE_PAGES_ARRAY = [];
+
+const ExportModal = ({
+  isOpen,
+  onClose,
+  currentBook,
+  pages = EMPTY_PAGES_ARRAY,
+  currentPageIndex = 0,
+  activePages = EMPTY_ACTIVE_PAGES_ARRAY,
+  isFromMyFlipbooks = false,
+  isAbsolutePosition = false
+}) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('flipbook');
   const [exportType, setExportType] = useState('entire'); // 'entire' or 'selected'
@@ -1219,10 +1231,13 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
     return '3 / 4';
   }, [modalPages, currentBook]);
 
+  const hasFetchedPagesRef = useRef(false);
+
   // Sync / Fetch pages when modal opens
   React.useEffect(() => {
     if (!isOpen) {
-      setModalPages(prev => prev.length === 0 ? prev : []);
+      hasFetchedPagesRef.current = false;
+      setModalPages(prev => prev.length === 0 ? prev : EMPTY_PAGES_ARRAY);
       setIsLoadingPages(prev => !prev ? prev : false);
       setProjectBaseUrl(prev => prev === '' ? prev : '');
       return;
@@ -1257,6 +1272,9 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
     };
 
     const fetchAllFromBackend = () => {
+      if (hasFetchedPagesRef.current) return;
+      hasFetchedPagesRef.current = true;
+
       if (!emailId) {
         setIsLoadingPages(false);
         return;
@@ -1327,6 +1345,9 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
     if (pages && pages.length > 0) {
       const hasMissingHtml = pages.some(p => (!p.html && !p.content));
       if (hasMissingHtml) {
+        if (hasFetchedPagesRef.current) return;
+        hasFetchedPagesRef.current = true;
+
         if (pBaseUrl && pages.some(p => p.fileName)) {
           setIsLoadingPages(true);
           Promise.all(pages.map(async (p, i) => {
@@ -1368,6 +1389,8 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
     }
   }, [isOpen, pages, currentBook]);
 
+  const activePagesKey = Array.isArray(activePages) ? activePages.join(',') : '';
+
   // Keep currentPage and selectedPages in sync when modalPages updates
   React.useEffect(() => {
     if (isOpen && modalPages.length > 0) {
@@ -1398,7 +1421,7 @@ const ExportModal = ({ isOpen, onClose, currentBook, pages = [], currentPageInde
     } else if (!isOpen) {
       setSelectedPages(prev => prev.size === 0 ? prev : new Set());
     }
-  }, [isOpen, modalPages, currentPageIndex, activePages, exportType]);
+  }, [isOpen, modalPages, currentPageIndex, activePagesKey, exportType]);
 
   // Force entire book export type if opened from MyFlipbooks list
   React.useEffect(() => {

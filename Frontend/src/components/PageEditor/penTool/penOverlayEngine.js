@@ -6,6 +6,7 @@
  */
 
 import { getPaperSegments, getPaperCurves } from './vectorNodeEngine';
+import { isPlaceholderImage, hasCustomImageInShape } from '../LeftActionMenu/Elements/utils/imageFramingUtils';
 
 /**
  * Renders the masked image crop preview:
@@ -54,7 +55,7 @@ export const renderMaskCropPreview = (pathEl, nodeGroup, svgMatrix, invScale, pa
     pathEl.getAttribute('data-slot-original-url') ||
     imgNode?.getAttribute('href') ||
     imgNode?.getAttribute('xlink:href');
-  if (!imgUrl) return;
+  if (!imgUrl || isPlaceholderImage(imgUrl)) return;
 
   let bbox;
   try {
@@ -230,7 +231,7 @@ export const renderMaskCropPreview = (pathEl, nodeGroup, svgMatrix, invScale, pa
  * WITHOUT rendering any path anchor points, curve handles, or pen edit controls.
  */
 export const drawShapeImageAdjustOverlay = (shapeEl, pageIndex, zoom = 100) => {
-  if (!shapeEl) return;
+  if (!shapeEl || !hasCustomImageInShape(shapeEl)) return;
   const overlay = document.getElementById(`highlight-overlay-${pageIndex}`);
   if (!overlay) return;
 

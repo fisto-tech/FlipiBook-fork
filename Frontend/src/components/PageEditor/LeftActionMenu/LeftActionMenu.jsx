@@ -35,8 +35,6 @@ export const LeftActionMenu = ({
   onToggleIconsModal,
   onCloseIconsModal,
 }) => {
-  if (isPdfProject || isPdfMode || activeTopTool === 'interaction' || activeTopTool === 'animation') return null;
-
   const [rulerActive, setRulerActive] = useState(isRulerEnabled);
   const menuContainerRef = useRef(null);
 
@@ -60,6 +58,8 @@ export const LeftActionMenu = ({
     window.addEventListener('editor_toggleRuler', handleToggleRuler);
     return () => window.removeEventListener('editor_toggleRuler', handleToggleRuler);
   }, []);
+
+  if (isPdfProject || isPdfMode || activeTopTool === 'interaction' || activeTopTool === 'animation') return null;
 
   // Handle menu item click
   const handleItemClick = (menuKey) => {

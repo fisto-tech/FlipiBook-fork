@@ -16,6 +16,7 @@ import { useInlineTextEditor } from './useInlineTextEditor';
 import editCacheManager from '../../utils/EditCacheManager';
 import { updateShapeMaskTransform } from '../../LeftActionMenu/Elements/utils/shapeMaskUtils';
 import { drawShapeImageAdjustOverlay } from '../../penTool/penOverlayEngine';
+import { hasCustomImageInShape } from '../../LeftActionMenu/Elements/utils/imageFramingUtils';
 
 /**
  * Hook managing canvas pointer interactions:
@@ -198,13 +199,16 @@ export const useCanvasPointerEvents = ({
 
   const startShapeImageAdjust = useCallback((targetEl, pageIndex) => {
     if (!targetEl) return;
+    const shapeEl = targetEl.tagName?.toLowerCase() === 'g'
+      ? (targetEl.querySelector('path, rect, circle, ellipse, polygon') || targetEl)
+      : targetEl;
+    if (!hasCustomImageInShape(shapeEl)) {
+      return; // Placeholder images should not be adjusted or moved inside the frame
+    }
     exitShapeImageAdjust();
     if (nodeEditModeRef.current) {
       exitNodeEditMode();
     }
-    const shapeEl = targetEl.tagName?.toLowerCase() === 'g'
-      ? (targetEl.querySelector('path, rect, circle, ellipse, polygon') || targetEl)
-      : targetEl;
     shapeImageAdjustTargetRef.current = shapeEl;
     shapeImageAdjustPageIndexRef.current = pageIndex;
     window.__isAdjustingShapeImage = true;
@@ -359,6 +363,10 @@ export const useCanvasPointerEvents = ({
     // ── STANDALONE SHAPE IMAGE ADJUST MODE (Unflattened masked shapes) ────────
     if (shapeImageAdjustTargetRef.current) {
       const target = shapeImageAdjustTargetRef.current;
+      if (!hasCustomImageInShape(target)) {
+        exitShapeImageAdjust();
+        return;
+      }
       const rect = target.getBoundingClientRect();
       const ghostRect = window.__shapeImageAdjustGhostRect;
       const isInsideShape = (
@@ -727,8 +735,8 @@ export const useCanvasPointerEvents = ({
         pathEl.getAttribute?.('data-mask-enabled') === 'true' ||
         pathEl.getAttribute?.('data-masked-image-url') ||
         pathEl.closest?.('[data-mask-enabled="true"]') !== null ||
-        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern-')) ||
-        pathEl.closest?.('[fill*="url(#pattern-"]') !== null
+        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern')) ||
+        pathEl.closest?.('[fill*="url(#pattern"]') !== null
       );
       const rect = pathEl.getBoundingClientRect();
       const isInsideBbox = (
@@ -738,29 +746,33 @@ export const useCanvasPointerEvents = ({
       const isInsideShape = isInsideBbox || (e.target === pathEl || pathEl.contains(e.target)) || hitTest(pathEl, e.clientX, e.clientY) || (paperPath?.contains && paperPath.contains(mousePt));
 
       if (hasImageMask && isInsideShape) {
-        if (!nodeEditImageAdjustRef?.current || pathEl.getAttribute('data-image-adjust-active') !== 'true') {
-          if (nodeEditImageAdjustRef) nodeEditImageAdjustRef.current = true;
-          pathEl.setAttribute('data-image-adjust-active', 'true');
-          drawNodeEditOverlay(pathEl, paperPath, pageIndex);
-        }
+        if (!hasCustomImageInShape(pathEl)) {
+          // Placeholder inside frame should not be moved/panned
+        } else {
+          if (!nodeEditImageAdjustRef?.current || pathEl.getAttribute('data-image-adjust-active') !== 'true') {
+            if (nodeEditImageAdjustRef) nodeEditImageAdjustRef.current = true;
+            pathEl.setAttribute('data-image-adjust-active', 'true');
+            drawNodeEditOverlay(pathEl, paperPath, pageIndex);
+          }
 
-        nodeEditDragRef.current = {
-          mode: 'image-pan',
-          pathEl,
-          paperPath,
-          startPt: pt,
-          startClientX: e.clientX,
-          startClientY: e.clientY,
-          startPanX: parseFloat(pathEl.getAttribute('data-slot-pan-x') || '0'),
-          startPanY: parseFloat(pathEl.getAttribute('data-slot-pan-y') || '0'),
-          startZoom: parseFloat(pathEl.getAttribute('data-slot-zoom') || '1'),
-          bbox: rect,
-          scale: zoom / 100,
-          pageIndex
-        };
-        suppressClickRef.current = true;
-        e.stopPropagation();
-        return;
+          nodeEditDragRef.current = {
+            mode: 'image-pan',
+            pathEl,
+            paperPath,
+            startPt: pt,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startPanX: parseFloat(pathEl.getAttribute('data-slot-pan-x') || '0'),
+            startPanY: parseFloat(pathEl.getAttribute('data-slot-pan-y') || '0'),
+            startZoom: parseFloat(pathEl.getAttribute('data-slot-zoom') || '1'),
+            bbox: rect,
+            scale: zoom / 100,
+            pageIndex
+          };
+          suppressClickRef.current = true;
+          e.stopPropagation();
+          return;
+        }
       }
 
       // Clicked outside all nodes and path → exit Node Edit Mode and select full path
@@ -2093,10 +2105,10 @@ export const useCanvasPointerEvents = ({
         pathEl.getAttribute?.('data-mask-enabled') === 'true' ||
         pathEl.getAttribute?.('data-masked-image-url') ||
         pathEl.closest?.('[data-mask-enabled="true"]') !== null ||
-        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern-')) ||
-        pathEl.closest?.('[fill*="url(#pattern-"]') !== null
+        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern')) ||
+        pathEl.closest?.('[fill*="url(#pattern"]') !== null
       );
-      if (!hasImageMask) return;
+      if (!hasImageMask || !hasCustomImageInShape(pathEl)) return;
 
       const rect = pathEl.getBoundingClientRect();
       const ghostRect = window.__shapeImageAdjustGhostRect;
@@ -3345,9 +3357,9 @@ export const useCanvasPointerEvents = ({
           slotPath = under.find(el => el.closest && el.closest(`[id="${frameParent.id}"]`) && ['path', 'polygon', 'rect', 'circle', 'ellipse'].includes(el.tagName?.toLowerCase()));
         }
         if (!slotPath) {
-          slotPath = frameParent.querySelector('[fill*="url(#pattern-"]') || frameParent.querySelector('path, polygon, rect, circle, ellipse');
+          slotPath = frameParent.querySelector('[fill*="url(#pattern"]') || frameParent.querySelector('path, polygon, rect, circle, ellipse');
         }
-        if (slotPath) {
+        if (slotPath && hasCustomImageInShape(slotPath)) {
           const container = frameParent.closest('.page-svg-container');
           const pageIdx = container ? parseInt(container.getAttribute('data-page-index')) : activePageIndex;
           startShapeImageAdjust(slotPath, pageIdx);
@@ -3367,10 +3379,10 @@ export const useCanvasPointerEvents = ({
         const hasMask = Boolean(
           compoundParent.getAttribute('data-mask-enabled') === 'true' ||
           compoundParent.getAttribute('data-masked-image-url') ||
-          (compoundParent.getAttribute('fill') && compoundParent.getAttribute('fill').includes('url(#pattern-')) ||
-          compoundParent.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern-"]')
+          (compoundParent.getAttribute('fill') && compoundParent.getAttribute('fill').includes('url(#pattern')) ||
+          compoundParent.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern"]')
         );
-        if (hasMask) {
+        if (hasMask && hasCustomImageInShape(compoundParent)) {
           const container = compoundParent.closest('.page-svg-container');
           const pageIdx = container ? parseInt(container.getAttribute('data-page-index')) : activePageIndex;
           startShapeImageAdjust(compoundParent, pageIdx);
@@ -3413,8 +3425,8 @@ export const useCanvasPointerEvents = ({
     const hasImageMaskTarget = Boolean(
       target?.getAttribute?.('data-mask-enabled') === 'true' ||
       target?.closest?.('[data-mask-enabled="true"]') !== null ||
-      (target?.getAttribute?.('fill') && target.getAttribute('fill').includes('url(#pattern-')) ||
-      target?.closest?.('[fill*="url(#pattern-"]') !== null
+      (target?.getAttribute?.('fill') && target.getAttribute('fill').includes('url(#pattern')) ||
+      target?.closest?.('[fill*="url(#pattern"]') !== null
     );
 
     const targetFrame = target?.closest?.(
@@ -3432,9 +3444,9 @@ export const useCanvasPointerEvents = ({
         slotPath = under.find(el => el.closest && el.closest(`[id="${targetFrame.id}"]`) && ['path', 'polygon', 'rect', 'circle', 'ellipse'].includes(el.tagName?.toLowerCase()));
       }
       if (!slotPath) {
-        slotPath = targetFrame.querySelector('[fill*="url(#pattern-"]') || targetFrame.querySelector('path, polygon, rect, circle, ellipse');
+        slotPath = targetFrame.querySelector('[fill*="url(#pattern"]') || targetFrame.querySelector('path, polygon, rect, circle, ellipse');
       }
-      if (slotPath) {
+      if (slotPath && hasCustomImageInShape(slotPath)) {
         const container = targetFrame.closest('.page-svg-container');
         const pageIdx = container ? parseInt(container.getAttribute('data-page-index')) : activePageIndex;
         startShapeImageAdjust(slotPath, pageIdx);
@@ -3460,10 +3472,10 @@ export const useCanvasPointerEvents = ({
       const hasMask = Boolean(
         targetCompound.getAttribute('data-mask-enabled') === 'true' ||
         targetCompound.getAttribute('data-masked-image-url') ||
-        (targetCompound.getAttribute('fill') && targetCompound.getAttribute('fill').includes('url(#pattern-')) ||
-        targetCompound.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern-"]')
+        (targetCompound.getAttribute('fill') && targetCompound.getAttribute('fill').includes('url(#pattern')) ||
+        targetCompound.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern"]')
       );
-      if (hasMask) {
+      if (hasMask && hasCustomImageInShape(targetCompound)) {
         const container = targetCompound.closest('.page-svg-container');
         const pageIdx = container ? parseInt(container.getAttribute('data-page-index')) : activePageIndex;
         startShapeImageAdjust(targetCompound, pageIdx);

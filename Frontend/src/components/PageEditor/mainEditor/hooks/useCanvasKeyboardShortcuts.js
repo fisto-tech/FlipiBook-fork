@@ -342,21 +342,19 @@ export const useCanvasKeyboardShortcuts = ({
           }
         });
 
-        if (deleted && updatePageHtml) {
-          updatePageHtml(activePageIndex, svg.outerHTML);
-          const topFrames = getTopLevelFrames(svg);
-          const rootId = (topFrames && topFrames.length > 0 ? topFrames[0].id : pages[activePageIndex]?.layers?.[0]?.id);
-          if (rootId) {
-            if (setSelectedLayerId) setSelectedLayerId(rootId);
-            if (setMultiSelectedIds) setMultiSelectedIds(new Set([rootId]));
-            if (setCurrentFrameId) setCurrentFrameId(rootId);
-            if (currentFrameIdRef) currentFrameIdRef.current = rootId;
-          } else {
-            if (setSelectedLayerId) setSelectedLayerId(null);
-            if (setMultiSelectedIds) setMultiSelectedIds(new Set());
-            if (setCurrentFrameId) setCurrentFrameId(null);
-            if (currentFrameIdRef) currentFrameIdRef.current = null;
+        if (deleted) {
+          if (typeof saveModifiedPageHtml === 'function') {
+            saveModifiedPageHtml(activePageIndex, svg);
+          } else if (updatePageHtml) {
+            updatePageHtml(activePageIndex, svg.outerHTML);
           }
+
+          if (setSelectedLayerId) setSelectedLayerId(null);
+          if (setMultiSelectedIds) setMultiSelectedIds(new Set());
+          if (setCurrentFrameId) setCurrentFrameId(null);
+          if (currentFrameIdRef) currentFrameIdRef.current = null;
+
+          document.querySelectorAll('.selection-overlay-layer polygon, [id^="overlay-poly-"], [id^="highlight-overlay-html-"]').forEach(el => el.remove());
         }
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();

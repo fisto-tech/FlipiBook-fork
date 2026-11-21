@@ -1,4 +1,5 @@
 const User = require('../../../../shared/models/User');
+const Profile = require('../../../../shared/models/Profile');
 const Flipbook = require('../../../../shared/models/Flipbook');
 const backupService = require('../../../../shared/backupService');
 const { recordAdminLog } = require('../middlewares/adminAuthMiddleware');
@@ -59,19 +60,34 @@ const listUsers = async (req, res) => {
       User.countDocuments(filter)
     ]);
 
-    // Attach flipbook count for each user
+    // Attach profile and flipbook count for each user
     const usersWithCounts = await Promise.all(
       users.map(async (u) => {
-        const bookCount = await Flipbook.countDocuments({
-          $or: [
-            { userId: u._id },
-            { userEmail: u.emailId },
-            { userID: u.userID }
-          ]
-        });
+        const [profile, bookCount] = await Promise.all([
+          Profile.findOne({
+            $or: [
+              ...(u.userID ? [{ userID: u.userID }] : []),
+              ...(u.emailId ? [{ emailId: u.emailId }] : []),
+              ...(u.email ? [{ emailId: u.email }] : [])
+            ]
+          }).lean(),
+          Flipbook.countDocuments({
+            $or: [
+              { userId: u._id },
+              { userEmail: u.emailId },
+              { userID: u.userID }
+            ]
+          })
+        ]);
+
         return {
           ...u,
-          booksCount: bookCount
+          displayName: profile?.displayName || u.displayName || u.name || 'User',
+          accountType: profile?.accountType || u.accountType || 'Individual',
+          plan: u.plan || 'Free',
+          status: u.status || 'Active',
+          booksCount: bookCount,
+          profile: profile || null
         };
       })
     );
@@ -101,19 +117,35 @@ const getUserDetails = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const flipbooks = await Flipbook.find({
-      $or: [
-        { userId: user._id },
-        { userEmail: user.emailId },
-        { userID: user.userID }
-      ]
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const [flipbooks, profile] = await Promise.all([
+      Flipbook.find({
+        $or: [
+          { userId: user._id },
+          { userEmail: user.emailId },
+          { userID: user.userID }
+        ]
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+      Profile.findOne({
+        $or: [
+          ...(user.userID ? [{ userID: user.userID }] : []),
+          ...(user.emailId ? [{ emailId: user.emailId }] : []),
+          ...(user.email ? [{ emailId: user.email }] : [])
+        ]
+      }).lean()
+    ]);
 
     res.json({
       success: true,
-      user,
+      user: {
+        ...user,
+        displayName: profile?.displayName || user.displayName || user.name || 'User',
+        accountType: profile?.accountType || user.accountType || 'Individual',
+        plan: user.plan || 'Free',
+        status: user.status || 'Active'
+      },
+      profile: profile || null,
       flipbooks,
       totalBooks: flipbooks.length
     });

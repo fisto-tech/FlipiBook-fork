@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import ComingSoon from '../../pages/ComingSoon';
 import { COMING_SOON_FORCE_KEY } from '../../config/launchLock';
+
+const ComingSoon = lazy(() => import('../../pages/ComingSoon'));
 
 /**
  * Coming Soon popup for the Home page. Render once inside Home:
@@ -68,7 +69,9 @@ export default function ComingSoonModal({ openOnMount = true }) {
                 <path d="M6 6l12 12" />
               </svg>
             </button>
-            <ComingSoon embedded />
+            <Suspense fallback={null}>
+              <ComingSoon embedded />
+            </Suspense>
           </motion.div>
         </motion.div>
       )}

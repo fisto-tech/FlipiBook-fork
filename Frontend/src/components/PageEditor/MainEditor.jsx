@@ -29,7 +29,7 @@ import { useSelectionOverlays } from './mainEditor/hooks/useSelectionOverlays';
 import { useInteractEngine } from './mainEditor/hooks/useInteractEngine';
 import { convertTextToForeignObject } from './mainEditor/utils/textConversionUtils';
 // Encapsulated in useCanvasPointerEvents
-import { useCanvasZoomPan } from './mainEditor/hooks/useCanvasZoomPan';
+import { useCanvasZoomPan, computePanBounds } from './mainEditor/hooks/useCanvasZoomPan';
 import { alignSelectedElements } from './mainEditor/utils/alignmentUtils';
 import { useCanvasTransforms } from './mainEditor/hooks/useCanvasTransforms';
 import { useCanvasAssetInsertion } from './mainEditor/hooks/useCanvasAssetInsertion';
@@ -47,6 +47,7 @@ import {
 } from './LeftActionMenu';
 import { getTopLevelFrames, hitTest as hitTestExt, isPageRootElement } from './mainEditor/utils/frameHierarchyUtils';
 import { parseLayersFromSVG, sanitizeSvgXml } from './utils/editorUtils';
+import { DEFAULT_FRAME_IMAGE } from './LeftActionMenu/Elements/utils/imageFramingUtils';
 import { PageNavigationControls } from './mainEditor/components/PageNavigationControls';
 import { applyTrimViewToSvg, cleanTrimViewFromHtml, isElementCompletelyOutside } from './mainEditor/utils/trimViewUtils';
 import { drawShapeImageAdjustOverlay } from './penTool/penOverlayEngine';
@@ -497,6 +498,11 @@ const MainEditor = ({
       .replace(/<\s*br[^>]*>(?:<\/\s*br\s*>)?/gi, '<br/>')
       .replace(/<\/\s*br\s*>/gi, '');
     finalHtml = sanitizeSvgXml(finalHtml);
+
+    // Auto-purge legacy heavy 57KB JPEG frame placeholders to save disk space and memory
+    if (finalHtml.includes('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD')) {
+      finalHtml = finalHtml.replace(/data:image\/jpeg;base64,\/9j\/4AAQSkZJRgABAQAASABIAAD[A-Za-z0-9+/=]+/g, DEFAULT_FRAME_IMAGE);
+    }
 
     // Normalize any foreignObject so XHTML namespace is explicitly preserved
     finalHtml = normalizeForeignObjectNamespaces(finalHtml);
@@ -1582,20 +1588,14 @@ const getDraggableElement = (target, canvasRoot) => {
 
             if (!editorContainerRef.current) return;
 
-            const containerWidth = editorContainerRef.current.clientWidth;
-            const containerHeight = editorContainerRef.current.clientHeight;
-
-            const baseVhHeight = window.innerHeight * 0.78;
             const currentScale = zoom / 100;
-
-            const bounds = getCanvasBounds(null, baseWidth, baseHeight);
-            const canvasWidthMM = bounds.canvasWidthMM || 1600;
-
-            const scaledCanvasW = (baseVhHeight * (canvasWidthMM / baseHeight)) * currentScale;
-            const scaledCanvasH = (baseVhHeight * (1000 / baseHeight)) * currentScale;
-
-            const maxPanX = Math.max(containerWidth * 1.5, scaledCanvasW);
-            const maxPanY = Math.max(containerHeight * 1.5, scaledCanvasH);
+            const { maxPanX, maxPanY } = computePanBounds(
+              editorContainerRef.current,
+              zoomContainerRef.current,
+              currentScale,
+              baseWidth,
+              baseHeight
+            );
 
             const boundedX = Math.min(Math.max(newX, -maxPanX), maxPanX);
             const boundedY = Math.min(Math.max(newY, -maxPanY), maxPanY);
