@@ -178,9 +178,30 @@ const FlipbookShareEvent = mongoose.models.FlipbookShareEvent || mongoose.model(
   shareEventSchema
 );
 
+// Flipbook Lead Form Event schema for tracking impressions, skips, and views
+const leadFormEventSchema = new mongoose.Schema(
+  {
+    v_id: { type: String, required: true, index: true },
+    shareId: { type: String, default: "", index: true },
+    userEmail: { type: String, default: "", index: true },
+    sessionId: { type: String, default: "" },
+    action: { type: String, enum: ["view", "skip", "dismiss"], default: "view", index: true },
+    createdAt: { type: Date, default: Date.now, index: true }
+  },
+  { timestamps: true }
+);
+
+leadFormEventSchema.index({ v_id: 1, createdAt: -1 });
+
+const FlipbookLeadFormEvent = mongoose.models.FlipbookLeadFormEvent || mongoose.model(
+  "FlipbookLeadFormEvent",
+  leadFormEventSchema
+);
+
 module.exports = {
   FlipbookSessionAnalytics,
   FlipbookDownloadEvent,
-  FlipbookShareEvent
+  FlipbookShareEvent,
+  FlipbookLeadFormEvent
 };
 

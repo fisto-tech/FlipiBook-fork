@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { ChevronDown, Lock } from "lucide-react";
+import { ChevronDown, Lock, Loader2 } from "lucide-react";
 import { Icon } from "@iconify/react";
+import { optimizeImageForWeb, shouldOptimizeImage } from "../../../utils/imageOptimizer";
 import PhoneInputModule from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 
@@ -150,6 +151,20 @@ const GlbModel = ({ url }) => {
   return (
     <Canvas
       camera={{ fov: 50, position: [0, 0, 5] }}
+      gl={{ powerPreference: 'high-performance', preserveDrawingBuffer: true }}
+      onCreated={({ gl }) => {
+        const el = gl.domElement;
+        if (el) {
+          el.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            console.warn('[GlbModel] WebGL context lost prevented.');
+          }, false);
+          el.addEventListener('webglcontextrestored', () => {
+            console.log('[GlbModel] WebGL context restored.');
+            gl.renderLists?.dispose?.();
+          }, false);
+        }
+      }}
       style={{ background: "transparent", width: "100%", height: "100%" }}
     >
       <React.Suspense fallback={null}>
@@ -1177,6 +1192,7 @@ const InteractionPanel = ({
   const [cardActionOverrides, setCardActionOverrides] = useState({});
   const [active3DGalleryItem, setActive3DGalleryItem] = useState(null);
   const [isSlideshowGalleryOpen, setIsSlideshowGalleryOpen] = useState(false);
+  const [isCompressingInteractionSlideshow, setIsCompressingInteractionSlideshow] = useState(false);
   const [activeSlideshowItem, setActiveSlideshowItem] = useState(null);
   const [editingHotspotId, setEditingHotspotId] = useState(null);
   const [slideshowDragIdx, setSlideshowDragIdx] = useState(null);
@@ -5232,26 +5248,47 @@ const InteractionPanel = ({
                                     );
                                   }
 
-                                  const readPromises = filesToProcess.map(
-                                    (file) => {
-                                      return new Promise((resolve) => {
-                                        const reader = new FileReader();
-                                        reader.onload = (event) => {
-                                          resolve({
-                                            name: file.name,
-                                            data: event.target.result,
-                                            url: event.target.result,
-                                          });
-                                        };
-                                        reader.onerror = () => resolve(null);
-                                        reader.readAsDataURL(file);
-                                      });
-                                    },
-                                  );
+                                  setIsCompressingInteractionSlideshow(true);
 
-                                  const readResults = (
-                                    await Promise.all(readPromises)
-                                  ).filter(Boolean);
+                                  try {
+                                    const readPromises = filesToProcess.map(
+                                      async (file) => {
+                                        let finalData = null;
+                                        let fileName = file.name || "image.webp";
+
+                                        if (shouldOptimizeImage(file)) {
+                                          try {
+                                            const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+                                            if (opt?.dataUrl) {
+                                              finalData = opt.dataUrl;
+                                            }
+                                          } catch (optErr) {
+                                            console.warn("[InteractionPanel] Optimization fallback:", optErr);
+                                          }
+                                        }
+
+                                        if (!finalData) {
+                                          finalData = await new Promise((resolve) => {
+                                            const reader = new FileReader();
+                                            reader.onload = (event) => resolve(event.target.result);
+                                            reader.onerror = () => resolve(null);
+                                            reader.readAsDataURL(file);
+                                          });
+                                        }
+
+                                        if (!finalData) return null;
+
+                                        return {
+                                          name: fileName,
+                                          data: finalData,
+                                          url: finalData,
+                                        };
+                                      },
+                                    );
+
+                                    const readResults = (
+                                      await Promise.all(readPromises)
+                                    ).filter(Boolean);
 
                                   // Deduplicate against existing images and across incoming files
                                   const existingKeys = new Set(
@@ -5302,7 +5339,10 @@ const InteractionPanel = ({
                                       "data-interaction-value": storedVal,
                                     });
                                   }
-                                };
+                                } finally {
+                                  setIsCompressingInteractionSlideshow(false);
+                                }
+                              };
 
                                 const handleRemoveImage = (idx) => {
                                   const newImages = [...images];
@@ -5468,16 +5508,27 @@ const InteractionPanel = ({
                                               }
                                             }}
                                           >
-                                            <Icon
-                                              icon="lucide:upload"
-                                              className="text-gray-700 text-[1.3vw] mb-[0.2vh]"
-                                            />
-                                            <span className="text-[0.82vw] font-semibold text-gray-800">
-                                              Upload Images
-                                            </span>
-                                            <span className="text-[0.68vw] text-gray-500">
-                                              From your device
-                                            </span>
+                                            {isCompressingInteractionSlideshow ? (
+                                              <>
+                                                <Loader2 className="w-[1.4vw] h-[1.4vw] text-[#5145F6] animate-spin mb-[0.2vh]" />
+                                                <span className="text-[0.82vw] font-semibold text-[#5145F6]">
+                                                  Compressing...
+                                                </span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Icon
+                                                  icon="lucide:upload"
+                                                  className="text-gray-700 text-[1.3vw] mb-[0.2vh]"
+                                                />
+                                                <span className="text-[0.82vw] font-semibold text-gray-800">
+                                                  Upload Images
+                                                </span>
+                                                <span className="text-[0.68vw] text-gray-500">
+                                                  From your device
+                                                </span>
+                                              </>
+                                            )}
                                           </div>
 
                                           {/* Image Gallery Card */}
@@ -5688,23 +5739,38 @@ const InteractionPanel = ({
                                         {images.length < 6 && (
                                           <div className="grid grid-cols-2 gap-[0.6vw] mt-[0.3vh]">
                                             <button
+                                              disabled={isCompressingInteractionSlideshow}
                                               onClick={() =>
+                                                !isCompressingInteractionSlideshow &&
                                                 document
                                                   .getElementById(
                                                     `slideshow-upload-${item.id}`,
                                                   )
                                                   .click()
                                               }
-                                              className="py-[0.8vh] px-[0.8vw] bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-[0.5vw] flex items-center justify-center gap-[0.4vw] text-gray-700 hover:text-gray-900 text-[0.74vw] font-medium transition-colors cursor-pointer shadow-2xs"
+                                              className={`py-[0.8vh] px-[0.8vw] rounded-[0.5vw] flex items-center justify-center gap-[0.4vw] text-[0.74vw] font-medium transition-colors shadow-2xs ${
+                                                isCompressingInteractionSlideshow
+                                                  ? "bg-indigo-50 border border-indigo-200 text-[#5145F6] cursor-wait"
+                                                  : "bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900 cursor-pointer"
+                                              }`}
                                             >
-                                              <Icon
-                                                icon="lucide:upload"
-                                                className="text-[0.9vw] text-gray-600"
-                                              />
-                                              <span>
-                                                Upload ({6 - images.length}{" "}
-                                                left)
-                                              </span>
+                                              {isCompressingInteractionSlideshow ? (
+                                                <>
+                                                  <Loader2 className="w-[0.9vw] h-[0.9vw] animate-spin text-[#5145F6]" />
+                                                  <span>Compressing...</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <Icon
+                                                    icon="lucide:upload"
+                                                    className="text-[0.9vw] text-gray-600"
+                                                  />
+                                                  <span>
+                                                    Upload ({6 - images.length}{" "}
+                                                    left)
+                                                  </span>
+                                                </>
+                                              )}
                                             </button>
                                             <button
                                               onClick={() => {

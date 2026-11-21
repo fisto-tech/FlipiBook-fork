@@ -459,6 +459,7 @@ const EditorLayout = () => {
             currentBook={currentBook}
             pages={exportContext.pages}
             currentPageIndex={exportContext.activePageIndex}
+            activePages={exportContext.activePages}
           />
         </React.Suspense>
       )}

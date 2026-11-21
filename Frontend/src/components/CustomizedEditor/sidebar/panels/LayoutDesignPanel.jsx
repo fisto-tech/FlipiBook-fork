@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
+import { ChevronsLeft } from 'lucide-react';
 import LayoutColorCustomizer from '../../LayoutColorCustomizer';
 import ColorPicker from '../../../ColorPallet';
 import { LAYOUT_DEFAULT_COLORS } from '../../utils/layoutColors';
@@ -360,7 +361,7 @@ const Layout = ({ onBack, activeLayout, onUpdateLayout, layoutColors, onUpdateLa
                         onClick={onBack} 
                         className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90"
                     >
-                        <Icon icon="ph:arrow-left-bold" className="w-[1.1vw] h-[1.1vw]" />
+                        <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
                     </button>
                 )}
             </div>
@@ -368,7 +369,7 @@ const Layout = ({ onBack, activeLayout, onUpdateLayout, layoutColors, onUpdateLa
             <div className="flex-1 overflow-y-auto bg-transparent pb-[2.5vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="relative flex flex-col w-full min-h-full pb-[5vw]">
                     {/* ── Top Tab Buttons ── */}
-                    <div className="sticky top-0 z-[50] grid grid-cols-2 gap-[0.8vw] py-[0.8vw] mb-[1vw] bg-[#1a2332] px-[1vw] border-b border-[#26354a]">
+                    <div className="sticky top-0 z-[50] grid grid-cols-2 gap-[0.8vw] py-[0.8vw] mb-[1vw] bg-[#fafafa] px-[1vw] border-b border-gray-200">
                 {['Layouts', 'Layout Colors'].map((tab) => {
                     const isActive = activeTab === tab;
                     return (
@@ -382,9 +383,9 @@ const Layout = ({ onBack, activeLayout, onUpdateLayout, layoutColors, onUpdateLa
                                     onTocSettingsClick();
                                 }
                             }}
-                            className={`flex-1 py-[0.50vw] text-[0.85vw] font-semibold rounded-[0.5vw] transition-all active:scale-95 border border-transparent ${isActive
-                                ? 'text-black bg-white shadow-[inset_0.2vw_0.2vw_0.4vw_rgba(0,0,0,0.08),inset_-0.2vw_-0.2vw_0.4vw_rgba(255,255,255,0.9)] border-gray-500/20'
-                                : 'text-gray-400 bg-white shadow-[0.2vw_0.2vw_0.5vw_rgba(0,0,0,0.05),-0.1vw_-0.1vw_0.3vw_rgba(255,255,255,1)] hover:shadow-[0.3vw_0.3vw_0.7vw_rgba(0,0,0,0.08)]'
+                            className={`flex-1 py-[0.50vw] text-[0.85vw] font-semibold rounded-[0.5vw] transition-all active:scale-95 border ${isActive
+                                ? 'bg-white text-black border-gray-200 shadow-sm'
+                                : 'bg-white text-gray-400 border-gray-200 hover:text-gray-700 shadow-2xs'
                                 }`}
                         >
                             {tab}

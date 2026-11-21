@@ -1,100 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import FlipbookPreview from '../components/PageEditor/modals/FlipbookPreview';
-import { LAYOUT_DEFAULT_COLORS } from '../components/CustomizedEditor/utils/layoutColors';
+import FlipbookPreview from '../../components/PageEditor/modals/FlipbookPreview';
+import { LAYOUT_DEFAULT_COLORS } from '../../components/CustomizedEditor/utils/layoutColors';
 import { Icon } from '@iconify/react';
 import { Ghost, ArrowLeft, Home, BookOpen, Clock, X, Heart } from 'lucide-react';
-import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
-import { useToast } from '../components/CustomToast';
-import { useAuth } from '../context/AuthContext';
+import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../../utils/assets/assetUtils';
+import { useToast } from '../../components/CustomToast';
+import { useAuth } from '../../context/AuthContext';
 
-const AVATAR_COLORS = [
-    '#4F46E5', // Indigo
-    '#059669', // Emerald
-    '#D97706', // Amber
-    '#E11D48', // Rose
-    '#7C3AED', // Violet
-    '#0891B2', // Cyan
-    '#C026D3', // Fuchsia
-    '#EA580C', // Orange
-    '#2563EB', // Blue
-    '#DB2777', // Pink
-    '#0D9488', // Teal
-    '#9333EA', // Purple
-];
-
-const getAvatarBg = (name = '') => {
-    let hash = 0;
-    const str = String(name || 'User').trim();
-    for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-};
-const checkInviteAutoExpired = (autoExpire, fallbackDate) => {
-    if (!autoExpire || !autoExpire.enabled) return false;
-
-    const rawGranted = autoExpire.grantedAt || autoExpire.createdAt || fallbackDate;
-    if (!rawGranted) return false;
-    const grantedAt = new Date(rawGranted).getTime();
-
-    const daysStr = String(autoExpire.days || '0');
-    const daysMatch = daysStr.match(/(\d+)/);
-    const daysNum = daysMatch ? parseInt(daysMatch[1], 10) : 0;
-
-    const timeStr = String(autoExpire.time || '0');
-    const timeMatch = timeStr.match(/(\d+)/);
-    const timeNum = timeMatch ? parseInt(timeMatch[1], 10) : 0;
-
-    let timeInMs = 0;
-    if (timeStr.toLowerCase().includes('hour')) {
-        timeInMs = timeNum * 60 * 60 * 1000;
-    } else {
-        timeInMs = timeNum * 60 * 1000;
-    }
-
-    const daysInMs = daysNum * 24 * 60 * 60 * 1000;
-    const totalAllowedMs = daysInMs + timeInMs;
-
-    if (totalAllowedMs <= 0) return false;
-
-    const now = Date.now();
-    const elapsed = now - grantedAt;
-
-    return elapsed > totalAllowedMs;
-};
-
-const WhiteAttachedCurve = ({ position }) => {
-    const isTop = position.includes('top');
-    const isLeft = position.includes('left');
-
-    const containerStyle = {
-        position: 'absolute',
-        width: '1vw',
-        height: '1vw',
-        pointerEvents: 'none',
-        overflow: 'hidden',
-        ...(isTop ? { top: '-1vw' } : { bottom: '-1vw' }),
-        ...(isLeft ? { left: '0vw' } : { right: '0.25vw' }),
-    };
-
-    const circleStyle = {
-        position: 'absolute',
-        width: '2vw',
-        height: '2vw',
-        borderRadius: '50%',
-        boxShadow: '0 0 0 2vw rgba(255, 255, 255, 0.90)',
-        ...(isTop ? { top: '-1vw' } : { bottom: '-1vw' }),
-        ...(isLeft ? { right: '-1vw' } : { left: '-1vw' }),
-    };
-
-    return (
-        <div style={containerStyle}>
-            <div style={circleStyle} />
-        </div>
-    );
-};
+import WhiteAttachedCurve from './WhiteAttachedCurve';
+import BookInfoModal from './BookInfoModal';
+import RatingsPanel from './RatingsPanel';
+import { AVATAR_COLORS, getAvatarBg, checkInviteAutoExpired } from './shareViewUtils';
 
 const ShareViewBook = () => {
     const { shareId } = useParams();
@@ -262,68 +180,6 @@ const ShareViewBook = () => {
         } finally {
             setIsDeletingRating(null);
         }
-    };
-
-    // Draggable Sidebar State
-    const [draggerTop, setDraggerTop] = useState(-1);
-    const [draggerLeft, setDraggerLeft] = useState(-1);
-    const [isDragging, setIsDragging] = useState(false);
-    const draggerHasMovedRef = useRef(false);
-    const draggerOffsetRef = useRef({ x: 0, y: 0 });
-
-    useEffect(() => {
-        if (draggerTop === -1) {
-            // roughly center it initially
-            setDraggerTop((window.innerHeight / 2) - 150);
-            setDraggerLeft(window.innerWidth - (window.innerWidth * 4 / 100)); // 4vw default right
-        }
-    }, [draggerTop, draggerLeft]);
-
-    useEffect(() => {
-        const handleMouseMove = (e) => {
-            if (!isDragging) return;
-            draggerHasMovedRef.current = true;
-            const newTop = e.clientY - draggerOffsetRef.current.y;
-            const newLeft = e.clientX - draggerOffsetRef.current.x;
-            // Bound to window dimensions
-            const draggerWidth = (window.innerWidth * 4) / 100;
-            const maxTop = window.innerHeight - 300;
-            setDraggerTop(Math.max(0, Math.min(newTop, maxTop)));
-            setDraggerLeft(Math.max(0, Math.min(newLeft, window.innerWidth - draggerWidth)));
-        };
-        const handleMouseUp = () => {
-            if (isDragging) {
-                setIsDragging(false);
-                if (draggerHasMovedRef.current) {
-                    const draggerWidth = (window.innerWidth * 4) / 100;
-                    const midpoint = window.innerWidth / 2;
-                    if (draggerLeft + draggerWidth / 2 < midpoint) {
-                        setDraggerLeft(0);
-                    } else {
-                        setDraggerLeft(window.innerWidth - draggerWidth);
-                    }
-                }
-            }
-        };
-
-        if (isDragging) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-        }
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [isDragging, draggerLeft]);
-
-    const handleMouseDown = (e) => {
-        setIsDragging(true);
-        draggerHasMovedRef.current = false;
-        draggerOffsetRef.current = {
-            x: e.clientX - draggerLeft,
-            y: e.clientY - draggerTop
-        };
-        e.preventDefault();
     };
 
     // Live auto-expire timer check while watching book
@@ -674,7 +530,50 @@ const ShareViewBook = () => {
                 if (processedData.viewsCount !== undefined) setViewsCount(processedData.viewsCount);
                 setError(null);
                 setAccessMode(null);
-                setLoading(false); // âœ… Only stop loading on SUCCESS
+                setLoading(false);
+
+                // Dynamically update document title and OpenGraph / Twitter meta tags in client head
+                try {
+                    const bTitle = processedData.flipbookName || processedData.meta?.flipbookName || 'Flipbook';
+                    document.title = `${bTitle} | FlipiBook`;
+
+                    const setMetaTag = (attr, key, content) => {
+                        if (!content) return;
+                        let tag = document.querySelector(`meta[${attr}="${key}"]`);
+                        if (!tag) {
+                            tag = document.createElement('meta');
+                            tag.setAttribute(attr, key);
+                            document.head.appendChild(tag);
+                        }
+                        tag.setAttribute('content', content);
+                    };
+
+                    const bDesc = processedData.FlipbookInfo?.quotes ||
+                        processedData.meta?.quotes ||
+                        processedData.FlipbookInfo?.about ||
+                        processedData.meta?.about ||
+                        'View and interact with this flipbook online on FlipiBook.';
+
+                    let coverImgUrl = processedData.coverPicture?.url ||
+                        processedData.Customized_Settings?.coverPicture?.url ||
+                        processedData.thumbnail ||
+                        '';
+
+                    if (!coverImgUrl) {
+                        const effectiveBackend = (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
+                        coverImgUrl = `${effectiveBackend}/api/customized-editor/preview-image/${shareId}`;
+                    }
+
+                    setMetaTag('property', 'og:title', bTitle);
+                    setMetaTag('property', 'og:description', bDesc);
+                    setMetaTag('property', 'og:image', coverImgUrl);
+                    setMetaTag('property', 'og:url', window.location.href);
+                    setMetaTag('name', 'twitter:title', bTitle);
+                    setMetaTag('name', 'twitter:description', bDesc);
+                    setMetaTag('name', 'twitter:image', coverImgUrl);
+                } catch (metaErr) {
+                    console.warn('[ShareViewBook] Failed to update meta tags:', metaErr);
+                }
             } catch (err) {
                 if (cancelled) return;
                 console.error(`Error fetching public flipbook (attempt ${retryCount + 1}):`, err);
@@ -925,7 +824,7 @@ const ShareViewBook = () => {
                     <FlipbookPreview
                         pages={bookData.pages}
                         pageName={bookData.meta?.flipbookName || bookData.flipbookName || 'Protected Flipbook'}
-                        settings={{ ...(bookData.meta || {}), ...settings }}
+                        settings={{ ...(bookData.meta || {}), ...settings, userEmail: bookData.userEmail || bookData.meta?.userEmail }}
                         isMobile={isMobileDevice}
                         onClose={null}
                         baseUrl={bookData.meta?.baseUrl ? `${getBackendUrl()}${bookData.meta.baseUrl}` : null}
@@ -1009,7 +908,7 @@ const ShareViewBook = () => {
                     <FlipbookPreview
                         pages={bookData.pages}
                         pageName={bookData.meta?.flipbookName || bookData.flipbookName || 'Invited Access Only'}
-                        settings={{ ...(bookData.meta || {}), ...settings }}
+                        settings={{ ...(bookData.meta || {}), ...settings, userEmail: bookData.userEmail || bookData.meta?.userEmail }}
                         isMobile={isMobileDevice}
                         onClose={null}
                         baseUrl={bookData.meta?.baseUrl ? `${getBackendUrl()}${bookData.meta.baseUrl}` : null}
@@ -1214,7 +1113,7 @@ const ShareViewBook = () => {
             <FlipbookPreview
                 pages={bookData.pages}
                 pageName={bookData.meta?.flipbookName || 'Untitled Flipbook'}
-                settings={{ ...(bookData.meta || {}), ...(bookData.Customized_Settings || {}), ...(bookData.settings || {}), ...settings, userEmail: bookData.userEmail, shareId: shareId || bookData?.Customized_Settings?.Visibility?.shareId || bookData?.Visibility?.shareId }}
+                settings={{ ...(bookData.meta || {}), ...(bookData.Customized_Settings || {}), ...(bookData.settings || {}), ...settings, userEmail: bookData.userEmail || bookData.meta?.userEmail, shareId: shareId || bookData?.Customized_Settings?.Visibility?.shareId || bookData?.Visibility?.shareId }}
                 isMobile={isMobileDevice}
                 onClose={null}
                 baseUrl={bookData.meta?.baseUrl ? `${getBackendUrl()}${bookData.meta.baseUrl}` : null}
@@ -1225,53 +1124,27 @@ const ShareViewBook = () => {
                 currentBook={bookData}
             />
 
-            {/* Persistent vertical line on the stuck edge */}
-            {!isDragging && (draggerLeft < 5 || draggerLeft > 10) && (
-                <div
-                    className="fixed top-0 w-[0.25vw] h-full bg-white/90 backdrop-blur-md z-[1499] pointer-events-none transition-all duration-500 ease-in-out"
-                    style={{
-                        left: draggerLeft < 5 ? '0' : 'auto',
-                        right: draggerLeft > 10 ? (isRatingsOpen ? '22vw' : '0') : 'auto',
-                    }}
-                />
-            )}
-
-            {/* Right Sidebar UI Overlay */}
+            {/* Vertical white strip on the right edge the sidebar is attached to */}
             <div
-                className={`fixed bg-white/95 backdrop-blur-md py-[0.5vw] px-[0.5vw] flex flex-col items-center justify-between z-[1500] cursor-grab active:cursor-grabbing ${
-                    isDragging 
-                        ? 'rounded-[0.8vw] shadow-[0_12px_32px_rgba(0,0,0,0.25)]' 
-                        : 'transition-all duration-500 ease-in-out ' + (draggerLeft < 5 ? 'rounded-r-[0.8vw] rounded-l-none shadow-[6px_0_24px_rgba(0,0,0,0.14),2px_0_8px_rgba(0,0,0,0.06)]' : 'rounded-l-[0.8vw] rounded-r-none shadow-[-6px_0_24px_rgba(0,0,0,0.14),-2px_0_8px_rgba(0,0,0,0.06)]')
-                }`}
-                style={{
-                    top: draggerTop !== -1 ? `${draggerTop}px` : '50%',
-                    left: isDragging ? `${draggerLeft}px` : (draggerLeft < 5 ? '0' : 'auto'),
-                    right: isDragging ? 'auto' : (draggerLeft < 5 ? 'auto' : (isRatingsOpen ? '22vw' : '0')),
-                    transform: draggerTop === -1 ? 'translateY(-50%)' : 'none',
-                    width: '4vw'
-                }}
-                onMouseDown={handleMouseDown}
+                className="fixed top-0 w-[0.25vw] h-full bg-white z-[1499] pointer-events-none transition-[right] duration-500 ease-in-out"
+                style={{ right: isRatingsOpen ? '22vw' : '0' }}
+            />
+
+            {/* Right Sidebar (fixed, attached to the right edge) */}
+            <div
+                className="fixed top-1/2 -translate-y-1/2 bg-white py-[0.5vw] px-[0.5vw] flex flex-col items-center justify-between z-[1500] rounded-l-[0.8vw] shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-[right] duration-500 ease-in-out"
+                style={{ right: isRatingsOpen ? '22vw' : '0', width: '4vw' }}
             >
-                {!isDragging && draggerLeft < 10 && (
-                    <>
-                        <WhiteAttachedCurve position="top-left" />
-                        <WhiteAttachedCurve position="bottom-left" />
-                    </>
-                )}
-                {!isDragging && draggerLeft >= 10 && (
-                    <>
-                        <WhiteAttachedCurve position="top-right" />
-                        <WhiteAttachedCurve position="bottom-right" />
-                    </>
-                )}
+                <WhiteAttachedCurve position="top" />
+                <WhiteAttachedCurve position="bottom" />
 
                 <div className="flex flex-col gap-[0.2vw] mt-[0.2vw] mb-[0.2vw] w-full items-center">
-                    <button onMouseDown={e => e.stopPropagation()} onClick={() => { setIsRatingsOpen(false); setIsBookInfoOpen(true); }} className="flex flex-col items-center gap-[0.2vw] hover:bg-slate-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full">
+                    <button onClick={() => { setIsRatingsOpen(false); setIsBookInfoOpen(true); }} className="flex flex-col items-center gap-[0.2vw] hover:bg-slate-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full">
                         <Icon icon="weui:info-outlined" className="w-[1.2vw] h-[1.2vw] text-[#2F296D]" />
                         <span className="text-[0.7vw] font-medium text-[#2F296D] text-center leading-tight">Book<br />Info</span>
                     </button>
                     <div className="w-[60%] h-[1px] bg-gray-100 pointer-events-none"></div>
-                    <button onMouseDown={e => e.stopPropagation()} onClick={() => setIsRatingsOpen(true)} className="flex flex-col items-center gap-[0.2vw] hover:bg-slate-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full">
+                    <button onClick={() => setIsRatingsOpen(true)} className="flex flex-col items-center gap-[0.2vw] hover:bg-slate-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full">
                         <div className="relative">
                             <Icon icon="iconamoon:star-light" className="w-[1.2vw] h-[1.2vw] text-yellow-500" />
                             {totalRatings > 0 && (
@@ -1288,7 +1161,7 @@ const ShareViewBook = () => {
                     {!isBookOwner && (
                         <>
                             <div className="w-[60%] h-[1px] bg-gray-100 pointer-events-none"></div>
-                            <button onMouseDown={e => e.stopPropagation()} onClick={handleFavoriteToggle} className="flex flex-col items-center gap-[0.2vw] hover:bg-red-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full text-red-500">
+                            <button onClick={handleFavoriteToggle} className="flex flex-col items-center gap-[0.2vw] hover:bg-red-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full text-red-500">
                                 <Heart className={`w-[1.2vw] h-[1.2vw] transition-transform group-hover:scale-110 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-[#2F296D] hover:text-red-500'}`} />
                                 <span className="text-[0.7vw] font-medium text-[#2F296D] text-center leading-tight">
                                     {isFavorited ? 'Favorited' : 'Favorite'}
@@ -1297,339 +1170,46 @@ const ShareViewBook = () => {
                         </>
                     )}
                     <div className="w-[60%] h-[1px] bg-gray-100 pointer-events-none"></div>
-                    <button onMouseDown={e => e.stopPropagation()} onClick={() => window.history.back()} className="flex flex-col items-center gap-[0.2vw] hover:bg-red-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer mt-[0.2vw] w-full text-red-600">
+                    <button onClick={() => window.history.back()} className="flex flex-col items-center gap-[0.2vw] hover:bg-red-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer mt-[0.2vw] w-full text-red-600">
                         <Icon icon="lucide:log-out" className="w-[1vw] h-[1vw] transition-transform group-hover:scale-110" />
                         <span className="text-[0.7vw] font-medium text-center leading-tight">Exit</span>
                     </button>
                 </div>
             </div>
 
-            {/* Book Information Modal */}
-            {isBookInfoOpen && (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-[2vw]">
-                    <div className="bg-white rounded-2xl p-[2vw] shadow-2xl w-[90vw] max-w-[42vw] max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200 relative [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        <div className="w-full flex flex-col mb-[1vw]">
-                            <div className="flex items-center justify-between w-full mb-[0.2vw]">
-                                <h2 className="text-[1.3vw] font-semibold text-gray-900 shrink-0 mr-[1vw]">Book Information</h2>
-                                <div className="h-px bg-gray-300 flex-1 mr-[1vw]"></div>
-                                <button onClick={() => setIsBookInfoOpen(false)} className="p-[0.3vw] border border-red-500 rounded-md text-red-500 hover:bg-red-50 transition-colors cursor-pointer shrink-0">
-                                    <X className="w-[1vw] h-[1vw]" />
-                                </button>
-                            </div>
-                            <span className="text-[0.75vw] text-gray-400">Detailed information about this book</span>
-                        </div>
+            <BookInfoModal
+                isBookInfoOpen={isBookInfoOpen}
+                setIsBookInfoOpen={setIsBookInfoOpen}
+                bookData={bookData}
+                viewsCount={viewsCount}
+                averageRating={averageRating}
+                totalRatings={totalRatings}
+                renderStars={renderStars}
+                formatDisplayDate={formatDisplayDate}
+            />
 
-                        <div className="flex gap-[2vw] mt-[0.5vw]">
-                            <div className="shrink-0">
-                                <img 
-                                    src={bookData?.meta?.thumbnail || bookData?.Customized_Settings?.othersetup?.coverPicture?.url || bookData?.thumbnail || "https://images.unsplash.com/photo-1543002588-bfa74002ed7e"} 
-                                    alt="Book cover" 
-                                    className="w-[12vw] h-[12vw] shadow-[0_10px_30px_rgba(0,0,0,0.3)] rounded-sm object-cover aspect-[3/4]" 
-                                    onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1543002588-bfa74002ed7e"; }}
-                                />
-                            </div>
-                            <div className="flex flex-col gap-[0.5vw] flex-1">
-                                <h3 className="text-[1.2vw] font-semibold text-gray-900 leading-tight">{bookData?.meta?.flipbookName || bookData?.flipbookName || 'Untitled Flipbook'}</h3>
-                                <p className="text-[0.8vw] text-gray-500 italic leading-relaxed">
-                                    {bookData?.Customized_Settings?.FlipbookInfo?.quotes || bookData?.meta?.quotes || '" Bring your content to life with a real, interactive experience "'}
-                                </p>
-
-                                <h4 className="text-[1vw] font-semibold text-gray-900 mt-[1vw]">About</h4>
-                                <p className="text-[0.8vw] text-gray-500 leading-relaxed">
-                                    {bookData?.Customized_Settings?.FlipbookInfo?.about || bookData?.meta?.about || bookData?.meta?.description || 'Explore this flipbook for an interactive reading experience.'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="h-px bg-gray-200 w-full my-[1vw]"></div>
-
-                        <div className="flex gap-[1vw]">
-                            <div className="flex-1 bg-gray-50 rounded-xl p-[1vw] flex flex-col gap-[0.5vw]">
-                                <div className="flex items-center gap-[0.5vw]">
-                                    <Icon icon="si:eye-line" className="w-[1vw] h-[1vw] text-gray-600" />
-                                    <span className="text-[0.85vw] text-gray-600">Views</span>
-                                </div>
-                                <div className="flex items-baseline gap-[0.5vw]">
-                                    <span className="text-[1.2vw] font-medium text-gray-800 leading-none">{viewsCount.toLocaleString()}</span>
-                                    <span className="text-[0.65vw] text-gray-400">Readers have opened this book</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-[1vw] flex flex-col">
-                            {[
-                                { label: 'Category :', value: bookData?.Customized_Settings?.FlipbookInfo?.category || bookData?.meta?.category || 'General' },
-                                { label: 'Language :', value: bookData?.Customized_Settings?.FlipbookInfo?.language || bookData?.meta?.language || 'English' },
-                                { label: 'Pages :', value: `${bookData?.pages?.length || 0} Pages` },
-                                {
-                                    label: 'Ratings :', value: (
-                                        <div className="flex items-center gap-[0.5vw]">
-                                            <div className="flex items-center gap-[0.2vw]">
-                                                {renderStars(averageRating)}
-                                            </div>
-                                            <span className="text-[0.85vw] text-gray-500">- {averageRating > 0 ? `${averageRating}/5` : '0/5'} {totalRatings > 0 ? `(${totalRatings})` : ''}</span>
-                                        </div>
-                                    )
-                                },
-                                { label: 'Published :', value: formatDisplayDate(bookData?.Customized_Settings?.FlipbookInfo?.publishedAt || bookData?.createdAt || bookData?.publishedAt) },
-                                { label: 'Publisher :', value: <span className="text-gray-500 underline decoration-gray-300 underline-offset-4 cursor-pointer hover:text-gray-800">{bookData?.publisher || bookData?.Customized_Settings?.FlipbookInfo?.publisher || bookData?.authorProfile?.companyName || bookData?.authorProfile?.name || (bookData?.userEmail ? bookData.userEmail.split('@')[0] : 'FIST-O Tech Pvt Ltd')}</span> }
-                            ].map((item, index) => (
-                                <div key={index} className="flex items-center py-[0.6vw] border-b border-gray-100 last:border-0">
-                                    <span className="w-[12vw] text-[0.85vw] text-gray-600">{item.label}</span>
-                                    <span className="flex-1 text-[0.85vw] text-gray-500">{item.value}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Ratings & Reviews Sliding Panel */}
-            <div className={`fixed inset-0 z-[1490] ${isRatingsOpen ? '' : 'pointer-events-none'}`}>
-                {/* Optional overlay background */}
-                <div className={`absolute inset-0 transition-opacity duration-500 ${isRatingsOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`} onClick={() => setIsRatingsOpen(false)}></div>
-
-                <div className={`absolute top-0 right-0 h-full w-[22vw] bg-white/95 backdrop-blur-md z-[1491] transform transition-transform duration-500 ease-in-out flex flex-col pointer-events-auto shadow-2xl ${isRatingsOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                    <div className="p-[1vw] px-[1.2vw] mt-[0.5vw] border-b border-gray-100 flex items-center justify-between shrink-0">
-                        <div className="flex items-center gap-[0.5vw]">
-                            <h2 className="text-[1.1vw] font-semibold text-gray-900 whitespace-nowrap">
-                                Ratings & Reviews ({reviewsList.length})
-                            </h2>
-                        </div>
-                        <button onClick={() => setIsRatingsOpen(false)} className="p-[0.3vw] border border-red-500 rounded-lg text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
-                            <X className="w-[0.9vw] h-[0.9vw]" />
-                        </button>
-                    </div>
-
-                    {!currentUserEmail ? (
-                        <div className="p-[1.2vw] pb-[0.6vw] shrink-0">
-                            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-[1.2vw] flex flex-col items-center text-center gap-[0.5vw] shadow-sm">
-                                <div className="w-[2.4vw] h-[2.4vw] rounded-full bg-indigo-50 flex items-center justify-center text-[#4A3AFF] border border-indigo-100">
-                                    <Icon icon="lucide:lock" className="w-[1.2vw] h-[1.2vw]" />
-                                </div>
-                                <div className="flex flex-col gap-[0.2vw]">
-                                    <span className="text-[0.95vw] font-semibold text-gray-900">Sign in to Rate & Review</span>
-                                    <p className="text-[0.75vw] text-gray-500 leading-relaxed max-w-[17vw]">
-                                        Please log in with your account to rate this book and write a review.
-                                    </p>
-                                </div>
-                                <button 
-                                    onClick={() => navigate(`/?redirect=${encodeURIComponent(location.pathname + location.search)}`)}
-                                    className="w-full py-[0.65vw] bg-black text-white text-[0.85vw] font-medium rounded-xl hover:bg-gray-900 transition-colors cursor-pointer flex items-center justify-center gap-[0.4vw] shadow-sm mt-[0.2vw]"
-                                >
-                                    <Icon icon="lucide:log-in" className="w-[0.9vw] h-[0.9vw]" /> Log in to Review
-                                </button>
-                            </div>
-                        </div>
-                    ) : (editingRatingId || !reviewsList.some(r => r.userEmail && r.userEmail.toLowerCase() === currentUserEmail.toLowerCase())) ? (
-                        <div className="p-[1.2vw] flex flex-col gap-[0.8vw] mt-[-0.3vw] shrink-0">
-                            <div className="bg-white border border-gray-200 rounded-xl p-[1vw] flex flex-col gap-[0.8vw] shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[0.9vw] font-bold text-gray-900">
-                                        {editingRatingId ? 'Edit your review' : 'Rate this book'}
-                                    </span>
-                                    {editingRatingId && (
-                                        <span className="text-[0.7vw] bg-amber-50 text-amber-700 px-[0.4vw] py-[0.1vw] rounded font-medium border border-amber-200">
-                                            Editing
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-col gap-[0.3vw]">
-                                    <label className="text-[0.85vw] font-semibold text-gray-800">Your Name <span className="text-red-500">*</span></label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Enter your name" 
-                                        value={ratingForm.name} 
-                                        onChange={(e) => {
-                                            setRatingForm({ ...ratingForm, name: e.target.value });
-                                            if (e.target.value) setRatingFormError({ show: false });
-                                        }} 
-                                        className={`w-full border ${ratingFormError.show && !ratingForm.name ? 'border-red-500' : 'border-gray-200'} rounded-xl px-[0.8vw] py-[0.6vw] text-[0.85vw] focus:outline-none focus:border-[#4A3AFF] transition-colors`} 
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-[0.3vw]">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[0.85vw] font-semibold text-gray-800">Your rating <span className="text-red-500">*</span></label>
-                                        {(hoverRating > 0 || ratingForm.rating > 0) && (
-                                            <span className="text-[0.8vw] font-bold text-[#2F296D]">{hoverRating || ratingForm.rating} / 5</span>
-                                        )}
-                                    </div>
-                                    <div className={`flex items-center justify-between pl-[1vw] pr-[1vw] py-[0.4vw] ${ratingFormError.show && !ratingForm.rating ? 'ring-1 ring-red-500 rounded-xl' : ''}`}>
-                                        {[1, 2, 3, 4, 5].map(i => (
-                                            <svg 
-                                                key={i} 
-                                                onMouseEnter={() => setHoverRating(i)}
-                                                onMouseLeave={() => setHoverRating(0)}
-                                                onClick={() => {
-                                                    setRatingForm({ ...ratingForm, rating: i });
-                                                    setRatingFormError({ show: false });
-                                                }} 
-                                                className="w-[2.2vw] h-[2.2vw] overflow-visible cursor-pointer drop-shadow-[0_2px_2px_rgba(0,0,0,0.2)] hover:scale-115 active:scale-95 transition-all" 
-                                                fill={i <= (hoverRating || ratingForm.rating) ? "url(#star-gradient)" : "white"} 
-                                                stroke="url(#star-gradient)" 
-                                                strokeWidth="1" 
-                                                viewBox="0 0 20 20"
-                                            >
-                                                <path d="M10 1L12.7 6.5L19 7.4L14.5 11.8L15.6 18.1L10 15.2L4.4 18.1L5.5 11.8L1 7.4L7.3 6.5Z"></path>
-                                            </svg>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-[0.3vw]">
-                                    <label className="text-[0.85vw] font-semibold text-gray-800">Your Review</label>
-                                    <textarea 
-                                        placeholder="Share your thoughts about this flipbook..." 
-                                        rows={3} 
-                                        value={ratingForm.review} 
-                                        onChange={(e) => setRatingForm({ ...ratingForm, review: e.target.value })} 
-                                        className="w-full border border-gray-200 rounded-xl px-[0.8vw] py-[0.6vw] text-[0.85vw] focus:outline-none focus:border-[#4A3AFF] resize-none transition-colors"
-                                    ></textarea>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-[0.5vw]">
-                                {editingRatingId && (
-                                    <button 
-                                        onClick={handleCancelEdit} 
-                                        className="flex-1 border border-gray-300 text-gray-700 rounded-xl py-[0.7vw] text-[0.85vw] font-medium hover:bg-gray-50 transition-colors cursor-pointer"
-                                    >
-                                        Cancel
-                                    </button>
-                                )}
-                                <button 
-                                    onClick={handleRatingSubmit} 
-                                    disabled={isSubmittingRating}
-                                    className="flex-1 bg-black text-white rounded-xl py-[0.7vw] text-[0.9vw] font-medium hover:bg-gray-900 transition-colors cursor-pointer flex items-center justify-center gap-[0.4vw] disabled:opacity-60 shadow-md"
-                                >
-                                    {isSubmittingRating ? (
-                                        <div className="animate-spin rounded-full h-[0.9vw] w-[0.9vw] border-2 border-white border-t-transparent" />
-                                    ) : (
-                                        <span>{editingRatingId ? 'Update Review' : 'Submit Rating'}</span>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {(!currentUserEmail || editingRatingId || !reviewsList.some(r => r.userEmail && r.userEmail.toLowerCase() === currentUserEmail.toLowerCase())) && (
-                        <div className="h-[0.3vw] bg-gray-50 shrink-0 border-y border-gray-100"></div>
-                    )}
-
-                    <div className="p-[1.2vw] pb-[0.3vw] shrink-0 flex items-center justify-between">
-                        <h3 className="text-[1vw] font-semibold text-gray-900 whitespace-nowrap">Recent Reviews</h3>
-                        <span className="text-[0.75vw] text-gray-400 font-normal">{reviewsList.length} total</span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-[1.2vw] pt-[0.3vw] flex flex-col gap-[0.8vw] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {reviewsList.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-[3vw] text-center gap-[0.5vw]">
-                                <Icon icon="iconamoon:star-light" className="w-[2.5vw] h-[2.5vw] text-gray-300" />
-                                <p className="text-[0.85vw] text-gray-500 font-medium">No reviews yet.</p>
-                                <p className="text-[0.7vw] text-gray-400">Be the first to rate and review this book!</p>
-                            </div>
-                        ) : (
-                            [...reviewsList].sort((a, b) => {
-                                const aIsMine = Boolean(currentUserEmail && a.userEmail && a.userEmail.toLowerCase() === currentUserEmail.toLowerCase());
-                                const bIsMine = Boolean(currentUserEmail && b.userEmail && b.userEmail.toLowerCase() === currentUserEmail.toLowerCase());
-                                if (aIsMine && !bIsMine) return -1;
-                                if (!aIsMine && bIsMine) return 1;
-                                return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-                            }).map((review, index) => {
-                                const rId = review._id || index;
-                                const rVal = review.ratingValue || review.rating || 5;
-                                const rName = review.name || 'Anonymous Reader';
-                                const rText = review.review || '';
-                                const isAuthor = currentUserEmail && review.userEmail && currentUserEmail.toLowerCase() === review.userEmail.toLowerCase();
-                                const isEditingThis = editingRatingId && String(editingRatingId) === String(review._id);
-
-                                return (
-                                    <div key={rId} className={`border ${isEditingThis ? 'border-[#4A3AFF] bg-indigo-50/20' : 'border-gray-100 bg-white'} rounded-xl p-[1.2vw] flex flex-col gap-[0.8vw] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all`}>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-[0.8vw]">
-                                                {review.profileImgUrl ? (
-                                                    <img 
-                                                        src={review.profileImgUrl} 
-                                                        alt={rName} 
-                                                        className="w-[2.2vw] h-[2.2vw] rounded-full object-cover border border-gray-100 shrink-0 shadow-sm" 
-                                                        onError={(e) => {
-                                                            e.currentTarget.style.display = 'none';
-                                                            if (e.currentTarget.nextElementSibling) {
-                                                                e.currentTarget.nextElementSibling.style.display = 'flex';
-                                                            }
-                                                        }}
-                                                    />
-                                                ) : null}
-                                                <div 
-                                                    className="w-[2.2vw] h-[2.2vw] rounded-full flex items-center justify-center text-white font-bold text-[0.95vw] shadow-sm shrink-0 uppercase select-none"
-                                                    style={{ 
-                                                        backgroundColor: getAvatarBg(rName),
-                                                        display: review.profileImgUrl ? 'none' : 'flex'
-                                                    }}
-                                                >
-                                                    {(rName.trim()[0] || 'U').toUpperCase()}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <div className="flex items-center gap-[0.4vw]">
-                                                        <span className="text-[0.95vw] font-semibold text-gray-900 tracking-tight leading-tight">{rName}</span>
-                                                        {isAuthor && (
-                                                            <span className="text-[0.6vw] bg-indigo-50 text-[#4A3AFF] px-[0.35vw] py-[0.05vw] rounded-full font-semibold border border-indigo-100">
-                                                                You
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {review.createdAt && (
-                                                        <span className="text-[0.65vw] text-gray-400 leading-tight">
-                                                            {new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}, {new Date(review.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {review._id && (isAuthor || !review.userEmail) && (
-                                                <div className="flex items-center gap-[0.2vw]">
-                                                    <button 
-                                                        onClick={() => handleStartEdit(review)} 
-                                                        className="text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer p-[0.2vw] rounded hover:bg-indigo-50"
-                                                        title="Edit review"
-                                                    >
-                                                        <Icon icon="lucide:edit-3" className="w-[0.9vw] h-[0.9vw]" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteRating(review._id)} 
-                                                        disabled={isDeletingRating === review._id}
-                                                        className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer p-[0.2vw] rounded hover:bg-red-50"
-                                                        title="Remove review"
-                                                    >
-                                                        {isDeletingRating === review._id ? (
-                                                            <div className="animate-spin rounded-full h-[0.8vw] w-[0.8vw] border border-red-500 border-t-transparent" />
-                                                        ) : (
-                                                            <Icon icon="lucide:trash-2" className="w-[0.9vw] h-[0.9vw]" />
-                                                        )}
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {rText && (
-                                            <p className="text-[0.85vw] text-gray-600 leading-relaxed break-words">
-                                                {rText}
-                                            </p>
-                                        )}
-                                        
-                                        <div className="w-full h-[1px] bg-gray-100 my-[0.1vw]"></div>
-                                        
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[0.8vw] font-medium text-gray-600">Rating : {rVal} / 5</span>
-                                            <div className="flex items-center gap-[0.2vw]">
-                                                {renderStars(rVal, 'w-[1vw] h-[1vw]')}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
-                </div>
-            </div>
+            <RatingsPanel
+                isRatingsOpen={isRatingsOpen}
+                setIsRatingsOpen={setIsRatingsOpen}
+                reviewsList={reviewsList}
+                currentUserEmail={currentUserEmail}
+                editingRatingId={editingRatingId}
+                hoverRating={hoverRating}
+                setHoverRating={setHoverRating}
+                ratingForm={ratingForm}
+                setRatingForm={setRatingForm}
+                ratingFormError={ratingFormError}
+                setRatingFormError={setRatingFormError}
+                isSubmittingRating={isSubmittingRating}
+                isDeletingRating={isDeletingRating}
+                handleRatingSubmit={handleRatingSubmit}
+                handleStartEdit={handleStartEdit}
+                handleCancelEdit={handleCancelEdit}
+                handleDeleteRating={handleDeleteRating}
+                renderStars={renderStars}
+                navigate={navigate}
+                location={location}
+            />
         </div>
     );
 };

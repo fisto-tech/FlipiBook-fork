@@ -1,12 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import { Icon } from "@iconify/react";
+import { Icon, addIcon } from "@iconify/react";
 import axios from "axios";
 import { useAuth } from "../../../context/AuthContext";
 import { useConfirm } from "../../../context/ConfirmationContext";
 import SidebarItem from "./SidebarItem";
 import FlipbookInfoModal from "../../FlipbookInfoModal";
+import { BackgroundIcon } from "../AppearanceShared";
+
+// Register background icon with NO inside gray color shade (fully transparent interior)
+addIcon('andrsrxn:background', {
+  width: 24,
+  height: 24,
+  body: '<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.68 21.32h2.64c3.77 0 5.66 0 6.83-1.17s1.17-3.06 1.17-6.83v-2.64c0-3.77 0-5.66-1.17-6.83s-3.06-1.17-6.83-1.17h-2.64c-3.77 0-5.66 0-6.83 1.17s-1.17 3.06-1.17 6.83v2.64c0 3.77 0 5.66 1.17 6.83s3.06 1.17 6.83 1.17m-7.64-9.4l9.23 9.24M3.9 3.8l16.28 16.28M11.75 2.86l9.2 9.2"/>'
+});
 
 const AttachedCurve = ({ position }) => {
   const isTop = position.includes("top");
@@ -20,7 +28,7 @@ const AttachedCurve = ({ position }) => {
     overflow: "hidden",
     zIndex: 1998,
     ...(isTop ? { top: "-0.8vw" } : { bottom: "-0.8vw" }),
-    ...(isLeft ? { left: "-0.13vw" } : { right: "0" }),
+    ...(isLeft ? { left: "0" } : { right: "0" }),
   };
 
   const circleStyle = {
@@ -28,7 +36,7 @@ const AttachedCurve = ({ position }) => {
     width: "1.5vw",
     height: "1.6vw",
     borderRadius: "60%",
-    boxShadow: "0 0 0 2vw #151c28",
+    boxShadow: "0 0 0 2vw #ffffff",
     ...(isTop ? { top: "-0.8vw" } : { bottom: "-0.8vw" }),
     ...(isLeft ? { right: "-0.8vw" } : { left: "-0.8vw" }),
   };
@@ -231,7 +239,11 @@ const Sidebar = ({
   const tabConfigs = {
     logo: { icon: "fluent-mdl2:verified-brand", top: 154 },
     profile: { icon: "lucide:user", top: 206 },
-    background: { icon: "andrsrxn:background", top: 326 },
+    background: {
+      icon: "andrsrxn:background",
+      customComponent: <BackgroundIcon className="w-[1.3vw] h-[1.3vw]" />,
+      top: 326,
+    },
     layout: { icon: "lucide:layout-panel-left", top: 378 },
     bookappearance: { icon: "basil:book-open-outline", top: 430 },
     menubar: { icon: "fluent:layout-row-two-settings-24-regular", top: 482 },
@@ -280,23 +292,23 @@ const Sidebar = ({
   return (
     <div
       ref={sidebarRef}
-      className="w-[16.25vw] h-full bg-[#151c28] border-r border-[#1f293d] flex flex-col relative z-30 overflow-visible select-none text-white"
+      className="w-[16.25vw] h-full bg-[#ffffff] border-r border-gray-200 flex flex-col relative z-30 overflow-visible select-none text-gray-800"
     >
       {/* Draggable Tab Handle and Full-height Line — only visible when sub-panel is collapsed */}
       {activeSubView && activeTab && isPanelCollapsed && (
         <div className="absolute left-full top-0 -w-[3vw] h-full pointer-events-none z-50">
           {/* The full-height vertical line (0.25vw wide) */}
-          <div className="absolute left-[-1px] top-0 w-[0.25vw] h-full bg-[#151c28] pointer-events-auto select-none shadow-[0.1vw_0_0.5vw_rgba(0,0,0,0.2)]" />
+          <div className="absolute left-[-1px] top-0 w-[0.25vw] h-full bg-[#ffffff] pointer-events-auto select-none shadow-[0.1vw_0_0.5vw_rgba(0,0,0,0.1)]" />
 
           {/* The Draggable icon itself - repositioned to overlap with the line */}
           <div
             onMouseDown={handleMouseDown}
-            className={`absolute flex items-stretch rounded-r-[0.6vw] cursor-pointer shadow-[0.2vw_0_1vw_rgba(0,0,0,0.3)] pointer-events-auto select-none group ${
+            className={`absolute flex items-stretch rounded-r-[0.6vw] cursor-pointer shadow-[0.2vw_0_1vw_rgba(0,0,0,0.15)] pointer-events-auto select-none group ${
               isDragging ? "cursor-grabbing scale-100" : "cursor-grab"
             }`}
             style={{
               top: `${tabTop}px`,
-              left: "-1px",
+              left: "-0.2vw",
               transition: isDragging
                 ? "none"
                 : "top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.1s ease",
@@ -305,11 +317,11 @@ const Sidebar = ({
             <AttachedCurve position="top-left" />
             <AttachedCurve position="bottom-left" />
             {/* Internal overflow-hidden container for icons/background */}
-            <div className="flex items-stretch rounded-r-[0.6vw] overflow-hidden min-h-[2.6vw] ">
+            <div className="flex items-stretch rounded-r-[0.6vw] overflow-hidden min-h-[2.6vw] bg-[#ffffff]">
               {/* Connector strip to ensure no gap with the line */}
-              <div className=" h-full bg-[#151c28] flex-shrink-0 " />
-              <div className="w-[2.6vw] h-[2.6vw] bg-[#151c28] text-white flex items-center justify-center select-none">
-                <Icon icon={activeTab.icon} className="w-[1.3vw] h-[1.3vw]" />
+              <div className="w-[0.25vw] h-full bg-[#ffffff] flex-shrink-0" />
+              <div className="w-[2.6vw] h-[2.6vw] bg-[#ffffff] text-gray-800 flex items-center justify-center select-none">
+                {activeTab.customComponent || <Icon icon={activeTab.icon} className="w-[1.3vw] h-[1.3vw]" />}
               </div>
             </div>
           </div>
@@ -317,19 +329,19 @@ const Sidebar = ({
       )}
 
       {/* Book Title Header Section */}
-      <div className="px-[1vw] py-[0.75vw] shrink-0 border-b border-[#1f293d]">
+      <div className="px-[1vw] py-[0.75vw] shrink-0 border-b border-gray-100">
         {isLoading ? (
           <div className="flex flex-col gap-[0.4vw] animate-pulse">
-            <div className="h-[0.9vw] bg-[#2c3749] rounded-[0.25vw] w-3/4"></div>
-            <div className="h-[0.7vw] bg-[#2c3749] rounded-[0.2vw] w-1/3 mt-[0.1vw]"></div>
+            <div className="h-[0.9vw] bg-gray-200 rounded-[0.25vw] w-3/4"></div>
+            <div className="h-[0.7vw] bg-gray-200 rounded-[0.2vw] w-1/3 mt-[0.1vw]"></div>
           </div>
         ) : (
           <div className="flex flex-col justify-center min-w-0">
             <div
-              className={`flex items-center gap-[0.35vw] min-w-0 w-full ${isNameDuplicate ? "text-red-400" : ""}`}
+              className={`flex items-center gap-[0.35vw] min-w-0 w-full ${isNameDuplicate ? "text-red-500" : ""}`}
             >
-              <span className="text-[0.72vw] text-slate-400 font-medium tracking-wide shrink-0 select-none">
-                File :
+              <span className="text-[0.72vw] text-gray-500 font-medium tracking-wide shrink-0 select-none">
+                Book :
               </span>
               <input
                 ref={bookNameInputRef}
@@ -366,13 +378,13 @@ const Sidebar = ({
                     }
                   }
                 }}
-                className={`text-[0.88vw] font-medium bg-transparent border border-transparent hover:border-[#2c3749] focus:border-[#38465d] focus:bg-[#1a2332] rounded-[0.3vw] px-[0.3vw] py-[0.1vw] -ml-[0.3vw] focus:ring-0 focus:outline-none w-full leading-snug tracking-tight truncate transition-all duration-150 ${isNameDuplicate ? "text-red-400 placeholder-red-400/50" : "text-white placeholder-gray-500"}`}
+                className={`text-[0.88vw] font-medium bg-transparent border border-transparent hover:border-gray-300 focus:border-indigo-400 focus:bg-gray-50 rounded-[0.3vw] px-[0.3vw] py-[0.1vw] -ml-[0.3vw] focus:ring-0 focus:outline-none w-full leading-snug tracking-tight truncate transition-all duration-150 ${isNameDuplicate ? "text-red-500 placeholder-red-400" : "text-gray-900 placeholder-gray-400"}`}
                 placeholder="Name of the Book"
               />
             </div>
 
             <div className="flex items-center mt-[0.3vw]">
-              <span className="text-[0.72vw] text-slate-400 font-medium tracking-wide">
+              <span className="text-[0.72vw] text-gray-500 font-medium tracking-wide">
                 Pages : {pageCount || 10}
               </span>
             </div>
@@ -406,7 +418,7 @@ const Sidebar = ({
 
             <SidebarItem
               id="section-background"
-              icon="andrsrxn:background"
+              icon={<BackgroundIcon />}
               label="Background"
               isActive={activeSubView === "background"}
               onClick={() => setActiveSubView("background")}
@@ -467,7 +479,7 @@ const Sidebar = ({
               hasDropdown={false}
             />
 
-            <div className="w-[calc(100%-2vw)] h-[1px] bg-[#243042] mx-[1vw] my-[0.5vh]"></div>
+            <div className="w-[calc(100%-2vw)] h-[1px] bg-gray-200 mx-[1vw] my-[0.5vh]"></div>
 
             <SidebarItem
               id="section-branding"
@@ -483,15 +495,15 @@ const Sidebar = ({
         )}
       </div>
       {/* Go to Page Editor Button */}
-      <div className="px-[1vw] py-[2vh] border-t border-[#1f293d] mt-auto bg-[#151c28]">
+      <div className="px-[1vw] py-[2vh] border-t border-gray-100 mt-auto bg-[#ffffff]">
         {isLoading ? (
-          <div className="w-full h-[2.5vw] bg-[#2c3749] rounded-[0.6vw] animate-pulse"></div>
+          <div className="w-full h-[2.5vw] bg-gray-100 rounded-[0.6vw] animate-pulse"></div>
         ) : (
           <button
             onClick={handleGoToPageEditor}
-            className="w-full bg-gray-200 text-black hover:bg-gray-100 py-[1.2vh] rounded-[0.6vw] text-[0.8vw] font-semibold flex items-center justify-center gap-[0.8vw] active:scale-[0.98] transition-all shadow-[0_4px_14px_rgba(0,0,0,0.18)] cursor-pointer"
+            className="w-full bg-[#1a2332] text-white hover:bg-[#253245] py-[1.2vh] rounded-[0.6vw] text-[0.8vw] font-semibold flex items-center justify-center gap-[0.8vw] active:scale-[0.98] transition-all shadow-[0_4px_14px_rgba(0,0,0,0.18)] cursor-pointer"
           >
-            <ArrowUpRight size="1.2vw" className="rotate-0 text-black" />
+            <ArrowUpRight size="1.2vw" className="rotate-0 text-white" />
             <span>Go to Page Editor</span>
           </button>
         )}

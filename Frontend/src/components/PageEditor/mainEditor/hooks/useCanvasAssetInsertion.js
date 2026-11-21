@@ -4,6 +4,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { getSupabaseBaseUrl, resolveUploadsPath } from '../../../../utils/assets/assetUtils';
 import { getTopLevelFrames } from '../utils/frameHierarchyUtils';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../utils/imageOptimizer';
+import { startInFlightActivity, endInFlightActivity } from '../../../../utils/storage/saveLockManager';
 
 const VIRTUAL_FOLDERS = new Set(['recent book', 'recent', 'all books', 'all flipbooks', 'favorites', 'trash']);
 
@@ -112,6 +113,7 @@ export const useCanvasAssetInsertion = ({
       inserted = true;
 
       const uploadAssetInBackground = async (imgNode, groupNode, fileObj, sourceBlobUrl) => {
+        const uploadActivityId = startInFlightActivity(`canvas_asset_upload_${Date.now()}`);
         try {
           let uploadFile = fileObj;
           if (!uploadFile && sourceBlobUrl && typeof sourceBlobUrl === 'string') {
@@ -211,6 +213,8 @@ export const useCanvasAssetInsertion = ({
           }
         } catch (err) {
           console.error('[CanvasAssetInsertion] Background asset upload failed:', err);
+        } finally {
+          endInFlightActivity(uploadActivityId);
         }
       };
 

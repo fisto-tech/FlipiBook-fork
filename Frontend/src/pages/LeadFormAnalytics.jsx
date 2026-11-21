@@ -8,6 +8,7 @@ import customizedEditorApi from '../api/customizedEditorApi';
 import LazyPreview from '../components/MyFlipbooks/LazyPreview';
 import AnalyticsDatePicker from '../components/Analytics/AnalyticsDatePicker';
 import { getPaginationPages, formatFullDate, formatShortDate } from '../components/Analytics/analyticsUtils';
+import { exportProfessionalExcel } from '../utils/excelExportHelper';
 import { useToast } from '../components/CustomToast';
 
 const STATUS_OPTIONS = ['All Status', 'New', 'Contacted', 'Qualified', 'Converted', 'Lost'];
@@ -641,31 +642,81 @@ export default function LeadFormAnalytics() {
     return `${formatShortDate(start)}, ${start.getFullYear()} - ${formatShortDate(end)}, ${end.getFullYear()}`;
   }, [dateRange, customRange]);
 
-  // Export CSV
-  const handleExportCSV = () => {
-    const headers = ['Name', 'Email', 'Phone Number', 'Message', 'Status', 'Date & Time', 'Flipbook'];
-    const rows = filteredLeads.map(l => {
+  // Export Excel
+  const handleExportCSV = async () => {
+    if (filteredLeads.length === 0) return;
+
+    const columns = [
+      { header: 'Lead Name', key: 'name', width: 22, align: 'left' },
+      { header: 'Email Address', key: 'email', width: 28, align: 'left' },
+      { header: 'Phone Number', key: 'phone', width: 18, align: 'left' },
+      { header: 'Status', key: 'status', width: 16, align: 'center' },
+      { header: 'Flipbook Name', key: 'flipbook', width: 25, align: 'left' },
+      { header: 'Submission Date', key: 'date', width: 22, align: 'center' },
+      { header: 'Message / Notes', key: 'message', width: 40, align: 'left' }
+    ];
+
+    const data = filteredLeads.map(l => {
       const d = l.leadData || {};
       const dateStr = new Date(l.submittedAt || l.createdAt || Date.now()).toLocaleString();
-      return [
-        `"${d.name || d.fullName || 'Anonymous'}"`,
-        `"${d.email || l.userEmail || ''}"`,
-        `"${d.phoneNumber || d.phone || ''}"`,
-        `"${(d.message || '').replace(/"/g, '""')}"`,
-        `"${l.status || 'New'}"`,
-        `"${dateStr}"`,
-        `"${l.flipbookName || 'Flipbook'}"`
-      ];
+      return {
+        name: d.name || d.fullName || 'Anonymous',
+        email: d.email || l.userEmail || '-',
+        phone: d.phoneNumber || d.phone || '-',
+        status: l.status || 'New',
+        flipbook: l.flipbookName || 'Flipbook',
+        date: dateStr,
+        message: d.message || '-'
+      };
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `leads_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const statusCounts = filteredLeads.reduce((acc, curr) => {
+      const st = curr.status || 'New';
+      acc[st] = (acc[st] || 0) + 1;
+      return acc;
+    }, {});
+
+    const metadata = [
+      { label: 'Flipbook Filter', value: selectedBook?.title || 'All Flipbooks' },
+      { label: 'Status Filter', value: statusFilter },
+      { label: 'Date Range', value: typeof dateRange === 'number' ? `Last ${dateRange} Days` : dateRange },
+      { label: 'Search Keyword', value: searchQuery || 'None' },
+      { label: 'Total Leads in Export', value: filteredLeads.length },
+      { label: 'Export Date', value: new Date().toLocaleString() }
+    ];
+
+    const chartConfig = {
+      title: 'Leads by Status Distribution',
+      type: 'donut',
+      labels: Object.keys(statusCounts),
+      datasets: [
+        {
+          label: 'Count',
+          data: Object.values(statusCounts),
+          colors: ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444']
+        }
+      ]
+    };
+
+    const summaryCards = [
+      { title: 'Total Leads', value: filteredLeads.length, color: 'F05338' },
+      { title: 'New Leads', value: statusCounts['New'] || 0, color: '3B82F6' },
+      { title: 'Contacted', value: statusCounts['Contacted'] || 0, color: 'F59E0B' },
+      { title: 'Qualified', value: statusCounts['Qualified'] || 0, color: '8B5CF6' },
+      { title: 'Converted', value: statusCounts['Converted'] || 0, color: '10B981' }
+    ];
+
+    await exportProfessionalExcel({
+      filename: `Leads_Analytics_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      sheetTitle: 'Leads Records',
+      reportName: 'Leads & Enquiries Detailed Report',
+      columns,
+      data,
+      metadata,
+      summaryCards,
+      chartConfig,
+      totalRowLabelCol: 'name'
+    });
   };
 
   // Pagination

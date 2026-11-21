@@ -14,7 +14,9 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthModal } from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./Layouts/MainLayout";
+import LaunchLockGate from "./features/comingSoon/LaunchLockGate";
 import ScrollToTop from "./components/ScrollToTop";
+import SEOManager from "./components/common/SEOManager";
 import { DocumentUploadProvider } from "./context/DocumentUploadContext";
 
 function AuthRouteRedirect({ mode = "signin" }) {
@@ -60,7 +62,7 @@ const CopyrightPolicy = lazy(() => import("./pages/LegalFile/LegalCopyright"));
 
 // Preview & Share Pages
 const PreviewPage = lazy(() => import("./pages/PreviewPage"));
-const ShareViewBook = lazy(() => import("./pages/shareviewbook"));
+const ShareViewBook = lazy(() => import("./pages/ShareViewBook/ShareViewBook"));
 const PublicShelfView = lazy(() => import("./pages/PublicShelfView"));
 const ARView = lazy(() => import("./pages/ARView"));
 const ComingSoonBanner = lazy(() => import("./pages/ComingSoonBanner"));
@@ -104,8 +106,10 @@ export default function App() {
           <ConfirmationProvider>
             <Router>
               <DocumentUploadProvider>
+                <SEOManager />
                 <ScrollToTop />
                 <AuthModal />
+                <LaunchLockGate>
                 <Routes>
               {/* Direct visits to auth URLs automatically open the Auth Modal over home */}
               <Route
@@ -739,6 +743,7 @@ export default function App() {
               {/* Catch-all fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+                </LaunchLockGate>
           </DocumentUploadProvider>
           </Router>
           </ConfirmationProvider>

@@ -1,6 +1,31 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Icon } from '@iconify/react';
+import { Icon, addIcon } from '@iconify/react';
+
+// Clean Background Icon (pure stroke only, NO inside gray color shade)
+export const BackgroundIcon = ({ className = "w-[1.4vw] h-[1.4vw]" }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
+      d="M10.68 21.32h2.64c3.77 0 5.66 0 6.83-1.17s1.17-3.06 1.17-6.83v-2.64c0-3.77 0-5.66-1.17-6.83s-3.06-1.17-6.83-1.17h-2.64c-3.77 0-5.66 0-6.83 1.17s-1.17 3.06-1.17 6.83v2.64c0 3.77 0 5.66 1.17 6.83s3.06 1.17 6.83 1.17m-7.64-9.4l9.23 9.24M3.9 3.8l16.28 16.28M11.75 2.86l9.2 9.2"
+    />
+  </svg>
+);
+
+// Register background icon with NO inside gray color shade (fully transparent interior)
+addIcon('andrsrxn:background', {
+  width: 24,
+  height: 24,
+  body: '<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.68 21.32h2.64c3.77 0 5.66 0 6.83-1.17s1.17-3.06 1.17-6.83v-2.64c0-3.77 0-5.66-1.17-6.83s-3.06-1.17-6.83-1.17h-2.64c-3.77 0-5.66 0-6.83 1.17s-1.17 3.06-1.17 6.83v2.64c0 3.77 0 5.66 1.17 6.83s3.06 1.17 6.83 1.17m-7.64-9.4l9.23 9.24M3.9 3.8l16.28 16.28M11.75 2.86l9.2 9.2"/>'
+});
 
 // Helper Functions
 export const rgbToHex = (r, g, b) => {
@@ -271,12 +296,10 @@ export const DraggableSpan = ({ label, value, onChange, min = 0, max = 100, clas
 };
 
 export const solidPalette = [
-    '#D9D9D9','#ffe0ffff','#FFD1DC',  '#F8C8DC','#FFB7C5','#FFFACD', '#FFF4B5',
-    '#FFE5B4', '#FFD8B1', '#FFCBA4',
-      '#e0ffd0ff','#c9fcceff','#C1F0C1',
-      '#dceaf8ff', '#B3E5FC',
-    '#F3E5F5','#d3d2fdff','#dfd1ffff',  '#E0BBE4', 
-    '#FFFFFF', '#E0E0E0', '#9E9E9E', '#424242', '#000000',
+    '#C5C5C5', '#F8BBD0', '#F48FB1', '#F06292', '#E57373', '#FFF176',
+    '#FFEE58', '#FFD54F', '#FFB74D', '#FFA726', '#C5E1A5', '#A5D6A7',
+    '#81C784', '#90CAF9', '#64B5F6', '#CE93D8', '#9FA8DA', '#B39DDB',
+    '#BA68C8', '#FFFFFF', '#BDBDBD', '#757575', '#424242', '#000000',
 ];
 
 

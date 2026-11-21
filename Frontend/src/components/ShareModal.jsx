@@ -8,6 +8,7 @@ import ColorPicker, { default as TemplateColorPicker } from './ColorPicker';
 import { getAssetBaseUrl, getSupabaseBaseUrl, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
 import { analyticsApi } from '../api/analyticsApi';
+import { TemplatePreview, COVER_TEMPLATES } from './FlipbookInfoModal';
 
 
 // Lazy-load preview iframe: only fetches HTML when card is visible in viewport
@@ -304,6 +305,78 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
     const currentBook = propCurrentBook || flipbook;
     const { user } = useAuth();
     const [addCover, setAddCover] = useState(false);
+    const [coverPictureData, setCoverPictureData] = useState(null);
+
+    // Fetch Cover Picture from backend when modal opens
+    useEffect(() => {
+        if (!isOpen) return;
+
+        // 1. Initial check from props / currentBook
+        const initialRawCp = currentBook?.coverPicture ||
+            currentBook?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+            currentBook?.Customized_Settings?.otherSetup?.coverPicture ||
+            currentBook?.Customized_Settings?.coverPicture ||
+            currentBook?.settings?.othersetup?.coverPicture ||
+            currentBook?.settings?.otherSetup?.coverPicture ||
+            currentBook?.settings?.FlipbookInfo?.coverPicture ||
+            currentBook?.meta?.coverPicture ||
+            null;
+
+        if (initialRawCp) {
+            setCoverPictureData(initialRawCp);
+        }
+
+        // 2. Fetch latest from backend API
+        const v_id = currentBook?.v_id || currentBook?.id || currentBook?._id;
+        if (!v_id) return;
+
+        const effectiveBackendUrl = (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
+        axios.get(`${effectiveBackendUrl}/api/customized-editor/book-info/${v_id}`, { withCredentials: true })
+            .then(res => {
+                if (res.data?.success && res.data?.data?.coverPicture) {
+                    setCoverPictureData(res.data.data.coverPicture);
+                }
+            })
+            .catch(() => {
+                // Fallback attempt to /api/flipbook/get if needed
+                axios.get(`${effectiveBackendUrl}/api/flipbook/get?v_id=${v_id}`, { withCredentials: true })
+                    .then(res => {
+                        const b = res.data?.book || res.data?.flipbook || res.data;
+                        const cp = b?.coverPicture ||
+                            b?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+                            b?.Customized_Settings?.otherSetup?.coverPicture ||
+                            b?.Customized_Settings?.coverPicture ||
+                            b?.settings?.othersetup?.coverPicture ||
+                            b?.meta?.coverPicture;
+                        if (cp) {
+                            setCoverPictureData(cp);
+                        }
+                    })
+                    .catch(() => {});
+            });
+    }, [isOpen, currentBook?.v_id, currentBook?.id, currentBook?._id]);
+
+    const activeRawCp = coverPictureData ||
+        currentBook?.coverPicture ||
+        currentBook?.Customized_Settings?.FlipbookInfo?.coverPicture ||
+        currentBook?.Customized_Settings?.otherSetup?.coverPicture ||
+        currentBook?.Customized_Settings?.coverPicture ||
+        currentBook?.settings?.othersetup?.coverPicture ||
+        currentBook?.settings?.otherSetup?.coverPicture ||
+        currentBook?.settings?.FlipbookInfo?.coverPicture ||
+        currentBook?.meta?.coverPicture ||
+        null;
+
+    const resolvedCoverPicture = activeRawCp ? (() => {
+        const tplId = typeof activeRawCp?.selectedTemplate === 'object' && activeRawCp?.selectedTemplate
+            ? activeRawCp.selectedTemplate.id
+            : Number(activeRawCp?.selectedTemplate || activeRawCp?.templateId || 1);
+        const initialTemplate = COVER_TEMPLATES.find(t => t.id === tplId) || COVER_TEMPLATES[0];
+        return {
+            ...activeRawCp,
+            selectedTemplate: initialTemplate
+        };
+    })() : null;
 
     const getResolvedFirstPageHtml = () => {
         if (!currentBook?.firstPageHtml) return '';
@@ -1105,12 +1178,51 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
         currentBook?.meta?.isPublished
     );
 
-    const handleCopy = () => {
+    const getEffectiveCoverImageUrl = () => {
+        if (!addCover) return null;
+        let imgUrl = resolvedCoverPicture?.url ||
+            currentBook?.coverPicture?.url ||
+            currentBook?.Customized_Settings?.coverPicture?.url ||
+            currentBook?.thumbnail ||
+            '';
+
+        if (!imgUrl && shareIdVal) {
+            const effectiveBackendUrl = (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/+$/, '');
+            imgUrl = `${effectiveBackendUrl}/api/customized-editor/preview-image/${shareIdVal}`;
+        }
+        return imgUrl;
+    };
+
+    const handleCopy = async () => {
         if (!isBookPublished) {
             alert("Please publish your flipbook first to copy or share the link.");
             return;
         }
-        navigator.clipboard.writeText(publicUrl);
+
+        const coverImg = getEffectiveCoverImageUrl();
+        const bookTitle = currentBook?.flipbookName || currentBook?.title || 'Interactive Flipbook';
+
+        try {
+            if (addCover && coverImg && window.ClipboardItem && navigator.clipboard?.write) {
+                const richHtml = `<div style="font-family:sans-serif;max-width:500px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#ffffff;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"><a href="${publicUrl}" style="text-decoration:none;color:inherit;display:block;"><img src="${coverImg}" alt="${bookTitle}" style="width:100%;height:auto;display:block;object-fit:cover;max-height:280px;" /><div style="padding:16px;"><h3 style="margin:0 0 6px 0;font-size:18px;font-weight:bold;color:#1e293b;">${bookTitle}</h3><p style="margin:0 0 8px 0;font-size:13px;color:#64748b;">Click to open and read full interactive flipbook</p><span style="font-size:12px;color:#4A3AFF;font-weight:600;">${publicUrl}</span></div></a></div>`;
+                const textBlob = new Blob([publicUrl], { type: 'text/plain' });
+                const htmlBlob = new Blob([richHtml], { type: 'text/html' });
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        'text/plain': textBlob,
+                        'text/html': htmlBlob
+                    })
+                ]);
+            } else {
+                await navigator.clipboard.writeText(publicUrl);
+            }
+        } catch (copyErr) {
+            // Fallback to text copy
+            try {
+                await navigator.clipboard.writeText(publicUrl);
+            } catch (e) {}
+        }
+
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
 
@@ -1131,6 +1243,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
         }
         const shareTitle = currentBook?.flipbookName || 'Check out my flipbook!';
         const shareUrl = publicUrl;
+        const coverImg = getEffectiveCoverImageUrl();
 
         const vid = currentBook?.v_id || currentBook?.bookId || currentBook?._id;
         const trackShare = (plat) => {
@@ -1145,11 +1258,12 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
 
         if (platform === 'native' && navigator.share) {
             try {
-                await navigator.share({
+                const sharePayload = {
                     title: shareTitle,
-                    text: 'I created a flipbook on Fisto. Take a look!',
+                    text: `Take a look at "${shareTitle}" on FlipiBook!`,
                     url: shareUrl
-                });
+                };
+                await navigator.share(sharePayload);
                 trackShare('native');
             } catch (err) {
                 if (err.name !== 'AbortError') {
@@ -1160,7 +1274,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
             let url = '';
             switch (platform) {
                 case 'whatsapp':
-                    url = `https://wa.me/?text=${encodeURIComponent(shareTitle + ' ' + shareUrl)}`;
+                    url = `https://wa.me/?text=${encodeURIComponent(shareTitle + '\n' + shareUrl)}`;
                     trackShare('whatsapp');
                     break;
                 case 'facebook':
@@ -1172,7 +1286,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                     trackShare('x');
                     break;
                 case 'mail':
-                    url = `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent('Check out this flipbook: ' + shareUrl)}`;
+                    url = `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent('Check out this flipbook:\n\n' + shareTitle + '\n' + shareUrl)}`;
                     trackShare('mail');
                     break;
                 case 'linkedin':
@@ -1224,6 +1338,40 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                         <div className="flex-[0.8] flex flex-col w-full">
                             <div className="relative rounded-[1.2cqw] overflow-hidden shadow-lg aspect-[3/4] md:aspect-square bg-gray-100 w-full">
                                 {(() => {
+                                    if (addCover && resolvedCoverPicture) {
+                                        return (
+                                            <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100">
+                                                {resolvedCoverPicture.type === 'template' ? (
+                                                    <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
+                                                        <TemplatePreview
+                                                            {...resolvedCoverPicture}
+                                                            pages={currentBook?.pages || []}
+                                                        />
+                                                    </div>
+                                                ) : resolvedCoverPicture.url ? (
+                                                    <img
+                                                        src={resolvedCoverPicture.url}
+                                                        alt="Flipbook Cover"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <LazyPreview
+                                                        v_id={currentBook?.v_id}
+                                                        emailId={user?.emailId || user?.email || ''}
+                                                        backendUrl={import.meta.env.VITE_BACKEND_URL || ''}
+                                                        iframeBaseUrl={getSupabaseBaseUrl(
+                                                            user?.emailId ? user.emailId.replace(/[@.]/g, "_") : '',
+                                                            currentBook?.folder || currentBook?.folderName || '',
+                                                            currentBook?.realName || currentBook?.title || currentBook?.flipbookName || ''
+                                                        )}
+                                                        title={currentBook?.title}
+                                                        imageUrl={currentBook?.image || null}
+                                                    />
+                                                )}
+                                            </div>
+                                        );
+                                    }
+
                                     const emailId = user?.emailId || user?.email || '';
                                     const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
                                     const emailFolder = emailId ? emailId.replace(/[@.]/g, "_") : '';
@@ -1510,6 +1658,40 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                 <div className="flex-[1.1] flex flex-col">
                                     <div className="relative rounded-[1vw] overflow-hidden shadow-lg aspect-square bg-gray-100">
                                         {(() => {
+                                            if (addCover && resolvedCoverPicture) {
+                                                return (
+                                                    <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100">
+                                                        {resolvedCoverPicture.type === 'template' ? (
+                                                            <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
+                                                                <TemplatePreview
+                                                                    {...resolvedCoverPicture}
+                                                                    pages={currentBook?.pages || []}
+                                                                />
+                                                            </div>
+                                                        ) : resolvedCoverPicture.url ? (
+                                                            <img
+                                                                src={resolvedCoverPicture.url}
+                                                                alt="Flipbook Cover"
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <LazyPreview
+                                                                v_id={currentBook?.v_id}
+                                                                emailId={user?.emailId || user?.email || ''}
+                                                                backendUrl={import.meta.env.VITE_BACKEND_URL || ''}
+                                                                iframeBaseUrl={getSupabaseBaseUrl(
+                                                                    user?.emailId ? user.emailId.replace(/[@.]/g, "_") : '',
+                                                                    currentBook?.folder || currentBook?.folderName || '',
+                                                                    currentBook?.realName || currentBook?.title || currentBook?.flipbookName || ''
+                                                                )}
+                                                                title={currentBook?.title}
+                                                                imageUrl={currentBook?.image || null}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+
                                             const emailId = user?.emailId || user?.email || '';
                                             const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
                                             const emailFolder = emailId ? emailId.replace(/[@.]/g, "_") : '';

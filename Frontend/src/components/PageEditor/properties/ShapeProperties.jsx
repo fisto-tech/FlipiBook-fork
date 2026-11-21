@@ -10,7 +10,8 @@ import {
   Trash2,
   Edit2,
   ArrowRightLeft,
-  Plus
+  Plus,
+  Loader2
 } from 'lucide-react';
 import ReplaceMediaModal from '../modals/ReplaceMediaModal';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
@@ -29,6 +30,7 @@ import {
 } from '../LeftActionMenu/Elements/utils/shapeMaskUtils';
 import { parseGradient } from './ColorPicker';
 import { PropertySlider } from './propertiesShared';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
 // ShapeAppearanceControls export for backwards compatibility
 export const ShapeAppearanceControls = ({
@@ -122,6 +124,7 @@ const ShapeProperties = ({
   const [slotOpacity, setSlotOpacity] = useState(100);
   const [slotFilters, setSlotFilters] = useState({ exposure: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, highlights: 0, shadows: 0 });
   const [isMaskEnabled, setIsMaskEnabled] = useState(false);
+  const [isCompressingShapeImage, setIsCompressingShapeImage] = useState(false);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const fileInputRef = useRef(null);
@@ -362,19 +365,50 @@ const ShapeProperties = ({
 
     const name = file.name || 'Image Name .jpg';
     setSlotImageName(name);
+    setIsCompressingShapeImage(true);
 
-    const sizeStr = file.size > 1024 * 1024
-      ? `${(file.size / (1024 * 1024)).toFixed(1)}MB`
-      : `${Math.round(file.size / 1024)}KB`;
+    try {
+      let targetFile = file;
+      let finalDataUrl = null;
+      let imgWidth = 0;
+      let imgHeight = 0;
+      let compBytes = file.size;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const dataUrl = event.target.result;
-      setSlotOriginalImage(dataUrl);
-      applyImageMask(dataUrl, name, sizeStr, dataUrl);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+      if (shouldOptimizeImage(file)) {
+        try {
+          const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+          if (opt?.dataUrl) {
+            finalDataUrl = opt.dataUrl;
+            imgWidth = opt.width;
+            imgHeight = opt.height;
+            compBytes = opt.compressedSize || opt.file?.size || compBytes;
+          }
+        } catch (optErr) {
+          console.warn('[ShapeProperties] Optimization fallback:', optErr);
+        }
+      }
+
+      if (!finalDataUrl) {
+        finalDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve(event.target.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(targetFile);
+        });
+      }
+
+      if (finalDataUrl) {
+        const sizeStr = compBytes > 1024 * 1024
+          ? `${(compBytes / (1024 * 1024)).toFixed(1)}MB`
+          : `${Math.round(compBytes / 1024)}KB`;
+
+        setSlotOriginalImage(finalDataUrl);
+        applyImageMask(finalDataUrl, name, sizeStr, finalDataUrl);
+      }
+    } finally {
+      setIsCompressingShapeImage(false);
+      e.target.value = '';
+    }
   };
 
   const handleAdjustmentChange = (key, val) => {
@@ -1196,7 +1230,7 @@ const ShapeProperties = ({
           {/* Dashed Add Images button shown before upload */}
           {!hasUploadedImage && (
             <div
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => !isCompressingShapeImage && fileInputRef.current?.click()}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1204,15 +1238,29 @@ const ShapeProperties = ({
               onDrop={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (isCompressingShapeImage) return;
                 const files = e.dataTransfer.files;
                 if (files && files.length > 0) {
                   handleFileChange({ target: { files } });
                 }
               }}
-              className="w-full py-[1vw] border-2 border-dashed border-gray-300 rounded-[0.55vw] flex items-center justify-center gap-[0.5vw] text-gray-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/20 transition-all cursor-pointer font-medium text-[0.85vw]"
+              className={`w-full py-[1vw] border-2 border-dashed rounded-[0.55vw] flex items-center justify-center gap-[0.5vw] font-medium text-[0.85vw] transition-all shadow-2xs ${
+                isCompressingShapeImage
+                  ? 'border-indigo-400 bg-indigo-50/40 text-indigo-600 cursor-wait'
+                  : 'border-gray-300 text-gray-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/20 cursor-pointer'
+              }`}
             >
-              <Plus size="1vw" />
-              <span>Add Images</span>
+              {isCompressingShapeImage ? (
+                <>
+                  <Loader2 size="1vw" className="text-indigo-600 animate-spin" />
+                  <span>Compressing image...</span>
+                </>
+              ) : (
+                <>
+                  <Plus size="1vw" />
+                  <span>Add Images</span>
+                </>
+              )}
             </div>
           )}
 
@@ -1228,6 +1276,7 @@ const ShapeProperties = ({
                 onDrop={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  if (isCompressingShapeImage) return;
                   const files = e.dataTransfer.files;
                   if (files && files.length > 0) {
                     const file = files[0];
@@ -1244,6 +1293,14 @@ const ShapeProperties = ({
                     alt={slotImageName || 'Image Name .jpg'}
                     className="w-full h-full object-cover"
                   />
+
+                  {/* Circular Spinner while compressing */}
+                  {isCompressingShapeImage && (
+                    <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex flex-col items-center justify-center z-20">
+                      <Loader2 className="w-[1.4vw] h-[1.4vw] text-white animate-spin" />
+                      <span className="text-[0.62vw] text-white font-medium mt-[0.2vw]">Compressing...</span>
+                    </div>
+                  )}
 
                   {/* Adjustment Icon Button (Top Right) */}
                   <button

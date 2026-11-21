@@ -2,15 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
-import { Plus, Trash2, Mail, Sliders } from 'lucide-react';
+import { Plus, Trash2, Mail, Sliders, ChevronsLeft } from 'lucide-react';
 import PremiumDropdown from '../../components/PremiumDropdown';
 import ColorPallet from '../../../ColorPallet';
-
-import Template1Icon from '../../../../assets/quick template/Frame 1171276601 (1).svg';
-import Template2Icon from '../../../../assets/quick template/Frame 1171276601 (2).svg';
-import Template3Icon from '../../../../assets/quick template/Frame 1171276601 (3).svg';
-import Template4Icon from '../../../../assets/quick template/Frame 1171276601 (4).svg';
-import Template5Icon from '../../../../assets/quick template/Frame 1171276601 (5).svg';
 
 const fontFamilies = [
   'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana',
@@ -167,7 +161,9 @@ const CategoryGroupItem = ({
 const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName, v_id }) => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
   const [uploadingProductImgId, setUploadingProductImgId] = useState(null);
-  const [isTemplatesOpen, setIsTemplatesOpen] = useState(true);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [modalSelectedTemplate, setModalSelectedTemplate] = useState(null);
   const [isCustomizeFieldsOpen, setIsCustomizeFieldsOpen] = useState(true);
   const [isColorOpen, setIsColorOpen] = useState(false);
   const [isEnquiryBtnOpen, setIsEnquiryBtnOpen] = useState(true);
@@ -527,97 +523,120 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
 
   const quickTemplates = [
     {
-      id: 'basic-contact',
+      id: 'contact-form',
       name: 'Contact Form',
-      icon: Template1Icon,
       config: {
         formTitle: 'Get in Touch',
         leadText: 'Share your details and we will contact you shortly',
         buttonText: 'SUBMIT',
         fields: [
-          { id: Date.now().toString() + '-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
-          { id: Date.now().toString() + '-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
-          { id: Date.now().toString() + '-3', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true }
+          { id: 'f-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+          { id: 'f-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
+          { id: 'f-3', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true }
         ]
       }
     },
     {
-      id: 'business-inquiry',
-      name: 'Business Inquiry',
-      icon: Template2Icon,
+      id: 'general-inquiry',
+      name: 'General Inquiry',
       config: {
-        formTitle: 'Request More Information',
-        leadText: 'Tell us about your requirements and our team will reach out.',
+        formTitle: 'General Inquiry',
+        leadText: 'Have a question? Fill out the form below and we will get back to you.',
+        buttonText: 'SUBMIT',
+        fields: [
+          { id: 'f-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+          { id: 'f-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
+          { id: 'f-3', type: 'dropdown', label: 'Topic / Inquiry Type', placeholder: 'Select an option', options: ['Product Details', 'Billing & Pricing', 'Technical Support', 'General Question'], required: true },
+          { id: 'f-4', type: 'feedback', label: 'Your Message', placeholder: 'Describe your query...', required: false }
+        ]
+      }
+    },
+    {
+      id: 'request-callback',
+      name: 'Request a Callback',
+      config: {
+        formTitle: 'Request a Callback',
+        leadText: 'Leave your details and our team will give you a call back.',
         buttonText: 'Request Callback',
         fields: [
-          { id: Date.now().toString() + '-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
-          { id: Date.now().toString() + '-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
-          { id: Date.now().toString() + '-3', type: 'company', label: 'Company Name', placeholder: 'Enter your company name' },
-          { id: Date.now().toString() + '-4', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true },
-          {
-            id: Date.now().toString() + '-5',
-            type: 'dropdown',
-            label: 'Interested Service',
-            options: ['Web Development', 'Mobile App Development']
-          }
+          { id: 'f-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+          { id: 'f-2', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true },
+          { id: 'f-3', type: 'dropdown', label: 'Preferred Time', placeholder: 'Select best time', options: ['Morning (9 AM - 12 PM)', 'Afternoon (12 PM - 4 PM)', 'Evening (4 PM - 7 PM)'], required: false }
+        ]
+      }
+    },
+    {
+      id: 'get-quote',
+      name: 'Get a Quote',
+      config: {
+        formTitle: 'Get a Quote',
+        leadText: 'Request a personalized quote tailored to your business needs.',
+        buttonText: 'Get Quote',
+        fields: [
+          { id: 'f-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+          { id: 'f-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
+          { id: 'f-3', type: 'dropdown', label: 'Project Budget', placeholder: 'Select your budget', options: ['$500 - $1,000', '$1,000 - $5,000', '$5,000+'], required: false },
+          { id: 'f-4', type: 'feedback', label: 'Project Details', placeholder: 'Brief summary of what you need...', required: true }
         ]
       }
     },
     {
       id: 'product-inquiry',
       name: 'Product Inquiry',
-      icon: Template3Icon,
       config: {
-        formTitle: 'Interested in Our Products?',
-        leadText: 'Let us know what you are interested in.',
-        buttonText: 'Get Details',
+        formTitle: 'Product Inquiry',
+        leadText: 'Interested in our products? Share your details to know more.',
+        buttonText: 'Inquire Now',
         fields: [
-          { id: Date.now().toString() + '-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
-          { id: Date.now().toString() + '-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
-          { id: Date.now().toString() + '-3', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true },
-          {
-            id: Date.now().toString() + '-4',
-            type: 'checkbox',
-            label: 'Interested Products',
-            options: ['500 ml Round', '1000 ml round']
-          }
+          { id: 'f-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+          { id: 'f-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
+          { id: 'f-3', type: 'checkbox', label: 'Interested Products', options: ['Standard Plan', 'Premium Plan', 'Custom Enterprise Package'], required: false }
         ]
       }
     },
     {
-      id: 'feedback-form',
-      name: 'Feedback Form',
-      icon: Template4Icon,
+      id: 'service-request',
+      name: 'Service Request',
       config: {
-        formTitle: 'Share Your Feedback',
-        leadText: 'We value your feedback. Help us improve.',
+        formTitle: 'Service Request',
+        leadText: 'Let us know the service you need and our specialists will assist.',
+        buttonText: 'Request Service',
+        fields: [
+          { id: 'f-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+          { id: 'f-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
+          { id: 'f-3', type: 'dropdown', label: 'Service Category', placeholder: 'Select service', options: ['Consulting', 'Implementation', 'Maintenance & Support', 'Custom Integration'], required: true },
+          { id: 'f-4', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: false }
+        ]
+      }
+    },
+    {
+      id: 'customer-feedback',
+      name: 'Customer Feedback',
+      config: {
+        formTitle: 'Customer Feedback',
+        leadText: 'We value your experience and thoughts. Let us know how we did.',
         buttonText: 'Submit Feedback',
         fields: [
-          { id: Date.now().toString() + '-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
-          { id: Date.now().toString() + '-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
-          { id: Date.now().toString() + '-3', type: 'rating', label: 'Provide Ratings' },
-          { id: Date.now().toString() + '-4', type: 'feedback', label: 'Feedback', placeholder: 'Enter your Feedback' }
+          { id: 'f-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+          { id: 'f-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
+          { id: 'f-3', type: 'rating', label: 'Rate your Experience', required: true },
+          { id: 'f-4', type: 'feedback', label: 'Your Feedback', placeholder: 'Tell us how we can improve...', required: false }
         ]
       }
     },
     {
-      id: 'event-registration',
-      name: 'Event Registration',
-      icon: Template5Icon,
+      id: 'business-enquiry',
+      name: 'Business Enquiry',
       config: {
-        formTitle: 'Register Now',
-        leadText: 'Secure your spot for the upcoming event.',
-        buttonText: 'Register',
+        formTitle: 'Request More Information',
+        leadText: 'Looking for a partnership or B2B solutions? Connect with us.',
+        buttonText: 'Send Enquiry',
         fields: [
-          { id: Date.now().toString() + '-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
-          { id: Date.now().toString() + '-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
-          { id: Date.now().toString() + '-3', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true },
-          {
-            id: Date.now().toString() + '-4',
-            type: 'dropdown',
-            label: 'Number of Tickets',
-            options: ['1', '2']
-          }
+          { id: 'f-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+          { id: 'f-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Email', required: true },
+          { id: 'f-3', type: 'company', label: 'Company Name', placeholder: 'Enter your Company Name', required: false },
+          { id: 'f-4', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true },
+          { id: 'f-5', type: 'feedback', label: 'Tell us about your requirement', placeholder: 'Write your requirement...', required: false }
         ]
       }
     }
@@ -627,13 +646,15 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
     onUpdate({
       ...settings,
       enabled: true,
+      _previewKey: Date.now(),
       selectedTemplateId: template.id,
       formTitle: template.config.formTitle,
       leadText: template.config.leadText,
       buttonText: template.config.buttonText,
-      fields: template.config.fields
+      fields: template.config.fields.map(f => ({ ...f, id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 4) }))
     });
     setIsAddFieldPopupOpen(false);
+    setIsTemplateModalOpen(false);
   };
 
   return (
@@ -654,8 +675,8 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
           <Icon icon="fluent:form-48-regular" className="w-[1vw] h-[1vw] text-gray-700 font-semibold" />
           <span className="text-[1vw] font-semibold text-gray-900">Lead & Enquiry Form</span>
         </div>
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
-          <Icon icon="ic:round-arrow-back" className="w-[1.25vw] h-[1.25vw]" />
+        <button onClick={onBack} className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90">
+          <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
         </button>
       </div>
 
@@ -1035,7 +1056,11 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                 <div className="rounded-[0.5vw] border border-gray-100 bg-gray-50/50 overflow-hidden">
                   <button
                     type="button"
-                    onClick={() => setIsTemplatesOpen(!isTemplatesOpen)}
+                    onClick={() => {
+                      const currentTemplate = quickTemplates.find(t => t.id === settings.selectedTemplateId) || quickTemplates[0];
+                      setModalSelectedTemplate(currentTemplate);
+                      setIsTemplateModalOpen(true);
+                    }}
                     className="w-full flex items-center justify-between p-[0.6vw] hover:bg-gray-100/70 transition-colors"
                   >
                     <div className="flex items-center gap-[0.5vw]">
@@ -1044,40 +1069,9 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                     </div>
                     <Icon
                       icon="lucide:arrow-right"
-                      className={`w-[0.9vw] h-[0.9vw] text-gray-400 transition-transform duration-200 ${isTemplatesOpen ? 'rotate-90' : ''}`}
+                      className="w-[0.9vw] h-[0.9vw] text-gray-400"
                     />
                   </button>
-
-                  {isTemplatesOpen && (
-                    <div className="p-[0.6vw] pt-0 border-t border-gray-100/80 bg-white">
-                      <div className="grid grid-cols-3 gap-[0.5vw] w-full pt-[0.5vw]">
-                        {quickTemplates.map((template) => {
-                          const isSelected = settings.selectedTemplateId
-                            ? settings.selectedTemplateId === template.id
-                            : (settings.formTitle ? settings.formTitle === template.config.formTitle : template.id === 'basic-contact');
-
-                          return (
-                            <div
-                              key={template.id}
-                              onClick={() => handleSelectTemplate(template)}
-                              className={`flex flex-col items-center justify-between cursor-pointer group rounded-[0.5vw] p-[0.4vw] transition-all bg-white border ${
-                                isSelected
-                                  ? 'border-[#E05638] shadow-[0_0.2vw_0.6vw_rgba(224,86,56,0.18)]'
-                                  : 'border-gray-200 shadow-[0_0.1vw_0.3vw_rgba(0,0,0,0.03)] hover:border-gray-300 hover:shadow-xs'
-                              }`}
-                            >
-                              <div className="w-full flex items-center justify-center rounded-[0.35vw] p-[0.2vw] mb-[0.3vw] transition-colors aspect-[1/1] overflow-hidden bg-white">
-                                <img src={template.icon} alt={template.name} className="w-full h-full object-contain rounded-[0.25vw]" />
-                              </div>
-                              <span className="text-[0.6vw] font-medium text-center leading-tight transition-colors text-gray-800 group-hover:text-black mt-auto whitespace-pre-line px-[0.1vw]">
-                                {template.name}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Form Layout: 1 column vs 2 Column */}
@@ -1973,6 +1967,303 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
             </div>
           </div>
         </>
+      )}
+
+      {/* Quick Templates Modal */}
+      {isTemplateModalOpen && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-[1.5vw] animate-in fade-in duration-200">
+          <div
+            className="bg-white w-[94vw] max-w-[1150px] rounded-[1vw] shadow-[0_20px_50px_rgba(0,0,0,0.18)] border border-gray-100 overflow-hidden flex flex-col max-h-[92vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between px-[1.5vw] py-[1.1vw] border-b border-gray-100 bg-white">
+              <div>
+                <h2 className="text-[1.1vw] font-bold text-gray-900 leading-tight">Quick Templates</h2>
+                <p className="text-[0.72vw] text-gray-500 mt-[0.2vw]">
+                  Create your flipbook from scratch and design every page your way
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors border border-red-200"
+              >
+                <Icon icon="lucide:x" className="w-[1vw] h-[1vw]" />
+              </button>
+            </div>
+
+            {/* Modal Body: Two Columns (Left Grid 4x2, Right Preview) */}
+            <div className="flex flex-1 min-h-0 p-[1.3vw] gap-[1.3vw] overflow-y-auto">
+              {/* Left Column: 8 Templates Grid (4 columns x 2 rows) */}
+              <div className="flex-1 grid grid-cols-4 gap-[0.8vw] content-start">
+                {quickTemplates.map((template) => {
+                  const currentSelected = modalSelectedTemplate || quickTemplates[0];
+                  const isSelected = currentSelected.id === template.id;
+
+                  return (
+                    <div
+                      key={template.id}
+                      onClick={() => setModalSelectedTemplate(template)}
+                      className="flex flex-col items-center cursor-pointer group"
+                    >
+                      {/* Form Card Box */}
+                      <div
+                        className={`w-full flex flex-col justify-between rounded-[0.7vw] p-[0.6vw] transition-all bg-white border ${
+                          isSelected
+                            ? 'border-[#E05638] shadow-[0_0.2vw_0.8vw_rgba(224,86,56,0.18)] ring-2 ring-[#E05638]'
+                            : 'border-gray-200 hover:border-gray-300 shadow-[0_0.1vw_0.3vw_rgba(0,0,0,0.03)]'
+                        }`}
+                      >
+                        {/* Mini Form Card in Code */}
+                        <div className="w-full rounded-[0.5vw] p-[0.6vw] min-h-[10.5vw] bg-[#FAFBFC] border border-gray-100 flex flex-col justify-between select-none pointer-events-none">
+                          <div>
+                            {/* Mini Header */}
+                            <div className="flex justify-between items-start mb-[0.35vw]">
+                              <div className="truncate pr-[0.2vw]">
+                                <div className="text-[0.56vw] font-bold text-gray-900 leading-tight truncate">
+                                  {template.config.formTitle}
+                                </div>
+                                <div className="text-[0.42vw] text-gray-400 truncate mt-[0.05vw]">
+                                  {template.config.leadText}
+                                </div>
+                              </div>
+                              <span className="text-[0.45vw] text-blue-500 font-semibold shrink-0">Skip</span>
+                            </div>
+
+                            {/* Mini Form Fields */}
+                            <div className="space-y-[0.3vw]">
+                              {template.config.fields.slice(0, 3).map((fld, idx) => (
+                                <div key={idx}>
+                                  {fld.type === 'rating' ? (
+                                    <div className="space-y-[0.1vw]">
+                                      <div className="text-[0.44vw] text-gray-600 font-medium truncate">{fld.label}</div>
+                                      <div className="flex gap-[0.15vw] py-[0.1vw]">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                          <Icon key={star} icon="lucide:star" className="w-[0.55vw] h-[0.55vw] text-amber-400 fill-amber-400" />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : fld.type === 'checkbox' ? (
+                                    <div className="space-y-[0.1vw]">
+                                      <div className="text-[0.44vw] text-gray-600 font-medium truncate">{fld.label}</div>
+                                      <div className="space-y-[0.12vw]">
+                                        {(fld.options || []).slice(0, 2).map((opt, oi) => (
+                                          <div key={oi} className="flex items-center gap-[0.2vw]">
+                                            <div className="w-[0.42vw] h-[0.42vw] rounded-[0.08vw] border border-gray-300 bg-white" />
+                                            <span className="text-[0.4vw] text-gray-500 truncate">{opt}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : fld.type === 'feedback' ? (
+                                    <div className="h-[1.1vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] py-[0.15vw] flex items-center justify-between shadow-2xs">
+                                      <span className="text-[0.4vw] text-gray-400 truncate">{fld.label}</span>
+                                      <Icon icon="lucide:message-square" className="w-[0.48vw] h-[0.48vw] text-gray-300 shrink-0" />
+                                    </div>
+                                  ) : fld.type === 'dropdown' ? (
+                                    <div className="h-[0.95vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] flex items-center justify-between shadow-2xs">
+                                      <span className="text-[0.4vw] text-gray-400 truncate">{fld.label}</span>
+                                      <Icon icon="lucide:chevron-down" className="w-[0.48vw] h-[0.48vw] text-gray-400 shrink-0" />
+                                    </div>
+                                  ) : (
+                                    <div className="h-[0.95vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] flex items-center gap-[0.25vw] shadow-2xs">
+                                      <Icon
+                                        icon={fld.type === 'email' ? 'lucide:mail' : fld.type === 'phone' ? 'lucide:phone' : fld.type === 'company' ? 'lucide:building-2' : 'lucide:user'}
+                                        className="w-[0.48vw] h-[0.48vw] text-gray-400 shrink-0"
+                                      />
+                                      <span className="text-[0.4vw] text-gray-400 truncate">{fld.label}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              {template.config.fields.length > 3 && (
+                                <div className="text-[0.38vw] text-gray-400 italic text-center pt-[0.1vw]">
+                                  +{template.config.fields.length - 3} more field(s)
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Mini Submit Button */}
+                          <div className="w-full py-[0.28vw] bg-[#0275D8] text-white rounded-[0.22vw] text-[0.44vw] font-bold text-center uppercase tracking-wider mt-[0.35vw] shadow-2xs">
+                            {template.config.buttonText}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Name below the box */}
+                      <span className={`text-[0.72vw] font-semibold text-center leading-tight mt-[0.45vw] transition-colors ${
+                        isSelected ? 'text-[#E05638]' : 'text-gray-700 group-hover:text-gray-900'
+                      }`}>
+                        {template.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Right Column: Preview Pane with mild gray background */}
+              <div className="w-[330px] shrink-0 flex flex-col">
+                <div className="flex items-center gap-[0.4vw] mb-[0.6vw]">
+                  <Icon icon="lucide:eye" className="w-[0.9vw] h-[0.9vw] text-gray-500" />
+                  <span className="text-[0.78vw] font-semibold text-gray-700">Preview</span>
+                </div>
+
+                {/* Mild Gray Background Container */}
+                <div className="bg-[#F8F9FB] border border-gray-200/90 rounded-[0.9vw] p-[0.9vw] flex-1 flex flex-col justify-center">
+                  {/* Inner Form Preview Card */}
+                  {(() => {
+                    const activeTpl = modalSelectedTemplate || quickTemplates[0];
+                    return (
+                      <div className="bg-white border border-gray-200 rounded-[0.7vw] p-[1.1vw] shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.05)] flex flex-col justify-between max-h-[100%] overflow-y-auto">
+                        <div className="space-y-[0.7vw]">
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-[0.15vw]">
+                              <h3 className="text-[0.88vw] font-bold text-gray-900 leading-tight">
+                                {activeTpl.config.formTitle}
+                              </h3>
+                              <p className="text-[0.62vw] text-gray-400 leading-snug">
+                                {activeTpl.config.leadText}
+                              </p>
+                            </div>
+                            <span className="text-[0.65vw] text-blue-500 font-medium cursor-default">Skip</span>
+                          </div>
+
+                          {/* Fields List - Dynamically adapt to each field type */}
+                          <div className="space-y-[0.5vw] pt-[0.2vw]">
+                            {(activeTpl.config.fields || []).map((fld) => {
+                              if (fld.type === 'rating') {
+                                return (
+                                  <div key={fld.id} className="space-y-[0.2vw]">
+                                    <label className="text-[0.62vw] font-medium text-gray-700 block">
+                                      {fld.label}
+                                    </label>
+                                    <div className="flex items-center gap-[0.35vw] py-[0.2vw]">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <Icon
+                                          key={star}
+                                          icon="lucide:star"
+                                          className="w-[1vw] h-[1vw] text-amber-400 fill-amber-400 cursor-pointer hover:scale-110 transition-transform"
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (fld.type === 'checkbox') {
+                                return (
+                                  <div key={fld.id} className="space-y-[0.25vw]">
+                                    <label className="text-[0.62vw] font-medium text-gray-700 block">
+                                      {fld.label}
+                                    </label>
+                                    <div className="space-y-[0.3vw] bg-gray-50/60 p-[0.4vw] rounded-[0.4vw] border border-gray-100">
+                                      {(fld.options || []).map((opt, i) => (
+                                        <label key={i} className="flex items-center gap-[0.4vw] cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            disabled
+                                            className="w-[0.7vw] h-[0.7vw] rounded text-[#0275D8] border-gray-300"
+                                          />
+                                          <span className="text-[0.62vw] text-gray-600 select-none">{opt}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (fld.type === 'dropdown') {
+                                return (
+                                  <div key={fld.id} className="space-y-[0.2vw]">
+                                    <label className="text-[0.62vw] font-medium text-gray-700 block">
+                                      {fld.label}
+                                    </label>
+                                    <div className="flex items-center justify-between border border-gray-200 rounded-[0.4vw] px-[0.5vw] py-[0.38vw] bg-white">
+                                      <span className="text-[0.62vw] text-gray-400 select-none truncate">
+                                        {fld.placeholder || 'Select an option'}
+                                      </span>
+                                      <Icon icon="lucide:chevron-down" className="w-[0.75vw] h-[0.75vw] text-gray-400 shrink-0" />
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (fld.type === 'feedback') {
+                                return (
+                                  <div key={fld.id} className="space-y-[0.2vw]">
+                                    <label className="text-[0.62vw] font-medium text-gray-700 block">
+                                      {fld.label}
+                                    </label>
+                                    <div className="border border-gray-200 rounded-[0.4vw] px-[0.5vw] py-[0.38vw] bg-white h-[2.5vw] flex items-start gap-[0.4vw]">
+                                      <Icon icon="lucide:message-square" className="w-[0.75vw] h-[0.75vw] text-gray-400 shrink-0 mt-[0.1vw]" />
+                                      <span className="text-[0.62vw] text-gray-400 select-none">
+                                        {fld.placeholder || 'Enter your message...'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              let iconName = 'lucide:user';
+                              if (fld.type === 'email') iconName = 'lucide:mail';
+                              else if (fld.type === 'phone') iconName = 'lucide:phone';
+                              else if (fld.type === 'company') iconName = 'lucide:building-2';
+
+                              return (
+                                <div key={fld.id} className="space-y-[0.2vw]">
+                                  <label className="text-[0.62vw] font-medium text-gray-700 block">
+                                    {fld.label}
+                                  </label>
+                                  <div className="flex items-center gap-[0.4vw] border border-gray-200 rounded-[0.4vw] px-[0.5vw] py-[0.38vw] bg-white">
+                                    <Icon icon={iconName} className="w-[0.75vw] h-[0.75vw] text-gray-400 shrink-0" />
+                                    <span className="text-[0.62vw] text-gray-400 select-none truncate">
+                                      {fld.placeholder}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="pt-[1vw] mt-auto">
+                          <button
+                            type="button"
+                            className="w-full py-[0.45vw] bg-[#0275D8] hover:bg-[#0269C2] text-white rounded-[0.4vw] text-[0.68vw] font-semibold uppercase tracking-wider transition-colors shadow-xs"
+                          >
+                            {activeTpl.config.buttonText}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-[0.6vw] px-[1.5vw] py-[0.9vw] border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="px-[1.1vw] py-[0.5vw] text-[0.72vw] font-medium text-gray-600 hover:text-gray-800 bg-white border border-gray-200 rounded-[0.45vw] hover:bg-gray-50 transition-colors shadow-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectTemplate(modalSelectedTemplate || quickTemplates[0])}
+                className="px-[1.3vw] py-[0.5vw] text-[0.72vw] font-semibold text-white bg-[#E05638] hover:bg-[#d04a2d] rounded-[0.45vw] transition-colors shadow-xs"
+              >
+                Use this Template
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Customize Email Content Modal */}
