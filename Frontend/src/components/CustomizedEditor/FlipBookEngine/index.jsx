@@ -1742,11 +1742,9 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       const $book = window.jQuery(bookEl.current);
       const isTurnReady = checkTurnReady($book);
       if (isTurnReady) {
-        if ($book.turn("animating")) {
-          queuedFlipRef.current = "next";
-          return;
-        }
-
+        // Fast flipping (same as the Home TurnBook): start the next turn right away even while
+        // one is still animating — Turn.js runs overlapping turns smoothly — instead of queuing
+        // it until the current turn ends (which made rapid clicks feel slow / get dropped).
         queuedFlipRef.current = null;
         isProgrammaticRef.current = true;
         liveControlRef.current?.freeze();
@@ -1775,11 +1773,9 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       const $book = window.jQuery(bookEl.current);
       const isTurnReady = checkTurnReady($book);
       if (isTurnReady) {
-        if ($book.turn("animating")) {
-          queuedFlipRef.current = "prev";
-          return;
-        }
-
+        // Fast flipping (same as the Home TurnBook): start the next turn right away even while
+        // one is still animating — Turn.js runs overlapping turns smoothly — instead of queuing
+        // it until the current turn ends (which made rapid clicks feel slow / get dropped).
         queuedFlipRef.current = null;
         isProgrammaticRef.current = true;
         liveControlRef.current?.freeze();

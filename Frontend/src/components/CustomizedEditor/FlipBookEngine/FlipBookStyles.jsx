@@ -190,7 +190,7 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 right: 0;
-                width: ${SPINE_SHADOWS.left.width}px;
+                width: ${SPINE_SHADOWS.left.width};
                 background: ${SPINE_SHADOWS.left.background};
                 pointer-events: none;
                 z-index: 15;
@@ -203,13 +203,13 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 left: 0;
-                width: ${SPINE_SHADOWS.right.width}px;
+                width: ${SPINE_SHADOWS.right.width};
                 background: ${SPINE_SHADOWS.right.background};
                 pointer-events: none;
                 z-index: 15;
             }
 
-            /* Realistic spine binding shadows on front cover and back cover */
+            /* Covers: thin light page-edge strip on the spine edge (front: left, back: right) */
             .fbe-page--first .fbe-inner::before,
             .fbe-react-page--first .fbe-inner::before,
             .p1 .fbe-inner::before {
@@ -218,7 +218,7 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 left: 0;
-                width: ${SPINE_SHADOWS.cover.width}px;
+                width: ${SPINE_SHADOWS.cover.width};
                 background: ${SPINE_SHADOWS.cover.background};
                 pointer-events: none;
                 z-index: 15;
@@ -233,7 +233,7 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 right: 0;
-                width: ${SPINE_SHADOWS.backCover.width}px;
+                width: ${SPINE_SHADOWS.backCover.width};
                 background: ${SPINE_SHADOWS.backCover.background};
                 pointer-events: none;
                 z-index: 15;

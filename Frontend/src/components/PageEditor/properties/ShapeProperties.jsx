@@ -477,7 +477,12 @@ const ShapeProperties = ({
     });
   };
 
-  const hasUploadedImage = Boolean(slotImage && slotImage !== DEFAULT_FRAME_IMAGE);
+  const hasUploadedImage = Boolean(
+    slotImage &&
+    slotImage !== DEFAULT_FRAME_IMAGE &&
+    !slotImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD') &&
+    !slotImage.startsWith('data:image/svg+xml')
+  );
 
   // Shape Corner Radius
   const CORNER_RADIUS_SHAPE_IDS = [

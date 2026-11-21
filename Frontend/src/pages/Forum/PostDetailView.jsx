@@ -21,10 +21,9 @@ export default function PostDetailView({
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  if (!post) return null;
-
   // Group all questions by user so same user's questions appear in one single box
   const userGroups = useMemo(() => {
+    if (!post) return [];
     // Collect all posts for the conversation context (or current user's posts)
     const authorKey = post.author?.email || post.author?.name || 'author';
 
@@ -70,6 +69,8 @@ export default function PostDetailView({
       ...otherGroups
     ];
   }, [post, allPosts]);
+
+  if (!post) return null;
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
