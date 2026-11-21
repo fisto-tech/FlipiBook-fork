@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
-import { Plus, Trash2, Mail } from 'lucide-react';
+import { Plus, Trash2, Mail, ChevronsLeft } from 'lucide-react';
 import PremiumDropdown from '../../components/PremiumDropdown';
 import ColorPallet from '../../../ColorPallet';
 
@@ -654,8 +654,8 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
           <Icon icon="fluent:form-48-regular" className="w-[1vw] h-[1vw] text-gray-700 font-semibold" />
           <span className="text-[1vw] font-semibold text-gray-900">Lead & Enquiry Form</span>
         </div>
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
-          <Icon icon="ic:round-arrow-back" className="w-[1.25vw] h-[1.25vw]" />
+        <button onClick={onBack} className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90">
+          <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
         </button>
       </div>
 

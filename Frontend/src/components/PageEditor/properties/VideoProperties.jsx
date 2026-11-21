@@ -9,7 +9,8 @@ import { useAuth } from "../../../context/AuthContext";
 import {
   Video as VideoIcon,
   Upload,
-  ChevronDown
+  ChevronDown,
+  Loader2
 } from "lucide-react";
 import ReplaceMediaModal from "../modals/ReplaceMediaModal";
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
@@ -19,6 +20,7 @@ import Effect from './Effect';
 import { parseGradient } from "./ColorPicker";
 import { syncGradient, getEmbedVideoUrl } from '../utils/editorUtils';
 import { formatBytes } from './propertiesShared';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
 const resizeAndCenter = (el, targetW, targetH) => {
   const oldW = parseFloat(el.getAttribute("width") || "0");
@@ -135,6 +137,7 @@ const VideoProperties = ({
 
   const [previewSrc, setPreviewSrc] = useState(null);
   const [posterSrc, setPosterSrc] = useState(null);
+  const [isCompressingCover, setIsCompressingCover] = useState(false);
   const [videoType, setVideoType] = useState("Fit");
   const [showVideoTypeDropdown, setShowVideoTypeDropdown] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
@@ -1806,16 +1809,39 @@ const VideoProperties = ({
     tempVideo.src = videoURL;
   };
 
-  const handleCoverUpload = (e) => {
+  const handleCoverUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !selectedLayerId) return;
     if (!file.type.startsWith('image/')) {
       alert("Please upload a valid image file (JPG, PNG).");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target.result;
+    setIsCompressingCover(true);
+
+    try {
+      let finalDataUrl = null;
+      if (shouldOptimizeImage(file)) {
+        try {
+          const opt = await optimizeImageForWeb(file, { maxDimension: 1920, quality: 0.82 });
+          if (opt?.dataUrl) {
+            finalDataUrl = opt.dataUrl;
+          }
+        } catch (optErr) {
+          console.warn('[VideoProperties] Cover optimization fallback:', optErr);
+        }
+      }
+
+      if (!finalDataUrl) {
+        finalDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve(event.target.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (!finalDataUrl) return;
+
       const pageContainer = document.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
       const liveElement = pageContainer?.querySelector(`[id="${selectedLayerId}"]`) || document.getElementById(selectedLayerId) || selectedElement;
 
@@ -1832,19 +1858,21 @@ const VideoProperties = ({
       }
 
       if (target) {
-        target.poster = result;
-        target.setAttribute("poster", result);
+        target.poster = finalDataUrl;
+        target.setAttribute("poster", finalDataUrl);
         target.setAttribute("data-poster-type", "upload");
 
         const clone = target.cloneNode(true);
         clone.removeAttribute('data-custom-ctrl-active');
         target.parentNode.replaceChild(clone, target);
 
-        setPosterSrc(result);
-        debouncedUpdate({ poster: result });
+        setPosterSrc(finalDataUrl);
+        debouncedUpdate({ poster: finalDataUrl });
       }
-    };
-    reader.readAsDataURL(file);
+    } finally {
+      setIsCompressingCover(false);
+      e.target.value = '';
+    }
   };
 
   const handleAutoPickThumbnail = useCallback(() => {
@@ -2311,15 +2339,22 @@ const VideoProperties = ({
 
             <div
               onClick={() => {
-                if (coverOption === 'upload') coverInputRef.current?.click();
+                if (coverOption === 'upload' && !isCompressingCover) coverInputRef.current?.click();
               }}
-              className={`w-[7.6vw] h-[5vw] rounded-[0.45vw] flex flex-col items-center justify-center overflow-hidden transition-all shadow-2xs ${
+              className={`w-[7.6vw] h-[5vw] rounded-[0.45vw] flex flex-col items-center justify-center overflow-hidden transition-all shadow-2xs relative ${
                 coverOption === 'upload'
-                  ? 'border-2 border-dashed border-gray-300 bg-gray-50/50 hover:border-[#4D47FF] hover:bg-white cursor-pointer'
+                  ? isCompressingCover
+                    ? 'border-2 border-dashed border-indigo-400 bg-indigo-50/40 cursor-wait'
+                    : 'border-2 border-dashed border-gray-300 bg-gray-50/50 hover:border-[#4D47FF] hover:bg-white cursor-pointer'
                   : 'border border-gray-200 bg-gray-50'
               }`}
             >
-              {posterSrc && coverOption === 'upload' ? (
+              {isCompressingCover ? (
+                <div className="flex flex-col items-center justify-center">
+                  <Loader2 className="w-[1.2vw] h-[1.2vw] text-[#4D47FF] animate-spin mb-[0.2vw]" />
+                  <span className="text-[0.6vw] text-[#4D47FF] font-medium">Compressing...</span>
+                </div>
+              ) : posterSrc && coverOption === 'upload' ? (
                 <img src={posterSrc} className="w-full h-full object-cover" alt="Video cover" />
               ) : coverOption === 'upload' ? (
                 <>

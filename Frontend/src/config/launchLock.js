@@ -4,7 +4,7 @@
  * (typed URL or click) redirects to Home and opens the "Coming Soon" modal.
  * Set to false on launch day to open the whole site again.
  */
-export const LAUNCH_LOCK = true;
+export const LAUNCH_LOCK = false;
 
 // Exact paths that stay open during the lock
 export const LAUNCH_ALLOWED_PATHS = ['/', '/home', '/coming-soon'];

@@ -58,7 +58,12 @@ export const isElementHidden = (target) => {
 export const purgeElementOverlays = (elOrId) => {
   if (!elOrId) return;
   const id = typeof elOrId === 'string' ? elOrId : elOrId.id;
+  if (typeof elOrId === 'object' && elOrId.removeAttribute) {
+    elOrId.removeAttribute('data-selected');
+  }
   if (!id) return;
+  const el = document.getElementById(id);
+  if (el) el.removeAttribute('data-selected');
   document.querySelectorAll('.selection-overlay-layer').forEach(overlay => {
     overlay.querySelectorAll(`[id*="${id}"]`).forEach(n => n.remove());
   });

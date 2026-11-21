@@ -68,13 +68,19 @@ export const svgGlobalStyles = `
   }
 
   .page-svg-container.trim-view-on [data-trim-outside="true"] {
-    opacity: 0 !important;
-    pointer-events: none !important;
+    opacity: 0.2 !important;
+    pointer-events: all !important;
+    transition: opacity 0.15s ease;
   }
 
+  .page-svg-container.trim-view-on [data-trim-outside="true"]:hover,
   .page-svg-container.trim-view-on [data-trim-outside="true"][data-selected="true"],
   .page-svg-container.trim-view-on [data-trim-outside="true"][data-child-selected="true"],
-  .page-svg-container.trim-view-on [data-trim-outside="true"][data-dragging="true"] {
+  .page-svg-container.trim-view-on [data-trim-outside="true"][data-dragging="true"],
+  .page-svg-container.trim-view-on [data-selected="true"],
+  .page-svg-container.trim-view-on [data-child-selected="true"],
+  .page-svg-container.trim-view-on [data-dragging="true"] {
+    opacity: 1 !important;
     pointer-events: all !important;
   }
 
@@ -301,6 +307,7 @@ export const svgGlobalStyles = `
   }
 
   /* 10b. Shape Tool Cursor */
+  .page-svg-container.shape-mode,
   .page-svg-container.shape-mode svg,
   .page-svg-container.shape-mode svg *,
   .page-svg-container.shape-mode svg [data-name="Overlay"] {
