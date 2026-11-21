@@ -19,13 +19,19 @@ const Switch = ({ enabled, onChange }) => (
       e.stopPropagation();
       onChange(!enabled);
     }}
-    className={`relative block w-[1.8vw] h-[1vw] rounded-[1vw] transition-all duration-200 ease-in-out shadow-[inset_0_0.05vw_0.1vw_rgba(0,0,0,0.15)] outline-none shrink-0 cursor-pointer ${enabled ? 'bg-[#E05638]' : 'bg-[#D1D5DB]'}`}
+    className={`relative inline-flex items-center w-[2.4vw] min-w-[42px] h-[0.95vw] min-h-[16px] rounded-full transition-colors duration-200 ease-in-out outline-none shrink-0 cursor-pointer ${
+      enabled ? 'bg-[#E54826]' : 'bg-[#D1D5DB]'
+    }`}
   >
     <div
-      className={`absolute top-[0.1vw] w-[0.8vw] h-[0.8vw] bg-white rounded-full transition-all duration-200 ease-in-out shadow-[0_0.05vw_0.15vw_rgba(0,0,0,0.25)] flex items-center justify-center ${enabled ? 'left-[0.9vw]' : 'left-[0.1vw]'}`}
+      className={`absolute w-[1.25vw] min-w-[20px] h-[1.25vw] min-h-[20px] rounded-full transition-transform duration-200 ease-in-out flex items-center justify-center shadow-[0_2px_4px_rgba(0,0,0,0.22)] -top-[0.15vw] ${
+        enabled
+          ? 'right-0 bg-[#E54826]'
+          : 'left-0 bg-white'
+      }`}
     >
       {enabled && (
-        <Icon icon="lucide:check" className="w-[0.55vw] h-[0.55vw] text-[#E05638] stroke-[3]" />
+        <Icon icon="lucide:check" className="w-[0.7vw] min-w-[11px] h-[0.7vw] min-h-[11px] text-white stroke-[3.2]" />
       )}
     </div>
   </button>
@@ -164,9 +170,10 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [modalSelectedTemplate, setModalSelectedTemplate] = useState(null);
+  const [isAppearanceInPageOpen, setIsAppearanceInPageOpen] = useState(false);
   const [isCustomizeFieldsOpen, setIsCustomizeFieldsOpen] = useState(true);
   const [isColorOpen, setIsColorOpen] = useState(false);
-  const [isEnquiryBtnOpen, setIsEnquiryBtnOpen] = useState(true);
+  const [isEnquiryBtnOpen, setIsEnquiryBtnOpen] = useState(false);
   const [isEmailOpen, setIsEmailOpen] = useState(true);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
 
@@ -672,17 +679,17 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
       {/* Sub-header */}
       <div className="h-[8vh] flex items-center justify-between px-[1vw] border-b border-gray-100">
         <div className="flex items-center gap-[0.5vw]">
-          <Icon icon="fluent:form-48-regular" className="w-[1vw] h-[1vw] text-gray-700 font-semibold" />
-          <span className="text-[1vw] font-semibold text-gray-900">Lead & Enquiry Form</span>
+          <Icon icon="fluent:form-48-regular" className="w-[1.2vw] h-[1.2vw] text-gray-900" />
+          <span className="text-[1.05vw] font-bold text-gray-900">Lead & Enquiry Form</span>
         </div>
-        <button onClick={onBack} className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90">
-          <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
+        <button onClick={onBack} className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-all active:scale-90">
+          <Icon icon="lucide:arrow-left" className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.5} />
         </button>
       </div>
 
       <div className="flex flex-col pt-[1vw] pb-[0.5vw] px-[1vw] space-y-[0.35vw]">
         <div className="flex items-center justify-between">
-          <span className="text-[0.8vw] font-semibold text-gray-900 whitespace-nowrap">Turn ON/OFF the Lead Form</span>
+          <span className="text-[0.88vw] font-bold text-gray-900 whitespace-nowrap">Turn ON/OFF the Lead Form</span>
           <Switch
             enabled={settings.enabled}
             onChange={(val) => {
@@ -706,9 +713,6 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
             }}
           />
         </div>
-        <p className="text-[0.62vw] text-gray-500 font-normal leading-relaxed">
-          Turning this OFF will disable all lead form settings below, and turning it ON will enable them again<span className="text-red-500">*</span>
-        </p>
       </div>
 
       <div
@@ -717,194 +721,229 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
       >
         <div className={`space-y-[1vw] transition-all duration-300 ${!settings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
 
-          {/* Lead form should Appears at & Lead Form Mode Section */}
-          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] p-[1vw] space-y-[0.8vw]">
+          {/* Lead Form Mode Section */}
+          <div className="space-y-[0.8vw] pt-[0.2vw]">
             <div className="flex items-center gap-[0.5vw]">
-              <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Lead form should Appears at</span>
-              <div className="h-[1px] bg-gray-200 flex-1"></div>
+              <span className="text-[0.85vw] font-bold text-gray-900 whitespace-nowrap">Lead Form Mode</span>
+              <div className="h-[1.5px] bg-gray-200 flex-1"></div>
             </div>
 
-            <div className="space-y-[0.5vw] pl-[0.2vw]">
-              {[
-                { id: 'before', label: 'Before opening the flipbook' },
-                { id: 'after-pages', label: 'Show on selected page' },
-                { id: 'after-seconds', label: 'After X seconds' },
-                { id: 'end', label: 'At the end of the flipbook' }
-              ].map((opt) => {
-                const isSelected = settings.appearance.timing === opt.id;
-                return (
-                  <div key={opt.id} className="space-y-[0.4vw]">
-                    <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
-                      <div className="relative flex items-center justify-center">
-                        <input
-                          type="radio"
-                          name="timing"
-                          checked={isSelected}
-                          onChange={() => updateAppearance('timing', opt.id)}
-                          className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
-                        />
-                        <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
-                      </div>
-                      <span className={`text-[0.72vw] transition-colors ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
-                        {opt.label}
-                      </span>
-                    </label>
+            <div className="space-y-[0.6vw] pl-[0.2vw]">
+              {/* Mandatory */}
+              <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="radio"
+                    name="allowSkip"
+                    checked={!settings.appearance.allowSkip}
+                    onChange={() => updateAppearance('allowSkip', false)}
+                    className="peer appearance-none w-[1.1vw] h-[1.1vw] border-[1.5px] border-gray-900 rounded-full checked:border-[#E05638] transition-all bg-transparent"
+                  />
+                  <div className="absolute w-[0.55vw] h-[0.55vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
+                </div>
+                <span className={`text-[0.78vw] transition-colors ${!settings.appearance.allowSkip ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
+                  Mandatory (Require Submission)
+                </span>
+              </label>
 
-                    {opt.id === 'after-pages' && isSelected && (
-                      <div className="ml-[1.6vw] mt-[0.2vw]">
-                        <div className="relative inline-block w-[6.5vw]">
-                          <select
-                            value={settings.appearance.afterPages || 1}
-                            onChange={(e) => updateAppearance('afterPages', parseInt(e.target.value))}
-                            className="w-full appearance-none bg-white border border-gray-200 shadow-xs rounded-[0.4vw] py-[0.35vw] pl-[0.6vw] pr-[1.8vw] text-[0.7vw] text-gray-800 font-medium focus:outline-none focus:border-[#E05638] cursor-pointer"
-                          >
-                            {pages.length > 0 ? (
-                              pages.map((_, idx) => (
-                                <option key={idx} value={idx + 1}>Page {idx + 1}</option>
-                              ))
-                            ) : (
-                              [1, 2, 3, 4, 5].map(num => (
-                                <option key={num} value={num}>Page {num}</option>
-                              ))
-                            )}
-                          </select>
-                          <div className="absolute right-[0.5vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                            <Icon icon="fluent:chevron-down-12-regular" className="w-[0.8vw] h-[0.8vw]" />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {opt.id === 'after-seconds' && isSelected && (
-                      <div className="ml-[1.6vw] mt-[0.2vw] flex items-center border border-gray-200 rounded-[0.4vw] px-[0.6vw] py-[0.3vw] bg-white w-fit gap-[0.5vw] shadow-xs">
-                        <button
-                          type="button"
-                          onClick={() => updateAppearance('afterSeconds', Math.max(1, (settings.appearance.afterSeconds || 30) - 1))}
-                          className="text-gray-600 hover:text-gray-900 transition-colors p-[0.1vw]"
-                        >
-                          <Icon icon="lucide:play" className="w-[0.7vw] h-[0.7vw] rotate-180 fill-current text-gray-600" />
-                        </button>
-                        <span className="text-[0.72vw] text-gray-800 font-semibold min-w-[1.2vw] text-center">
-                          {settings.appearance.afterSeconds || 30}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateAppearance('afterSeconds', (settings.appearance.afterSeconds || 30) + 1)}
-                          className="text-gray-600 hover:text-gray-900 transition-colors p-[0.1vw]"
-                        >
-                          <Icon icon="lucide:play" className="w-[0.7vw] h-[0.7vw] fill-current text-gray-600" />
-                        </button>
-                        <span className="text-[0.7vw] text-gray-600 ml-[0.2vw]">Seconds</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Lead Form Mode */}
-            <div className="space-y-[0.6vw] pt-[0.4vw]">
-              <div className="flex items-center gap-[0.5vw]">
-                <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Lead Form Mode</span>
-                <div className="h-[1px] bg-gray-200 flex-1"></div>
-              </div>
-
-              <div className="space-y-[0.5vw] pl-[0.2vw]">
-                {/* Mandatory */}
+              {/* Optional */}
+              <div className="space-y-[0.5vw]">
                 <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
                   <div className="relative flex items-center justify-center">
                     <input
                       type="radio"
                       name="allowSkip"
-                      checked={!settings.appearance.allowSkip}
-                      onChange={() => updateAppearance('allowSkip', false)}
-                      className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
+                      checked={Boolean(settings.appearance.allowSkip)}
+                      onChange={() => updateAppearance('allowSkip', true)}
+                      className="peer appearance-none w-[1.1vw] h-[1.1vw] border-[1.5px] border-gray-900 rounded-full checked:border-[#E05638] transition-all bg-transparent"
                     />
-                    <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
+                    <div className="absolute w-[0.55vw] h-[0.55vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
                   </div>
-                  <span className={`text-[0.72vw] transition-colors ${!settings.appearance.allowSkip ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
-                    Mandatory (Require Submission)
+                  <span className={`text-[0.78vw] transition-colors ${settings.appearance.allowSkip ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
+                    Optional (Allow Skip)
                   </span>
                 </label>
 
-                {/* Optional */}
-                <div className="space-y-[0.4vw]">
-                  <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
-                    <div className="relative flex items-center justify-center">
-                      <input
-                        type="radio"
-                        name="allowSkip"
-                        checked={Boolean(settings.appearance.allowSkip)}
-                        onChange={() => updateAppearance('allowSkip', true)}
-                        className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
-                      />
-                      <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
-                    </div>
-                    <span className={`text-[0.72vw] transition-colors ${settings.appearance.allowSkip ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
-                      Optional (Allow Skip)
-                    </span>
-                  </label>
-
-                  {settings.appearance.allowSkip && (
-                    <div className="flex items-center gap-[0.6vw] pl-[1.6vw] pt-[0.2vw]">
-                      <span className="text-[0.68vw] text-gray-500 font-normal whitespace-nowrap">If Skipped :</span>
-                      <div className="relative inline-block flex-1 max-w-[14vw]">
-                        <select
-                          value={settings.appearance.skipBehavior || 'never'}
-                          onChange={(e) => updateAppearance('skipBehavior', e.target.value)}
-                          className="w-full appearance-none bg-white border border-gray-200 rounded-[0.5vw] py-[0.4vw] pl-[0.7vw] pr-[2vw] text-[0.7vw] text-gray-700 outline-none focus:border-[#E05638] cursor-pointer shadow-xs"
-                        >
-                          <option value="never">Never Show again</option>
-                          <option value="1_day">Show again after 1 day</option>
-                          <option value="next_visit">Show again on next visit</option>
-                        </select>
-                        <div className="absolute right-[0.6vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                          <Icon icon="fluent:chevron-down-12-regular" className="w-[0.8vw] h-[0.8vw]" />
-                        </div>
+                {settings.appearance.allowSkip && (
+                  <div className="flex items-center gap-[0.6vw] pl-[1.7vw] pt-[0.2vw]">
+                    <span className="text-[0.72vw] text-gray-500 font-normal whitespace-nowrap">If Skipped :</span>
+                    <div className="relative inline-block flex-1 max-w-[15vw]">
+                      <select
+                        value={settings.appearance.skipBehavior || 'never'}
+                        onChange={(e) => updateAppearance('skipBehavior', e.target.value)}
+                        className="w-full appearance-none bg-white border border-gray-300 rounded-[0.5vw] py-[0.45vw] pl-[0.8vw] pr-[2.2vw] text-[0.74vw] text-gray-700 outline-none focus:border-[#E05638] cursor-pointer shadow-xs"
+                      >
+                        <option value="never">Never Show again</option>
+                        <option value="1_day">Show again after 1 day</option>
+                        <option value="next_visit">Show again on next visit</option>
+                      </select>
+                      <div className="absolute right-[0.7vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                        <Icon icon="fluent:chevron-down-12-regular" className="w-[0.9vw] h-[0.9vw]" />
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Lead form Appearance in Page Card */}
+          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
+            <div className="flex items-center justify-between px-[1vw] py-[0.85vw]">
+              <span className="text-[0.84vw] font-medium text-gray-900">Lead form Appearance in Page</span>
+              <div className="flex items-center gap-[0.8vw]">
+                <button
+                  type="button"
+                  disabled={settings.appearance?.enabled === false}
+                  onClick={() => setIsAppearanceInPageOpen(!isAppearanceInPageOpen)}
+                  className={`p-[0.2vw] rounded transition-colors ${
+                    settings.appearance?.enabled === false
+                      ? 'text-gray-300 opacity-40 cursor-not-allowed'
+                      : isAppearanceInPageOpen
+                      ? 'text-[#E05638] bg-orange-50'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                  title="Lead form Appearance Properties"
+                >
+                  <Icon icon="fluent:options-16-regular" className="w-[1.2vw] h-[1.2vw] text-gray-500" />
+                </button>
+                <Switch
+                  enabled={settings.appearance?.enabled !== false}
+                  onChange={(val) => {
+                    updateAppearance('enabled', val);
+                    if (!val) {
+                      setIsAppearanceInPageOpen(false);
+                    }
+                  }}
+                />
               </div>
             </div>
 
-            {/* Add Enquiry Button in Layout Card */}
-            <div className="pt-[0.4vw] border-t border-gray-100">
-              <div className="border border-gray-200 rounded-[0.6vw] bg-white p-[0.6vw] shadow-xs">
-                {/* Header row */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[0.75vw] font-medium text-gray-900">Add Enquiry Button in Layout</span>
-                  <div className="flex items-center gap-[0.6vw]">
-                    <button
-                      type="button"
-                      disabled={settings.enquiryButton?.enabled === false}
-                      onClick={() => setIsEnquiryBtnOpen(!isEnquiryBtnOpen)}
-                      className={`p-[0.2vw] rounded transition-colors ${
-                        settings.enquiryButton?.enabled === false
-                          ? 'text-gray-300 opacity-40 cursor-not-allowed'
-                          : isEnquiryBtnOpen
-                          ? 'text-[#E05638] bg-orange-50'
-                          : 'text-gray-500 hover:text-gray-800'
-                      }`}
-                      title="Enquiry Button Properties"
-                    >
-                      <Sliders className="w-[0.9vw] h-[0.9vw]" />
-                    </button>
-                    <Switch
-                      enabled={settings.enquiryButton?.enabled !== false}
-                      onChange={(val) => {
-                        updateNested('enquiryButton', 'enabled', val);
-                        if (!val) {
-                          setIsEnquiryBtnOpen(false);
-                        }
-                      }}
-                    />
-                  </div>
+            {/* Expanded Appearance Timing Options */}
+            {isAppearanceInPageOpen && settings.appearance?.enabled !== false && (
+              <div className="px-[0.9vw] pb-[0.9vw] pt-[0.2vw] border-t border-gray-100 space-y-[0.8vw]">
+                <div className="flex items-center gap-[0.5vw] pt-[0.4vw]">
+                  <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Lead form should Appears at</span>
+                  <div className="h-[1px] bg-gray-200 flex-1"></div>
                 </div>
 
-                {/* Expanded Properties */}
-                {isEnquiryBtnOpen && settings.enquiryButton?.enabled !== false && (
-                  <div className="mt-[0.8vw] pt-[0.8vw] border-t border-gray-100 space-y-[0.9vw]">
+                <div className="space-y-[0.5vw] pl-[0.2vw]">
+                  {[
+                    { id: 'before', label: 'Before opening the flipbook' },
+                    { id: 'after-pages', label: 'Show on selected page' },
+                    { id: 'after-seconds', label: 'After X seconds' },
+                    { id: 'end', label: 'At the end of the flipbook' }
+                  ].map((opt) => {
+                    const isSelected = settings.appearance.timing === opt.id;
+                    return (
+                      <div key={opt.id} className="space-y-[0.4vw]">
+                        <label className="flex items-center gap-[0.6vw] cursor-pointer group w-fit select-none">
+                          <div className="relative flex items-center justify-center">
+                            <input
+                              type="radio"
+                              name="timing"
+                              checked={isSelected}
+                              onChange={() => updateAppearance('timing', opt.id)}
+                              className="peer appearance-none w-[1vw] h-[1vw] border-[1.5px] border-gray-400 rounded-full checked:border-[#E05638] transition-all bg-transparent"
+                            />
+                            <div className="absolute w-[0.5vw] h-[0.5vw] bg-[#E05638] rounded-full scale-0 peer-checked:scale-100 transition-transform" />
+                          </div>
+                          <span className={`text-[0.72vw] transition-colors ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-800'}`}>
+                            {opt.label}
+                          </span>
+                        </label>
+
+                        {opt.id === 'after-pages' && isSelected && (
+                          <div className="ml-[1.6vw] mt-[0.2vw]">
+                            <div className="relative inline-block w-[6.5vw]">
+                              <select
+                                value={settings.appearance.afterPages || 1}
+                                onChange={(e) => updateAppearance('afterPages', parseInt(e.target.value))}
+                                className="w-full appearance-none bg-white border border-gray-200 shadow-xs rounded-[0.4vw] py-[0.35vw] pl-[0.6vw] pr-[1.8vw] text-[0.7vw] text-gray-800 font-medium focus:outline-none focus:border-[#E05638] cursor-pointer"
+                              >
+                                {pages.length > 0 ? (
+                                  pages.map((_, idx) => (
+                                    <option key={idx} value={idx + 1}>Page {idx + 1}</option>
+                                  ))
+                                ) : (
+                                  [1, 2, 3, 4, 5].map(num => (
+                                    <option key={num} value={num}>Page {num}</option>
+                                  ))
+                                )}
+                              </select>
+                              <div className="absolute right-[0.5vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                                <Icon icon="fluent:chevron-down-12-regular" className="w-[0.8vw] h-[0.8vw]" />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {opt.id === 'after-seconds' && isSelected && (
+                          <div className="ml-[1.6vw] mt-[0.2vw] flex items-center border border-gray-200 rounded-[0.4vw] px-[0.6vw] py-[0.3vw] bg-white w-fit gap-[0.5vw] shadow-xs">
+                            <button
+                              type="button"
+                              onClick={() => updateAppearance('afterSeconds', Math.max(1, (settings.appearance.afterSeconds || 30) - 1))}
+                              className="text-gray-600 hover:text-gray-900 transition-colors p-[0.1vw]"
+                            >
+                              <Icon icon="lucide:play" className="w-[0.7vw] h-[0.7vw] rotate-180 fill-current text-gray-600" />
+                            </button>
+                            <span className="text-[0.72vw] text-gray-800 font-semibold min-w-[1.2vw] text-center">
+                              {settings.appearance.afterSeconds || 30}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateAppearance('afterSeconds', (settings.appearance.afterSeconds || 30) + 1)}
+                              className="text-gray-600 hover:text-gray-900 transition-colors p-[0.1vw]"
+                            >
+                              <Icon icon="lucide:play" className="w-[0.7vw] h-[0.7vw] fill-current text-gray-600" />
+                            </button>
+                            <span className="text-[0.7vw] text-gray-600 ml-[0.2vw]">Seconds</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add Enquiry Button in Layout Card */}
+          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
+            {/* Header row */}
+            <div className="flex items-center justify-between px-[1vw] py-[0.85vw]">
+              <span className="text-[0.84vw] font-medium text-gray-900">Add Enquiry Button in Layout</span>
+              <div className="flex items-center gap-[0.8vw]">
+                <button
+                  type="button"
+                  disabled={settings.enquiryButton?.enabled === false}
+                  onClick={() => setIsEnquiryBtnOpen(!isEnquiryBtnOpen)}
+                  className={`p-[0.2vw] rounded transition-colors ${
+                    settings.enquiryButton?.enabled === false
+                      ? 'text-gray-300 opacity-40 cursor-not-allowed'
+                      : isEnquiryBtnOpen
+                      ? 'text-[#E05638] bg-orange-50'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                  title="Enquiry Button Properties"
+                >
+                  <Icon icon="fluent:options-16-regular" className="w-[1.2vw] h-[1.2vw] text-gray-500" />
+                </button>
+                <Switch
+                  enabled={settings.enquiryButton?.enabled !== false}
+                  onChange={(val) => {
+                    updateNested('enquiryButton', 'enabled', val);
+                    if (!val) {
+                      setIsEnquiryBtnOpen(false);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Expanded Properties */}
+            {isEnquiryBtnOpen && settings.enquiryButton?.enabled !== false && (
+              <div className="p-[0.9vw] pt-[0.4vw] border-t border-gray-100 space-y-[0.9vw]">
                     {/* Edit Button Header */}
                     <div className="space-y-[0.6vw]">
                       <div className="flex items-center gap-[0.5vw]">
@@ -1027,8 +1066,6 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                   </div>
                 )}
               </div>
-            </div>
-          </div>
 
           {/* Customization Options Header */}
           <div className="pt-[0.4vw]">

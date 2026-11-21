@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { StrokeWidthInput } from '../../../properties/Color';
 import { createPortal } from 'react-dom';
 import {
   Pencil,
@@ -2404,7 +2405,7 @@ export const ButtonEditor = ({
                   <button
                     type="button"
                     disabled={isStrokeDisabled}
-                    onClick={() => handleStrokeWidthChange(Math.max(0, strokeWidth - 1))}
+                    onClick={() => handleStrokeWidthChange(Math.max(0, Math.round((parseFloat(strokeWidth) - 1) * 100) / 100))}
                     className="w-[2.1vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     <span className="text-[1vw] leading-none mb-[0.1vw]">-</span>
@@ -2413,21 +2414,20 @@ export const ButtonEditor = ({
                     className="flex-grow h-full bg-white border border-gray-300 rounded-[0.45vw] flex items-center cursor-ew-resize shadow-2xs hover:border-gray-400 transition-colors"
                     onPointerDown={(e) => {
                       if (isStrokeDisabled) return;
-                      handleScrubHelper(e, strokeWidth, (v) => handleStrokeWidthChange(Math.max(0, parseInt(v) || 0)));
+                      handleScrubHelper(e, strokeWidth, (v) => handleStrokeWidthChange(Math.max(0, Math.round((parseFloat(v) || 0) * 10) / 10)));
                     }}
                   >
-                    <input
-                      type="number"
-                      disabled={isStrokeDisabled}
+                    {/* Accepts decimals (e.g. 0.5, 1.25) */}
+                    <StrokeWidthInput
                       value={strokeWidth}
-                      onChange={(e) => handleStrokeWidthChange(Math.max(0, parseInt(e.target.value || 0)))}
-                      className="w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent no-spin cursor-text disabled:cursor-not-allowed"
+                      onChange={(v) => { if (!isStrokeDisabled) handleStrokeWidthChange(Math.max(0, parseFloat(v) || 0)); }}
+                      className={`w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent no-spin cursor-text ${isStrokeDisabled ? 'pointer-events-none opacity-50' : ''}`}
                     />
                   </div>
                   <button
                     type="button"
                     disabled={isStrokeDisabled}
-                    onClick={() => handleStrokeWidthChange(strokeWidth + 1)}
+                    onClick={() => handleStrokeWidthChange(Math.round((parseFloat(strokeWidth) + 1) * 100) / 100)}
                     className="w-[2.1vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     <span className="text-[0.9vw] leading-none mb-[0.1vw]">+</span>

@@ -3,7 +3,8 @@ import { Routes, Route } from 'react-router-dom';
 import AdminSidebar from './components/AdminSidebar';
 import AdminNavbar from './components/AdminNavbar';
 import DashboardPage from './pages/DashboardPage';
-import UsersPage from './pages/UsersPage';
+import UserManagementPage from './pages/UserManagement/UserManagementPage';
+import UserDetailPage from './pages/UserManagement/User/UserDetailPage';
 import FlipbooksPage from './pages/FlipbooksPage';
 import ForumModerationPage from './pages/ForumModerationPage';
 import TicketsModerationPage from './pages/TicketsModerationPage';
@@ -27,7 +28,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/3d-assets" element={<ThreeDAssetsPage />} />
-            <Route path="/users" element={<UsersPage />} />
+            <Route path="/users" element={<UserManagementPage />} />
+            <Route path="/users/:id" element={<UserDetailPage />} />
             <Route path="/flipbooks" element={<FlipbooksPage />} />
             <Route path="/forum" element={<ForumModerationPage />} />
             <Route path="/tickets" element={<TicketsModerationPage />} />

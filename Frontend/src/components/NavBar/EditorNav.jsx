@@ -752,6 +752,7 @@ const EditorNavbar = ({
         onClose={() => setIsEditorSettingsOpen(false)}
         isAutoSaveEnabled={isAutoSaveEnabled}
         onToggleAutoSave={onToggleAutoSave}
+        currentBook={currentBook}
       />
       {/* Render Share Modal */}
       <ShareModal
