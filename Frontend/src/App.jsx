@@ -14,7 +14,9 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthModal } from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./Layouts/MainLayout";
+import LaunchLockGate from "./features/comingSoon/LaunchLockGate";
 import ScrollToTop from "./components/ScrollToTop";
+import SEOManager from "./components/common/SEOManager";
 import { DocumentUploadProvider } from "./context/DocumentUploadContext";
 
 function AuthRouteRedirect({ mode = "signin" }) {
@@ -46,17 +48,21 @@ const ConverterFeatures = lazy(() => import("./pages/Features/ConverterFeatures"
 const Help = lazy(() => import("./pages/Help"));
 const Converter = lazy(() => import("./pages/Converter"));
 const Pricing = lazy(() => import("./pages/Pricing"));
+const ComingSoon = lazy(() => import("./pages/ComingSoon"));
+
 const Forum = lazy(() => import("./pages/Forum"));
 const Overview = lazy(() => import("./pages/Overview"));
 const LeadFormAnalytics = lazy(() => import("./pages/LeadFormAnalytics"));
 const Guide = lazy(() => import("./pages/Guide/Guide"));
-const TermsAndConditions = lazy(() => import("./pages/LegalTerms"));
-const PrivacyPolicy = lazy(() => import("./pages/LegalPrivacy"));
-const CookiePolicy = lazy(() => import("./pages/LegalCookies"));
+const TermsAndConditions = lazy(() => import("./pages/LegalFile/LegalTerms"));
+const PrivacyPolicy = lazy(() => import("./pages/LegalFile/LegalPrivacy"));
+const CookiePolicy = lazy(() => import("./pages/LegalFile/LegalCookies"));
+const RefundPolicy = lazy(() => import("./pages/LegalFile/LegalRefund"));
+const CopyrightPolicy = lazy(() => import("./pages/LegalFile/LegalCopyright"));
 
 // Preview & Share Pages
 const PreviewPage = lazy(() => import("./pages/PreviewPage"));
-const ShareViewBook = lazy(() => import("./pages/shareviewbook"));
+const ShareViewBook = lazy(() => import("./pages/ShareViewBook/ShareViewBook"));
 const PublicShelfView = lazy(() => import("./pages/PublicShelfView"));
 const ARView = lazy(() => import("./pages/ARView"));
 const ComingSoonBanner = lazy(() => import("./pages/ComingSoonBanner"));
@@ -71,7 +77,7 @@ const ThreedEditor = lazy(
   () => import("./components/ThreedEditor/ThreedEditor"),
 );
 
-import "./utils/preloadUtils";
+import "./utils/common/preloadUtils";
 
 // Settings Components
 const SettingsLayout = lazy(() => import("./components/Settings/SettingsLayout"));
@@ -100,8 +106,10 @@ export default function App() {
           <ConfirmationProvider>
             <Router>
               <DocumentUploadProvider>
+                <SEOManager />
                 <ScrollToTop />
                 <AuthModal />
+                <LaunchLockGate>
                 <Routes>
               {/* Direct visits to auth URLs automatically open the Auth Modal over home */}
               <Route
@@ -189,6 +197,16 @@ export default function App() {
                 element={
                   <Suspense fallback={null}>
                     <ComingSoonBanner />
+                  </Suspense>
+                }
+              />
+
+              {/* Standalone Coming Soon countdown page (no nav/layout) */}
+              <Route
+                path="/coming-soon"
+                element={
+                  <Suspense fallback={null}>
+                    <ComingSoon />
                   </Suspense>
                 }
               />
@@ -494,6 +512,38 @@ export default function App() {
                     </Suspense>
                   }
                 />
+                <Route
+                  path="/refund-policy"
+                  element={
+                    <Suspense fallback={null}>
+                      <RefundPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/refund"
+                  element={
+                    <Suspense fallback={null}>
+                      <RefundPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/copyright-policy"
+                  element={
+                    <Suspense fallback={null}>
+                      <CopyrightPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/copyright"
+                  element={
+                    <Suspense fallback={null}>
+                      <CopyrightPolicy />
+                    </Suspense>
+                  }
+                />
 
                 {/* Settings Nested Routes */}
                 <Route
@@ -693,6 +743,7 @@ export default function App() {
               {/* Catch-all fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+                </LaunchLockGate>
           </DocumentUploadProvider>
           </Router>
           </ConfirmationProvider>

@@ -10,6 +10,7 @@ const Lead = require('../models/lead');
 const UserGallery = require('../../../../shared/models/UserGallery');
 const EditorPreset = require('../models/editorPreset');
 const Flipbook = require('../../../../shared/models/Flipbook');
+const User = require('../../../../shared/models/User');
 const backupService = require('../../../../shared/backupService');
 const bookInfoController = require('./bookInfoController');
 
@@ -2280,6 +2281,16 @@ const findBookByShareId = async (shareId) => {
       ...custObj,
       Visibility: custObj.Visibility || book.Customized_Settings?.Visibility
     };
+    if (custObj.userEmail && !book.userEmail) {
+      book.userEmail = custObj.userEmail;
+    }
+  }
+
+  if (book && !book.userEmail && book.userObjectID) {
+    try {
+      const u = await User.findById(book.userObjectID).select('emailId').lean();
+      if (u?.emailId) book.userEmail = u.emailId;
+    } catch (_) {}
   }
 
   // Ensure shareId is distinct from v_id
@@ -2591,16 +2602,25 @@ const getPublicBook = async (req, res) => {
       }
       if (!manifestData) {
         for (const uf of userFolders) {
-          const mPath = path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json');
-          if (fs.existsSync(mPath)) {
-            manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
-            break;
+          const candManifests = [
+            path.join(storageRoot, uf, 'books', primaryFolder, safeBookName, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', 'default', safeBookName, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', book.v_id, 'manifest.json'),
+            path.join(storageRoot, uf, 'books', 'default', book.v_id, 'manifest.json')
+          ];
+          for (const mPath of candManifests) {
+            if (fs.existsSync(mPath)) {
+              manifestData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+              break;
+            }
           }
+          if (manifestData) break;
         }
       }
 
       if (manifestData && Array.isArray(manifestData.pages) && manifestData.pages.length > 0) {
-        const mBaseUrl = manifestData.baseUrl || `/storage/${effectiveUserFolder}/books/${book.v_id}/pages/`;
+        const defaultBaseUrl = `/storage/${effectiveUserFolder}/books/${primaryFolder}/${safeBookName}/pages/webp_page/`;
+        const mBaseUrl = manifestData.baseUrl || defaultBaseUrl;
         const totalManifestPages = manifestData.pages.length;
 
         const existingMap = new Map();
@@ -2656,6 +2676,7 @@ const getPublicBook = async (req, res) => {
       flipbookName: book.flipbookName,
       folderName: primaryFolder,
       v_id: book.v_id,
+      userEmail: book.userEmail || '',
       baseUrl: resolvedBaseUrl,
       publisher: publisherName,
       category: docFlipbookInfo.category || 'General',
@@ -2799,6 +2820,258 @@ const deletePublicRating = async (req, res) => {
   }
 };
 
+/**
+ * Helper to resolve the best cover image URL for a given book / share
+ */
+const resolveCoverImageUrl = async (book, req) => {
+  if (!book) return null;
+  const storageRoot = getStorageRoot();
+  const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:8000';
+  const protoHeader = req.get('x-forwarded-proto') || req.protocol || 'http';
+  const protocol = protoHeader.split(',')[0].trim();
+  const baseUrl = `${protocol}://${host}`;
+
+  // 1. Direct coverPicture object
+  const cp = book.coverPicture ||
+    book.Customized_Settings?.coverPicture ||
+    book.Customized_Settings?.FlipbookInfo?.coverPicture ||
+    book.Customized_Settings?.otherSetup?.coverPicture ||
+    book.settings?.coverPicture ||
+    book.settings?.othersetup?.coverPicture ||
+    book.settings?.FlipbookInfo?.coverPicture ||
+    null;
+
+  if (cp?.url && typeof cp.url === 'string' && cp.url.trim()) {
+    const raw = cp.url.trim();
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return `${baseUrl}${raw.startsWith('/') ? '' : '/'}${raw}`;
+  }
+
+  // 2. Flipbook thumbnail
+  const thumb = book.thumbnail || book.Customized_Settings?.thumbnail || null;
+  if (thumb && typeof thumb === 'string' && thumb.trim()) {
+    const raw = thumb.trim();
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return `${baseUrl}${raw.startsWith('/') ? '' : '/'}${raw}`;
+  }
+
+  // 3. Inspect page 1 content or disk webp
+  const page1 = Array.isArray(book.pages) && book.pages[0];
+  const pageContent = page1?.content || page1?.html || '';
+  if (pageContent) {
+    const imgMatch = pageContent.match(/(?:href|src)=["']([^"']+\.(?:webp|png|jpe?g|svg)[^"']*)["']/i);
+    if (imgMatch && imgMatch[1]) {
+      const raw = imgMatch[1].trim();
+      if (/^https?:\/\//i.test(raw)) return raw;
+      return `${baseUrl}${raw.startsWith('/') ? '' : '/'}${raw}`;
+    }
+  }
+
+  // 4. Look on disk for webp_page/1.webp or 1.webp
+  const sanitizedEmail = (book.userEmail || '').replace(/[@.]/g, '_');
+  const userFolders = Array.from(new Set([book.userID, book.userId ? String(book.userId) : null, sanitizedEmail].filter(Boolean)));
+  const primaryFolder = resolveFolder(book.folderName || book.folder || 'default');
+  const safeBookName = (book.realName || book.flipbookName || '').trim();
+
+  for (const uf of userFolders) {
+    const candPaths = [
+      path.join(storageRoot, uf, 'books', primaryFolder, safeBookName, 'pages', 'webp_page', '1.webp'),
+      path.join(storageRoot, uf, 'books', 'default', safeBookName, 'pages', 'webp_page', '1.webp'),
+      path.join(storageRoot, uf, 'books', primaryFolder, safeBookName, 'pages', '1.webp'),
+      path.join(storageRoot, uf, 'books', safeBookName, 'pages', 'webp_page', '1.webp')
+    ];
+    for (const cpPath of candPaths) {
+      if (fs.existsSync(cpPath)) {
+        const rel = path.relative(storageRoot, cpPath).replace(/\\/g, '/');
+        return `${baseUrl}/storage/${encodeURI(rel)}`;
+      }
+    }
+  }
+
+  return null;
+};
+
+/**
+ * GET /preview-image/:shareId
+ * Returns a high-res cover picture / preview image for OpenGraph / WhatsApp / Twitter
+ */
+const getPreviewImage = async (req, res) => {
+  try {
+    const { shareId } = req.params;
+    const book = await findBookByShareId(shareId);
+    if (!book) {
+      return res.status(404).json({ success: false, message: 'Book not found' });
+    }
+
+    // 1. Try to find existing image URL and redirect or pipe
+    const resolvedUrl = await resolveCoverImageUrl(book, req);
+    if (resolvedUrl) {
+      // Check if it's local storage path
+      if (resolvedUrl.includes('/storage/')) {
+        const storageRoot = getStorageRoot();
+        const relPath = decodeURIComponent(resolvedUrl.split('/storage/')[1]);
+        const absPath = path.join(storageRoot, relPath);
+        if (fs.existsSync(absPath)) {
+          const ext = path.extname(absPath).toLowerCase();
+          const mime = ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg';
+          res.setHeader('Content-Type', mime);
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          return fs.createReadStream(absPath).pipe(res);
+        }
+      }
+      return res.redirect(resolvedUrl);
+    }
+
+    // 2. Dynamic generation using node-canvas
+    let Canvas;
+    try {
+      Canvas = require('canvas');
+    } catch (e) {
+      Canvas = null;
+    }
+
+    if (Canvas && Canvas.createCanvas) {
+      const width = 1200;
+      const height = 630;
+      const cv = Canvas.createCanvas(width, height);
+      const ctx = cv.getContext('2d');
+
+      const cp = book.coverPicture || book.Customized_Settings?.coverPicture || {};
+      const bgColor = cp.bgColor || '#1E293B';
+
+      // Background
+      ctx.fillStyle = bgColor.includes('gradient') ? '#1E293B' : (bgColor || '#1E293B');
+      ctx.fillRect(0, 0, width, height);
+
+      // Gradient accent footer
+      const grad = ctx.createLinearGradient(0, height - 120, width, height);
+      grad.addColorStop(0, '#4A3AFF');
+      grad.addColorStop(1, '#00D2FF');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, height - 12, width, 12);
+
+      // Book Title
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 54px sans-serif';
+      const title = book.flipbookName || 'Interactive Flipbook';
+      ctx.fillText(title.length > 38 ? title.substring(0, 35) + '...' : title, 70, 240);
+
+      // Subtitle / Quotes / Text
+      const text1 = cp.text1 || book.Customized_Settings?.FlipbookInfo?.quotes || 'Experience content in realistic 3D';
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = '30px sans-serif';
+      ctx.fillText(text1.length > 55 ? text1.substring(0, 52) + '...' : text1, 70, 310);
+
+      // Branding badge
+      ctx.fillStyle = '#4A3AFF';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(70, 80, 180, 50, 10) : ctx.rect(70, 80, 180, 50);
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillText('FLIPIBOOK', 96, 113);
+
+      const buf = cv.toBuffer('image/jpeg', { quality: 0.92 });
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(buf);
+    }
+
+    res.status(404).send('No cover image available');
+  } catch (err) {
+    console.error('[Preview Image Error]:', err);
+    res.status(500).send('Error generating preview image');
+  }
+};
+
+/**
+ * GET /preview-card/:shareId
+ * Returns full OpenGraph HTML for crawlers and scrapers (WhatsApp, FB, Twitter/X, etc.)
+ */
+const getPreviewCard = async (req, res) => {
+  try {
+    const { shareId } = req.params;
+    const book = await findBookByShareId(shareId);
+    if (!book) {
+      return res.status(404).send('<!DOCTYPE html><html><head><title>Flipbook Not Found</title></head><body><h1>Flipbook Not Found</h1></body></html>');
+    }
+
+    const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:8000';
+    const protoHeader = req.get('x-forwarded-proto') || req.protocol || 'http';
+    const protocol = protoHeader.split(',')[0].trim();
+    const origin = `${protocol}://${host}`;
+
+    const vis = book.Customized_Settings?.Visibility || book.share || {};
+    const rawAcc = String(vis.access || vis.type || 'public').toLowerCase();
+    const accessPrefix =
+      (rawAcc.includes('private') && !rawAcc.includes('protect')) || rawAcc === 'private'
+        ? 'share=private'
+        : rawAcc.includes('password') || rawAcc.includes('protect')
+        ? 'share=password'
+        : rawAcc.includes('invite')
+        ? 'share=invite'
+        : 'share=public';
+
+    const clientOrigin = (process.env.CLIENT_URL || origin).replace(/\/+$/, '');
+    const canonicalShareUrl = `${clientOrigin}/${accessPrefix}/${shareId}`;
+
+    const bookTitle = (book.flipbookName || 'Interactive Flipbook').trim();
+    const docInfo = book.Customized_Settings?.FlipbookInfo || {};
+    const cp = book.coverPicture || book.Customized_Settings?.coverPicture || {};
+    const bookDesc = (docInfo.quotes || cp.text1 || docInfo.about || 'View and interact with this flipbook online on FlipiBook.').replace(/"/g, '&quot;').trim();
+
+    // Cover image URL
+    let coverImgUrl = await resolveCoverImageUrl(book, req);
+    if (!coverImgUrl) {
+      coverImgUrl = `${origin}/api/customized-editor/preview-image/${shareId}`;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${bookTitle} | FlipiBook</title>
+  <meta name="description" content="${bookDesc}">
+
+  <!-- OpenGraph / Facebook / WhatsApp / LinkedIn -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="FlipiBook">
+  <meta property="og:url" content="${canonicalShareUrl}">
+  <meta property="og:title" content="${bookTitle}">
+  <meta property="og:description" content="${bookDesc}">
+  <meta property="og:image" content="${coverImgUrl}">
+  <meta property="og:image:secure_url" content="${coverImgUrl}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:domain" content="${host}">
+  <meta name="twitter:url" content="${canonicalShareUrl}">
+  <meta name="twitter:title" content="${bookTitle}">
+  <meta name="twitter:description" content="${bookDesc}">
+  <meta name="twitter:image" content="${coverImgUrl}">
+
+  <meta name="theme-color" content="#4A3AFF">
+  <meta http-equiv="refresh" content="0;url=${canonicalShareUrl}">
+</head>
+<body style="font-family:sans-serif;text-align:center;padding:50px;">
+  <h2>Redirecting to ${bookTitle}...</h2>
+  <p><a href="${canonicalShareUrl}">Click here if not redirected automatically</a></p>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(html);
+  } catch (err) {
+    console.error('[Preview Card Error]:', err);
+    res.status(500).send('Error generating link preview');
+  }
+};
+
 module.exports = {
   getStatus,
   checkAuth,
@@ -2826,6 +3099,9 @@ module.exports = {
   deleteTransparentSheet,
   findBookByShareId,
   getPublicBook,
+  getPreviewImage,
+  getPreviewCard,
+  resolveCoverImageUrl,
   recordPublicView,
   submitPublicRating,
   updatePublicRating,

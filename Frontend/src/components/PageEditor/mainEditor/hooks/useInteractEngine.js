@@ -695,7 +695,7 @@ export const useInteractEngine = ({
             };
 
             if (!dragState.thresholdMet) {
-              const DRAG_THRESHOLD = 6;
+              const DRAG_THRESHOLD = 2;
               const dxClient = event.clientX - dragState.initialClientX;
               const dyClient = event.clientY - dragState.initialClientY;
               const distance = Math.sqrt(dxClient * dxClient + dyClient * dyClient);
@@ -714,9 +714,17 @@ export const useInteractEngine = ({
                 for (const item of dragState.multiDragItems) {
                   item.startPointLocal = getLocalPoint(dragState.svgElement, item.element.parentNode, event.clientX, event.clientY);
                   item.element.setAttribute('data-dragging', 'true');
+                  item.element.style.willChange = 'transform';
+                  if (!item.element._dragLocalBBox) {
+                    item.element._dragLocalBBox = getVisualBBox(item.element);
+                  }
                 }
               } else {
                 dragState.element.setAttribute('data-dragging', 'true');
+                dragState.element.style.willChange = 'transform';
+                if (!dragState.element._dragLocalBBox) {
+                  dragState.element._dragLocalBBox = getVisualBBox(dragState.element);
+                }
                 if (dragState.element?.getAttribute('data-type') === 'table-frame' || dragState.element?.id?.startsWith('table-')) {
                   const bColor = dragState.element.getAttribute('data-border-color') || '#cbd5e1';
                   dragState.element.querySelectorAll('td[data-cell-selected], th[data-cell-selected]').forEach(td => {
@@ -920,22 +928,6 @@ export const useInteractEngine = ({
               // Batch overlay highlight and smart guides rendering via RAF for 60fps smoothness
               const highlightType = currentFrameIdRef.current && target.id !== currentFrameIdRef.current ? 'child-selected' : 'selected';
 
-              if (localTrimViewRef.current && dragState.svgElement) {
-                const isOutside = isElementCompletelyOutside(target, dragState.svgElement);
-                if (isOutside) {
-                  target.setAttribute('data-trim-outside', 'true');
-                } else {
-                  target.removeAttribute('data-trim-outside');
-                }
-                if (dragState.multiDragItems) {
-                  dragState.multiDragItems.forEach(item => {
-                    const out = isElementCompletelyOutside(item.element, dragState.svgElement);
-                    if (out) item.element.setAttribute('data-trim-outside', 'true');
-                    else item.element.removeAttribute('data-trim-outside');
-                  });
-                }
-              }
-
               dragState.pendingTarget = target;
               dragState.pendingHighlightType = highlightType;
               dragState.pendingGuides = snap.guides;
@@ -1018,6 +1010,7 @@ export const useInteractEngine = ({
               document.body.classList.remove('dragging-active');
               if (dragState.element) {
                 dragState.element.removeAttribute('data-dragging');
+                dragState.element.style?.removeProperty('will-change');
                 delete dragState.element._dragLocalBBox;
                 if (dragState.element?.getAttribute('data-type') === 'table-frame' || dragState.element?.id?.startsWith('table-')) {
                   window.__lastTableDragEndTime = Date.now();
@@ -1027,6 +1020,7 @@ export const useInteractEngine = ({
               if (dragState.multiDragItems) {
                 dragState.multiDragItems.forEach(item => {
                   item.element.removeAttribute('data-dragging');
+                  item.element.style?.removeProperty('will-change');
                   delete item.element._dragLocalBBox;
                 });
               }
@@ -1053,84 +1047,7 @@ export const useInteractEngine = ({
             };
 
             const constrainElement = (el, onComplete) => {
-              if (!el || typeof el.getBBox !== 'function') return false;
-
-              let ctm, rootCtm, parentCtm;
-              try {
-                ctm = el.getScreenCTM();
-                rootCtm = dragState.svgElement.getScreenCTM();
-                parentCtm = el.parentNode.getScreenCTM();
-              } catch {
-                return false;
-              }
-              if (!ctm || !rootCtm || !parentCtm) return false;
-              const bbox = getVisualBBox(el);
-              const localToRoot = toDOMMatrix(rootCtm).inverse().multiply(toDOMMatrix(ctm));
-
-              const pt1 = new DOMPoint(bbox.x, bbox.y).matrixTransform(localToRoot);
-              const pt2 = new DOMPoint(bbox.x + bbox.width, bbox.y).matrixTransform(localToRoot);
-              const pt3 = new DOMPoint(bbox.x + bbox.width, bbox.y + bbox.height).matrixTransform(localToRoot);
-              const pt4 = new DOMPoint(bbox.x, bbox.y + bbox.height).matrixTransform(localToRoot);
-
-              const minX = Math.min(pt1.x, pt2.x, pt3.x, pt4.x);
-              const maxX = Math.max(pt1.x, pt2.x, pt3.x, pt4.x);
-              const minY = Math.min(pt1.y, pt2.y, pt3.y, pt4.y);
-              const maxY = Math.max(pt1.y, pt2.y, pt3.y, pt4.y);
-
-              const bounds = getCanvasBounds(dragState.svgElement, baseWidth, baseHeight);
-              const MARGIN_MM = 10;
-
-              let dx_root = 0;
-              let dy_root = 0;
-
-              if (minX < bounds.minX) dx_root = (bounds.minX + MARGIN_MM) - minX;
-              else if (maxX > bounds.maxX) dx_root = (bounds.maxX - MARGIN_MM) - maxX;
-
-              if (minY < bounds.minY) dy_root = (bounds.minY + MARGIN_MM) - minY;
-              else if (maxY > bounds.maxY) dy_root = (bounds.maxY - MARGIN_MM) - maxY;
-
-              if (dx_root !== 0 || dy_root !== 0) {
-                const rootToParent = toDOMMatrix(parentCtm).inverse().multiply(toDOMMatrix(rootCtm));
-                const p0 = new DOMPoint(0, 0).matrixTransform(rootToParent);
-                const p1 = new DOMPoint(dx_root, dy_root).matrixTransform(rootToParent);
-
-                const dx = p1.x - p0.x;
-                const dy = p1.y - p0.y;
-
-                const matrix = getElementMatrix(el);
-                const startE = matrix.e;
-                const startF = matrix.f;
-                const translation = new DOMMatrix().translate(dx, dy);
-                const endMatrix = translation.multiply(matrix);
-                const endE = endMatrix.e;
-                const endF = endMatrix.f;
-
-                const duration = 200;
-                const startTime = performance.now();
-                const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
-
-                const animate = (currentTime) => {
-                  const elapsed = currentTime - startTime;
-                  const progress = Math.min(elapsed / duration, 1);
-                  const eased = easeOutQuart(progress);
-
-                  matrix.e = startE + (endE - startE) * eased;
-                  matrix.f = startF + (endF - startF) * eased;
-
-                  el.setAttribute('transform', matrixToTransform(matrix));
-                  const highlightType = currentFrameIdRef.current && el.id !== currentFrameIdRef.current ? 'child-selected' : 'selected';
-                  drawOverlayHighlight(el, highlightType);
-
-                  if (progress < 1) {
-                    requestAnimationFrame(animate);
-                  } else {
-                    onComplete();
-                  }
-                };
-
-                requestAnimationFrame(animate);
-                return true;
-              }
+              // Allow freeform positioning: elements can be freely moved outside the page boundary and onto the canvas
               return false;
             };
 
@@ -1542,12 +1459,13 @@ export const useInteractEngine = ({
             const state = event.interaction.resizeState;
             if (!state) return;
 
-            // Enforce minimum 5px resize movement before mutating DOM or geometry
+            // Enforce minimum 2px resize movement before mutating DOM or geometry
             if (!state.thresholdMet) {
               const dx = event.clientX - (state.initialClientX ?? event.clientX);
               const dy = event.clientY - (state.initialClientY ?? event.clientY);
-              if (Math.hypot(dx, dy) < 5) return;
+              if (Math.hypot(dx, dy) < 2) return;
               state.thresholdMet = true;
+              if (state.el?.style) state.el.style.willChange = 'transform, width, height';
 
               // Convert <text> to <foreignObject> ONLY when resize movement actually begins
               if (!state.isMulti && state.el.tagName && state.el.tagName.toLowerCase() === 'text') {
@@ -1880,7 +1798,7 @@ export const useInteractEngine = ({
                   // Enable reflow when resizing any handle manually
                   if (dir) {
                     el.setAttribute('data-resized', 'true');
-                    div.style.whiteSpace = 'pre-wrap';
+                    div.style.setProperty('white-space', 'pre-wrap', 'important');
                   }
 
                   // Update the sizing mode to reflect manual user overrides so TextEditor respects them
@@ -1892,10 +1810,26 @@ export const useInteractEngine = ({
                       }
                       div.style.setProperty('width', '100%', 'important');
                       div.style.setProperty('height', '100%', 'important');
+                      div.style.setProperty('justify-content', 'flex-start', 'important');
                     } else {
-                      if (dir === 'e' || dir === 'w' || dir === 'n' || dir === 's') {
+                      if (dir === 'n' || dir === 's') {
+                        // Dragging top/bottom sets an explicit height -> Fixed (keeps width as-is)
+                        el.setAttribute('data-sizing-mode', 'fixed');
+                        el.setAttribute('data-auto-wrap', 'true');
+                        if (!isScrollable) {
+                          div.style.setProperty('overflow', 'visible', 'important');
+                        }
+                        div.style.setProperty('width', '100%', 'important');
+                        div.style.setProperty('height', '100%', 'important');
+                        div.style.setProperty('justify-content', 'flex-start', 'important');
+                      } else if (dir === 'e' || dir === 'w') {
                         el.setAttribute('data-sizing-mode', 'auto-height');
                         el.setAttribute('data-auto-wrap', 'true');
+                        // Undo Auto-W single-line layout so text wraps to the new width
+                        div.style.setProperty('white-space', 'pre-wrap', 'important');
+                        div.style.setProperty('overflow-wrap', 'break-word', 'important');
+                        div.style.setProperty('word-break', 'break-word', 'important');
+                        div.style.setProperty('width', '100%', 'important');
                         // Scrolling is only allowed in 'fixed' mode, so disable it when switching to auto-height
                         if (isScrollable) {
                           el.setAttribute('data-scrollable', 'false');
@@ -1910,6 +1844,7 @@ export const useInteractEngine = ({
                         }
                         div.style.setProperty('width', '100%', 'important');
                         div.style.setProperty('height', '100%', 'important');
+                        div.style.setProperty('justify-content', 'flex-start', 'important');
                       }
                     }
                   }
@@ -1923,7 +1858,10 @@ export const useInteractEngine = ({
 
                   if (!isScrollable) {
                     if (dir === 'e' || dir === 'w') {
-                      // Resize width -> Auto height (Can shrink)
+                      // Resize width -> Auto height (Can shrink).
+                      // Apply the new width FIRST so wrapping is measured at the size being dragged to;
+                      // otherwise the height lags one step and the centered text is clipped top & bottom.
+                      el.setAttribute('width', adjustedWidth);
                       adjustedHeight = Math.max(10, div.scrollHeight + 4);
                     } else if ((dir === 'n' || dir === 's') && el.getAttribute('data-sizing-mode') !== 'fixed') {
                       // Resize height -> adjust width to match new height, keeping text inside
@@ -2111,6 +2049,7 @@ export const useInteractEngine = ({
                       child.classList.contains('svg-image-stroke-overlay') ||
                       child.classList.contains('svg-gif-stroke-overlay') ||
                       child.classList.contains('svg-video-stroke-overlay') ||
+                      child.classList.contains('image-fill-layer') ||
                       child.classList.contains('svg-drop-shadow-caster')
                     );
                     if (isStrokeOverlay) return;
@@ -2237,6 +2176,7 @@ export const useInteractEngine = ({
                       child.classList.contains('svg-image-stroke-overlay') ||
                       child.classList.contains('svg-gif-stroke-overlay') ||
                       child.classList.contains('svg-video-stroke-overlay') ||
+                      child.classList.contains('image-fill-layer') ||
                       child.classList.contains('svg-drop-shadow-caster')
                     );
 
@@ -2919,26 +2859,10 @@ export const useInteractEngine = ({
 
 
 
-            if (el.tagName === 'multi') {
-              if (typeof drawMultiSelectionHighlight === 'function') {
-                drawMultiSelectionHighlight(multiSelectedIdsRef.current);
-              }
-            } else {
-              syncOverlay(el);
-              const highlightType = (currentFrameIdRef.current && el.id !== currentFrameIdRef.current) ? 'child-selected' : 'selected';
-              drawOverlayHighlight(el, highlightType);
-            }
+            // Selection highlight will be rendered in RAF below for 60fps butter smoothness
 
             // ── RENDER SMART GUIDES DURING RESIZE ──
             const targetSvg = state.svg || el.ownerSVGElement;
-            if (localTrimViewRef.current && targetSvg && el && el.tagName !== 'multi') {
-              const isOutside = isElementCompletelyOutside(el, targetSvg);
-              if (isOutside) {
-                el.setAttribute('data-trim-outside', 'true');
-              } else {
-                el.removeAttribute('data-trim-outside');
-              }
-            }
             let currentBox = null;
             if (el.tagName === 'multi' && state.newOverallBBox) {
               const b = state.newOverallBBox;
@@ -2956,15 +2880,33 @@ export const useInteractEngine = ({
               currentBox = getBoxInSvg(el, targetSvg);
             }
 
+            let guideData = null;
+            let pageIdx = activePageIndex;
             if (currentBox && targetSvg) {
-              const guideData = collectResizeGuideLines({
+              guideData = collectResizeGuideLines({
                 resizeState: state,
                 currentBox,
                 dir
               });
               const pageContainer = (el.closest ? el.closest('.page-svg-container') : null) || targetSvg.closest?.('.page-svg-container');
-              const pageIdx = pageContainer ? parseInt(pageContainer.getAttribute('data-page-index')) : activePageIndex;
-              renderSmartGuides(pageIdx, guideData.guides, guideData.badge, zoom / 100, targetSvg);
+              pageIdx = pageContainer ? parseInt(pageContainer.getAttribute('data-page-index')) : activePageIndex;
+            }
+
+            if (!state.rafId) {
+              state.rafId = requestAnimationFrame(() => {
+                state.rafId = null;
+                if (!state.el) return;
+                if (el.tagName !== 'multi') {
+                  syncOverlay(el);
+                  const highlightType = (currentFrameIdRef.current && el.id !== currentFrameIdRef.current) ? 'child-selected' : 'selected';
+                  drawOverlayHighlight(el, highlightType);
+                } else if (typeof drawMultiSelectionHighlight === 'function') {
+                  drawMultiSelectionHighlight(multiSelectedIdsRef.current);
+                }
+                if (guideData && targetSvg) {
+                  renderSmartGuides(pageIdx, guideData.guides, guideData.badge, zoom / 100, targetSvg);
+                }
+              });
             }
           },
           end(event) {
@@ -2975,6 +2917,15 @@ export const useInteractEngine = ({
             document.documentElement.style.removeProperty('--resizing-cursor');
 
             const state = event.interaction.resizeState;
+            if (state) {
+              if (state.rafId) {
+                cancelAnimationFrame(state.rafId);
+                state.rafId = null;
+              }
+              if (state.el && state.el.style) {
+                state.el.style.willChange = '';
+              }
+            }
             if (state && !state.thresholdMet) {
               delete event.interaction.resizeState;
               return;

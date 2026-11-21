@@ -28,8 +28,8 @@ import AlertModal from "../AlertModal";
 // 2. HOOKS & UTILITIES
 // ============================================================================
 import useModalHistory from "./hooks/useModalHistory";
-import { resolveUploadsPath } from "../../utils/assetUtils";
-import { getFromDB } from "../../utils/dbUtils";
+import { resolveUploadsPath } from "../../utils/assets/assetUtils";
+import { getFromDB } from "../../utils/storage/dbUtils";
 import { useToast } from "../../components/CustomToast";
 import { executeExport3D, captureCameraSnapshot } from "./utils/threedExportHandlers";
 import { executeSave3D } from "./utils/threedSaveHandlers";

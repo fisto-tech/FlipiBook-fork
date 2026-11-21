@@ -3,7 +3,7 @@ import { Eye, EyeOff, ArrowRight, Loader2, KeyRound } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
 import { useToast } from '../CustomToast';
-import { getErrorMessage } from '../../utils/authUtils';
+import { getErrorMessage } from '../../utils/auth/authUtils';
 
 export default function ForgotPassword({ initialEmail = '', onSwitchToSignin }) {
   const [email, setEmail] = useState(initialEmail);

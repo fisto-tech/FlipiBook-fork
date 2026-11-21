@@ -3,7 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import backgroundComponents from './Backgrounds';
 import animationComponents from './Animations';
 import * as BookAppearanceHelpers from './utils/bookAppearanceHelpers';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 
 import { LAYOUT_DEFAULT_COLORS } from './utils/layoutColors';
 import LeadFormPopup from './popups/LeadFormPopup';
@@ -198,20 +198,38 @@ const PreviewArea = React.memo(({
         return bookName || currentBook?.flipbookName || currentBook?.title || incomingSettings?.flipbookName || incomingSettings?.FlipbookInfo?.flipbookName || 'Flipbook';
     }, [bookName, currentBook, incomingSettings]);
 
+    // Email of the person who CREATED this book (never the logged-in viewer)
+    const bookOwnerEmail = React.useMemo(() => (
+        currentBook?.userEmail || incomingSettings?.userEmail || incomingSettings?.FlipbookInfo?.userEmail || currentBook?.meta?.userEmail || incomingSettings?.meta?.userEmail || ''
+    ), [currentBook, incomingSettings]);
+
+    // Profile used for the creator modal. In the share/published view the Redux profile belongs to
+    // the logged-in viewer, so only trust the book's own branding profile (and only if it matches the owner).
+    const creatorProfileSettings = React.useMemo(() => {
+        if (!isPublishedPreview) return profileSettings;
+        const p = profileSettingsProp;
+        if (!p) return null;
+        const pEmail = String(p.emailId || p.email || '').trim().toLowerCase();
+        const owner = String(bookOwnerEmail || '').trim().toLowerCase();
+        // Owner unknown (public share API hides it) -> never trust a cached profile; the modal
+        // resolves the real creator from the book id instead.
+        if (!owner || !pEmail || pEmail !== owner) return null;
+        return p;
+    }, [isPublishedPreview, profileSettings, profileSettingsProp, bookOwnerEmail]);
+
     const resolvedUserEmail = React.useMemo(() => {
-        if (currentBook?.userEmail) return currentBook.userEmail;
-        if (incomingSettings?.userEmail) return incomingSettings.userEmail;
-        if (incomingSettings?.FlipbookInfo?.userEmail) return incomingSettings.FlipbookInfo.userEmail;
-        if (profileSettings?.emailId || profileSettings?.email) return profileSettings.emailId || profileSettings.email;
+        if (bookOwnerEmail) return bookOwnerEmail;
+        const p = creatorProfileSettings;
+        if (p?.emailId || p?.email) return p.emailId || p.email;
         return '';
-    }, [currentBook, incomingSettings, profileSettings]);
+    }, [bookOwnerEmail, creatorProfileSettings]);
 
     const creatorProfileData = React.useMemo(() => {
         const email = resolvedUserEmail || '';
-        const name = profileSettings?.name || currentBook?.authorName || (email ? email.split('@')[0] : 'Creator');
-        const picture = profileSettings?.picture || currentBook?.authorPicture || null;
-        const avatarBgColor = profileSettings?.avatarBgColor || currentBook?.authorBgColor || '#E8D4C8';
-        const bannerBg = profileSettings?.bannerBg || { type: 'gradient', value: 'linear-gradient(120deg, #9fe6cb 0%, #72ceaf 50%, #9fe6cb 100%)' };
+        const name = creatorProfileSettings?.name || currentBook?.authorName || (email ? email.split('@')[0] : 'Creator');
+        const picture = creatorProfileSettings?.picture || currentBook?.authorPicture || null;
+        const avatarBgColor = creatorProfileSettings?.avatarBgColor || currentBook?.authorBgColor || '#E8D4C8';
+        const bannerBg = creatorProfileSettings?.bannerBg || { type: 'gradient', value: 'linear-gradient(120deg, #9fe6cb 0%, #72ceaf 50%, #9fe6cb 100%)' };
 
         return {
             name,
@@ -224,29 +242,29 @@ const PreviewArea = React.memo(({
             picture,
             avatarBgColor,
             bannerBg,
-            about: profileSettings?.about || '',
-            mobile: profileSettings?.mobile || '',
-            companyName: profileSettings?.companyName || '',
-            industryType: profileSettings?.industryType || '',
-            companyEmail: profileSettings?.companyEmail || '',
-            website: profileSettings?.website || '',
-            services: profileSettings?.services || [],
-            address1: profileSettings?.address1 || '',
-            address2: profileSettings?.address2 || '',
-            city: profileSettings?.city || '',
-            pincode: profileSettings?.pincode || '',
-            state: profileSettings?.state || '',
-            country: profileSettings?.country || 'INDIA',
-            socials: profileSettings?.socials || {}
+            about: creatorProfileSettings?.about || '',
+            mobile: creatorProfileSettings?.mobile || '',
+            companyName: creatorProfileSettings?.companyName || '',
+            industryType: creatorProfileSettings?.industryType || '',
+            companyEmail: creatorProfileSettings?.companyEmail || '',
+            website: creatorProfileSettings?.website || '',
+            services: creatorProfileSettings?.services || [],
+            address1: creatorProfileSettings?.address1 || '',
+            address2: creatorProfileSettings?.address2 || '',
+            city: creatorProfileSettings?.city || '',
+            pincode: creatorProfileSettings?.pincode || '',
+            state: creatorProfileSettings?.state || '',
+            country: creatorProfileSettings?.country || 'INDIA',
+            socials: creatorProfileSettings?.socials || {}
         };
-    }, [resolvedUserEmail, profileSettings, currentBook, resolvedShareId, resolvedVId]);
+    }, [resolvedUserEmail, creatorProfileSettings, currentBook, resolvedShareId, resolvedVId]);
 
     const galleryPopupSettings = React.useMemo(() => {
         const galleryFromOther = otherSetupSettings?.gallery || {};
         const galleryFromMenuBar = menuBarSettings?.interaction?.gallerySettings || {};
         return {
-            ...galleryFromOther,
             ...galleryFromMenuBar,
+            ...galleryFromOther,
             images: (galleryFromOther.images && galleryFromOther.images.length > 0)
                 ? galleryFromOther.images
                 : (galleryFromMenuBar.images || [])
@@ -1770,14 +1788,18 @@ const PreviewArea = React.memo(({
     }, [activeSubView]);
 
     const prevEnabledRef = useRef(leadFormSettings?.enabled);
+    const prevTemplateKeyRef = useRef(leadFormSettings?._previewKey);
     useEffect(() => {
         const currentEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
         const prevEnabled = prevEnabledRef.current === true || prevEnabledRef.current === 'true';
-        if (currentEnabled && !prevEnabled && !isPublishedPreview) {
+        const templateChanged = leadFormSettings?._previewKey && leadFormSettings?._previewKey !== prevTemplateKeyRef.current;
+        if ((currentEnabled && !prevEnabled && !isPublishedPreview) || templateChanged) {
             setLeadFormSubmitted(false);
+            setShowLeadForm(true);
         }
         prevEnabledRef.current = leadFormSettings?.enabled;
-    }, [leadFormSettings?.enabled, isPublishedPreview]);
+        prevTemplateKeyRef.current = leadFormSettings?._previewKey;
+    }, [leadFormSettings?.enabled, leadFormSettings?._previewKey, isPublishedPreview]);
 
     useEffect(() => {
         const isEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';

@@ -205,29 +205,68 @@ router.get('/published', async (req, res) => {
  */
 router.get('/creator', async (req, res) => {
   try {
-    let rawEmail = req.query.emailId || req.query.email || req.user?.emailId;
+    let rawEmail = req.query.emailId || req.query.email;
     const shareId = req.query.shareId;
     const v_id = req.query.v_id || req.query.vId;
+    let creatorUserID = null;
+    let creatorUserObjectID = null;
 
     if (!rawEmail && (shareId || v_id)) {
-      const query = [];
+      // 1. Check CustomizedSettings if shareId or v_id is provided
       if (shareId) {
-        query.push({ 'Customized_Settings.Visibility.shareId': shareId });
-        query.push({ 'Visibility.shareId': shareId });
-        query.push({ 'share.shareId': shareId });
-        query.push({ v_id: shareId });
-      }
-      if (v_id) {
-        query.push({ v_id: v_id });
-      }
-      const foundBook = await Flipbook.findOne({ $or: query }).lean();
-      if (foundBook) {
-        rawEmail = foundBook.userEmail || foundBook.emailId || foundBook.email;
-        if (!rawEmail && foundBook.userObjectID) {
-          const u = await User.findById(foundBook.userObjectID).select('emailId').lean();
-          if (u?.emailId) rawEmail = u.emailId;
+        const custDoc = await CustomizedSettings.findOne({
+          $or: [
+            { 'Visibility.shareId': shareId },
+            { 'share.shareId': shareId },
+            { v_id: shareId }
+          ]
+        }).lean();
+        if (custDoc?.userEmail) {
+          rawEmail = custDoc.userEmail;
+        }
+        if (custDoc?.userID) creatorUserID = custDoc.userID;
+        if (custDoc?.v_id && !v_id) {
+          const b = await Flipbook.findOne({ v_id: custDoc.v_id }).lean();
+          if (b) {
+            if (!rawEmail) rawEmail = b.userEmail || b.emailId || b.email;
+            if (b.userID) creatorUserID = b.userID;
+            if (b.userObjectID) creatorUserObjectID = b.userObjectID;
+            if (!rawEmail && b.userObjectID) {
+              const u = await User.findById(b.userObjectID).select('emailId').lean();
+              if (u?.emailId) rawEmail = u.emailId;
+            }
+          }
         }
       }
+
+      // 2. Query Flipbook directly if still not found
+      if (!rawEmail) {
+        const query = [];
+        if (shareId) {
+          query.push({ 'Customized_Settings.Visibility.shareId': shareId });
+          query.push({ 'Visibility.shareId': shareId });
+          query.push({ 'share.shareId': shareId });
+          query.push({ v_id: shareId });
+        }
+        if (v_id) {
+          query.push({ v_id: v_id });
+        }
+        const foundBook = await Flipbook.findOne({ $or: query }).lean();
+        if (foundBook) {
+          rawEmail = foundBook.userEmail || foundBook.emailId || foundBook.email;
+          if (foundBook.userID) creatorUserID = foundBook.userID;
+          if (foundBook.userObjectID) creatorUserObjectID = foundBook.userObjectID;
+          if (!rawEmail && foundBook.userObjectID) {
+            const u = await User.findById(foundBook.userObjectID).select('emailId').lean();
+            if (u?.emailId) rawEmail = u.emailId;
+          }
+        }
+      }
+    }
+
+    // Only if neither query email nor book creator was found, fallback to req.user as a last resort
+    if (!rawEmail && !shareId && !v_id) {
+      rawEmail = req.user?.emailId;
     }
 
     if (!rawEmail) {
@@ -251,11 +290,11 @@ router.get('/creator', async (req, res) => {
         picture: (user?.picture && user?.picture !== 'color_only' && user?.picture !== 'null') ? user.picture : null,
         avatarBgColor: user?.avatarBgColor || '#E8D4C8',
         bannerBg: { type: 'gradient', value: 'linear-gradient(120deg, #9fe6cb 0%, #72ceaf 50%, #9fe6cb 100%)' },
-        about: user?.bio || '“Bring your content to life with a real, interactive experience”',
-        industryType: user?.designation || 'Product Designer',
-        city: user?.city || 'Coimbatore',
-        state: user?.state || 'Tamil Nadu',
-        country: user?.country || 'INDIA',
+        about: user?.bio || '',
+        industryType: user?.designation || '',
+        city: user?.city || '',
+        state: user?.state || '',
+        country: user?.country || '',
         followers: [],
         following: []
       };
@@ -292,7 +331,9 @@ router.get('/creator', async (req, res) => {
 
     const userConds = [{ userEmail: safeRegex }];
     if (user?._id) userConds.push({ userObjectID: user._id });
+    if (creatorUserObjectID) userConds.push({ userObjectID: creatorUserObjectID });
     if (user?.userID) userConds.push({ userID: user.userID });
+    if (creatorUserID) userConds.push({ userID: creatorUserID });
     const userFilter = userConds.length > 1 ? { $or: userConds } : userConds[0];
 
     // Always return only published books in creator profile modal flipbook list
@@ -382,21 +423,37 @@ router.get('/top-creators', async (req, res) => {
   try {
     const currentEmail = (req.query.currentEmail || req.query.followerEmail || req.query.emailId || req.query.email || '').trim().toLowerCase();
 
-    const counts = await Flipbook.aggregate([
-      { $match: { isPublished: true, trash: { $ne: true } } },
-      { $group: { _id: '$userEmail', totalBooks: { $sum: 1 } } },
-      { $sort: { totalBooks: -1 } }
+    const [profiles, users, allBooks] = await Promise.all([
+      Profile.find({}).lean(),
+      User.find({}).lean(),
+      Flipbook.find({ trash: { $ne: true } }).select('userObjectID userID userEmail isPublished').lean()
     ]);
 
-    const countMap = {};
-    counts.forEach((c) => {
-      if (c._id) countMap[c._id.toLowerCase()] = c.totalBooks;
+    const userObjIdToEmail = {};
+    const userIdToEmail = {};
+    users.forEach((u) => {
+      if (u.emailId) {
+        const email = u.emailId.trim().toLowerCase();
+        if (u._id) userObjIdToEmail[String(u._id)] = email;
+        if (u.userID) userIdToEmail[u.userID] = email;
+      }
     });
 
-    const [profiles, users] = await Promise.all([
-      Profile.find({}).lean(),
-      User.find({}).lean()
-    ]);
+    const publishedCountMap = {};
+    const totalCountMap = {};
+
+    allBooks.forEach((b) => {
+      const email = (b.userEmail || '').trim().toLowerCase()
+        || (b.userObjectID && userObjIdToEmail[String(b.userObjectID)])
+        || (b.userID && userIdToEmail[b.userID]);
+
+      if (email) {
+        totalCountMap[email] = (totalCountMap[email] || 0) + 1;
+        if (b.isPublished) {
+          publishedCountMap[email] = (publishedCountMap[email] || 0) + 1;
+        }
+      }
+    });
 
     const creatorMap = {};
 
@@ -411,13 +468,14 @@ router.get('/top-creators', async (req, res) => {
         picture: p.picture || null,
         avatarBgColor: p.avatarBgColor || '#E8D4C8',
         bannerBg: p.bannerBg || { type: 'gradient', value: 'linear-gradient(120deg, #9fe6cb 0%, #72ceaf 50%, #9fe6cb 100%)' },
-        about: p.about || '“Bring your content to life with a real, interactive experience”',
-        industryType: p.industryType || p.companyName || 'Product Designer',
+        about: p.about || '',
+        industryType: p.industryType || p.companyName || '',
         companyName: p.companyName || '',
         city: p.city || '',
         state: p.state || '',
-        country: p.country || 'INDIA',
-        totalBooks: countMap[emailKey] || 0,
+        country: p.country || '',
+        totalBooks: publishedCountMap[emailKey] || 0,
+        allBooksCount: totalCountMap[emailKey] || 0,
         followers: followersArr,
         followersCount: followersArr.length,
         following: p.following || [],
@@ -436,13 +494,14 @@ router.get('/top-creators', async (req, res) => {
           picture: u.picture || null,
           avatarBgColor: '#E8D4C8',
           bannerBg: { type: 'gradient', value: 'linear-gradient(120deg, #9fe6cb 0%, #72ceaf 50%, #9fe6cb 100%)' },
-          about: '“Bring your content to life with a real, interactive experience”',
-          industryType: 'Product Designer',
+          about: '',
+          industryType: '',
           companyName: '',
           city: '',
           state: '',
-          country: 'INDIA',
-          totalBooks: countMap[emailKey] || 0,
+          country: '',
+          totalBooks: publishedCountMap[emailKey] || 0,
+        allBooksCount: totalCountMap[emailKey] || 0,
           followers: [],
           followersCount: 0,
           following: [],
@@ -455,7 +514,7 @@ router.get('/top-creators', async (req, res) => {
 
     let creatorsList = Object.values(creatorMap);
 
-    const excludeEmail = (req.query.excludeEmail || req.query.currentEmail || req.query.emailId || req.query.email || '').trim().toLowerCase();
+    const excludeEmail = (req.query.excludeEmail || '').trim().toLowerCase();
     if (excludeEmail) {
       creatorsList = creatorsList.filter((c) => c.emailId.toLowerCase() !== excludeEmail);
     }

@@ -27,6 +27,7 @@ temp/
 # Uploads & Local File Storage (ignored from Git)
 storage/
 */storage/
+!Frontend/src/utils/storage/
 uploads/
 */uploads/
 temp_uploads/

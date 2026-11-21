@@ -27,6 +27,7 @@ import {
 } from './penOverlayEngine';
 import { getLocalPoint } from '../mainEditor/utils/geometryUtils';
 import { updateShapeMaskTransform } from '../LeftActionMenu/Elements/utils/shapeMaskUtils';
+import { hasCustomImageInShape } from '../LeftActionMenu/Elements/utils/imageFramingUtils';
 import { safeSerializeSvg } from '../utils/editorUtils';
 
 /**
@@ -480,6 +481,10 @@ export const usePenNodeEngine = ({
 
         if (mode === 'image-pan') {
           const { pathEl: panPathEl, startClientX, startClientY, startPanX, startPanY, startZoom, bbox, scale } = nodeEditDragRef.current;
+          if (!hasCustomImageInShape(panPathEl)) {
+            if (suppressClickRef) suppressClickRef.current = true;
+            return;
+          }
           const currentScale = scale || (zoom / 100) || 1;
           const dxPx = (e.clientX - startClientX) / currentScale;
           const dyPx = (e.clientY - startClientY) / currentScale;

@@ -235,6 +235,12 @@ export default function GroupProperties({
     const parent = targetNode.parentNode;
     if (!parent) return;
 
+    // Resolve the page SVG BEFORE the group is removed: the default save looks the page up via the
+    // selected (group) id, which no longer exists after ungrouping -> it saved null and wiped the page.
+    const pageContainer = targetNode.closest('.page-svg-container');
+    const pageSvg = (pageContainer && (pageContainer.querySelector('[id^="canvas-content-"] svg') || pageContainer.querySelector('svg'))) ||
+      (() => { let n = targetNode, last = null; while (n) { if (n.tagName?.toLowerCase() === 'svg') last = n; n = n.parentElement; } return last; })();
+
     const children = Array.from(targetNode.childNodes);
     const groupTransform = targetNode.getAttribute('transform') || '';
     const newIds = new Set();
@@ -256,15 +262,20 @@ export default function GroupProperties({
 
     parent.removeChild(targetNode);
 
+    // Save the page explicitly (overlay helpers stripped) before the selection changes
+    if (onUpdate && pageSvg) {
+      const clone = pageSvg.cloneNode(true);
+      clone.querySelectorAll('[data-highlight-id], .frame-boundary').forEach(n => n.remove());
+      onUpdate(new XMLSerializer().serializeToString(clone));
+    }
+
     if (setMultiSelectedIds && newIds.size > 0) {
       setMultiSelectedIds(newIds);
-      const firstId = Array.from(newIds)[0];
-      if (setSelectedLayerId) setSelectedLayerId(firstId);
+      const ids = Array.from(newIds);
+      if (setSelectedLayerId) setSelectedLayerId(ids[ids.length - 1]);
     } else if (setSelectedLayerId) {
       setSelectedLayerId(null);
     }
-
-    if (onUpdate) onUpdate();
   };
 
   // Quick Action: Duplicate Group
@@ -725,7 +736,7 @@ export default function GroupProperties({
         .custom-range-slider { -webkit-appearance: none; width: 100%; background: transparent; position: relative; }
         .custom-range-slider::before { content: ""; position: absolute; top: -0.75vw; bottom: -0.75vw; left: 0; right: 0; cursor: pointer; z-index: 1; }
         .custom-range-slider::-webkit-slider-runnable-track { height: 0.2vw; border-radius: 0.1vw; background: inherit; }
-        .custom-range-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 1vw; width: 1vw; border-radius: 50%; background: #4D47FF; border: 0.02vw solid #ffffff; box-shadow: 0 0.15vw 0.5vw rgba(77,71,255,0.4); margin-top: -0.55vw; cursor: pointer; transition: box-shadow 0.15s ease; position: relative; z-index: 2; }
+        .custom-range-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 1vw; width: 1vw; border-radius: 50%; background: #EC5137; border: 0.02vw solid #ffffff; box-shadow: 0 0.15vw 0.5vw rgba(236,81,55,0.4); margin-top: -0.55vw; cursor: pointer; transition: box-shadow 0.15s ease; position: relative; z-index: 2; }
         .custom-range-slider::-webkit-slider-thumb:hover { box-shadow: 0 0.15vw 0.75vw rgba(77,71,255,0.6); }
       `}</style>
 
@@ -798,7 +809,7 @@ export default function GroupProperties({
             onChange={(e) => handleOpacityChange(Number(e.target.value))}
             className="custom-range-slider h-[0.2vw] w-full bg-gray-200 rounded-lg cursor-pointer"
             style={{
-              background: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${opacity}%, #E5E7EB ${opacity}%, #E5E7EB 100%)`
+              background: `linear-gradient(to right, #EC5137 0%, #EC5137 ${opacity}%, #E5E7EB ${opacity}%, #E5E7EB 100%)`
             }}
           />
         </div>

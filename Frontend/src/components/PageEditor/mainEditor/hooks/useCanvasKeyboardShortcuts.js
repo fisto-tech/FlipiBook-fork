@@ -8,7 +8,7 @@ import {
   parseSingleMatrix
 } from '../../penTool';
 import { getElementMatrix, matrixToTransform } from '../utils/geometryUtils';
-import { getTopLevelFrames } from '../utils/frameHierarchyUtils';
+import { getTopLevelFrames, getDirectChildFrames, isPageRootElement, getAllSelectablePageElements } from '../utils/frameHierarchyUtils';
 import { updateShapeMaskTransform, applySvgGradientOrSolid } from '../../LeftActionMenu/Elements/utils/shapeMaskUtils';
 
 /**
@@ -128,6 +128,24 @@ export const useCanvasKeyboardShortcuts = ({
       } else if (e.key.toLowerCase() === 'e' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('trigger-flatten'));
+      } else if (e.key.toLowerCase() === 'a' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const activeContainer = document.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+        const svg = activeContainer?.querySelector('svg');
+        if (!svg) return;
+
+        const selectable = getAllSelectablePageElements(svg);
+        const ids = selectable.map(el => el.id).filter(Boolean);
+        if (ids.length > 0) {
+          const newSet = new Set(ids);
+          if (setMultiSelectedIds) setMultiSelectedIds(newSet);
+          if (multiSelectedIdsRef) multiSelectedIdsRef.current = newSet;
+          if (setSelectedLayerId) setSelectedLayerId(ids[ids.length - 1]);
+          if (selectedLayerIdRef) selectedLayerIdRef.current = ids[ids.length - 1];
+          if (drawMultiSelectionHighlight) {
+            drawMultiSelectionHighlight(newSet, 'selected');
+          }
+        }
       } else if (e.key.toLowerCase() === 'g' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
 
@@ -225,7 +243,12 @@ export const useCanvasKeyboardShortcuts = ({
           if (hasChanges) {
             if (updatePageHtml) updatePageHtml(activePageIndex, svg.outerHTML);
             const newIdsArr = Array.from(newSelectedIds);
-            if (setSelectedLayerId) setSelectedLayerId(newIdsArr.length === 1 ? newIdsArr[0] : null);
+            // Keep the ungrouped children selected (primary = last one). A null primary made the
+            // editor fall back to selecting the page root folder.
+            const primary = newIdsArr.length > 0 ? newIdsArr[newIdsArr.length - 1] : null;
+            if (selectedLayerIdRef) selectedLayerIdRef.current = primary;
+            if (setSelectedLayerId) setSelectedLayerId(primary);
+            if (multiSelectedIdsRef) multiSelectedIdsRef.current = new Set(newIdsArr);
             if (setMultiSelectedIds) setMultiSelectedIds(new Set(newIdsArr));
           }
         }
@@ -319,21 +342,19 @@ export const useCanvasKeyboardShortcuts = ({
           }
         });
 
-        if (deleted && updatePageHtml) {
-          updatePageHtml(activePageIndex, svg.outerHTML);
-          const topFrames = getTopLevelFrames(svg);
-          const rootId = (topFrames && topFrames.length > 0 ? topFrames[0].id : pages[activePageIndex]?.layers?.[0]?.id);
-          if (rootId) {
-            if (setSelectedLayerId) setSelectedLayerId(rootId);
-            if (setMultiSelectedIds) setMultiSelectedIds(new Set([rootId]));
-            if (setCurrentFrameId) setCurrentFrameId(rootId);
-            if (currentFrameIdRef) currentFrameIdRef.current = rootId;
-          } else {
-            if (setSelectedLayerId) setSelectedLayerId(null);
-            if (setMultiSelectedIds) setMultiSelectedIds(new Set());
-            if (setCurrentFrameId) setCurrentFrameId(null);
-            if (currentFrameIdRef) currentFrameIdRef.current = null;
+        if (deleted) {
+          if (typeof saveModifiedPageHtml === 'function') {
+            saveModifiedPageHtml(activePageIndex, svg);
+          } else if (updatePageHtml) {
+            updatePageHtml(activePageIndex, svg.outerHTML);
           }
+
+          if (setSelectedLayerId) setSelectedLayerId(null);
+          if (setMultiSelectedIds) setMultiSelectedIds(new Set());
+          if (setCurrentFrameId) setCurrentFrameId(null);
+          if (currentFrameIdRef) currentFrameIdRef.current = null;
+
+          document.querySelectorAll('.selection-overlay-layer polygon, [id^="overlay-poly-"], [id^="highlight-overlay-html-"]').forEach(el => el.remove());
         }
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();

@@ -67,6 +67,68 @@ export const ColorField = ({ label, color, opacity, onColorChange, onOpacityChan
   </div>
 );
 
+export const StrokeWidthInput = ({ value, onChange, className = '', min = 0, max }) => {
+  const [localVal, setLocalVal] = useState(() => (value !== undefined && value !== null && !isNaN(value) ? String(value) : '0'));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalVal(value !== undefined && value !== null && !isNaN(value) ? String(value) : '0');
+    }
+  }, [value, isFocused]);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+      setLocalVal(val);
+      if (val !== '' && val !== '.' && !isNaN(parseFloat(val))) {
+        const num = parseFloat(val);
+        if (min !== undefined && num < min) return;
+        if (max !== undefined && num > max) return;
+        onChange(val);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (localVal === '' || localVal === '.' || isNaN(parseFloat(localVal))) {
+      const fallback = min !== undefined ? min : 0;
+      setLocalVal(String(fallback));
+      onChange(String(fallback));
+    } else {
+      const num = parseFloat(localVal);
+      const clamped = min !== undefined && num < min ? min : (max !== undefined && num > max ? max : num);
+      const normalized = String(clamped);
+      setLocalVal(normalized);
+      onChange(normalized);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.target.blur();
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={isFocused ? localVal : (value !== undefined && value !== null && !isNaN(value) ? String(value) : '0')}
+      onFocus={() => {
+        setIsFocused(true);
+        setLocalVal(value !== undefined && value !== null && !isNaN(value) ? String(value) : '0');
+      }}
+      onBlur={handleBlur}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      onPointerDown={(e) => e.stopPropagation()}
+      className={className}
+    />
+  );
+};
+
 const Color = ({
   openSubSection, setOpenSubSection,
   backgroundColor: externalBackgroundColor, setBackgroundColor: setExternalBackgroundColor,
@@ -527,7 +589,10 @@ const Color = ({
     if (attr === 'stroke-angle' && setBackgroundColor) setBackgroundColor(p => ({ ...p, strokeAngle: parseFloat(value) }));
     if (attr === 'stroke-radius' && setBackgroundColor) setBackgroundColor(p => ({ ...p, strokeRadius: parseFloat(value) }));
     if (attr === 'stroke-opacity' && setBackgroundColor) setBackgroundColor(p => ({ ...p, strokeOpacity: parseFloat(value) * 100 }));
-    if (attr === 'stroke-width' && setBackgroundColor) setBackgroundColor(p => ({ ...p, strokeWeight: parseFloat(value) }));
+    if (attr === 'stroke-width' && setBackgroundColor) {
+      const parsed = parseFloat(value);
+      setBackgroundColor(p => ({ ...p, strokeWeight: isNaN(parsed) ? 0 : parsed }));
+    }
     if (attr === 'stroke-dasharray' && setBackgroundColor) {
       if (value === 'none') {
         setBackgroundColor(p => ({ ...p, strokeDashStyle: 'Solid' }));
@@ -559,7 +624,10 @@ const Color = ({
       }));
     }
     if (attr === 'data-bg-stroke-opacity' && setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeOpacity: parseFloat(value) * 100 }));
-    if (attr === 'data-bg-stroke-width' && setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: parseFloat(value) }));
+    if (attr === 'data-bg-stroke-width' && setBackgroundColor) {
+      const parsed = parseFloat(value);
+      setBackgroundColor(p => ({ ...p, bgStrokeWidth: isNaN(parsed) ? 0 : parsed }));
+    }
     if (attr === 'data-bg-stroke-position' && setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokePosition: value }));
     if (attr === 'data-bg-stroke-dasharray' && setBackgroundColor) {
       if (value === 'none') {
@@ -585,8 +653,16 @@ const Color = ({
     }
   };
 
+  const isNoStroke = (v) => !v || v === 'none' || v === '#' || v === 'transparent';
   const updateAttr = (attribute, value) => {
     handleUpdate(undefined, undefined, attribute, value);
+    // Picking a stroke color with no width yet -> start at width 1 so the stroke is visible
+    if (attribute === 'stroke' && !isNoStroke(value) && !(parseFloat(pseudoProps.strokeWidth) > 0)) {
+      handleUpdate(undefined, undefined, 'stroke-width', '1');
+    }
+    if (attribute === 'data-bg-stroke' && !isNoStroke(value) && !(parseFloat(selectedElementProps?.['data-bg-stroke-width']) > 0)) {
+      handleUpdate(undefined, undefined, 'data-bg-stroke-width', '1');
+    }
   };
 
   const defaultStops = [
@@ -602,7 +678,7 @@ const Color = ({
           {!hideFill && (
             <div className="flex flex-col gap-[0.85vw]">
               <div className="flex items-center gap-[0.8vw] mb-[0.25vw]">
-                <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">Fill Color</span>
+                <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">{isText ? 'Text Color' : 'Fill Color'}</span>
                 <div className="flex-1 h-[1px] bg-gray-200" />
               </div>
 
@@ -673,6 +749,115 @@ const Color = ({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── Text Background (all text) & Scrollbar (scrollable text only) ── */}
+          {isText && (
+            <div className="flex flex-col gap-[1.1vw]">
+              <div className="flex items-center gap-[0.8vw] mb-[0.25vw]">
+                <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">Background Color</span>
+                <div className="flex-1 h-[1px] bg-gray-200" />
+              </div>
+              <div className="flex items-center gap-[0.6vw]">
+                {/* Swatch */}
+                <div
+                  className="w-[3.6vw] h-[2.1vw] rounded-[0.45vw] border border-gray-300 shadow-2xs cursor-pointer flex-shrink-0 relative overflow-hidden transition-transform hover:scale-105"
+                  onClick={() => setActiveColorPicker(activeColorPicker === 'bg-fill' ? null : 'bg-fill')}
+                  title="Change background fill"
+                >
+                  <div
+                    className="w-full h-full"
+                    style={{
+                      background: (backgroundColor?.bgFill === 'none' || backgroundColor?.bgFill === 'transparent' || backgroundColor?.bgFill === '#' || !backgroundColor?.bgFill)
+                        ? 'white'
+                        : backgroundColor?.bgFill
+                    }}
+                  />
+                  {(backgroundColor?.bgFill === 'none' || backgroundColor?.bgFill === 'transparent' || backgroundColor?.bgFill === '#' || !backgroundColor?.bgFill) && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[1.5px] bg-red-500 rotate-45" />
+                  )}
+                </div>
+                {/* Input box */}
+                <div className="flex-1 h-[2.1vw] rounded-[0.45vw] border border-gray-300 bg-white flex items-center justify-between px-[0.75vw] hover:border-gray-400 transition-colors">
+                  <input
+                    type="text"
+                    value={(() => {
+                      const val = backgroundColor?.bgFill;
+                      if (!val || val === 'none' || val === 'transparent') return '#';
+                      return val.startsWith('#') ? val.toUpperCase() : '#' + val.toUpperCase();
+                    })()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || val === '#') {
+                        updateAttr('data-bg-fill', 'none');
+                      } else {
+                        const finalVal = val.startsWith('#') ? val : '#' + val;
+                        updateAttr('data-bg-fill', finalVal);
+                      }
+                    }}
+                    className="text-[0.8vw] font-mono font-medium text-gray-800 outline-none bg-transparent flex-1 uppercase"
+                    maxLength={8}
+                  />
+                  <div
+                    className="flex items-center cursor-ew-resize select-none px-[0.2vw] hover:bg-gray-50 rounded"
+                    onPointerDown={(e) => {
+                      const currentPct = Math.round(parseFloat(selectedElementProps?.['data-bg-fill-opacity'] !== undefined ? selectedElementProps?.['data-bg-fill-opacity'] : 1) * 100);
+                      handleScrubHelper(e, currentPct, (val) => {
+                        const num = parseInt(val);
+                        const clamped = Math.min(Math.max(num, 0), 100);
+                        updateAttr('data-bg-fill-opacity', (clamped / 100).toString());
+                      });
+                    }}
+                    title="Drag horizontally to adjust background opacity"
+                  >
+                    <span className="text-[0.8vw] font-medium text-gray-700">
+                      {Math.round(parseFloat(selectedElementProps?.['data-bg-fill-opacity'] !== undefined ? selectedElementProps?.['data-bg-fill-opacity'] : 1) * 100)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollbar Color (only for scrollable fixed text) */}
+              {(isScrollable === true || selectedElementProps?.['data-scrollable'] === 'true') && (sizingMode === 'fixed' || selectedElementProps?.['data-sizing-mode'] === 'fixed') && (<>
+              <div className="flex items-center gap-[0.8vw] mb-[0.25vw] mt-[0.5vw]">
+                <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">Scrollbar Color</span>
+                <div className="flex-1 h-[1px] bg-gray-200" />
+              </div>
+              <div className="flex items-center gap-[0.6vw]">
+                {/* Swatch */}
+                <div
+                  className="w-[3.6vw] h-[2.1vw] rounded-[0.45vw] border border-gray-300 shadow-2xs cursor-pointer flex-shrink-0 relative overflow-hidden transition-transform hover:scale-105"
+                  onClick={() => setActiveColorPicker(activeColorPicker === 'scrollbar' ? null : 'scrollbar')}
+                  title="Change scrollbar color"
+                >
+                  <div
+                    className="w-full h-full"
+                    style={{
+                      background: backgroundColor?.scrollBarColor || '#4B5563'
+                    }}
+                  />
+                </div>
+                {/* Input box */}
+                <div className="flex-1 h-[2.1vw] rounded-[0.45vw] border border-gray-300 bg-white flex items-center justify-between px-[0.75vw] hover:border-gray-400 transition-colors">
+                  <input
+                    type="text"
+                    value={(() => {
+                      const val = backgroundColor?.scrollBarColor || '#4B5563';
+                      return val.startsWith('#') ? val.toUpperCase() : '#' + val.toUpperCase();
+                    })()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const finalVal = val.startsWith('#') ? val : '#' + val;
+                      if (setBackgroundColor) setBackgroundColor(p => ({ ...p, scrollBarColor: finalVal }));
+                      if (onUpdate) onUpdate({ shouldRefresh: true });
+                    }}
+                    className="text-[0.8vw] font-mono font-medium text-gray-800 outline-none bg-transparent flex-1 uppercase"
+                    maxLength={8}
+                  />
+                </div>
+              </div>
+              </>)}
             </div>
           )}
 
@@ -754,6 +939,8 @@ const Color = ({
               </div>
             </div>
 
+            {/* Rows 2-4 are disabled until a stroke color is chosen */}
+            <div className={`flex flex-col gap-[0.85vw] transition-opacity ${isNoStroke(pseudoProps.stroke) ? 'opacity-40 pointer-events-none select-none' : ''}`}>
             {/* Row 2: Alignment & Stoke Width */}
             <div className="flex items-center gap-[1vw]">
               {!isTable && !hideAlignment && (
@@ -800,7 +987,8 @@ const Color = ({
                     type="button"
                     onClick={() => {
                       const cur = parseFloat(pseudoProps.strokeWidth !== undefined ? pseudoProps.strokeWidth : 0);
-                      updateAttr('stroke-width', Math.max(0, cur - 1).toString());
+                      const next = Math.max(0, Math.round((cur - 1) * 100) / 100);
+                      updateAttr('stroke-width', next.toString());
                     }}
                     className="w-[2.1vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer"
                   >
@@ -809,22 +997,26 @@ const Color = ({
                   <div
                     className="flex-grow h-full bg-white border border-gray-300 rounded-[0.45vw] flex items-center cursor-ew-resize shadow-2xs hover:border-gray-400 transition-colors"
                     onPointerDown={(e) => {
+                      if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
                       const cur = parseFloat(pseudoProps.strokeWidth !== undefined && !isNaN(parseFloat(pseudoProps.strokeWidth)) ? pseudoProps.strokeWidth : 0);
-                      handleScrubHelper(e, cur, (v) => updateAttr('stroke-width', Math.max(0, parseInt(v)).toString()));
+                      handleScrubHelper(e, cur, (v) => {
+                        const next = Math.max(0, parseFloat(Number(v).toFixed(2)));
+                        updateAttr('stroke-width', next.toString());
+                      });
                     }}
                   >
-                    <input
-                      type="number"
-                      value={parseFloat(pseudoProps.strokeWidth !== undefined ? pseudoProps.strokeWidth : 0)}
-                      onChange={(e) => updateAttr('stroke-width', Math.max(0, parseInt(e.target.value || 0)).toString())}
-                      className="w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent no-spin cursor-text"
+                    <StrokeWidthInput
+                      value={pseudoProps.strokeWidth !== undefined && !isNaN(parseFloat(pseudoProps.strokeWidth)) ? pseudoProps.strokeWidth : 0}
+                      onChange={(val) => updateAttr('stroke-width', val)}
+                      className="w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent cursor-text"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => {
                       const cur = parseFloat(pseudoProps.strokeWidth !== undefined ? pseudoProps.strokeWidth : 0);
-                      updateAttr('stroke-width', (cur + 1).toString());
+                      const next = Math.round((cur + 1) * 100) / 100;
+                      updateAttr('stroke-width', next.toString());
                     }}
                     className="w-[2.1vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer"
                   >
@@ -968,114 +1160,9 @@ const Color = ({
                 <div className="flex-1" />
               </div>
             )}
+            </div>
           </div>
 
-          {/* ── Background & Scrollbar (Scrollable Text) ── */}
-          {isText && (isScrollable === true || selectedElementProps?.['data-scrollable'] === 'true') && (sizingMode === 'fixed' || selectedElementProps?.['data-sizing-mode'] === 'fixed') && (
-            <div className="flex flex-col gap-[1.1vw]">
-              <div className="flex items-center gap-[0.8vw] mb-[0.25vw]">
-                <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">Background Fill</span>
-                <div className="flex-1 h-[1px] bg-gray-200" />
-              </div>
-              <div className="flex items-center gap-[0.6vw]">
-                {/* Swatch */}
-                <div
-                  className="w-[3.6vw] h-[2.1vw] rounded-[0.45vw] border border-gray-300 shadow-2xs cursor-pointer flex-shrink-0 relative overflow-hidden transition-transform hover:scale-105"
-                  onClick={() => setActiveColorPicker(activeColorPicker === 'bg-fill' ? null : 'bg-fill')}
-                  title="Change background fill"
-                >
-                  <div
-                    className="w-full h-full"
-                    style={{
-                      background: (backgroundColor?.bgFill === 'none' || backgroundColor?.bgFill === 'transparent' || backgroundColor?.bgFill === '#' || !backgroundColor?.bgFill)
-                        ? 'white'
-                        : backgroundColor?.bgFill
-                    }}
-                  />
-                  {(backgroundColor?.bgFill === 'none' || backgroundColor?.bgFill === 'transparent' || backgroundColor?.bgFill === '#' || !backgroundColor?.bgFill) && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[1.5px] bg-red-500 rotate-45" />
-                  )}
-                </div>
-                {/* Input box */}
-                <div className="flex-1 h-[2.1vw] rounded-[0.45vw] border border-gray-300 bg-white flex items-center justify-between px-[0.75vw] hover:border-gray-400 transition-colors">
-                  <input
-                    type="text"
-                    value={(() => {
-                      const val = backgroundColor?.bgFill;
-                      if (!val || val === 'none' || val === 'transparent') return '#';
-                      return val.startsWith('#') ? val.toUpperCase() : '#' + val.toUpperCase();
-                    })()}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '' || val === '#') {
-                        updateAttr('data-bg-fill', 'none');
-                      } else {
-                        const finalVal = val.startsWith('#') ? val : '#' + val;
-                        updateAttr('data-bg-fill', finalVal);
-                      }
-                    }}
-                    className="text-[0.8vw] font-mono font-medium text-gray-800 outline-none bg-transparent flex-1 uppercase"
-                    maxLength={8}
-                  />
-                  <div
-                    className="flex items-center cursor-ew-resize select-none px-[0.2vw] hover:bg-gray-50 rounded"
-                    onPointerDown={(e) => {
-                      const currentPct = Math.round(parseFloat(selectedElementProps?.['data-bg-fill-opacity'] !== undefined ? selectedElementProps?.['data-bg-fill-opacity'] : 1) * 100);
-                      handleScrubHelper(e, currentPct, (val) => {
-                        const num = parseInt(val);
-                        const clamped = Math.min(Math.max(num, 0), 100);
-                        updateAttr('data-bg-fill-opacity', (clamped / 100).toString());
-                      });
-                    }}
-                    title="Drag horizontally to adjust background opacity"
-                  >
-                    <span className="text-[0.8vw] font-medium text-gray-700">
-                      {Math.round(parseFloat(selectedElementProps?.['data-bg-fill-opacity'] !== undefined ? selectedElementProps?.['data-bg-fill-opacity'] : 1) * 100)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Scrollbar Color */}
-              <div className="flex items-center gap-[0.8vw] mb-[0.25vw] mt-[0.5vw]">
-                <span className="text-[0.82vw] font-semibold text-gray-900 whitespace-nowrap">Scrollbar Color</span>
-                <div className="flex-1 h-[1px] bg-gray-200" />
-              </div>
-              <div className="flex items-center gap-[0.6vw]">
-                {/* Swatch */}
-                <div
-                  className="w-[3.6vw] h-[2.1vw] rounded-[0.45vw] border border-gray-300 shadow-2xs cursor-pointer flex-shrink-0 relative overflow-hidden transition-transform hover:scale-105"
-                  onClick={() => setActiveColorPicker(activeColorPicker === 'scrollbar' ? null : 'scrollbar')}
-                  title="Change scrollbar color"
-                >
-                  <div
-                    className="w-full h-full"
-                    style={{
-                      background: backgroundColor?.scrollBarColor || '#4B5563'
-                    }}
-                  />
-                </div>
-                {/* Input box */}
-                <div className="flex-1 h-[2.1vw] rounded-[0.45vw] border border-gray-300 bg-white flex items-center justify-between px-[0.75vw] hover:border-gray-400 transition-colors">
-                  <input
-                    type="text"
-                    value={(() => {
-                      const val = backgroundColor?.scrollBarColor || '#4B5563';
-                      return val.startsWith('#') ? val.toUpperCase() : '#' + val.toUpperCase();
-                    })()}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const finalVal = val.startsWith('#') ? val : '#' + val;
-                      if (setBackgroundColor) setBackgroundColor(p => ({ ...p, scrollBarColor: finalVal }));
-                      if (onUpdate) onUpdate({ shouldRefresh: true });
-                    }}
-                    className="text-[0.8vw] font-mono font-medium text-gray-800 outline-none bg-transparent flex-1 uppercase"
-                    maxLength={8}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <>
@@ -1234,7 +1321,7 @@ const Color = ({
                   </div>
 
                 </div>                {/* Stroke Properties */}
-                <div className={`flex flex-col gap-[0.75vw] mt-[0.75vw] ${(!backgroundColor?.bgStroke || backgroundColor?.bgStroke === 'none' || backgroundColor?.bgStroke === '#' || backgroundColor?.bgStroke === 'transparent') ? 'opacity-50' : ''}`}>
+                <div className={`flex flex-col gap-[0.75vw] mt-[0.75vw] ${(!backgroundColor?.bgStroke || backgroundColor?.bgStroke === 'none' || backgroundColor?.bgStroke === '#' || backgroundColor?.bgStroke === 'transparent') ? 'opacity-40 pointer-events-none select-none' : ''}`}>
                   {/* Row 2: Alignment and Stroke Width */}
                   <div className="flex items-center gap-[1vw]">
                     {/* Alignment */}
@@ -1253,7 +1340,8 @@ const Color = ({
                           className="w-[2vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.3vw] text-gray-600 hover:bg-gray-200 transition-colors"
                           onClick={() => {
                             const current = parseFloat(backgroundColor?.bgStrokeWidth !== undefined ? backgroundColor.bgStrokeWidth : 1);
-                            if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: Math.max(0, current - 1) }));
+                            const next = Math.max(0, Math.round((current - 1) * 100) / 100);
+                            if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: next }));
                           }}
                         >
                           <span className="text-[1vw] leading-none mb-[0.1vw]">-</span>
@@ -1261,20 +1349,19 @@ const Color = ({
                         <div
                           className="flex-grow h-full bg-white border border-gray-200 rounded-[0.5vw] flex items-center cursor-ew-resize"
                           onPointerDown={(e) => {
+                            if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
                             const current = parseFloat(backgroundColor?.bgStrokeWidth !== undefined ? backgroundColor.bgStrokeWidth : 1);
                             handleScrubHelper(e, current, (val) => {
-                              const num = parseInt(val);
-                              const clamped = Math.max(0, num);
-                              if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: clamped }));
+                              const next = Math.max(0, parseFloat(Number(val).toFixed(2)));
+                              if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: next }));
                             });
                           }}
                         >
-                          <input
-                            type="text"
+                          <StrokeWidthInput
                             value={backgroundColor?.bgStrokeWidth !== undefined ? backgroundColor.bgStrokeWidth : 1}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: Math.max(0, val) }));
+                            onChange={(val) => {
+                              const parsed = parseFloat(val);
+                              if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: isNaN(parsed) ? 0 : Math.max(0, parsed) }));
                             }}
                             className="w-full text-center text-[0.75vw] font-medium text-gray-700 outline-none bg-transparent"
                           />
@@ -1283,7 +1370,8 @@ const Color = ({
                           className="w-[2vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.3vw] text-gray-600 hover:bg-gray-200 transition-colors"
                           onClick={() => {
                             const current = parseFloat(backgroundColor?.bgStrokeWidth !== undefined ? backgroundColor.bgStrokeWidth : 1);
-                            if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: current + 1 }));
+                            const next = Math.round((current + 1) * 100) / 100;
+                            if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStrokeWidth: next }));
                           }}
                         >
                           <span className="text-[1vw] leading-none mb-[0.1vw]">+</span>
@@ -1601,7 +1689,7 @@ const Color = ({
               </div>
 
               {/* Stroke Properties */}
-              <div className={`flex flex-col gap-[0.75vw] ${disableStroke ? 'opacity-40 pointer-events-none select-none cursor-not-allowed' : (!pseudoProps.stroke || pseudoProps.stroke === 'none' || pseudoProps.stroke === '#' || pseudoProps.stroke === 'transparent') ? 'opacity-50' : ''}`}>
+              <div className={`flex flex-col gap-[0.75vw] ${disableStroke ? 'opacity-40 pointer-events-none select-none cursor-not-allowed' : (!pseudoProps.stroke || pseudoProps.stroke === 'none' || pseudoProps.stroke === '#' || pseudoProps.stroke === 'transparent') ? 'opacity-40 pointer-events-none select-none' : ''}`}>
                 {/* Row 2: Alignment and Stroke Width */}
                 <div className="flex items-center gap-[1vw]">
                   {/* Alignment */}
@@ -1620,7 +1708,8 @@ const Color = ({
                         className="w-[2vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.3vw] text-gray-600 hover:bg-gray-200 transition-colors"
                         onClick={() => {
                           const current = parseFloat(pseudoProps.strokeWidth !== undefined ? pseudoProps.strokeWidth : 0);
-                          updateAttr('stroke-width', Math.max(0, current - 1).toString());
+                          const next = Math.max(0, Math.round((current - 1) * 100) / 100);
+                          updateAttr('stroke-width', next.toString());
                         }}
                       >
                         <span className="text-[1vw] leading-none mb-[0.1vw]">-</span>
@@ -1628,22 +1717,26 @@ const Color = ({
                       <div
                         className="flex-grow h-full bg-white border border-gray-200 rounded-[0.5vw] flex items-center cursor-ew-resize"
                         onPointerDown={(e) => {
+                          if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
                           const current = parseFloat(pseudoProps.strokeWidth !== undefined && !isNaN(parseFloat(pseudoProps.strokeWidth)) ? pseudoProps.strokeWidth : 0);
-                          handleScrubHelper(e, current, (v) => updateAttr('stroke-width', Math.max(0, parseInt(v)).toString()));
+                          handleScrubHelper(e, current, (v) => {
+                            const next = Math.max(0, parseFloat(Number(v).toFixed(2)));
+                            updateAttr('stroke-width', next.toString());
+                          });
                         }}
                       >
-                        <input
-                          type="number"
-                          value={pseudoProps.strokeWidth !== undefined && !isNaN(parseFloat(pseudoProps.strokeWidth)) ? parseFloat(pseudoProps.strokeWidth) : 0}
-                          onChange={(e) => updateAttr('stroke-width', e.target.value)}
-                          className="w-full h-full text-[0.75vw] font-medium outline-none text-center bg-transparent text-gray-700 no-spin cursor-ew-resize"
+                        <StrokeWidthInput
+                          value={pseudoProps.strokeWidth !== undefined && !isNaN(parseFloat(pseudoProps.strokeWidth)) ? pseudoProps.strokeWidth : 0}
+                          onChange={(val) => updateAttr('stroke-width', val)}
+                          className="w-full h-full text-[0.75vw] font-medium outline-none text-center bg-transparent text-gray-700 cursor-text"
                         />
                       </div>
                       <button
                         className="w-[2vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.3vw] text-gray-600 hover:bg-gray-200 transition-colors"
                         onClick={() => {
                           const current = parseFloat(pseudoProps.strokeWidth !== undefined ? pseudoProps.strokeWidth : 0);
-                          updateAttr('stroke-width', (current + 1).toString());
+                          const next = Math.round((current + 1) * 100) / 100;
+                          updateAttr('stroke-width', next.toString());
                         }}
                       >
                         <span className="text-[1vw] leading-none mb-[0.1vw]">+</span>
@@ -1847,7 +1940,12 @@ const Color = ({
                   return;
                 }
                 if (activeColorPicker === 'bg-stroke') {
-                  if (setBackgroundColor) setBackgroundColor(p => ({ ...p, bgStroke: newVal }));
+                  if (setBackgroundColor) setBackgroundColor(p => ({
+                    ...p,
+                    bgStroke: newVal,
+                    // choosing a color with no width yet -> width 1 so it's visible
+                    bgStrokeWidth: (!(p.bgStrokeWidth > 0) && !isNoStroke(newVal)) ? 1 : p.bgStrokeWidth
+                  }));
                   return;
                 }
                 if (newVal.includes('gradient')) {

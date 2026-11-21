@@ -13,7 +13,9 @@ import {
   useNavigate,
 } from "react-router-dom";
 import axios from "axios";
-import { getPageEditorState, savePageEditorState, ensureCleanBook } from "../../utils/dbUtils";
+import { getPageEditorState, savePageEditorState, ensureCleanBook } from "../../utils/storage/dbUtils";
+import { saveAllPagesToIDB } from "../../utils/customizedEditor/pageWindowStore";
+import { getInFlightActivityCount } from "../../utils/storage/saveLockManager";
 import Layer from "./panels/Layer";
 import MainEditor from "./MainEditor.jsx";
 import RightSidebar from "./panels/RightSidebar";
@@ -27,7 +29,7 @@ import Model3DPreviewModal from "./Interaction/Interaction3DPreview";
 import PasswordProtectModal from "./modals/PasswordProtectModal";
 import pageCacheManager from "./utils/PageCacheManager";
 import { useToast } from "../CustomToast";
-import { getSupabaseBaseUrl, resolveUploadsPath } from "../../utils/assetUtils";
+import { getSupabaseBaseUrl, resolveUploadsPath } from "../../utils/assets/assetUtils";
 import { useAuth } from "../../context/AuthContext";
 import { useConfirm } from "../../context/ConfirmationContext";
 import { queryClient } from "../../queryClient";
@@ -266,11 +268,26 @@ const PageEditor = () => {
     );
   }, [isRulerEnabled, isTrimView]);
 
-  // Automatically switch to Properties panel when an element is selected while Uploads is active
+  // Track genuine user picks (pointer down on the canvas page or the Layers panel).
+  const lastUserPickAtRef = useRef(0);
   useEffect(() => {
-    if (selectedLayerId) {
-      setActiveMainTool((prev) => (prev === "upload" ? "select" : prev));
-    }
+    const onPointerDown = (e) => {
+      const t = e.target;
+      if (t?.closest?.('.page-svg-container, [data-layer-panel], .layer-item, [data-layer-id]')) {
+        lastUserPickAtRef.current = Date.now();
+      }
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => window.removeEventListener("pointerdown", onPointerDown, true);
+  }, []);
+
+  // While Uploads is active, switch to the Properties panel ONLY when the user actually picks
+  // an element. Programmatic selection changes (re-selection, page/background selection, etc.)
+  // must not bounce the Upload tool back to Select.
+  useEffect(() => {
+    if (!selectedLayerId) return;
+    if (Date.now() - lastUserPickAtRef.current > 800) return;
+    setActiveMainTool((prev) => (prev === "upload" ? "select" : prev));
   }, [selectedLayerId]);
 
   // Live listener for background-extracted pages streamed by backgroundExtractionManager
@@ -1012,7 +1029,10 @@ const PageEditor = () => {
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       flushPageEditorToDBRef.current?.();
-      if (!isAutoSaveEnabledRef.current && hasUnsavedChangesRef.current) {
+      const inFlight = getInFlightActivityCount();
+      const hasUnsaved = hasUnsavedChangesRef.current;
+      const isAutoSave = isAutoSaveEnabledRef.current;
+      if (inFlight > 0 || (!isAutoSave && hasUnsaved)) {
         e.preventDefault();
         e.returnValue = '';
         return '';
@@ -1726,6 +1746,13 @@ const PageEditor = () => {
 
               setPages(mappedPages);
               setIsLoading(false);
+
+              // Background-persist pages to IndexedDB to eliminate memory pressure for large books
+              if (activeVId && mappedPages.length > 5) {
+                try {
+                  saveAllPagesToIDB(activeVId, mappedPages).catch(() => {});
+                } catch (_) {}
+              }
 
               const firstRootId = mappedPages[0]?.layers?.[0]?.id;
               if (firstRootId) {

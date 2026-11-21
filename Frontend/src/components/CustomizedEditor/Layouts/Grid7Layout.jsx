@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 // â”€â”€ Magnetic dock button (same as Layout1) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MagneticDockBtn = ({ iconEl, label, onClick, extraStyle = {}, extraClassName = '', mousePos, isTablet, addTextBelowIcons, textFont }) => {
@@ -252,6 +253,8 @@ const Grid7Layout = ({
 
     const localOffset = React.useMemo(() => {
         if (offset === 0) return 0; // Use offset prop to respect single page mode
+        // Follow the offset sign from PreviewArea (set when a turn STARTS) so centring glides with the page
+        if (typeof offset === 'number') return offset < 0 ? -(dimWidth / 2) : (dimWidth / 2);
         if (currentPage === 0) {
             return -(dimWidth / 2);
         } else if (currentPage >= pages.length - 1) {
@@ -658,32 +661,11 @@ const Grid7Layout = ({
 
                 {/* Right Logo */}
                 <div className="flex-1 flex items-center justify-end pointer-events-auto shrink-0 min-w-[10vw]">
-                    {(settings?.brandingProfile?.logo !== false) && logoSettings?.src && (
-                        logoSettings.url ? (
-                            <a 
-                                href={logoSettings.url.startsWith('http') ? logoSettings.url : `https://${logoSettings.url}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="transition-opacity hover:opacity-80"
-                            >
-                                <img
-                                    src={logoSettings.src}
-                                    alt="Logo"
-                                    className={`${isTablet ? 'h-[2vw]' : 'h-[2.8vw]'} w-auto transition-opacity mr-[0.5vw]`}
-                                    style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                                />
-                            </a>
-                        ) : (
-                            <button className="transition-opacity hover:opacity-80 cursor-default">
-                                <img
-                                    src={logoSettings.src}
-                                    alt="Logo"
-                                    className={`${isTablet ? 'h-[2vw]' : 'h-[2.8vw]'} w-auto transition-opacity mr-[0.5vw]`}
-                                    style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                                />
-                            </button>
-                        )
-                    )}
+                    <BrandLogo
+                        logoSettings={logoSettings}
+                        settings={settings}
+                        isTablet={isTablet}
+                    />
                 </div>
             </div>
 
@@ -705,7 +687,8 @@ const Grid7Layout = ({
                 <div
                     className="transition-all duration-600 ease-in-out relative"
                     style={{
-                        transform: `translateX(${localOffset}px) scale(1)`,
+                        translate: `${localOffset}px 0`, transform: `scale(1)`,
+                        transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.6s ease-in-out',
                         transformOrigin: 'center center'
                     }}
                 >
@@ -716,9 +699,10 @@ const Grid7Layout = ({
                         <button
                             className={`absolute top-1/2 -translate-y-1/2 -translate-x-full transition-all z-20 ${currentPage > 0 ? 'pointer-events-auto opacity-60 hover:opacity-100' : 'pointer-events-none opacity-0'}`}
                             style={{
-                                left: localOffset < 0 ? `calc(${dimWidth}px - 0.8vw)` : '-0.8vw',
+                                left: '-0.8vw',
+                                translate: `calc(-100% + ${localOffset < 0 ? dimWidth : 0}px) -50%`,
                                 color: getLayoutColor('toolbar-bg', '#555555'),
-                                transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease'
+                                transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease'
                             }}
                             onClick={() => {
                                 if (currentPage <= 0) return;
@@ -734,9 +718,10 @@ const Grid7Layout = ({
                         <button
                             className={`absolute top-1/2 -translate-y-1/2 translate-x-full transition-all z-20 ${currentPage < (pages?.length || 0) - 1 ? 'pointer-events-auto opacity-60 hover:opacity-100' : 'pointer-events-none opacity-0'}`}
                             style={{
-                                right: localOffset > 0 ? `calc(${dimWidth}px - 0.8vw)` : '-0.8vw',
+                                right: '-0.8vw',
+                                translate: `calc(100% - ${localOffset > 0 ? dimWidth : 0}px) -50%`,
                                 color: getLayoutColor('toolbar-bg', '#555555'),
-                                transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease'
+                                transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease'
                             }}
                             onClick={() => {
                                 if (currentPage >= (pages?.length || 0) - 1) return;

@@ -15,9 +15,8 @@ export default function MoveToFolderModal({
     books,
     activeFolder
 }) {
-    if (!moveBookModal.isOpen) return null;
-
     const isDuplicateMoveFolder = React.useMemo(() => {
+        if (!moveBookModal?.isOpen) return false;
         const trimmed = (newMoveFolderName || '').trim().toLowerCase();
         if (!trimmed) return false;
         const reserved = ['recent book', 'recent', 'trash', 'favorites', 'all flipbook', 'all flipbooks'];
@@ -27,7 +26,9 @@ export default function MoveToFolderModal({
             if ((f.isDefault || name === 'default') && (trimmed === 'my flipbooks' || trimmed === 'default')) return true;
             return name === trimmed;
         });
-    }, [newMoveFolderName, folders]);
+    }, [newMoveFolderName, folders, moveBookModal?.isOpen]);
+
+    if (!moveBookModal.isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">

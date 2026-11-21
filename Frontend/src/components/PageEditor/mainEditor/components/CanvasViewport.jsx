@@ -4,7 +4,8 @@ import { AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 const SelectionTooltip = () => null;
 import { checkIsAnimatedWebp } from '../../utils/editorUtils';
-import { syncDOM } from '../utils/geometryUtils';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../utils/imageOptimizer';
+import { syncDOM, syncChildrenKeyed } from '../utils/geometryUtils';
 import {
   PENCIL_CURSOR,
   PEN_CURSOR,
@@ -13,6 +14,8 @@ import {
   svgGlobalStyles
 } from '../utils/constants';
 import { normalizeForeignObjectNamespaces, healTableElementNode } from '../../LeftActionMenu/Elements/utils/tableElementUtils';
+import { applyTrimViewToSvg } from '../utils/trimViewUtils';
+import { DEFAULT_FRAME_IMAGE } from '../../LeftActionMenu/Elements/utils/imageFramingUtils';
 
 export const CanvasViewport = ({
   zoomContainerRef,
@@ -53,6 +56,11 @@ export const CanvasViewport = ({
 
     // Auto-heal any corrupted asset URLs with trailing base64 garbage
     clean = clean.replace(/(assets\/(?:Image|video|gif|audio|3D_Model|download)\/[A-Za-z0-9_.-]+)(?:[\s/]+[A-Za-z0-9+/=_%-]+)+(?=["'])/g, "$1");
+
+    // Auto-purge legacy heavy 57KB JPEG frame placeholders to restore lightning speed
+    if (clean.includes('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD')) {
+      clean = clean.replace(/data:image\/jpeg;base64,\/9j\/4AAQSkZJRgABAQAASABIAAD[A-Za-z0-9+/=]+/g, DEFAULT_FRAME_IMAGE);
+    }
 
     // Auto-fix for corrupted templates: strip out the pink XML parsererror and any baked-in custom controls
     if (clean.includes('parsererror') || clean.includes('id="custom-ctrl-')) {
@@ -120,11 +128,23 @@ export const CanvasViewport = ({
             ref={zoomContainerRef}
             className="flex items-center justify-center origin-center relative"
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / 100})`,
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0px) scale(${zoom / 100})`,
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              cursor: isSpaceDown
+                ? 'grab'
+                : (activeMainTool === 'shapes'
+                    ? SHAPE_CURSOR
+                    : (activeMainTool === 'pen'
+                        ? (selectedPenTool === 'pencil' ? PENCIL_CURSOR : PEN_CURSOR)
+                        : (activeMainTool === 'type'
+                            ? TYPE_CURSOR
+                            : (activeMainTool === 'hand' ? 'grab' : undefined)))),
             }}
           >
             {/* Pages Container Centered */}
-            <div className={`flex items-center justify-center gap-[0] relative z-10 ${localTrimView ? '' : 'shadow-[0_0_15px_rgba(0,0,0,0.20)]'} rounded-sm`}>
+            <div className="flex items-center justify-center gap-[0] relative z-10 shadow-[0_4px_20px_rgba(0,0,0,0.10),0_1px_4px_rgba(0,0,0,0.06)] rounded-sm">
               {/* Single A4 Canvas Page */}
               {pages.length > 0 && pages[activePageIndex] && (
                 <div className="relative group/page">
@@ -200,8 +220,16 @@ export const CanvasViewport = ({
                                       // Fast path: Direct innerHTML swap is hardware accelerated and avoids recursive syncDOM freezes
                                       // unless actively editing inline text where DOM input focus must be preserved.
                                       const isTextEditing = isEditingTextRef?.current;
+                                      // Same page with live map/embed iframes: patch in place (keyed by id) so the
+                                      // iframes are never detached — avoids reload/glitch on delete, undo, redo.
+                                      const hasLiveFrames = el.__lastPageIndex === displayIndex && !!el.querySelector('foreignObject iframe');
                                       if (el.__lastPageIndex !== displayIndex || !isTextEditing) {
-                                        el.innerHTML = newHtml;
+                                        if (hasLiveFrames) {
+                                          const parsed = new DOMParser().parseFromString(newHtml, 'text/html');
+                                          syncChildrenKeyed(el, parsed.body);
+                                        } else {
+                                          el.innerHTML = newHtml;
+                                        }
                                         el.__lastPageIndex = displayIndex;
                                         el.__lastHtml = newHtml;
                                         // Auto-heal any path.audio-fill-layer into rect.audio-fill-layer
@@ -242,6 +270,12 @@ export const CanvasViewport = ({
                                         el.__lastHtml = newHtml;
                                         el.__lastPageIndex = displayIndex;
                                       }
+                                      if (localTrimView) {
+                                        const pageSvg = el.querySelector('svg');
+                                        if (pageSvg) {
+                                          applyTrimViewToSvg(pageSvg, true);
+                                        }
+                                      }
                                     }
                                   }
                                 }}
@@ -270,7 +304,8 @@ export const CanvasViewport = ({
                                     const pt = svg.createSVGPoint();
                                     pt.x = e.clientX;
                                     pt.y = e.clientY;
-                                    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+                                    const ctm = svg.getScreenCTM(); // also used to scale dropped icon sizes
+                                    const svgP = pt.matrixTransform(ctm.inverse());
                                     const dropPoint = { x: svgP.x, y: svgP.y };
 
                                     let targetShapeId = undefined;
@@ -355,13 +390,26 @@ export const CanvasViewport = ({
                                           if (!isGif && file.type.includes('webp')) {
                                             isGif = await checkIsAnimatedWebp(file);
                                           }
+                                          let finalFile = file;
+                                          let finalUrl = fileUrl;
+                                          if (!isGif && !file.type.includes('svg') && shouldOptimizeImage(file)) {
+                                            try {
+                                              const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+                                              if (opt?.file) {
+                                                finalFile = opt.file;
+                                                finalUrl = opt.dataUrl || URL.createObjectURL(opt.file);
+                                              }
+                                            } catch (optErr) {
+                                              console.warn('[CanvasViewport] Drop image optimize fallback:', optErr);
+                                            }
+                                          }
                                           window.dispatchEvent(new CustomEvent('add-image-to-editor', {
                                             detail: {
                                               pageIndex: displayIndex,
-                                              url: fileUrl,
-                                              file,
-                                              gifUrl: isGif ? fileUrl : undefined,
-                                              name: file.name,
+                                              url: finalUrl,
+                                              file: finalFile,
+                                              gifUrl: isGif ? finalUrl : undefined,
+                                              name: finalFile.name,
                                               type: isGif ? 'gif' : 'image',
                                               dropPoint: offsetPoint,
                                               targetShapeId
@@ -488,14 +536,13 @@ export const CanvasViewport = ({
                             
                             {!pages[displayIndex]?.isHidden && (
                               <>
-                                {/* Trim View Backdrop Mat & Page Boundary */}
+                                {/* Trim View Backdrop Mat & Page Shadow */}
                                 {localTrimView && (
                                   <div
                                     key={`trim-view-mat-${displayIndex}`}
                                     className="pointer-events-none absolute inset-0 z-10"
                                     style={{
-                                      boxShadow: '0 0 0 99999px rgba(230, 231, 231, 0.55)',
-                                      border: '1px dashed #9f9fa0',
+                                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08), 0 0 0 99999px rgba(244, 245, 247, 0.78)',
                                     }}
                                   />
                                 )}

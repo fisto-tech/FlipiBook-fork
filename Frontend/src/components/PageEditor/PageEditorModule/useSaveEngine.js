@@ -9,11 +9,14 @@ import axios from "axios";
 import {
   getSupabaseBaseUrl,
   resolveUploadsPath,
-} from "../../../utils/assetUtils";
+} from "../../../utils/assets/assetUtils";
 import { validateInteractions } from "../Interaction/interactionValidation";
 import { useAuth } from "../../../context/AuthContext";
 import { normalizeForeignObjectNamespaces } from "../LeftActionMenu/Elements/utils/tableElementUtils";
 import { sanitizeSvgXml, safeSerializeSvg } from "../utils/editorUtils";
+import { optimizeImageForWeb, shouldOptimizeImage } from "../../../utils/imageOptimizer";
+import { startInFlightActivity, endInFlightActivity, createRevisionSequencer } from "../../../utils/storage/saveLockManager";
+import { notifyBookSaved } from "../../../utils/common/editorSyncChannel";
 
 const VIRTUAL_FOLDERS = new Set([
   "recent book",
@@ -65,6 +68,8 @@ export const useSaveEngine = ({
   const autoSaveTimerRef = useRef(null);
   const justSavedRef = useRef(false);
   const lastSavedHtmlsRef = useRef({});
+  const revisionSequencerRef = useRef(createRevisionSequencer());
+  const abortControllerRef = useRef(null);
 
   const saveFlipbook = async (isManual = false, overridePages = null) => {
     // 0. Ensure any active pen or node drawing session commits clean path before saving
@@ -77,6 +82,15 @@ export const useSaveEngine = ({
 
     // If auto-save is turned OFF, refuse automated saves - only manual save button writes to DB
     if (!isManual && !isAutoSaveEnabled) return;
+
+    // Concurrency Lock: abort any stale in-flight save request before launching a new one
+    if (abortControllerRef.current) {
+      try { abortControllerRef.current.abort(); } catch (_) {}
+    }
+    abortControllerRef.current = new AbortController();
+    const saveSignal = abortControllerRef.current.signal;
+    const saveTicket = revisionSequencerRef.current.nextRevision();
+    const saveActivityId = startInFlightActivity(`page_editor_save_${saveTicket}`);
 
     // Sync live canvas DOM for the active page if available so no uncommitted canvas edits are lost
     if (typeof activePageIndex === "number" && pagesToSave[activePageIndex]) {
@@ -721,9 +735,23 @@ export const useSaveEngine = ({
               if (currentVId || v_id) {
                 formData.append("v_id", currentVId || v_id);
               }
+
+              let uploadBlob = blob;
+              if (assetType === 'image' && shouldOptimizeImage(blob)) {
+                try {
+                  const opt = await optimizeImageForWeb(blob, { maxDimension: 2048, quality: 0.82 });
+                  if (opt?.blob) {
+                    uploadBlob = opt.blob;
+                    fileExt = ".webp";
+                  }
+                } catch (optErr) {
+                  console.warn('[useSaveEngine] Optimization fallback:', optErr);
+                }
+              }
+
               formData.append(
                 "file",
-                blob,
+                uploadBlob,
                 `asset_${Date.now()}_${Math.random().toString(36).substr(2, 5)}${fileExt}`,
               );
 
@@ -1235,7 +1263,7 @@ export const useSaveEngine = ({
           },
         };
 
-        lastRes = await axios.post(`${backendUrl}/api/flipbook/save`, payload);
+        lastRes = await axios.post(`${backendUrl}/api/flipbook/save`, payload, { signal: saveSignal });
         if (lastRes.data && lastRes.data.v_id) {
           currentVId = lastRes.data.v_id;
         }
@@ -1350,10 +1378,15 @@ export const useSaveEngine = ({
             .join(", ")}. Payload size: ${(payloadSize / 1024).toFixed(2)} KB`,
         );
 
-        lastRes = await axios.post(`${backendUrl}/api/flipbook/save`, payload);
+        lastRes = await axios.post(`${backendUrl}/api/flipbook/save`, payload, { signal: saveSignal });
         if (lastRes.data && lastRes.data.v_id) {
           currentVId = lastRes.data.v_id;
         }
+      }
+
+      // Revision check: if a newer save already committed, discard this older response
+      if (!revisionSequencerRef.current.isCurrent(saveTicket)) {
+        return;
       }
 
       if (lastRes && lastRes.data && lastRes.data.v_id) {
@@ -1385,6 +1418,7 @@ export const useSaveEngine = ({
           });
         });
         window.dispatchEvent(new CustomEvent("flipbook-saved"));
+        try { notifyBookSaved(currentVId || v_id); } catch (_) {}
         triggerSaveSuccess({
           name:
             currentBook?.flipbookName ||
@@ -1420,6 +1454,10 @@ export const useSaveEngine = ({
         }
       }
     } catch (err) {
+      if (axios.isCancel(err)) {
+        console.log(`[Save] In-flight save #${saveTicket} cancelled in favor of newer save.`);
+        return;
+      }
       console.error("Failed to save flipbook:", err);
       const errorMsg =
         err?.response?.data?.message || err?.message || "Internal server error";
@@ -1430,6 +1468,7 @@ export const useSaveEngine = ({
           : `Failed to save flipbook: ${errorMsg}`,
       );
     } finally {
+      endInFlightActivity(saveActivityId);
       setIsSaving(false);
     }
   };

@@ -217,9 +217,7 @@ export const convertTextToForeignObject = (el) => {
     div.style.pointerEvents = 'none';
 
     if (!isScrollable) {
-      div.style.display = 'flex';
-      div.style.flexDirection = 'column';
-      div.style.justifyContent = 'center';
+      div.style.display = 'block'; // block flow keeps styled <span> runs inline (flex would split lines)
     }
 
     const escapeHtml = (str) => {

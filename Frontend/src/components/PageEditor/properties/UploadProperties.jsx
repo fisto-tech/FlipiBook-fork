@@ -13,6 +13,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { checkIsAnimatedWebp } from '../utils/editorUtils';
 import ImportViaUrlModal from '../modals/ImportViaUrlModal';
 import MediaGalleryPopup from '../modals/MediaGalleryPopup';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
 const UploadProperties = ({ activePageIndex, setActiveMainTool }) => {
   const { user } = useAuth();
@@ -26,46 +27,6 @@ const UploadProperties = ({ activePageIndex, setActiveMainTool }) => {
     fileInputRef.current?.click();
   };
 
-  const compressImage = (dataUrl, maxWidth = 1200, maxHeight = 1200) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-
-        const isPng = dataUrl.startsWith('data:image/png');
-
-        // If it's already small enough, no need to downscale
-        if (width <= maxWidth && height <= maxHeight) {
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.75));
-          return;
-        }
-
-        if (width > maxWidth) {
-          height *= maxWidth / width;
-          width = maxWidth;
-        }
-        if (height > maxHeight) {
-          width *= maxHeight / height;
-          height = maxHeight;
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.75));
-      };
-      img.src = dataUrl;
-    });
-  };
-
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -75,9 +36,9 @@ const UploadProperties = ({ activePageIndex, setActiveMainTool }) => {
       setActiveMainTool('select');
     }
 
-    // Limit raw file size to 20MB
-    if (file.size > 20 * 1024 * 1024) {
-      alert("File is too large! Please upload images smaller than 20MB.");
+    // Limit raw file size to 50MB
+    if (file.size > 50 * 1024 * 1024) {
+      alert("File is too large! Please upload assets smaller than 50MB.");
       e.target.value = '';
       return;
     }
@@ -101,15 +62,29 @@ const UploadProperties = ({ activePageIndex, setActiveMainTool }) => {
       return;
     }
 
+    // Fast-path for images: off-thread WebP optimization if needed
+    if (!isVideo && !isGif && !isSvg && shouldOptimizeImage(file)) {
+      try {
+        const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+        window.dispatchEvent(new CustomEvent('upload-image-to-editor', {
+          detail: {
+            dataUrl: opt.dataUrl,
+            pageIndex: activePageIndex,
+            dataType: 'image',
+            file: opt.file,
+          }
+        }));
+        e.target.value = '';
+        return;
+      } catch (optErr) {
+        console.warn('[UploadProperties] Optimization fallback:', optErr);
+      }
+    }
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       const dataUrl = event.target.result;
-
-      let finalUrl = dataUrl;
-      // Skip compression for GIFs, SVGs, and Videos to preserve quality
-      if (!isGif && !isSvg && !isVideo) {
-        finalUrl = await compressImage(dataUrl);
-      }
+      const finalUrl = dataUrl;
 
       if (isVideo) {
         const tempVid = document.createElement('video');
@@ -138,7 +113,8 @@ const UploadProperties = ({ activePageIndex, setActiveMainTool }) => {
           detail: {
             dataUrl: finalUrl,
             pageIndex: activePageIndex,
-            dataType: isSvg ? 'svg' : (isGif ? 'gif' : 'image')
+            dataType: isSvg ? 'svg' : (isGif ? 'gif' : 'image'),
+            file,
           }
         }));
       }

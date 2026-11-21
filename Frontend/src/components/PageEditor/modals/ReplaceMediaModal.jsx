@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
-import { resolveUploadsPath } from '../../../utils/assetUtils';
+import { resolveUploadsPath } from '../../../utils/assets/assetUtils';
 import { checkIsAnimatedWebp } from '../utils/editorUtils';
 import { useToast } from '../../CustomToast';
 import { useAuth } from '../../../context/AuthContext';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
+import { createManagedBlobUrl, revokeManagedBlobUrl, revokeBlobUrlsByOwner } from '../../../utils/assets/blobUrlRegistry';
 
 const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titleText, buttonText }) => {
   const toast = useToast();
@@ -32,6 +34,12 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
   const [filePreviewUrl, setFilePreviewUrl] = useState('');
 
   useEffect(() => {
+    return () => {
+      revokeBlobUrlsByOwner('replace_modal');
+    };
+  }, []);
+
+  useEffect(() => {
     if (!replaceModalFile) {
       setFilePreviewUrl('');
       return;
@@ -40,10 +48,10 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
       setFilePreviewUrl(replaceModalFile.url);
       return;
     }
-    const objectUrl = URL.createObjectURL(replaceModalFile);
+    const objectUrl = createManagedBlobUrl(replaceModalFile, 'replace_modal');
     setFilePreviewUrl(objectUrl);
     return () => {
-      URL.revokeObjectURL(objectUrl);
+      revokeManagedBlobUrl(objectUrl);
     };
   }, [replaceModalFile]);
 
@@ -87,8 +95,22 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
       setIsUploading(true);
       const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
 
-      const uploadPromises = validFiles.map(async (newFile) => {
-        const tempUrl = URL.createObjectURL(newFile);
+      const uploadPromises = validFiles.map(async (rawFile) => {
+        let newFile = rawFile;
+        let tempUrl = createManagedBlobUrl(newFile, 'replace_modal');
+
+        if (mediaType === 'image' && shouldOptimizeImage(newFile)) {
+          try {
+            const opt = await optimizeImageForWeb(newFile, { maxDimension: 2048, quality: 0.82 });
+            if (opt?.file) {
+              newFile = opt.file;
+              tempUrl = opt.dataUrl || createManagedBlobUrl(newFile, 'replace_modal');
+            }
+          } catch (optErr) {
+            console.warn('[ReplaceMediaModal] Optimization fallback:', optErr);
+          }
+        }
+
         const tempAsset = {
           id: tempUrl,
           name: newFile.name.replace(/\.[^/.]+$/, ''),
@@ -474,12 +496,23 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
               </div>
               <input type="file" ref={fileInputRefReplaceItem} className="hidden" accept={mediaType === 'video' ? 'video/mp4' : 'image/*'} onChange={async e => {
                 if (e.target.files?.length && itemToReplaceId) {
-                  const newFile = e.target.files[0];
+                  let newFile = e.target.files[0];
                   if (!(await validateMediaFile(newFile))) {
                     alert(mediaType === 'gif' ? 'Please upload a GIF or animated WebP file.' : mediaType === 'image' ? 'Please upload a static image (not animated WebP or GIF).' : 'Please upload a valid video file.');
                     return;
                   }
-                  const newUrl = URL.createObjectURL(newFile);
+                  let newUrl = createManagedBlobUrl(newFile, 'replace_modal');
+                  if (mediaType === 'image' && shouldOptimizeImage(newFile)) {
+                    try {
+                      const opt = await optimizeImageForWeb(newFile, { maxDimension: 2048, quality: 0.82 });
+                      if (opt?.file) {
+                        newFile = opt.file;
+                        newUrl = opt.dataUrl || createManagedBlobUrl(newFile, 'replace_modal');
+                      }
+                    } catch (optErr) {
+                      console.warn('[ReplaceMediaModal] Replace item optimize fallback:', optErr);
+                    }
+                  }
                   const existingAsset = galleryAssets.find(g => g.id === itemToReplaceId);
                   let updatedAsset = {
                     id: newUrl,

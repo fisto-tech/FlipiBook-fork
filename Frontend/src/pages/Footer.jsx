@@ -207,6 +207,10 @@ export default function Footer() {
             <Link to="/terms-and-conditions" className="hover:text-[#EC5137] transition-colors">Terms & Conditions</Link>
             <span className="text-white/20">|</span>
             <Link to="/cookie-policy" className="hover:text-[#EC5137] transition-colors">Cookie Policy</Link>
+            <span className="text-white/20">|</span>
+            <Link to="/refund-policy" className="hover:text-[#EC5137] transition-colors">Refund Policy</Link>
+            <span className="text-white/20">|</span>
+            <Link to="/copyright-policy" className="hover:text-[#EC5137] transition-colors">Copyright Policy</Link>
           </div>
 
         </div>

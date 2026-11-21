@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import CreateFlipbookModal from '../components/CreateFlipbookModal';
 import AlertModal from '../components/AlertModal';
 import Footer from './Footer';
-import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdfUtils';
+import { convertPdfWithInkscape, generatePdfPageSvg, getOfficeDocType, svgToDataUrl } from '../utils/pdf/pdfUtils';
 import { useDocumentUpload } from '../context/DocumentUploadContext';
 
 // Modular Sections
@@ -25,14 +25,14 @@ import FAQSection from './Home/FAQSection';
 import BuildYourDreamCta from './Home/BuildYourDreamCta';
 
 // Assets for Hero Flipbook
-import page1 from '../assets/Home/Home1.png';
-import page2 from '../assets/Home/home2.png';
-import page3 from '../assets/Home/home3.png';
-import page4 from '../assets/Home/home4.png';
-import page5 from '../assets/Home/home5.png';
-import page6 from '../assets/Home/home6.png';
-import page7 from '../assets/Home/home7.png';
-import page8 from '../assets/Home/home8.png';
+import page1 from '../assets/Home/FlipbookPreview/Home1.webp';
+import page2 from '../assets/Home/FlipbookPreview/home2.webp';
+import page3 from '../assets/Home/FlipbookPreview/home3.webp';
+import page4 from '../assets/Home/FlipbookPreview/home4.webp';
+import page5 from '../assets/Home/FlipbookPreview/home5.webp';
+import page6 from '../assets/Home/FlipbookPreview/home6.webp';
+import page7 from '../assets/Home/FlipbookPreview/home7.webp';
+import page8 from '../assets/Home/FlipbookPreview/home8.webp';
 
 export default function Home() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -122,6 +122,18 @@ export default function Home() {
       }
       let allImages = [];
 
+      const now = new Date();
+      const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+      const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
+      let uniqueName = customName;
+      if (!uniqueName || (uniqueName.startsWith('PDF_Flipbook_') && initialDocType !== 'pdf')) {
+        uniqueName = customName ? customName.replace(/^PDF_Flipbook_/, defaultPrefix) : `${defaultPrefix}${timeString}`;
+      }
+      const assignedBookId = ((typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+        : Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10));
+      const resolvedUserId = user?.userID || user?.userId || 'FLIPI0001';
+
       for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
         if (isUploadCancelledRef.current) return;
         const file = files[fileIndex];
@@ -180,7 +192,7 @@ export default function Home() {
               stage: currentStage || prev?.stage || 'converting'
             };
           });
-        }, null, null, 'FLIPI0001', startPageForFile);
+        }, null, assignedBookId, resolvedUserId, startPageForFile, 'default', uniqueName);
         if (isUploadCancelledRef.current) return;
         allImages = [...allImages, ...images];
       }
@@ -205,13 +217,6 @@ export default function Home() {
       const maxWidth = firstW;
       const maxHeight = firstH;
 
-      const now = new Date();
-      const timeString = now.toISOString().replace(/[-:T.]/g, '').slice(0, 14);
-      const defaultPrefix = initialDocType === 'word' ? 'Word_Flipbook_' : initialDocType === 'powerpoint' ? 'PPT_Flipbook_' : 'PDF_Flipbook_';
-      let uniqueName = customName;
-      if (!uniqueName || (uniqueName.startsWith('PDF_Flipbook_') && initialDocType !== 'pdf')) {
-        uniqueName = customName ? customName.replace(/^PDF_Flipbook_/, defaultPrefix) : `${defaultPrefix}${timeString}`;
-      }
       const targetFolder = 'My_Flipbooks';
 
       const totalDocPages = (allImages.totalPages && allImages.totalPages > allImages.length)

@@ -11,11 +11,12 @@ import {
   clearOverlayType
 } from '../utils/geometryUtils';
 import { clearSmartGuides } from '../utils/smartGuides';
-import { getTopLevelFrames, getDirectChildFrames, hitTest, isPageRootElement } from '../utils/frameHierarchyUtils';
+import { getTopLevelFrames, getDirectChildFrames, hitTest, isPageRootElement, getAllSelectablePageElements } from '../utils/frameHierarchyUtils';
 import { useInlineTextEditor } from './useInlineTextEditor';
 import editCacheManager from '../../utils/EditCacheManager';
 import { updateShapeMaskTransform } from '../../LeftActionMenu/Elements/utils/shapeMaskUtils';
 import { drawShapeImageAdjustOverlay } from '../../penTool/penOverlayEngine';
+import { hasCustomImageInShape } from '../../LeftActionMenu/Elements/utils/imageFramingUtils';
 
 /**
  * Hook managing canvas pointer interactions:
@@ -25,6 +26,55 @@ import { drawShapeImageAdjustOverlay } from '../../penTool/penOverlayEngine';
  * - Global mouseup listeners for pen/shape commit
  */
 const setsAreEqual = (a, b) => a.size === b.size && [...a].every(v => b.has(v));
+
+// Group-first targeting: a shape inside a group targets the (outermost) group until the group —
+// or something inside it — is selected; then clicks go one level deeper into the group.
+const resolveGroupAwareTarget = (target, selectedId) => {
+  if (!target || !target.closest) return null;
+  // outermost group containing the target
+  // user-made groups only (Group action / Ctrl+G → id "group-…"); template wrappers keep normal picking
+  const USER_GROUP = 'g[data-type="group"][id^="group-"]';
+  let outer = null;
+  let g = target.closest(USER_GROUP);
+  while (g) { outer = g; g = g.parentElement?.closest(USER_GROUP); }
+  if (!outer || outer === target) return null;
+  if (outer.getAttribute('data-locked') === 'true') return null;
+
+  const svg = outer.ownerSVGElement;
+  const selEl = selectedId && svg ? svg.querySelector(`[id="${CSS.escape(selectedId)}"]`) : null;
+  // Nothing in this group selected yet -> target the whole group
+  if (!selEl || !outer.contains(selEl)) return outer;
+
+  // Inside the group's context: deepest group containing both the selection and the target
+  let ctx = (selEl.getAttribute('data-type') === 'group' && selEl.contains(target))
+    ? selEl
+    : selEl.parentElement?.closest('g[data-type="group"]');
+  while (ctx && !ctx.contains(target)) ctx = ctx.parentElement?.closest('g[data-type="group"]');
+  if (!ctx) ctx = outer;
+  // the child of that context which contains the target (next level down)
+  let c = target;
+  while (c.parentElement && c.parentElement !== ctx) c = c.parentElement;
+  return (c && c.id && c !== ctx) ? c : ctx;
+};
+
+// Groups have no fill of their own, so the empty space between grouped shapes hits nothing.
+// Find the topmost outermost group whose on-screen box contains the pointer.
+const findGroupAtPoint = (svg, clientX, clientY) => {
+  if (!svg) return null;
+  const groups = Array.from(svg.querySelectorAll('g[data-type="group"]')).filter(g =>
+    g.id && g.id.startsWith('group-') && // user-made groups only (not template/page wrapper groups)
+    g.getAttribute('data-hidden') !== 'true' &&
+    g.getAttribute('data-locked') !== 'true' &&
+    !g.parentElement?.closest('g[data-type="group"]') // outermost group only
+  );
+  for (let i = groups.length - 1; i >= 0; i--) {
+    const r = groups[i].getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+      return groups[i];
+    }
+  }
+  return null;
+};
 
 export const useCanvasPointerEvents = ({
   zoom = 90,
@@ -122,7 +172,8 @@ export const useCanvasPointerEvents = ({
     } else if (hitRoot) {
       activeId = hitRoot.id;
     }
-    return activeId ? svg.querySelector(`[id="${activeId}"]`) : (hitRoot || svg.querySelector('g[data-type="frame"]') || svg.querySelector('g'));
+    const rootPageFrame = topFrames.find(f => isPageRootElement(f, svg)) || svg.querySelector('g[data-type="frame"]') || svg.querySelector('g') || svg;
+    return activeId ? (svg.querySelector(`[id="${activeId}"]`) || rootPageFrame) : rootPageFrame;
   };
 
   const shapeImageAdjustTargetRef = useRef(null);
@@ -148,13 +199,16 @@ export const useCanvasPointerEvents = ({
 
   const startShapeImageAdjust = useCallback((targetEl, pageIndex) => {
     if (!targetEl) return;
+    const shapeEl = targetEl.tagName?.toLowerCase() === 'g'
+      ? (targetEl.querySelector('path, rect, circle, ellipse, polygon') || targetEl)
+      : targetEl;
+    if (!hasCustomImageInShape(shapeEl)) {
+      return; // Placeholder images should not be adjusted or moved inside the frame
+    }
     exitShapeImageAdjust();
     if (nodeEditModeRef.current) {
       exitNodeEditMode();
     }
-    const shapeEl = targetEl.tagName?.toLowerCase() === 'g'
-      ? (targetEl.querySelector('path, rect, circle, ellipse, polygon') || targetEl)
-      : targetEl;
     shapeImageAdjustTargetRef.current = shapeEl;
     shapeImageAdjustPageIndexRef.current = pageIndex;
     window.__isAdjustingShapeImage = true;
@@ -309,6 +363,10 @@ export const useCanvasPointerEvents = ({
     // ── STANDALONE SHAPE IMAGE ADJUST MODE (Unflattened masked shapes) ────────
     if (shapeImageAdjustTargetRef.current) {
       const target = shapeImageAdjustTargetRef.current;
+      if (!hasCustomImageInShape(target)) {
+        exitShapeImageAdjust();
+        return;
+      }
       const rect = target.getBoundingClientRect();
       const ghostRect = window.__shapeImageAdjustGhostRect;
       const isInsideShape = (
@@ -677,8 +735,8 @@ export const useCanvasPointerEvents = ({
         pathEl.getAttribute?.('data-mask-enabled') === 'true' ||
         pathEl.getAttribute?.('data-masked-image-url') ||
         pathEl.closest?.('[data-mask-enabled="true"]') !== null ||
-        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern-')) ||
-        pathEl.closest?.('[fill*="url(#pattern-"]') !== null
+        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern')) ||
+        pathEl.closest?.('[fill*="url(#pattern"]') !== null
       );
       const rect = pathEl.getBoundingClientRect();
       const isInsideBbox = (
@@ -688,29 +746,33 @@ export const useCanvasPointerEvents = ({
       const isInsideShape = isInsideBbox || (e.target === pathEl || pathEl.contains(e.target)) || hitTest(pathEl, e.clientX, e.clientY) || (paperPath?.contains && paperPath.contains(mousePt));
 
       if (hasImageMask && isInsideShape) {
-        if (!nodeEditImageAdjustRef?.current || pathEl.getAttribute('data-image-adjust-active') !== 'true') {
-          if (nodeEditImageAdjustRef) nodeEditImageAdjustRef.current = true;
-          pathEl.setAttribute('data-image-adjust-active', 'true');
-          drawNodeEditOverlay(pathEl, paperPath, pageIndex);
-        }
+        if (!hasCustomImageInShape(pathEl)) {
+          // Placeholder inside frame should not be moved/panned
+        } else {
+          if (!nodeEditImageAdjustRef?.current || pathEl.getAttribute('data-image-adjust-active') !== 'true') {
+            if (nodeEditImageAdjustRef) nodeEditImageAdjustRef.current = true;
+            pathEl.setAttribute('data-image-adjust-active', 'true');
+            drawNodeEditOverlay(pathEl, paperPath, pageIndex);
+          }
 
-        nodeEditDragRef.current = {
-          mode: 'image-pan',
-          pathEl,
-          paperPath,
-          startPt: pt,
-          startClientX: e.clientX,
-          startClientY: e.clientY,
-          startPanX: parseFloat(pathEl.getAttribute('data-slot-pan-x') || '0'),
-          startPanY: parseFloat(pathEl.getAttribute('data-slot-pan-y') || '0'),
-          startZoom: parseFloat(pathEl.getAttribute('data-slot-zoom') || '1'),
-          bbox: rect,
-          scale: zoom / 100,
-          pageIndex
-        };
-        suppressClickRef.current = true;
-        e.stopPropagation();
-        return;
+          nodeEditDragRef.current = {
+            mode: 'image-pan',
+            pathEl,
+            paperPath,
+            startPt: pt,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startPanX: parseFloat(pathEl.getAttribute('data-slot-pan-x') || '0'),
+            startPanY: parseFloat(pathEl.getAttribute('data-slot-pan-y') || '0'),
+            startZoom: parseFloat(pathEl.getAttribute('data-slot-zoom') || '1'),
+            bbox: rect,
+            scale: zoom / 100,
+            pageIndex
+          };
+          suppressClickRef.current = true;
+          e.stopPropagation();
+          return;
+        }
       }
 
       // Clicked outside all nodes and path → exit Node Edit Mode and select full path
@@ -779,9 +841,7 @@ export const useCanvasPointerEvents = ({
         div.style.width = 'max-content'; // Allows scrollWidth to perfectly match text
         div.style.height = '100%';
         div.style.minHeight = '100%';
-        div.style.display = 'flex';
-        div.style.flexDirection = 'column';
-        div.style.justifyContent = 'center';
+        div.style.display = 'block'; // keep styled runs inline (no flex column)
         div.style.color = '#000000';
         div.style.fontFamily = "'Outfit', sans-serif";
         div.style.fontSize = '24pt';
@@ -1090,6 +1150,15 @@ export const useCanvasPointerEvents = ({
       }
     }
 
+    // Empty gap inside a group: hit the group itself
+    if (!hitCandidate || topFrames.some(f => f.id === hitCandidate.id) || isPageRootElement(hitCandidate, svg) ||
+        hitCandidate.getAttribute('data-name') === 'Overlay' || hitCandidate.getAttribute('data-type') === 'background') {
+      const gapGroup = findGroupAtPoint(svg, e.clientX, e.clientY);
+      const gapGroupSelected = gapGroup && (selectedLayerIdRef.current === gapGroup.id || multiSelectedIdsRef.current.has(gapGroup.id));
+      // Unselected group: let drag-select (marquee) start; a plain click still selects the group on 'click'.
+      if (gapGroupSelected) hitCandidate = gapGroup;
+    }
+
     // ── NEW: Check if we hit ANY already-selected element's bounding box ──────────
     let hitAnySelected = false;
     const currentMultiIds = multiSelectedIdsRef.current;
@@ -1151,40 +1220,18 @@ export const useCanvasPointerEvents = ({
       marqueeDataRef.current = { startX, startY, containerRect: rect, scale, startClientX: e.clientX, startClientY: e.clientY };
 
       // Cache candidates and their bounding boxes for the marquee operation
-      const isInteractiveTool = activeTopToolRef.current === 'interaction' || activeTopToolRef.current === 'animation';
-      let candidatePool = candidates;
-      if (!candidatePool || candidatePool.length === 0) {
-        candidatePool = getTopLevelFrames(svg);
+      if (!hitCandidate || hitBaseFrame) {
+        currentFrameIdRef.current = null;
+        if (typeof setCurrentFrameId === 'function') setCurrentFrameId(null);
       }
-
-      // Expand any root page frames so candidatePool contains the actual content elements
-      const expandedCandidates = [];
-      (candidatePool || []).forEach(el => {
-        if (!el) return;
-        if (isPageRootElement(el, svg)) {
-          expandedCandidates.push(...getDirectChildFrames(el));
-        } else {
-          expandedCandidates.push(el);
-        }
-      });
-      candidatePool = expandedCandidates;
+      const isInteractiveTool = activeTopToolRef.current === 'interaction' || activeTopToolRef.current === 'animation';
+      const candidatePool = getAllSelectablePageElements(svg);
 
       let marqueeCandidates = candidatePool.filter(el => {
         if (!el || !el.id) return false;
-        if (isPageRootElement(el, svg)) return false;
-
-        const isFreeFrame = el.getAttribute('data-name') === 'Free Frame' || el.getAttribute('data-type') === 'free-frame' || el.id?.startsWith('free-frame');
-        if (isFreeFrame && !isInteractiveTool) return false;
-
-        const isOverlay = el.getAttribute('data-name') === 'Overlay' || el.id === 'ghost-layer' || el.classList?.contains('selection-overlay-layer');
-        const isPageBackground = el.getAttribute('data-page-background') === 'true' || el.getAttribute('data-is-background') === 'true';
-        const isPdfBg = el.getAttribute('data-name')?.includes('PDF Background') || el.getAttribute('data-type') === 'pdf-vector-layer';
-        const isShield = el.getAttribute('data-name') === 'Document Shield' || el.getAttribute('data-type') === 'shield';
-        const isHiddenOrLocked = el.getAttribute('data-hidden') === 'true' || el.getAttribute('data-locked') === 'true';
-        if (isHiddenOrLocked || isOverlay || isPageBackground || isPdfBg || isShield) return false;
-
         if (isConvertedFlipbook) {
           const isHotspot = el.getAttribute('data-is-hotspot') === 'true' || el.getAttribute('data-type') === 'hotspot';
+          const isFreeFrame = el.getAttribute('data-name') === 'Free Frame' || el.getAttribute('data-type') === 'free-frame' || el.id?.startsWith('free-frame');
           const isFreeFrameCandidate = isFreeFrame && isInteractiveTool;
           const isShape = el.getAttribute('data-type') === 'shape' && !isFreeFrame;
           const isIcon = el.getAttribute('data-type') === 'icon';
@@ -1607,7 +1654,7 @@ export const useCanvasPointerEvents = ({
       const sy = startClientY ?? (containerRect.top + startY * scale);
       updateScreenMarqueeBox(sx, sy, e.clientX, e.clientY);
 
-      updateMarqueeSelection(x, y, width, height, containerRect, scale);
+      updateMarqueeSelection(sx, sy, e.clientX, e.clientY);
       return;
     }
 
@@ -1686,7 +1733,7 @@ export const useCanvasPointerEvents = ({
       e.target.getAttribute?.('data-type') === 'shield' ||
       (e.target.id && e.target.id.includes('overlay-poly-'));
 
-    if (isBackground) {
+    if (isBackground && !findGroupAtPoint(svg, e.clientX, e.clientY)) {
       if (lastHoveredIdRef.current) {
         const prev = svg.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
         prev?.removeAttribute('data-hovered');
@@ -1727,6 +1774,25 @@ export const useCanvasPointerEvents = ({
       }
     }
 
+    // Hovering the empty gap inside a group (or the page frame behind it) -> hover the group
+    if (!candidate || isBackground || isPageRootElement(candidate, svg) || candidate.getAttribute('data-type') === 'frame' ||
+        candidate.getAttribute('data-type') === 'background' || candidate.id === effectiveFrameId) {
+      const gapGroup = findGroupAtPoint(svg, e.clientX, e.clientY);
+      if (gapGroup) {
+        candidate = gapGroup;
+        isChild = Boolean(effectiveFrameId && svg.querySelector(`[id="${effectiveFrameId}"]`)?.contains(gapGroup));
+      }
+    }
+
+    // Group-first hover: show the group's outline until you're working inside it
+    if (candidate && e.target && !(e.target.id && e.target.id.includes('overlay-poly-'))) {
+      const groupAware = resolveGroupAwareTarget(e.target, selectedLayerIdRef.current);
+      if (groupAware && groupAware.id) {
+        candidate = groupAware;
+        isChild = Boolean(effectiveFrameId && svg.querySelector(`[id="${effectiveFrameId}"]`)?.contains(groupAware));
+      }
+    }
+
     const candidateId = candidate ? candidate.id : null;
     // Same element under cursor - NO work needed!
     if (candidateId === lastHoveredIdRef.current) return;
@@ -1754,25 +1820,24 @@ export const useCanvasPointerEvents = ({
     drawOverlayHighlight(candidate, isChild ? 'child-hover' : 'hover');
   };
 
-  // ── MARQUEE SELECTION LOGIC (Optimized) ──
-  const updateMarqueeSelection = (mx, my, mw, mh, containerRect, scale) => {
+  // ── MARQUEE SELECTION LOGIC (Screen-Space Intersection) ──
+  const updateMarqueeSelection = (startX, startY, currentX, currentY) => {
+    const minX = Math.min(startX, currentX);
+    const maxX = Math.max(startX, currentX);
+    const minY = Math.min(startY, currentY);
+    const maxY = Math.max(startY, currentY);
+
     const newSelectedIds = new Set();
 
-    marqueeCandidatesRef.current.forEach(item => {
+    (marqueeCandidatesRef.current || []).forEach(item => {
       const { id, rect: elRect } = item;
-
-      const relElRect = {
-        left: (elRect.left - containerRect.left) / scale,
-        top: (elRect.top - containerRect.top) / scale,
-        right: (elRect.right - containerRect.left) / scale,
-        bottom: (elRect.bottom - containerRect.top) / scale
-      };
+      if (!elRect || (elRect.width === 0 && elRect.height === 0)) return;
 
       const intersects = !(
-        mx > relElRect.right ||
-        mx + mw < relElRect.left ||
-        my > relElRect.bottom ||
-        my + mh < relElRect.top
+        minX > elRect.right ||
+        maxX < elRect.left ||
+        minY > elRect.bottom ||
+        maxY < elRect.top
       );
 
       if (intersects) {
@@ -2004,7 +2069,14 @@ export const useCanvasPointerEvents = ({
     };
 
     const handleGlobalMouseMove = (e) => {
-      if (marqueeDataRef.current && (e.buttons & 1) !== 0) {
+      const isDrawingOrDragging = Boolean(
+        marqueeDataRef.current ||
+        drawingShapeRef.current ||
+        isFreehandDrawingRef.current ||
+        drawingPathRef.current ||
+        nodeEditDragRef.current
+      );
+      if (isDrawingOrDragging && (e.buttons & 1) !== 0) {
         handleSvgMouseMove(activePageIndex, e);
       } else if (marqueeDataRef.current && (e.buttons & 1) === 0) {
         cleanupMarquee();
@@ -2033,10 +2105,10 @@ export const useCanvasPointerEvents = ({
         pathEl.getAttribute?.('data-mask-enabled') === 'true' ||
         pathEl.getAttribute?.('data-masked-image-url') ||
         pathEl.closest?.('[data-mask-enabled="true"]') !== null ||
-        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern-')) ||
-        pathEl.closest?.('[fill*="url(#pattern-"]') !== null
+        (pathEl.getAttribute?.('fill') && pathEl.getAttribute?.('fill').includes('url(#pattern')) ||
+        pathEl.closest?.('[fill*="url(#pattern"]') !== null
       );
-      if (!hasImageMask) return;
+      if (!hasImageMask || !hasCustomImageInShape(pathEl)) return;
 
       const rect = pathEl.getBoundingClientRect();
       const ghostRect = window.__shapeImageAdjustGhostRect;
@@ -2523,6 +2595,33 @@ export const useCanvasPointerEvents = ({
         currentFrameIdRef.current = null;
       }
       return;
+    }
+
+    // ── Click on a shape inside a group → select the group first, then its children ──
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey && selectedSelectTool !== 'direct' && !(e.target.id && e.target.id.includes('overlay-poly-'))) {
+      const leaf = getDraggableElement(e.target, svg);
+      const groupAware = leaf ? resolveGroupAwareTarget(leaf, selectedLayerIdRef.current) : null;
+      if (groupAware && groupAware.id) {
+        setSingleSelection(groupAware.id);
+        return;
+      }
+    }
+
+    // ── Click in the empty gap inside a group → select the group ───────────────
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey && selectedSelectTool !== 'direct') {
+      const direct = getDraggableElement(e.target, svg);
+      const isOverlayPoly = Boolean(e.target.id && e.target.id.includes('overlay-poly-'));
+      const onBackground = !isOverlayPoly && (!direct || direct === svg || isPageRootElement(direct, svg) ||
+        direct.getAttribute?.('data-name') === 'Overlay' || direct.getAttribute?.('data-type') === 'background');
+      const gapGroup = (onBackground || isOverlayPoly) ? findGroupAtPoint(svg, e.clientX, e.clientY) : null;
+      // Overlay outlines only count when they are the group's own hover/selection outline
+      const polyIsGroupOutline = isOverlayPoly && gapGroup && e.target.id.endsWith(`-${gapGroup.id}`);
+      if (onBackground || polyIsGroupOutline) {
+        if (gapGroup) {
+          setSingleSelection(gapGroup.id);
+          return;
+        }
+      }
     }
 
     // ── Pre-empt polygon clicks (hit area padding) ─────────────────────────────
@@ -3258,9 +3357,9 @@ export const useCanvasPointerEvents = ({
           slotPath = under.find(el => el.closest && el.closest(`[id="${frameParent.id}"]`) && ['path', 'polygon', 'rect', 'circle', 'ellipse'].includes(el.tagName?.toLowerCase()));
         }
         if (!slotPath) {
-          slotPath = frameParent.querySelector('[fill*="url(#pattern-"]') || frameParent.querySelector('path, polygon, rect, circle, ellipse');
+          slotPath = frameParent.querySelector('[fill*="url(#pattern"]') || frameParent.querySelector('path, polygon, rect, circle, ellipse');
         }
-        if (slotPath) {
+        if (slotPath && hasCustomImageInShape(slotPath)) {
           const container = frameParent.closest('.page-svg-container');
           const pageIdx = container ? parseInt(container.getAttribute('data-page-index')) : activePageIndex;
           startShapeImageAdjust(slotPath, pageIdx);
@@ -3280,10 +3379,10 @@ export const useCanvasPointerEvents = ({
         const hasMask = Boolean(
           compoundParent.getAttribute('data-mask-enabled') === 'true' ||
           compoundParent.getAttribute('data-masked-image-url') ||
-          (compoundParent.getAttribute('fill') && compoundParent.getAttribute('fill').includes('url(#pattern-')) ||
-          compoundParent.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern-"]')
+          (compoundParent.getAttribute('fill') && compoundParent.getAttribute('fill').includes('url(#pattern')) ||
+          compoundParent.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern"]')
         );
-        if (hasMask) {
+        if (hasMask && hasCustomImageInShape(compoundParent)) {
           const container = compoundParent.closest('.page-svg-container');
           const pageIdx = container ? parseInt(container.getAttribute('data-page-index')) : activePageIndex;
           startShapeImageAdjust(compoundParent, pageIdx);
@@ -3326,8 +3425,8 @@ export const useCanvasPointerEvents = ({
     const hasImageMaskTarget = Boolean(
       target?.getAttribute?.('data-mask-enabled') === 'true' ||
       target?.closest?.('[data-mask-enabled="true"]') !== null ||
-      (target?.getAttribute?.('fill') && target.getAttribute('fill').includes('url(#pattern-')) ||
-      target?.closest?.('[fill*="url(#pattern-"]') !== null
+      (target?.getAttribute?.('fill') && target.getAttribute('fill').includes('url(#pattern')) ||
+      target?.closest?.('[fill*="url(#pattern"]') !== null
     );
 
     const targetFrame = target?.closest?.(
@@ -3345,9 +3444,9 @@ export const useCanvasPointerEvents = ({
         slotPath = under.find(el => el.closest && el.closest(`[id="${targetFrame.id}"]`) && ['path', 'polygon', 'rect', 'circle', 'ellipse'].includes(el.tagName?.toLowerCase()));
       }
       if (!slotPath) {
-        slotPath = targetFrame.querySelector('[fill*="url(#pattern-"]') || targetFrame.querySelector('path, polygon, rect, circle, ellipse');
+        slotPath = targetFrame.querySelector('[fill*="url(#pattern"]') || targetFrame.querySelector('path, polygon, rect, circle, ellipse');
       }
-      if (slotPath) {
+      if (slotPath && hasCustomImageInShape(slotPath)) {
         const container = targetFrame.closest('.page-svg-container');
         const pageIdx = container ? parseInt(container.getAttribute('data-page-index')) : activePageIndex;
         startShapeImageAdjust(slotPath, pageIdx);
@@ -3373,10 +3472,10 @@ export const useCanvasPointerEvents = ({
       const hasMask = Boolean(
         targetCompound.getAttribute('data-mask-enabled') === 'true' ||
         targetCompound.getAttribute('data-masked-image-url') ||
-        (targetCompound.getAttribute('fill') && targetCompound.getAttribute('fill').includes('url(#pattern-')) ||
-        targetCompound.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern-"]')
+        (targetCompound.getAttribute('fill') && targetCompound.getAttribute('fill').includes('url(#pattern')) ||
+        targetCompound.querySelector?.('[data-mask-enabled="true"], [fill*="url(#pattern"]')
       );
-      if (hasMask) {
+      if (hasMask && hasCustomImageInShape(targetCompound)) {
         const container = targetCompound.closest('.page-svg-container');
         const pageIdx = container ? parseInt(container.getAttribute('data-page-index')) : activePageIndex;
         startShapeImageAdjust(targetCompound, pageIdx);

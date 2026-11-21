@@ -642,7 +642,15 @@ if (typeof window !== 'undefined' && !window.__textSelectionTrackingInitialized)
 
   document.addEventListener('mousedown', (e) => {
     const target = e.target;
+    // Remember (without a timeout) whether the last press was outside the editor canvas.
+    // Color pickers / dropdowns can move focus well after the click; inline text editing
+    // must stay alive until the user actually clicks back on the canvas.
+    window.__lastPressOutsideCanvas = !!(target && target.closest && !target.closest('[data-editor-canvas]'));
+    if (!window.__lastPressOutsideCanvas) window.__lastTextSelection = null;
     if (target && (
+      // Any click outside the editor canvas (properties panel, dropdowns, color-picker portals, …)
+      // must not end inline text editing — otherwise the selected text range is lost.
+      (target.closest && !target.closest('[data-editor-canvas]')) ||
       target.closest('.right-sidebar') ||
       target.closest('#right-sidebar') ||
       target.closest('[data-panel]') ||
@@ -671,14 +679,21 @@ export const applyStyleToActiveTextSelection = (elementId, attribute, value) => 
   const fo = document.getElementById(elementId);
   if (!fo) return false;
 
-  // If text is NOT actively in inline edit mode, styles must apply to the entire element!
-  if (fo.getAttribute('data-editing') !== 'true') {
-    window.__savedTextSelection = null;
-    return false;
-  }
-
   const contentDiv = fo.querySelector('[contenteditable="true"]') || fo.querySelector('.flipbook-text-scrollbar') || fo.firstElementChild;
   if (!contentDiv) return false;
+
+  // Not in inline edit mode (e.g. editing ended while the user used the color picker):
+  // apply to the last selected range of THIS element if the user hasn't clicked the canvas since.
+  if (fo.getAttribute('data-editing') !== 'true') {
+    const last = window.__lastTextSelection;
+    if (!last || last.elementId !== elementId || last.start === last.end) return false;
+    try {
+      return applyStyleToCharacterRange(contentDiv, last.start, last.end, attribute, value);
+    } catch (err) {
+      console.error('[applyStyleToActiveTextSelection] Error applying style to remembered range:', err);
+      return false;
+    }
+  }
 
   // 1. Try to get current character offsets from live window selection
   let offsets = getSelectionCharacterOffsets(contentDiv);
@@ -1359,8 +1374,16 @@ export const sanitizeSvgXml = (rawContent) => {
   // 2. Remove lingering editor overlays, temporary handles, and damage rects
   str = str.replace(/<[^>]*id="(?:vectra-overlay-group|node-edit-overlay-group|multi-selection-bounds|temp-blink-clone)"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
   str = str.replace(/<[^>]*id="(?:temp-blink-clone|temp-blink-[^"]*)"[^>]*\/?>/gi, '');
-  str = str.replace(/<[^>]*class="[^"]*(?:slideshow-transition-clone|custom-video-overlay|video-damage-rect)[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
-  str = str.replace(/<[^>]*id="custom-ctrl-[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
+  str = str.replace(/<[^>]*class="[^"]*(?:slideshow-transition-clone|video-damage-rect)[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
+
+  // Enterprise Security Sanitization: Strip executable scripts, inline event handlers, and javascript: links
+  str = str.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+  str = str.replace(/\s+on(?:load|error|click|mouseover|mouseenter|focus|blur)\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '');
+  str = str.replace(/(?:href|xlink:href)\s*=\s*["']\s*javascript:[^"']*["']/gi, 'href=""');
+  // Video control bars are nested markup: remove them with the DOM (below), not regex,
+  // otherwise inner pieces (3s, play, time) are left behind and show as duplicate controls.
+  const VIDEO_CTRL_SEL = '.custom-video-overlay, [id^="custom-ctrl-"], .custom-top-container, .custom-center-container, .custom-bottom-container, .custom-center-play-btn, .custom-time-wrapper, .custom-time-display, .custom-prog-container, .custom-play-btn, .custom-rewind-btn, .custom-forward-btn, .custom-repeat-btn, .custom-download-btn, .custom-fs-btn, .custom-vol-btn, .pv-center-play-btn';
+  const stripVideoControls = (root) => { root?.querySelectorAll?.(VIDEO_CTRL_SEL).forEach(el => el.remove()); };
 
   // 3. Fix unclosed void HTML tags inside foreignObject/text (<br>, <img>, <hr>, <input>, <link>, <meta>)
   str = str.replace(/<br(?:\s*\/?>|\s+[^>]*?\/?>)/gi, '<br/>');
@@ -1381,6 +1404,7 @@ export const sanitizeSvgXml = (rawContent) => {
         const svgInHtml = htmlDoc.querySelector('svg');
         if (svgInHtml) {
           svgInHtml.querySelectorAll('parsererror').forEach(el => el.remove());
+          stripVideoControls(svgInHtml);
           const serializer = new XMLSerializer();
           const serialized = serializer.serializeToString(svgInHtml);
           const healed = serialized
@@ -1395,6 +1419,7 @@ export const sanitizeSvgXml = (rawContent) => {
       } else {
         const svgEl = xmlDoc.querySelector('svg');
         if (svgEl) {
+          stripVideoControls(svgEl);
           str = new XMLSerializer().serializeToString(svgEl);
         }
       }

@@ -250,6 +250,31 @@ export function renderModuleSvg(x, y, size, style, color) {
   }
 }
 
+// Shared geometry for the curved "Scan me" arrow: the curve ends inside the arrowhead
+// and its final tangent matches the head direction, so line and head stay aligned.
+function getCurvedArrowGeometry() {
+  const tipX = 68, tipY = 90;
+  const angle = -Math.PI / 4; // pointing up-right toward the QR
+  const dx = Math.cos(angle), dy = Math.sin(angle);
+  const headLen = 16, headHalfW = 7.5;
+  const endX = tipX - dx * headLen * 0.7, endY = tipY - dy * headLen * 0.7;
+  const c2x = endX - dx * 48, c2y = endY - dy * 48;
+  const start = { x: 50, y: 250 }, c1 = { x: 12, y: 200 };
+  const baseX = tipX - dx * headLen, baseY = tipY - dy * headLen;
+  const notchX = tipX - dx * headLen * 0.78, notchY = tipY - dy * headLen * 0.78;
+  const px = -dy, py = dx;
+  const r = (n) => Math.round(n * 100) / 100;
+  return {
+    start, c1, c2: { x: r(c2x), y: r(c2y) }, end: { x: r(endX), y: r(endY) },
+    head: [
+      { x: tipX, y: tipY },
+      { x: r(baseX + px * headHalfW), y: r(baseY + py * headHalfW) },
+      { x: r(notchX), y: r(notchY) },
+      { x: r(baseX - px * headHalfW), y: r(baseY - py * headHalfW) },
+    ],
+  };
+}
+
 export function isTransparentColor(c) {
   if (!c) return true;
   const s = String(c).trim().toLowerCase();
@@ -669,7 +694,8 @@ export function generatePureVectorQRSvg({
   const safeFontSize = parseInt(fontSize) || 24;
 
   if (effectiveFrame === 'frame-none') {
-    const bg = !isTransparentColor(frameBgColor) ? frameBgColor : (!isTransparentColor(backdrop) ? backdrop : null);
+    // No frame: only the QR backdrop applies (frame background is irrelevant here)
+    const bg = !isTransparentColor(backdrop) ? backdrop : null;
     if (bg) {
       frameElements.push(`<rect x="0" y="0" width="${totalW}" height="${totalH}" fill="${bg}" />`);
     }
@@ -758,17 +784,9 @@ export function generatePureVectorQRSvg({
     if (!isTransparentColor(frameBgColor)) {
       frameElements.push(`<rect x="0" y="0" width="${totalW}" height="${totalH}" fill="${frameBgColor}" />`);
     }
-    frameElements.push(`<path d="M 52 250 C 20 215, 18 140, 56 92" fill="none" stroke="${arrowColor || '#000000'}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />`);
-    const tipX = 66, tipY = 88;
-    const angle = Math.atan2(88 - 98, 66 - 54);
-    const headLen = 14;
-    const p1x = tipX - headLen * Math.cos(angle - Math.PI / 7);
-    const p1y = tipY - headLen * Math.sin(angle - Math.PI / 7);
-    const pMidX = tipX - (headLen * 0.6) * Math.cos(angle);
-    const pMidY = tipY - (headLen * 0.6) * Math.sin(angle);
-    const p2x = tipX - headLen * Math.cos(angle + Math.PI / 7);
-    const p2y = tipY - headLen * Math.sin(angle + Math.PI / 7);
-    frameElements.push(`<polygon points="${tipX},${tipY} ${p1x},${p1y} ${pMidX},${pMidY} ${p2x},${p2y}" fill="${arrowColor || '#000000'}" />`);
+    const ag = getCurvedArrowGeometry();
+    frameElements.push(`<path d="M ${ag.start.x} ${ag.start.y} C ${ag.c1.x} ${ag.c1.y}, ${ag.c2.x} ${ag.c2.y}, ${ag.end.x} ${ag.end.y}" fill="none" stroke="${arrowColor || '#000000'}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />`);
+    frameElements.push(`<polygon points="${ag.head.map(p => `${p.x},${p.y}`).join(' ')}" fill="${arrowColor || '#000000'}" stroke="${arrowColor || '#000000'}" stroke-width="1" stroke-linejoin="round" />`);
 
     const textCenterY = isMultiLine ? 285 : 280;
     const textX = (isMultiLine || labelText.length > 12) ? (totalW / 2) : 88;
@@ -1707,31 +1725,20 @@ export async function renderQRWithFrame({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
+    const ag = getCurvedArrowGeometry();
     ctx.beginPath();
-    ctx.moveTo(52, 250);
-    ctx.bezierCurveTo(20, 215, 18, 140, 56, 92);
+    ctx.moveTo(ag.start.x, ag.start.y);
+    ctx.bezierCurveTo(ag.c1.x, ag.c1.y, ag.c2.x, ag.c2.y, ag.end.x, ag.end.y);
     ctx.stroke();
 
-    // Arrowhead tip pointing to QR code
-    const tipX = 66, tipY = 88;
-    const angle = Math.atan2(88 - 98, 66 - 54);
-    const headLen = 14;
+    // Arrowhead aligned with the curve's end tangent
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(tipX, tipY);
-    ctx.lineTo(
-      tipX - headLen * Math.cos(angle - Math.PI / 7),
-      tipY - headLen * Math.sin(angle - Math.PI / 7)
-    );
-    ctx.lineTo(
-      tipX - (headLen * 0.6) * Math.cos(angle),
-      tipY - (headLen * 0.6) * Math.sin(angle)
-    );
-    ctx.lineTo(
-      tipX - headLen * Math.cos(angle + Math.PI / 7),
-      tipY - headLen * Math.sin(angle + Math.PI / 7)
-    );
+    ag.head.forEach((p, k) => (k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+    ctx.lineWidth = 3.5;
 
     // Script text
     ctx.fillStyle = effectiveTextColor || arrowColor || '#000000';

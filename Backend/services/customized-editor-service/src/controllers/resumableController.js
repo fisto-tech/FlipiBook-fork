@@ -25,6 +25,8 @@ exports.uploadDocument = async (req, res) => {
       userId = 'FLIPI0001',
       bookId = nanoid(16),
       title,
+      folderName,
+      bookName,
       jobId: clientJobId
     } = req.body;
 
@@ -43,6 +45,8 @@ exports.uploadDocument = async (req, res) => {
         jobId,
         userId,
         bookId,
+        folderName: folderName || 'default',
+        bookName: bookName || title || originalName || 'My Flipbook',
         title: title || originalName || 'My Flipbook',
         filePath: finalFilePath,
         fileName: originalName
@@ -84,6 +88,8 @@ exports.uploadChunk = async (req, res) => {
       userId = 'FLIPI0001',
       bookId = nanoid(16),
       title,
+      folderName,
+      bookName,
       jobId: clientJobId
     } = req.body;
 
@@ -108,6 +114,8 @@ exports.uploadChunk = async (req, res) => {
           jobId,
           userId,
           bookId,
+          folderName: folderName || 'default',
+          bookName: bookName || title || fileName || 'My Flipbook',
           title: title || fileName || 'My Flipbook',
           filePath: result.filePath,
           fileName: result.fileName
@@ -158,6 +166,8 @@ exports.uploadChunkBinary = async (req, res) => {
     const userId = req.headers['x-user-id'] || 'FLIPI0001';
     const bookId = req.headers['x-book-id'] || nanoid(16);
     const title = decodeURIComponent(req.headers['x-title'] || fileName);
+    const folderName = req.headers['x-folder-name'] ? decodeURIComponent(req.headers['x-folder-name']) : 'default';
+    const bookName = req.headers['x-book-name'] ? decodeURIComponent(req.headers['x-book-name']) : (title || fileName);
     const clientJobId = req.headers['x-job-id'];
 
     const uploadDir = path.join(TEMP_CHUNKS_DIR, uploadId);
@@ -213,6 +223,8 @@ exports.uploadChunkBinary = async (req, res) => {
                 jobId,
                 userId,
                 bookId,
+                folderName,
+                bookName,
                 title,
                 filePath: finalFilePath,
                 fileName
@@ -338,14 +350,112 @@ exports.getJobStatus = async (req, res) => {
 };
 
 /**
+ * Resolves the physical directory structure for a flipbook:
+ * Stored at: /storage/:userId/books/:folderName/:bookName/
+ * With pages at: /storage/:userId/books/:folderName/:bookName/pages/
+ * And webp images at: /storage/:userId/books/:folderName/:bookName/pages/webp_page/
+ */
+async function resolveBookStoragePath({ userId = 'FLIPI0001', bookId, folderName, bookName }) {
+  let fName = folderName;
+  let bName = bookName;
+
+  // 1. If folder or bookName missing, query MongoDB
+  if (!fName || !bName) {
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.connection && mongoose.connection.db) {
+        const bookDoc = await mongoose.connection.db.collection('flipbooks').findOne({ v_id: bookId });
+        if (bookDoc) {
+          if (!bName) bName = bookDoc.flipbookName || bookDoc.realName || bookDoc.title;
+          if (!fName) {
+            const rawF = bookDoc.folder || bookDoc.folderName;
+            if (!rawF || rawF === 'default' || rawF === 'fol_default' || String(rawF).toLowerCase() === 'my flipbooks') {
+              fName = 'default';
+            } else {
+              fName = rawF;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 2. Normalize folder: "My Flipbooks" or empty/fol_default maps to "default"
+  if (!fName || String(fName).trim().toLowerCase() === 'my flipbooks' || fName === 'fol_default') {
+    fName = 'default';
+  } else {
+    fName = String(fName).trim();
+  }
+
+  // 3. Fallback for bookName if completely unknown
+  if (!bName) {
+    bName = bookId;
+  } else {
+    bName = String(bName).trim();
+  }
+
+  const bookDir = path.join(storageRoot, userId, 'books', fName, bName);
+  const pagesDir = path.join(bookDir, 'pages');
+  const webpPagesDir = path.join(pagesDir, 'webp_page');
+  const baseUrl = `/storage/${userId}/books/${fName}/${bName}/pages/webp_page/`;
+
+  return {
+    folderName: fName,
+    bookName: bName,
+    bookDir,
+    pagesDir,
+    webpPagesDir,
+    baseUrl
+  };
+}
+
+/**
  * Lightweight manifest descriptor for 10,000+ page books (< 25 KB JSON)
  * GET /api/customized-editor/manifest/:userId/:bookId
  */
 exports.getBookManifest = async (req, res) => {
   const { userId, bookId } = req.params;
-  const manifestPath = path.join(storageRoot, userId, 'books', bookId, 'manifest.json');
+  const { folderName, bookName } = req.query;
 
-  if (!fs.existsSync(manifestPath)) {
+  let manifestPath = null;
+  const resolved = await resolveBookStoragePath({ userId, bookId, folderName, bookName });
+  const directPath = path.join(resolved.bookDir, 'manifest.json');
+
+  if (fs.existsSync(directPath)) {
+    manifestPath = directPath;
+  } else {
+    const candidatePaths = [
+      path.join(storageRoot, userId, 'books', 'default', bookId, 'manifest.json'),
+      path.join(storageRoot, userId, 'books', bookId, 'manifest.json')
+    ];
+    try {
+      const booksBase = path.join(storageRoot, userId, 'books');
+      if (fs.existsSync(booksBase)) {
+        const subdirs = fs.readdirSync(booksBase);
+        for (const sd of subdirs) {
+          const subPath = path.join(booksBase, sd);
+          if (fs.statSync(subPath).isDirectory()) {
+            const m1 = path.join(subPath, 'manifest.json');
+            if (fs.existsSync(m1)) candidatePaths.push(m1);
+            const nested = fs.readdirSync(subPath);
+            for (const nd of nested) {
+              const m2 = path.join(subPath, nd, 'manifest.json');
+              if (fs.existsSync(m2)) candidatePaths.push(m2);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    for (const cp of candidatePaths) {
+      if (fs.existsSync(cp)) {
+        manifestPath = cp;
+        break;
+      }
+    }
+  }
+
+  if (!manifestPath || !fs.existsSync(manifestPath)) {
     return res.status(404).json({ success: false, message: 'Manifest not found' });
   }
 
@@ -361,7 +471,7 @@ exports.getBookManifest = async (req, res) => {
 
 /**
  * Direct Client-Edge Page Image Sync
- * Saves client-extracted WebP image directly to /storage/:userId/books/:bookId/pages/:pageNumber.webp
+ * Saves client-extracted WebP image directly to /storage/:userId/books/:folderName/:bookName/pages/webp_page/:pageNumber.webp
  * POST /api/customized-editor/upload-page-image
  */
 exports.uploadPageImage = async (req, res) => {
@@ -375,24 +485,32 @@ exports.uploadPageImage = async (req, res) => {
       bookId,
       pageNumber,
       width,
-      height
+      height,
+      folderName,
+      bookName
     } = req.body;
 
     if (!bookId || !pageNumber) {
       return res.status(400).json({ success: false, message: 'Missing bookId or pageNumber' });
     }
 
-    const pagesDir = path.join(storageRoot, userId, 'books', bookId, 'pages');
-    await fs.promises.mkdir(pagesDir, { recursive: true });
+    const { webpPagesDir, baseUrl } = await resolveBookStoragePath({
+      userId,
+      bookId,
+      folderName,
+      bookName
+    });
 
-    const targetFile = path.join(pagesDir, `${pageNumber}.webp`);
+    await fs.promises.mkdir(webpPagesDir, { recursive: true });
+
+    const targetFile = path.join(webpPagesDir, `${pageNumber}.webp`);
     if (file.path) {
       await fs.promises.rename(file.path, targetFile);
     } else if (file.buffer) {
       await fs.promises.writeFile(targetFile, file.buffer);
     }
 
-    const webpUrl = `/storage/${userId}/books/${bookId}/pages/${pageNumber}.webp`;
+    const webpUrl = `${baseUrl}${pageNumber}.webp`;
     return res.status(200).json({
       success: true,
       url: webpUrl,
@@ -408,7 +526,7 @@ exports.uploadPageImage = async (req, res) => {
 };
 
 /**
- * Finalizes client edge extraction: writes manifest.json on disk matching server-side structure
+ * Finalizes client edge extraction: writes manifest.json on disk inside the book directory
  * POST /api/customized-editor/finalize-edge-book
  */
 exports.finalizeEdgeBook = async (req, res) => {
@@ -419,15 +537,24 @@ exports.finalizeEdgeBook = async (req, res) => {
       totalPages,
       width = 210,
       height = 297,
-      aspectRatio = 0.7071
+      aspectRatio = 0.7071,
+      folderName,
+      bookName
     } = req.body;
 
     if (!bookId || !totalPages) {
       return res.status(400).json({ success: false, message: 'Missing bookId or totalPages' });
     }
 
-    const bookDir = path.join(storageRoot, userId, 'books', bookId);
+    const { folderName: resFolder, bookName: resBook, bookDir, webpPagesDir, baseUrl } = await resolveBookStoragePath({
+      userId,
+      bookId,
+      folderName,
+      bookName
+    });
+
     await fs.promises.mkdir(bookDir, { recursive: true });
+    await fs.promises.mkdir(webpPagesDir, { recursive: true });
 
     const total = Number(totalPages);
     const pages = Array.from({ length: total }, (_, i) => ({
@@ -442,11 +569,13 @@ exports.finalizeEdgeBook = async (req, res) => {
     const manifest = {
       bookId,
       userId,
+      folderName: resFolder,
+      bookName: resBook,
       totalPages: total,
       width: Number(width),
       height: Number(height),
       aspectRatio: Number(aspectRatio),
-      baseUrl: `/storage/${userId}/books/${bookId}/pages/`,
+      baseUrl,
       pages
     };
 

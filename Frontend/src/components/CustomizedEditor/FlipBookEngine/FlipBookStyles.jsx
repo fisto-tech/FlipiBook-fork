@@ -119,6 +119,27 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 -webkit-user-drag: none !important;
             }
 
+            /* Spine backing: a thin dark strip under the two pages at the spine. The pages cover it;
+               it only shows through a sub-pixel gap while the book moves/turns, so the seam reads as a
+               dark crease instead of a white flash. Only on a two-page spread (never beside a cover). */
+            /* At rest, paint both pages in ONE layer: separate GPU layers (will-change) blend their edges
+               on their own while the book slides to centre (cover → first spread), opening a hairline at the spine. */
+            .fbe-book:not(.fbe-is-turning):not(.fbe-is-dragging):not(.fbe-is-flipping) .page-wrapper,
+            .fbe-book:not(.fbe-is-turning):not(.fbe-is-dragging):not(.fbe-is-flipping) .page-wrapper > * {
+                will-change: auto !important;
+            }
+            .fbe-book[data-spread]::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: calc(50% - 1.5px);
+                width: 3px;
+                background: rgba(20,20,26,0.85);
+                pointer-events: none;
+                z-index: 0;
+            }
+
             .fbe-page, .page {
                 background: #fff;
                 overflow: hidden;
@@ -190,7 +211,7 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 right: 0;
-                width: ${SPINE_SHADOWS.left.width}px;
+                width: ${SPINE_SHADOWS.left.width};
                 background: ${SPINE_SHADOWS.left.background};
                 pointer-events: none;
                 z-index: 15;
@@ -203,13 +224,13 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 left: 0;
-                width: ${SPINE_SHADOWS.right.width}px;
+                width: ${SPINE_SHADOWS.right.width};
                 background: ${SPINE_SHADOWS.right.background};
                 pointer-events: none;
                 z-index: 15;
             }
 
-            /* Realistic spine binding shadows on front cover and back cover */
+            /* Covers: thin light page-edge strip on the spine edge (front: left, back: right) */
             .fbe-page--first .fbe-inner::before,
             .fbe-react-page--first .fbe-inner::before,
             .p1 .fbe-inner::before {
@@ -218,7 +239,7 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 left: 0;
-                width: ${SPINE_SHADOWS.cover.width}px;
+                width: ${SPINE_SHADOWS.cover.width};
                 background: ${SPINE_SHADOWS.cover.background};
                 pointer-events: none;
                 z-index: 15;
@@ -233,7 +254,7 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 top: 0;
                 bottom: 0;
                 right: 0;
-                width: ${SPINE_SHADOWS.backCover.width}px;
+                width: ${SPINE_SHADOWS.backCover.width};
                 background: ${SPINE_SHADOWS.backCover.background};
                 pointer-events: none;
                 z-index: 15;
@@ -384,13 +405,38 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 pointer-events: none !important;
             }
 
+            /* Scrollable text on static/turning pages: use the box's chosen scrollbar color
+               (same rules as the interactive layer, so there's no grey flash while turning) */
+            .flipbook-text-scrollbar {
+                scrollbar-color: var(--scrollbar-color, #4B5563) transparent !important;
+                scrollbar-width: thin !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar {
+                width: 6px !important;
+                height: 6px !important;
+                background: transparent !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar-track {
+                background: transparent !important;
+            }
+            .flipbook-text-scrollbar::-webkit-scrollbar-thumb {
+                background: var(--scrollbar-color, #4B5563) !important;
+                border-radius: 10px !important;
+            }
+
             /* Prevent editor selection overlay rect from blocking clicks on live map or embed */
             g[data-type="map"] > rect,
             g[id^="map-"] > rect,
-            g[data-type="embed-frame"] > rect,
-            g[id^="embed-"] > rect {
+            g[data-type="embed-frame"] > rect:not(.svg-image-stroke-overlay),
+            g[id^="embed-"] > rect:not(.svg-image-stroke-overlay) {
                 pointer-events: none !important;
                 display: none !important;
+            }
+            /* Keep the user's embed border visible in preview, but never let it block clicks */
+            g[data-type="embed-frame"] > rect.svg-image-stroke-overlay,
+            g[id^="embed-"] > rect.svg-image-stroke-overlay {
+                pointer-events: none !important;
+                fill: none !important;
             }
 
             /* Add a global invisible shield over the entire wrapper during a drag to guarantee mousemove tracking */

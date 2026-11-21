@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import workImg1 from '../../assets/Home/work-img-1.png';
-import workImg2 from '../../assets/Home/work-img-2.png';
-import workImg3 from '../../assets/Home/work-img-3.png';
-import workImg4 from '../../assets/Home/work-img-4.png';
+import workImg1 from '../../assets/Home/HowItWorks/work-img-1.webp';
+import workImg2 from '../../assets/Home/HowItWorks/work-img-2.webp';
+import workImg3 from '../../assets/Home/HowItWorks/work-img-3.webp';
+import workImg4 from '../../assets/Home/HowItWorks/work-img-4.webp';
 
 export default function HowItWorksSection() {
   const steps = [
@@ -13,7 +13,7 @@ export default function HowItWorksSection() {
       desc: "Upload your PDF or choose a ready-made template to start building your digital catalogue.",
       image: workImg1,
       textPosition: "bottom",
-      imgClass: "w-[96%] sm:w-[95%] lg:w-[96%] h-auto max-h-[82%] object-contain drop-shadow-md translate-y-3.5 sm:translate-y-5"
+      imgClass: "w-[94%] sm:w-[93%] lg:w-[94%] h-auto max-h-[85%] object-contain drop-shadow-md translate-y-3.5 sm:translate-y-5"
     },
     {
       number: "02",
@@ -21,7 +21,7 @@ export default function HowItWorksSection() {
       desc: "Customize your pages with product videos, 3D models, and clickable links that help customers explore.",
       image: workImg2,
       textPosition: "top",
-      imgClass: "w-[98%] sm:w-[97%] lg:w-[98%] h-auto max-h-[80%] object-contain drop-shadow-md"
+      imgClass: "w-[108%] sm:w-[106%] lg:w-[108%] max-w-none h-auto max-h-[88%] object-contain drop-shadow-md scale-105"
     },
     {
       number: "03",
@@ -29,7 +29,7 @@ export default function HowItWorksSection() {
       desc: "Publish your catalogue and share it through a link, QR code, or website embed.",
       image: workImg3,
       textPosition: "bottom",
-      imgClass: "w-[92%] sm:w-[90%] lg:w-[92%] h-auto max-h-[86%] object-contain drop-shadow-md translate-y-3.5 sm:translate-y-5"
+      imgClass: "w-[102%] sm:w-[100%] lg:w-[102%] max-w-none h-auto max-h-[95%] object-contain drop-shadow-md translate-y-7 sm:translate-y-9"
     },
     {
       number: "04",
@@ -37,7 +37,7 @@ export default function HowItWorksSection() {
       desc: "Review catalogue views and viewer activity to understand engagement and refine your content.",
       image: workImg4,
       textPosition: "top",
-      imgClass: "w-[92%] sm:w-[90%] lg:w-[92%] h-auto max-h-[86%] object-contain drop-shadow-md translate-y-2 sm:translate-y-3"
+      imgClass: "w-[96%] sm:w-[94%] lg:w-[96%] h-auto max-h-[89%] object-contain drop-shadow-md translate-y-3.5 sm:translate-y-5"
     }
   ];
 
@@ -47,7 +47,7 @@ export default function HowItWorksSection() {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
       transition={{ duration: 0.8 }}
-      className="relative w-full bg-white font-poppins py-10 lg:py-[3vw] px-6 sm:px-10 lg:px-[6vw] flex flex-col items-center justify-between border-t border-gray-100"
+      className="relative w-full bg-white font-poppins pt-2 sm:pt-3 lg:pt-[1.2vw] pb-10 lg:pb-[3vw] px-6 sm:px-10 lg:px-[6vw] flex flex-col items-center justify-between border-t border-gray-100"
     >
       {/* Top Header */}
       <motion.div
@@ -55,13 +55,13 @@ export default function HowItWorksSection() {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
         transition={{ duration: 0.6 }}
-        className="w-full text-left mb-6 lg:mb-[1.5vw]"
+        className="w-full text-left pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh]"
       >
-        <div className="flex items-center gap-3 lg:gap-[0.6vw]">
-          <span className="text-xs lg:text-[0.75vw] font-bold tracking-[0.25em] text-gray-700 uppercase">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw]">
+          <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
             HOW IT WORKS
           </span>
-          <div className="w-8 lg:w-[2.2vw] h-[1.5px] lg:h-[0.1vw] bg-gray-400"></div>
+          <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
         </div>
       </motion.div>
 
@@ -72,7 +72,7 @@ export default function HowItWorksSection() {
         transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
         className="text-center w-full mb-7 sm:mb-9 md:mb-11 lg:mb-[3.2vw] space-y-2 sm:space-y-2.5 lg:space-y-[0.7vw]"
       >
-        <h2 className="text-2xl sm:text-4xl lg:text-[3vw] font-semibold text-[#1b222c] tracking-tight leading-tight">
+        <h2 className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-[#1b222c] leading-[1.12] tracking-tight font-sans">
           Create Your Interactive Digital Catalogue <br />
           <span className="text-[#ea543a]">in 4 Simple Steps</span>
         </h2>
@@ -118,7 +118,7 @@ export default function HowItWorksSection() {
               }`}
             >
               {/* Giant Step Number in top left matching screenshot (absolute to avoid pushing image down) */}
-              <span className="absolute top-2.5 left-3 sm:top-3 sm:left-4 lg:top-[0.8vw] lg:left-[0.9vw] text-6xl sm:text-7xl lg:text-[4.6vw] font-black text-white leading-none tracking-tight select-none z-0">
+              <span className="absolute top-2.5 left-3 sm:top-3 sm:left-4 lg:top-[0.8vw] lg:left-[0.9vw] text-6xl sm:text-7xl lg:text-[4.6vw] font-normal text-white leading-none tracking-tight select-none z-0">
                 {step.number}
               </span>
               

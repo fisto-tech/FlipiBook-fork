@@ -410,6 +410,23 @@ const RightSidebar = ({
 
   const selectedElementProps = useMemo(() => {
     if (!selectedLayerId) return null;
+
+    // Check live canvas DOM first: if the canvas container is mounted and element was removed, return null immediately
+    if (typeof document !== 'undefined') {
+      const pageContainer = document.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+      if (pageContainer) {
+        let liveEl = null;
+        try {
+          liveEl = pageContainer.querySelector(`[id="${CSS.escape(selectedLayerId)}"]`);
+        } catch {
+          liveEl = document.getElementById(selectedLayerId);
+        }
+        if (!liveEl) {
+          return null;
+        }
+      }
+    }
+
     const page = pages[activePageIndex];
     if (page && page.html) {
       const parser = new DOMParser();
@@ -680,7 +697,9 @@ const RightSidebar = ({
           (!el.getAttribute('data-is-image-group') && !el.getAttribute('data-is-video-group') && !el.getAttribute('data-is-gif-group') && dataType !== 'icon' && lowerDataName !== 'icon' && !lowerId.includes('icon'))
         ) && el.getAttribute('data-is-image-group') !== 'true' && el.getAttribute('data-is-video-group') !== 'true' && el.getAttribute('data-is-gif-group') !== 'true' && dataType !== 'icon' && lowerDataName !== 'icon' && !lowerId.includes('icon');
 
-        const isElementShape = el.getAttribute('data-is-element-shape') === 'true' ||
+        // A real group (Group / Ctrl+G) that merely CONTAINS shapes must show Group Properties
+        const isExplicitGroup = lowerTagName === 'g' && (dataType === 'group' || el.getAttribute('data-type') === 'group' || lowerId.startsWith('group-'));
+        const isElementShape = !isExplicitGroup && (el.getAttribute('data-is-element-shape') === 'true' ||
           el.getAttribute('data-shape-type') !== null ||
           el.getAttribute('data-type') === 'shape' ||
           el.getAttribute('data-type') === 'vector-path' ||
@@ -698,7 +717,7 @@ const RightSidebar = ({
             el.querySelector('[data-shape-type]') !== null ||
             el.querySelector('[data-type="shape"]') !== null ||
             el.querySelector('[data-type="vector-path"]') !== null
-          ));
+          )));
 
         const isImage = !isUserGroup && !isElementShape && el.getAttribute('data-type') !== 'vector-path' && (lowerTagName.includes('image') ||
           lowerTagName === 'img' ||

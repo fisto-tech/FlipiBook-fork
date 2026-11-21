@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import homes2Img from '../../assets/Home/homes2.png';
+import homes2Img from '../../assets/Home/3dInteractive/homes2.webp';
 
 export default function ThreeDInteractiveDetails({ navigate }) {
   const containerRef = useRef(null);
@@ -103,8 +103,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: '3D Product Models',
       desc: (
         <>
-          Add your 3D models to catalogue <br />
-          pages so customers can explore <br />
+          Add your 3D models to catalogue <br className="hidden lg:block" />
+          pages so customers can explore <br className="hidden lg:block" />
           product shapes and details.
         </>
       ),
@@ -115,8 +115,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: '360° Product View',
       desc: (
         <>
-          Let customers rotate and zoom in on <br />
-          models to examine them from <br />
+          Let customers rotate and zoom in on <br className="hidden lg:block" />
+          models to examine them from <br className="hidden lg:block" />
           different angles.
         </>
       ),
@@ -127,8 +127,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Materials & Textures',
       desc: (
         <>
-          Customize model surfaces to <br />
-          showcase product colors, materials, <br />
+          Customize model surfaces to <br className="hidden lg:block" />
+          showcase product colors, materials, <br className="hidden lg:block" />
           and finishes.
         </>
       ),
@@ -139,8 +139,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Lighting & Shadows',
       desc: (
         <>
-          Adjust lighting to highlight <br />
-          product details and give models <br />
+          Adjust lighting to highlight <br className="hidden lg:block" />
+          product details and give models <br className="hidden lg:block" />
           a realistic appearance.
         </>
       ),
@@ -151,8 +151,8 @@ export default function ThreeDInteractiveDetails({ navigate }) {
       title: 'Background Colors',
       desc: (
         <>
-          Choose 3D viewer background <br />
-          colors that complement your <br />
+          Choose 3D viewer background <br className="hidden lg:block" />
+          colors that complement your <br className="hidden lg:block" />
           products and brand.
         </>
       ),
@@ -161,7 +161,7 @@ export default function ThreeDInteractiveDetails({ navigate }) {
   ];
 
   return (
-    <section className="relative w-full bg-[#030303] text-white min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] flex flex-col justify-start pt-[1.5vh] pb-0 px-[4vw] lg:px-[5vw] xl:px-[5.5vw] font-poppins overflow-hidden">
+    <section className="relative w-full bg-[#030303] text-white min-h-[calc(100vh-56px)] md:min-h-[calc(100vh-7vh)] flex flex-col justify-start pt-2 sm:pt-3 lg:pt-[1.2vw] pb-8 sm:pb-10 lg:pb-0 px-5 sm:px-8 lg:px-[5vw] xl:px-[5.5vw] font-poppins overflow-hidden">
 
       {/* Top Tag: INTERACTIVE 3D CATALOGUES */}
       <motion.div
@@ -169,20 +169,20 @@ export default function ThreeDInteractiveDetails({ navigate }) {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, amount: 0.3 }}
         transition={{ duration: 0.8 }}
-        className="w-full flex items-center gap-[0.9vw] mt-[1.2vh] mb-[1vh] flex-shrink-0"
+        className="w-full flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw] pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0"
       >
-        <span className="text-xs sm:text-[13px] lg:text-[0.85vw] font-bold tracking-[0.24em] text-white uppercase">
+        <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-white uppercase">
           INTERACTIVE 3D CATALOGUES
         </span>
-        <div className="w-[3.6vw] min-w-[40px] h-[1.5px] bg-[#3a3a40]"></div>
+        <div className="w-10 sm:w-14 lg:w-[3.6vw] min-w-[35px] h-[1.5px] lg:h-[0.15vh] bg-[#3a3a40]"></div>
       </motion.div>
 
-      {/* Main 3-Column Layout: items-start so left & right sit high up */}
+      {/* Main 3-Column Layout: items-start on desktop, stacked on mobile */}
       <div
         ref={containerRef}
-        className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-[1.5vw] items-start relative"
+        className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 lg:gap-[1.5vw] items-start relative"
       >
-        {/* SVG Connector Lines Overlay */}
+        {/* SVG Connector Lines Overlay (Desktop only) */}
         <svg
           className={`hidden lg:block absolute inset-0 w-full h-full pointer-events-none z-30 overflow-visible transition-opacity duration-500 ${arrowsVisible ? 'opacity-100' : 'opacity-0'
             }`}
@@ -251,15 +251,15 @@ export default function ThreeDInteractiveDetails({ navigate }) {
           })}
         </svg>
 
-        {/* Left Column (col-span-3) - spread comfortably across vertical space */}
-        <div className="lg:col-span-3 flex flex-col justify-start text-left items-start z-20 pt-[3.5vh] lg:pt-[4.2vh]">
+        {/* Left Column (col-span-3) */}
+        <div className="lg:col-span-3 flex flex-col justify-start text-left items-start z-20 pt-1 sm:pt-2 lg:pt-[4.2vh]">
           {/* Headline with slide-in & fade */}
           <motion.h2
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.65vw] font-semibold text-white leading-[1.25] tracking-tight"
+            className="text-3xl sm:text-[48px] lg:text-[3.1vw] font-bold text-white leading-[1.12] tracking-tight text-left"
           >
             Give Customers <br />
             a <span className="text-[#EC5137]">Closer Look</span> <br />
@@ -273,15 +273,15 @@ export default function ThreeDInteractiveDetails({ navigate }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.85, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="text-xs sm:text-sm md:text-[13px] lg:text-[0.82vw] font-normal text-[#9ca3af] leading-[160%] mt-[2.5vh] max-w-[20vw] min-w-[260px]"
+            className="text-sm sm:text-base lg:text-[0.88vw] font-normal text-[#9ca3af] leading-[170%] mt-4 sm:mt-5 lg:mt-[2.5vh]"
           >
-            Bring 3D product models <br />
-            into your FlipiBook <br />
-            catalogue. Let customers <br />
-            rotate products, inspect <br />
-            details, and discover <br />
-            features through <br />
-            clickable hotspots, <br />
+            Bring 3D product models <br className="hidden lg:block" />
+            into your FlipiBook <br className="hidden lg:block" />
+            catalogue. Let customers <br className="hidden lg:block" />
+            rotate products, inspect <br className="hidden lg:block" />
+            details, and discover <br className="hidden lg:block" />
+            features through <br className="hidden lg:block" />
+            clickable hotspots, <br className="hidden lg:block" />
             videos, and audio.
           </motion.p>
 
@@ -294,11 +294,11 @@ export default function ThreeDInteractiveDetails({ navigate }) {
             onClick={() => {
               if (navigate) navigate('/explore');
             }}
-            style={{ borderRadius: '0.5vw' }}
-            className="group flex items-center gap-[0.5vw] px-[1.2vw] py-[0.65vw] bg-[#EA7233] hover:bg-[#d86224] text-white font-medium text-xs sm:text-sm lg:text-[0.82vw] shadow-[0_0.4vw_1.2vw_rgba(234,114,51,0.35)] transition-all duration-300 active:scale-95 cursor-pointer mt-[4vh] relative z-30 min-w-max"
+            style={{ borderRadius: '12px' }}
+            className="group flex items-center gap-2 sm:gap-2.5 lg:gap-[0.5vw] px-5 py-2.5 sm:px-6 sm:py-3 lg:px-[1.2vw] lg:py-[0.65vw] lg:!rounded-[0.5vw] bg-[#EA7233] hover:bg-[#d86224] text-white font-medium text-xs sm:text-sm lg:text-[0.82vw] shadow-[0_6px_18px_rgba(234,114,51,0.35)] lg:shadow-[0_0.4vw_1.2vw_rgba(234,114,51,0.35)] transition-all duration-300 active:scale-95 cursor-pointer mt-5 sm:mt-6 lg:mt-[4vh] relative z-30 min-w-max"
           >
             <span>Explore a 3D Catalogue</span>
-            <Icon icon="lucide:arrow-right" className="w-[1vw] h-[1vw] min-w-[14px] min-h-[14px] group-hover:translate-x-1 transition-transform duration-300" />
+            <Icon icon="lucide:arrow-right" className="w-4 h-4 lg:w-[1vw] lg:h-[1vw] group-hover:translate-x-1 transition-transform duration-300" />
           </motion.button>
         </div>
 
@@ -308,9 +308,9 @@ export default function ThreeDInteractiveDetails({ navigate }) {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.9, delay: 0.2 }}
-          className="lg:col-span-6 relative flex items-end justify-center w-full z-10 self-end -mb-1 translate-x-0 my-1 sm:my-0 h-full max-h-[68vh] lg:max-h-[76vh] xl:max-h-[79vh]"
+          className="lg:col-span-6 relative flex items-end justify-center w-full z-10 self-end -mb-1 translate-x-0 my-3 sm:my-4 lg:my-0 h-auto sm:h-full max-h-[50vh] sm:max-h-[60vh] lg:max-h-[76vh] xl:max-h-[79vh]"
         >
-          <div className="relative w-auto h-full flex items-end justify-center aspect-[1920/1440]">
+          <div className="relative w-full max-w-[420px] sm:max-w-[520px] lg:max-w-none lg:w-auto h-full flex items-end justify-center aspect-[1920/1440]">
 
             {/* The Image itself - finely scaled */}
             <img
@@ -318,14 +318,14 @@ export default function ThreeDInteractiveDetails({ navigate }) {
               onLoad={updateConnectorLines}
               src={homes2Img}
               alt="Interactive 3D Catalogue Floor Plan"
-              className="w-full h-full object-contain select-none pointer-events-none drop-shadow-[0_1.5vw_3vw_rgba(0,0,0,0.9)] scale-103 lg:scale-108 origin-bottom"
+              className="w-full h-full object-contain select-none pointer-events-none drop-shadow-[0_1.5vw_3vw_rgba(0,0,0,0.9)] scale-100 sm:scale-103 lg:scale-108 origin-bottom"
             />
           </div>
         </motion.div>
 
-        {/* Right Column (col-span-3): 5 Features List - directly aligned to image aspect */}
+        {/* Right Column (col-span-3): 5 Features List */}
         <div
-          className="lg:col-span-3 flex flex-col justify-between h-full max-h-[76vh] xl:max-h-[80vh] z-20 pt-[1vh] lg:pt-[2vh] pb-[2vh] gap-[0.8vh] lg:gap-[0.9vh] translate-x-0 ml-auto"
+          className="lg:col-span-3 flex flex-col justify-start lg:justify-between h-auto lg:h-full max-h-none lg:max-h-[76vh] xl:max-h-[80vh] z-20 pt-2 lg:pt-[2vh] pb-4 lg:pb-[2vh] gap-4 sm:gap-5 lg:gap-[0.9vh] translate-x-0 w-full lg:w-auto lg:ml-auto"
         >
           {features.map((item, index) => (
             <motion.div
@@ -339,22 +339,22 @@ export default function ThreeDInteractiveDetails({ navigate }) {
                 delay: 0.15 + index * 0.12,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="flex items-start gap-[0.8vw]"
+              className="flex items-start gap-3 sm:gap-3.5 lg:gap-[0.8vw]"
             >
-              {/* Circular Bordered Icon matching Figma styling */}
+              {/* Circular Bordered Icon */}
               <div
                 ref={(el) => (iconRefs.current[index] = el)}
-                className="w-8 h-8 sm:w-9 sm:h-9 lg:w-[2.2vw] lg:h-[2.2vw] rounded-full border border-white/90 bg-transparent flex items-center justify-center flex-shrink-0 text-white mt-0.5"
+                className="w-9 h-9 sm:w-10 sm:h-10 lg:w-[2.2vw] lg:h-[2.2vw] rounded-full border border-white/90 bg-transparent flex items-center justify-center flex-shrink-0 text-white mt-0.5"
               >
-                <Icon icon={item.icon} className="w-4 h-4 sm:w-4.5 sm:h-4.5 lg:w-[1.05vw] lg:h-[1.05vw]" />
+                <Icon icon={item.icon} className="w-4 h-4 sm:w-5 sm:h-5 lg:w-[1.05vw] lg:h-[1.05vw]" />
               </div>
 
-              {/* Text: Title & Description - shifted slightly right with gap and translate */}
-              <div className="flex flex-col text-left pl-[0.8vw]">
-                <h3 className="text-xs sm:text-sm lg:text-[0.82vw] font-semibold text-white tracking-tight">
+              {/* Text: Title & Description */}
+              <div className="flex flex-col text-left pl-1 sm:pl-2 lg:pl-[0.8vw]">
+                <h3 className="text-sm sm:text-base lg:text-[0.82vw] font-semibold text-white tracking-tight">
                   {item.title}
                 </h3>
-                <p className="text-[10px] sm:text-xs lg:text-[0.68vw] font-normal text-[#9ca3af] leading-[140%] mt-[0.3vh]">
+                <p className="text-xs sm:text-[13px] lg:text-[0.68vw] font-normal text-[#9ca3af] leading-[145%] mt-1 lg:mt-[0.3vh]">
                   {item.desc}
                 </p>
               </div>

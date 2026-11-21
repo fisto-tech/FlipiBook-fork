@@ -9,7 +9,8 @@ import {
   GripVertical,
   Trash2,
   Crop,
-  Check
+  Check,
+  Loader2
 } from 'lucide-react';
 import ImageAdjustModal from './ImageAdjustModal';
 import SlideTextPopup from './SlideTextPopup';
@@ -19,11 +20,13 @@ import { getVisualBBox } from '../../../mainEditor/utils/geometryUtils';
 import PremiumDropdown from '../../../../CustomizedEditor/components/PremiumDropdown';
 import NavIconStylesPopup, { NavIconRenderer } from '../popups/NavIconStylesPopup';
 import DotStylesPopup, { DotRenderer } from '../popups/DotStylesPopup';
-import { saveToDB, getFromDB } from '../../../../../utils/dbUtils';
+import { saveToDB, getFromDB } from '../../../../../utils/storage/dbUtils';
 import ColorPicker from '../../../../ColorPicker';
 import Color from '../../../properties/Color';
 import { ElementToggle, ElementSlider, ElementDropdown } from './ElementUIControls';
 import { update3FrameSlideshow, RingBuffer } from '../utils/slideshowElementUtils';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../../utils/imageOptimizer';
+import { createManagedBlobUrl, revokeManagedBlobUrl } from '../../../../../utils';
 
 // Clean up any lingering debuggers from Vite HMR
 ['my-slideshow-debug', 'my-slideshow-debug2', 'my-slideshow-debug3'].forEach(id => {
@@ -31,101 +34,95 @@ import { update3FrameSlideshow, RingBuffer } from '../utils/slideshowElementUtil
   if (el) el.remove();
 });
 
-const processLocalImageFile = (file) => {
-  return new Promise((resolve) => {
-    if (!file) return resolve(null);
-    if (typeof file === 'string') {
-      if (file.startsWith('blob:')) {
-        fetch(file)
-          .then(res => {
-            if (!res.ok) throw new Error('Blob fetch failed');
-            return res.blob();
-          })
-          .then(blob => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const dataUrl = e.target.result;
-              const img = new Image();
-              img.onload = () => {
-                resolve({
-                  id: Date.now() + Math.random(),
-                  url: dataUrl,
-                  name: 'Image.jpg',
-                  dimensions: `${img.width} X ${img.height}`,
-                  size: `${Math.max(1, Math.round(blob.size / 1024))}KB`,
-                  isUploading: false
-                });
-              };
-              img.onerror = () => {
-                resolve({
-                  id: Date.now() + Math.random(),
-                  url: dataUrl,
-                  name: 'Image.jpg',
-                  dimensions: '1920 X 1080',
-                  size: `${Math.max(1, Math.round(blob.size / 1024))}KB`,
-                  isUploading: false
-                });
-              };
-              img.src = dataUrl;
-            };
-            reader.onerror = () => resolve(null);
-            reader.readAsDataURL(blob);
-          })
-          .catch(() => {
-            // Dead or expired blob URL from a previous session
-            resolve(null);
-          });
-        return;
+const processLocalImageFile = async (file) => {
+  if (!file) return null;
+  if (typeof file === 'string') {
+    if (file.startsWith('blob:')) {
+      try {
+        const res = await fetch(file);
+        if (!res.ok) throw new Error('Blob fetch failed');
+        const blob = await res.blob();
+        return await processLocalImageFile(blob);
+      } catch {
+        return null;
       }
-      return resolve({
-        id: Date.now() + Math.random(),
-        url: file,
-        name: file.split('/').pop()?.split('?')[0] || 'Image.jpg',
-        dimensions: '1920 X 1080',
-        size: '24MB',
-        isUploading: false
+    }
+    return {
+      id: Date.now() + Math.random(),
+      url: file,
+      name: file.split('/').pop()?.split('?')[0] || 'Image.jpg',
+      dimensions: '1920 X 1080',
+      size: '250KB',
+      isUploading: false
+    };
+  }
+
+  const fileName = file.name || `Image_${Date.now()}.jpg`;
+
+  try {
+    let targetFile = file;
+    let finalDataUrl = null;
+    let imgWidth = 0;
+    let imgHeight = 0;
+    let compBytes = file.size;
+
+    if (shouldOptimizeImage(file)) {
+      try {
+        const opt = await optimizeImageForWeb(file, { maxDimension: 1600, quality: 0.82 });
+        if (opt?.file || opt?.blob) {
+          finalDataUrl = createManagedBlobUrl(opt.file || opt.blob, 'slideshow_slide');
+          imgWidth = opt.width;
+          imgHeight = opt.height;
+          compBytes = opt.compressedSize || opt.file?.size || compBytes;
+        }
+      } catch (optErr) {
+        console.warn('[ElementSlideshowProperties] Optimization fallback:', optErr);
+      }
+    }
+
+    if (!finalDataUrl) {
+      finalDataUrl = createManagedBlobUrl(targetFile, 'slideshow_slide');
+    }
+
+    if (!finalDataUrl) return null;
+
+    if (!imgWidth || !imgHeight) {
+      await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          imgWidth = img.width;
+          imgHeight = img.height;
+          resolve();
+        };
+        img.onerror = () => {
+          imgWidth = 1920;
+          imgHeight = 1080;
+          resolve();
+        };
+        img.src = finalDataUrl;
       });
     }
-    const fileName = file.name || `Image_${Date.now()}.jpg`;
-    const fileSizeFormatted = file.size
-      ? (file.size >= 1024 * 1024
-          ? `${(file.size / (1024 * 1024)).toFixed(0)}MB`
-          : `${Math.max(1, Math.round(file.size / 1024))}KB`)
-      : '24MB';
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target.result;
-      const img = new Image();
-      img.onload = () => {
-        resolve({
-          id: Date.now() + Math.random(),
-          url: dataUrl,
-          name: fileName,
-          heading: '',
-          subtext: '',
-          dimensions: `${img.width} X ${img.height}`,
-          size: fileSizeFormatted,
-          isUploading: false
-        });
-      };
-      img.onerror = () => {
-        resolve({
-          id: Date.now() + Math.random(),
-          url: dataUrl,
-          name: fileName,
-          heading: '',
-          subtext: '',
-          dimensions: '1920 X 1080',
-          size: fileSizeFormatted,
-          isUploading: false
-        });
-      };
-      img.src = dataUrl;
+    const fileSizeFormatted = compBytes
+      ? (compBytes >= 1024 * 1024
+          ? `${(compBytes / (1024 * 1024)).toFixed(1)}MB`
+          : `${Math.max(1, Math.round(compBytes / 1024))}KB`)
+      : '250KB';
+
+    return {
+      id: Date.now() + Math.random(),
+      url: finalDataUrl,
+      name: fileName,
+      heading: '',
+      subtext: '',
+      dimensions: `${imgWidth} X ${imgHeight}`,
+      size: fileSizeFormatted,
+      isUploading: false
     };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
+  } catch (err) {
+    console.error('[ElementSlideshowProperties] processLocalImageFile error:', err);
+    return null;
+  }
 };
 
 const MAX_GALLERY_IMAGES = 4;
@@ -171,6 +168,7 @@ const SlideshowEditor = ({ selectedElement, activePageIndex, onUpdate, isOpen, o
     strokeLineCorner: 'Square',
   });
   const [slideshowImages, setSlideshowImages] = useState([]);
+  const [isCompressingSlideshow, setIsCompressingSlideshow] = useState(false);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [draggedSlideIndex, setDraggedSlideIndex] = useState(null);
   const [dragOverSlideIndex, setDragOverSlideIndex] = useState(null);
@@ -1273,42 +1271,79 @@ const SlideshowEditor = ({ selectedElement, activePageIndex, onUpdate, isOpen, o
 
     if (filesToUpload.length === 0) return;
 
-    const processed = await Promise.all(filesToUpload.map(processLocalImageFile));
-    const valid = processed.filter(Boolean);
+    setIsCompressingSlideshow(true);
 
-    if (valid.length > 0) {
+    // Optimistically insert placeholders with circular spinners
+    const optimisticPlaceholders = filesToUpload.map((f, idx) => ({
+      id: `uploading_${Date.now()}_${idx}`,
+      url: '',
+      name: f.name || 'Uploading image...',
+      dimensions: '...',
+      size: 'Compressing...',
+      isUploading: true
+    }));
+
+    setSlideshowImages(prev => [...prev, ...optimisticPlaceholders]);
+
+    try {
+      const processed = await Promise.all(filesToUpload.map(processLocalImageFile));
+      const valid = processed.filter(Boolean);
+
       setSlideshowImages(prev => {
-        const next = [...prev, ...valid];
+        const nonUploading = prev.filter(img => !img.isUploading);
+        const next = [...nonUploading, ...valid];
         if (selectedElement?.id) {
           saveToDB(`slideshow_${flipbookVId || 'local'}_${selectedElement.id}`, next).catch(() => {});
         }
         return next;
       });
       if (onUpdateRef.current) onUpdateRef.current({ shouldRefresh: true });
+    } finally {
+      setIsCompressingSlideshow(false);
+      e.target.value = '';
     }
-    e.target.value = '';
   }, [slideshowImages.length, selectedElement?.id, flipbookVId]);
 
   const handleReplaceFileChange = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file || replaceTargetIndex === null) return;
 
-    const localImg = await processLocalImageFile(file);
-    if (localImg) {
-      setSlideshowImages(current => {
-        const updated = [...current];
-        if (updated[replaceTargetIndex]) {
-          updated[replaceTargetIndex] = { ...updated[replaceTargetIndex], ...localImg };
-        }
-        if (selectedElement?.id) {
-          saveToDB(`slideshow_${flipbookVId || 'local'}_${selectedElement.id}`, updated).catch(() => {});
-        }
-        return updated;
-      });
-      if (onUpdateRef.current) onUpdateRef.current({ shouldRefresh: true });
+    // Show circular spinner for target slide being replaced
+    setSlideshowImages(current => {
+      const updated = [...current];
+      if (updated[replaceTargetIndex]) {
+        updated[replaceTargetIndex] = { ...updated[replaceTargetIndex], isUploading: true };
+      }
+      return updated;
+    });
+
+    try {
+      const localImg = await processLocalImageFile(file);
+      if (localImg) {
+        setSlideshowImages(current => {
+          const updated = [...current];
+          if (updated[replaceTargetIndex]) {
+            updated[replaceTargetIndex] = { ...updated[replaceTargetIndex], ...localImg, isUploading: false };
+          }
+          if (selectedElement?.id) {
+            saveToDB(`slideshow_${flipbookVId || 'local'}_${selectedElement.id}`, updated).catch(() => {});
+          }
+          return updated;
+        });
+        if (onUpdateRef.current) onUpdateRef.current({ shouldRefresh: true });
+      } else {
+        setSlideshowImages(current => {
+          const updated = [...current];
+          if (updated[replaceTargetIndex]) {
+            updated[replaceTargetIndex] = { ...updated[replaceTargetIndex], isUploading: false };
+          }
+          return updated;
+        });
+      }
+    } finally {
+      e.target.value = '';
+      setReplaceTargetIndex(null);
     }
-    e.target.value = '';
-    setReplaceTargetIndex(null);
   }, [replaceTargetIndex, selectedElement?.id, flipbookVId]);
 
   const handleModalReplace = async (file) => {
@@ -1480,11 +1515,24 @@ const SlideshowEditor = ({ selectedElement, activePageIndex, onUpdate, isOpen, o
 
       {/* ── 1. Top Add Images Button ── */}
       <div
-        onClick={() => fileInputRef.current?.click()}
-        className="w-full border-2 border-dashed border-gray-300 rounded-[0.55vw] bg-white py-[1.1vw] flex items-center justify-center gap-[0.5vw] text-gray-600 hover:text-[#4D47FF] hover:border-[#4D47FF] hover:bg-gray-50/60 cursor-pointer transition-all shadow-2xs group"
+        onClick={() => !isCompressingSlideshow && fileInputRef.current?.click()}
+        className={`w-full border-2 border-dashed rounded-[0.55vw] bg-white py-[1.1vw] flex items-center justify-center gap-[0.5vw] transition-all shadow-2xs group ${
+          isCompressingSlideshow
+            ? 'border-indigo-400 bg-indigo-50/30 cursor-wait text-[#4D47FF]'
+            : 'border-gray-300 text-gray-600 hover:text-[#4D47FF] hover:border-[#4D47FF] hover:bg-gray-50/60 cursor-pointer'
+        }`}
       >
-        <Plus size="1vw" className="text-gray-500 group-hover:text-[#4D47FF] transition-colors" />
-        <span className="text-[0.82vw] font-semibold text-gray-700 group-hover:text-[#4D47FF] transition-colors">Add Images</span>
+        {isCompressingSlideshow ? (
+          <>
+            <Loader2 size="1vw" className="text-[#4D47FF] animate-spin" />
+            <span className="text-[0.82vw] font-semibold text-[#4D47FF]">Compressing images...</span>
+          </>
+        ) : (
+          <>
+            <Plus size="1vw" className="text-gray-500 group-hover:text-[#4D47FF] transition-colors" />
+            <span className="text-[0.82vw] font-semibold text-gray-700 group-hover:text-[#4D47FF] transition-colors">Add Images</span>
+          </>
+        )}
       </div>
 
       <input
@@ -1550,31 +1598,41 @@ const SlideshowEditor = ({ selectedElement, activePageIndex, onUpdate, isOpen, o
                   <div
                     className="relative w-[4.2vw] h-[3.2vw] rounded-[0.4vw] mx-[0.4vw] border border-gray-200 shrink-0 overflow-hidden group/thumb cursor-pointer shadow-2xs"
                     onClick={(e) => {
+                      if (img.isUploading) return;
                       e.stopPropagation();
                       setReplaceTargetIndex(i);
                       replaceInputRef.current?.click();
                     }}
-                    title="Click to replace image"
+                    title={img.isUploading ? "Compressing image..." : "Click to replace image"}
                   >
-                    <img
-                      src={img.url}
-                      alt={img.name || `Slide ${i + 1}`}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%2280%22%20viewBox%3D%220%200%20100%2080%22%3E%3Crect%20fill%3D%22%23f3f4f6%22%20width%3D%22100%22%20height%3D%2280%22%2F%3E%3Ctext%20fill%3D%22%239ca3af%22%20font-family%3D%22sans-serif%22%20font-size%3D%2210%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%20dy%3D%223.5%22%3ENo%20Img%3C%2Ftext%3E%3C%2Fsvg%3E";
-                      }}
-                      style={{
-                        opacity: (img.opacity !== undefined ? img.opacity : 100) / 100,
-                        objectFit: img.fixType === 'Fit' ? 'contain' : img.fixType === 'Stretch' ? 'fill' : 'cover'
-                      }}
-                      className="w-full h-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
-                    />
+                    {img.isUploading ? (
+                      <div className="w-full h-full bg-indigo-50/80 flex flex-col items-center justify-center">
+                        <Loader2 className="w-[1.2vw] h-[1.2vw] text-[#4D47FF] animate-spin" />
+                        <span className="text-[0.45vw] text-[#4D47FF] font-medium mt-[0.1vw]">Compressing</span>
+                      </div>
+                    ) : (
+                      <>
+                        <img
+                          src={img.url}
+                          alt={img.name || `Slide ${i + 1}`}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%2280%22%20viewBox%3D%220%200%20100%2080%22%3E%3Crect%20fill%3D%22%23f3f4f6%22%20width%3D%22100%22%20height%3D%2280%22%2F%3E%3Ctext%20fill%3D%22%239ca3af%22%20font-family%3D%22sans-serif%22%20font-size%3D%2210%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%20dy%3D%223.5%22%3ENo%20Img%3C%2Ftext%3E%3C%2Fsvg%3E";
+                          }}
+                          style={{
+                            opacity: (img.opacity !== undefined ? img.opacity : 100) / 100,
+                            objectFit: img.fixType === 'Fit' ? 'contain' : img.fixType === 'Stretch' ? 'fill' : 'cover'
+                          }}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
+                        />
 
-                    {/* Replace Overlay Button over the image */}
-                    <div className="absolute inset-0 bg-black/45 opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center text-white transition-all duration-200">
-                      <ArrowRightLeft size="0.85vw" strokeWidth={1.8} className="text-white mb-[0.1vw]" />
-                      <span className="text-[0.52vw] font-semibold text-white tracking-wide">Replace</span>
-                    </div>
+                        {/* Replace Overlay Button over the image */}
+                        <div className="absolute inset-0 bg-black/45 opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center text-white transition-all duration-200">
+                          <ArrowRightLeft size="0.85vw" strokeWidth={1.8} className="text-white mb-[0.1vw]" />
+                          <span className="text-[0.52vw] font-semibold text-white tracking-wide">Replace</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div className="flex-1" />

@@ -14,7 +14,7 @@ import initOCCT from "occt-import-js";
 
 import GenericModel from "./GenericModel";
 import { LoadingSpinner } from "./GlobalLoader";
-import { resolveUploadsPath } from "../../../utils/assetUtils";
+import { resolveUploadsPath } from "../../../utils/assets/assetUtils";
 
 // Safe GLTFLoader patch to prevent "Cannot set properties of undefined (setting 'isBone')" crashes on corrupted skin joints
 function applySafeGLTFPatch(LoaderClass) {

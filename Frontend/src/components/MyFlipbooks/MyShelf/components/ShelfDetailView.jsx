@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-import { getAssetBaseUrl } from '../../../../utils/assetUtils';
+import { getAssetBaseUrl } from '../../../../utils/assets/assetUtils';
 import ShelfBookSlot from '../Shelves/ShelfBookSlot';
 import BlueShelf from '../Shelves/BlueShelf';
 import BlueRopeShelf from '../Shelves/BlueRopeShelf';

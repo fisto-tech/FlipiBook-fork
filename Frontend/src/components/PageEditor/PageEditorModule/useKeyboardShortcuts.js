@@ -6,6 +6,8 @@
 
 import { useEffect } from 'react';
 import { checkIsAnimatedWebp } from '../utils/editorUtils';
+import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
+import { getTopLevelFrames, getDirectChildFrames, isPageRootElement, getAllSelectablePageElements } from '../mainEditor/utils/frameHierarchyUtils';
 
 export const useKeyboardShortcuts = ({
   selectedLayerId,
@@ -60,6 +62,26 @@ export const useKeyboardShortcuts = ({
         } else if (e.key.toLowerCase() === 'v') {
           if (clipboard) {
             pasteLayer(activePageIndex);
+          }
+        } else if (e.key.toLowerCase() === 'a') {
+          e.preventDefault();
+          const iframeDoc = document.getElementById('main-flipbook-editor')?.contentDocument;
+          const docs = [iframeDoc, document].filter(Boolean);
+          let svg = null;
+          for (const doc of docs) {
+            const activeContainer = doc.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+            if (activeContainer) {
+              svg = activeContainer.querySelector('svg');
+              if (svg) break;
+            }
+          }
+          if (svg) {
+            const selectable = getAllSelectablePageElements(svg);
+            const ids = selectable.map(el => el.id).filter(Boolean);
+            if (ids.length > 0) {
+              setMultiSelectedIds(new Set(ids));
+              setSelectedLayerId(ids[ids.length - 1]);
+            }
           }
         }
       } else {
@@ -372,6 +394,24 @@ export const useKeyboardShortcuts = ({
           }
           const isSvg = fileToProcess.type === 'image/svg+xml';
 
+          // Fast-path client optimization for pasted images
+          if (!isVideo && !isGif && !isSvg && shouldOptimizeImage(fileToProcess)) {
+            try {
+              const opt = await optimizeImageForWeb(fileToProcess, { maxDimension: 2048, quality: 0.82 });
+              window.dispatchEvent(new CustomEvent('upload-image-to-editor', {
+                detail: {
+                  dataUrl: opt.dataUrl,
+                  pageIndex: activePageIndex,
+                  dataType: 'image',
+                  file: opt.file
+                }
+              }));
+              return;
+            } catch (optErr) {
+              console.warn('[useKeyboardShortcuts] Optimization fallback:', optErr);
+            }
+          }
+
           const reader = new FileReader();
           reader.onload = (event) => {
             const dataUrl = event.target.result;
@@ -401,7 +441,8 @@ export const useKeyboardShortcuts = ({
                 detail: {
                   dataUrl: dataUrl,
                   pageIndex: activePageIndex,
-                  dataType: isSvg ? 'svg' : (isGif ? 'gif' : 'image')
+                  dataType: isSvg ? 'svg' : (isGif ? 'gif' : 'image'),
+                  file: fileToProcess
                 }
               }));
             }
@@ -471,6 +512,23 @@ export const useKeyboardShortcuts = ({
               }
               const isSvg = mediaType === 'image/svg+xml';
 
+              if (!isVideo && !isGif && !isSvg && shouldOptimizeImage(blob)) {
+                try {
+                  const opt = await optimizeImageForWeb(blob, { maxDimension: 2048, quality: 0.82 });
+                  window.dispatchEvent(new CustomEvent('upload-image-to-editor', {
+                    detail: {
+                      dataUrl: opt.dataUrl,
+                      pageIndex: activePageIndex,
+                      dataType: 'image',
+                      file: opt.file
+                    }
+                  }));
+                  break;
+                } catch (optErr) {
+                  console.warn('[useKeyboardShortcuts] Async clipboard optimization fallback:', optErr);
+                }
+              }
+
               const reader = new FileReader();
               reader.onload = (event) => {
                 const dataUrl = event.target.result;
@@ -483,7 +541,8 @@ export const useKeyboardShortcuts = ({
                     detail: {
                       dataUrl: dataUrl,
                       pageIndex: activePageIndex,
-                      dataType: isSvg ? 'svg' : (isGif ? 'gif' : 'image')
+                      dataType: isSvg ? 'svg' : (isGif ? 'gif' : 'image'),
+                      file: blob
                     }
                   }));
                 }

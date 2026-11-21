@@ -839,8 +839,10 @@ const TextPropertiesSubComponentAdapter = ({ selectedElementProps, activePageInd
 
   // Debounce ref to prevent excessive calls to updateElementAttributeLocal
   const updateTimeoutRef = useRef(null);
+  const prevBgRef = useRef(null);
 
   useEffect(() => {
+    prevBgRef.current = null;
     setBackgroundColor({
       fill: selectedElementProps?.fill || '#000000',
       fillOpacity: parseFloat(selectedElementProps?.opacity || 1) * 100,
@@ -892,20 +894,33 @@ const TextPropertiesSubComponentAdapter = ({ selectedElementProps, activePageInd
 
   // Handle updates back to TextEditor
   useEffect(() => {
+    if (!prevBgRef.current) {
+      prevBgRef.current = { ...backgroundColor };
+      return;
+    }
+    const prev = prevBgRef.current;
+    prevBgRef.current = { ...backgroundColor };
+
     if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
     updateTimeoutRef.current = setTimeout(() => {
-      updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill', backgroundColor.fill);
-      updateElementAttributeLocal(activePageIndex, selectedLayerId, 'opacity', (backgroundColor.fillOpacity / 100).toString());
-      if (backgroundColor.fillType) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-type', backgroundColor.fillType);
-      if (backgroundColor.fillGradientType) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-gradient-type', backgroundColor.fillGradientType);
-      if (backgroundColor.fillStops) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-stops', backgroundColor.fillStops);
-      if (backgroundColor.fillAngle !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-angle', backgroundColor.fillAngle.toString());
-      if (backgroundColor.fillRadius !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-radius', backgroundColor.fillRadius.toString());
-      if (backgroundColor.fillRadius !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-radius', backgroundColor.fillRadius.toString());
+      const fillChanged = prev.fill !== backgroundColor.fill || prev.fillOpacity !== backgroundColor.fillOpacity || prev.fillType !== backgroundColor.fillType || prev.fillStops !== backgroundColor.fillStops;
+      const strokeChanged = prev.stroke !== backgroundColor.stroke || prev.strokeOpacity !== backgroundColor.strokeOpacity || prev.strokeWeight !== backgroundColor.strokeWeight || prev.strokeType !== backgroundColor.strokeType || prev.strokeStops !== backgroundColor.strokeStops;
 
-      if (backgroundColor.scrollBarColor !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'data-scrollbar-color', backgroundColor.scrollBarColor);
+      if (fillChanged) {
+        updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill', backgroundColor.fill);
+        updateElementAttributeLocal(activePageIndex, selectedLayerId, 'opacity', (backgroundColor.fillOpacity / 100).toString());
+        if (backgroundColor.fillType) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-type', backgroundColor.fillType);
+        if (backgroundColor.fillGradientType) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-gradient-type', backgroundColor.fillGradientType);
+        if (backgroundColor.fillStops) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-stops', backgroundColor.fillStops);
+        if (backgroundColor.fillAngle !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-angle', backgroundColor.fillAngle.toString());
+        if (backgroundColor.fillRadius !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-radius', backgroundColor.fillRadius.toString());
+      }
 
-      if (backgroundColor.bgFill !== undefined) {
+      if (backgroundColor.scrollBarColor !== undefined && prev.scrollBarColor !== backgroundColor.scrollBarColor) {
+        updateElementAttributeLocal(activePageIndex, selectedLayerId, 'data-scrollbar-color', backgroundColor.scrollBarColor);
+      }
+
+      if (backgroundColor.bgFill !== undefined && (prev.bgFill !== backgroundColor.bgFill || prev.bgFillOpacity !== backgroundColor.bgFillOpacity)) {
         if (backgroundColor.bgFill && backgroundColor.bgFill !== 'transparent' && backgroundColor.bgFill !== 'none' && backgroundColor.bgFill !== '#') {
           updateElementAttributeLocal(activePageIndex, selectedLayerId, 'data-bg-fill', backgroundColor.bgFill);
           if (backgroundColor.bgFillOpacity !== undefined) {
@@ -916,7 +931,7 @@ const TextPropertiesSubComponentAdapter = ({ selectedElementProps, activePageInd
         }
       }
 
-      if (backgroundColor.bgStroke !== undefined) {
+      if (backgroundColor.bgStroke !== undefined && (prev.bgStroke !== backgroundColor.bgStroke || prev.bgStrokeOpacity !== backgroundColor.bgStrokeOpacity || prev.bgStrokeWidth !== backgroundColor.bgStrokeWidth || prev.bgStrokePosition !== backgroundColor.bgStrokePosition)) {
         if (backgroundColor.bgStroke && backgroundColor.bgStroke !== 'none' && backgroundColor.bgStroke !== 'transparent' && backgroundColor.bgStroke !== '#') {
           updateElementAttributeLocal(activePageIndex, selectedLayerId, 'data-bg-stroke', backgroundColor.bgStroke);
           if (backgroundColor.bgStrokeOpacity !== undefined) {
@@ -934,17 +949,23 @@ const TextPropertiesSubComponentAdapter = ({ selectedElementProps, activePageInd
         }
       }
 
-      updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke', backgroundColor.stroke);
-      updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-opacity', (backgroundColor.strokeOpacity / 100).toString());
-      updateElementAttributeLocal(activePageIndex, selectedLayerId, 'strokeWidth', backgroundColor.strokeWeight.toString());
-      if (backgroundColor.strokeType === 'gradient' || backgroundColor.strokeStops) {
-        updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-type', 'gradient');
-        if (backgroundColor.strokeGradientType) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-gradient-type', backgroundColor.strokeGradientType);
-        if (backgroundColor.strokeStops) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-stops', backgroundColor.strokeStops);
-        if (backgroundColor.strokeAngle !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-angle', backgroundColor.strokeAngle.toString());
-        if (backgroundColor.strokeRadius !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-radius', backgroundColor.strokeRadius.toString());
-      } else if (backgroundColor.stroke !== 'none' && !backgroundColor.stroke.includes('url(#')) {
-        updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-type', 'solid');
+      if (strokeChanged) {
+        if (prev.stroke !== backgroundColor.stroke || prev.strokeOpacity !== backgroundColor.strokeOpacity) {
+          updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke', backgroundColor.stroke);
+          updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-opacity', (backgroundColor.strokeOpacity / 100).toString());
+        }
+        if (prev.strokeWeight !== backgroundColor.strokeWeight) {
+          updateElementAttributeLocal(activePageIndex, selectedLayerId, 'strokeWidth', backgroundColor.strokeWeight.toString());
+        }
+        if (backgroundColor.strokeType === 'gradient' || backgroundColor.strokeStops) {
+          updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-type', 'gradient');
+          if (backgroundColor.strokeGradientType) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-gradient-type', backgroundColor.strokeGradientType);
+          if (backgroundColor.strokeStops) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-stops', backgroundColor.strokeStops);
+          if (backgroundColor.strokeAngle !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-angle', backgroundColor.strokeAngle.toString());
+          if (backgroundColor.strokeRadius !== undefined) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-radius', backgroundColor.strokeRadius.toString());
+        } else if (backgroundColor.stroke !== 'none' && !backgroundColor.stroke.includes('url(#')) {
+          updateElementAttributeLocal(activePageIndex, selectedLayerId, 'stroke-type', 'solid');
+        }
       }
 
       const dashVal = backgroundColor.strokeDashStyle === 'Dashed' ? (backgroundColor.strokeDasharrayValue || `${backgroundColor.strokeDashLength || 10},${backgroundColor.strokeDashGap || 10}`) : 'none';
@@ -1077,6 +1098,10 @@ const TextProperties = ({
   const [textAlign, setTextAlign] = useState('left');
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineHeight, setLineHeight] = useState(1.2);
+  // While typing, show the raw text so partial decimals like "1." or "0.0" aren't reformatted away
+  const [letterSpacingDraft, setLetterSpacingDraft] = useState(null);
+  const [lineHeightDraft, setLineHeightDraft] = useState(null);
+  const isCompleteNumber = (v) => /^-?\d*\.?\d+$/.test(String(v).trim());
   const [fontStyle, setFontStyle] = useState('normal');
   const [textDecoration, setTextDecoration] = useState('none');
   const [textTransform, setTextTransform] = useState('none');
@@ -1181,6 +1206,7 @@ const TextProperties = ({
 
   const updateElementAttributeLocal = (pageIdx, elId, attribute, value, skipLiveUpdate = false, immediate = false) => {
     const liveEl = document.getElementById(elId);
+    let appliedToTextSelection = false; // style went to the selected characters only
     const styleProp = STYLE_MAP[attribute];
     let finalVal = value;
     if (attribute === 'fontSize') {
@@ -1190,6 +1216,34 @@ const TextProperties = ({
       finalVal = weightToNumeric(value);
     } else if (attribute === 'letterSpacing' && !value?.toString().includes('px') && !value?.toString().includes('em')) {
       finalVal = `${value}px`;
+    }
+
+    // Text Background on a SELECTED range -> highlight only those characters
+    if ((attribute === 'data-bg-fill' || attribute === 'data-bg-fill-opacity') && !skipLiveUpdate && liveEl) {
+      // (no panel state in this scope: use the call's value, the last highlight color, or the element)
+      if (attribute === 'data-bg-fill') window.__lastTextHighlightFill = value;
+      const fillVal = attribute === 'data-bg-fill'
+        ? value
+        : (window.__lastTextHighlightFill || liveEl.getAttribute('data-bg-fill'));
+      if (attribute === 'data-bg-fill-opacity') window.__lastTextHighlightOpacity = value;
+      const opRaw = attribute === 'data-bg-fill-opacity'
+        ? parseFloat(value)
+        : parseFloat(window.__lastTextHighlightOpacity ?? liveEl.getAttribute('data-bg-fill-opacity') ?? '1');
+      const op = isNaN(opRaw) ? 1 : (opRaw > 1 ? opRaw / 100 : opRaw);
+      const isNone = !fillVal || fillVal === 'none' || fillVal === 'transparent' || fillVal === '#';
+      let highlight = 'transparent';
+      if (!isNone) {
+        let c = String(fillVal).replace('#', '');
+        if (c.length === 3) c = c.split('').map(x => x + x).join('');
+        const num = parseInt(c.slice(0, 6), 16);
+        highlight = isNaN(num) ? fillVal : `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${op})`;
+      }
+      if (applyStyleToActiveTextSelection(elId, 'backgroundColor', highlight)) {
+        const liveTarget = liveEl.querySelector('.flipbook-text-scrollbar') || liveEl.firstElementChild;
+        if (liveTarget) updateElementAttributeLocal(pageIdx, elId, 'innerHTML', liveTarget.innerHTML, true);
+        window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: elId } }));
+        return; // box background stays unchanged
+      }
     }
 
     if (liveEl) {
@@ -1242,11 +1296,27 @@ const TextProperties = ({
             if (styleProp === 'fontFamily' && typeof applyVal === 'string' && !applyVal.includes("'") && !applyVal.includes('"')) {
               applyVal = `'${applyVal}'`;
             }
-            const isCharacterProp = ['fill', 'color', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'textDecoration', 'textTransform'].includes(attribute);
+            const isCharacterProp = [
+              'fill', 'color', 'fontSize', 'fontFamily', 'fontWeight',
+              'fontStyle', 'textDecoration', 'textTransform', 'letterSpacing',
+              'stroke', 'strokeWidth', 'stroke-opacity'
+            ].includes(attribute);
             let selectionApplied = false;
             if (isCharacterProp) {
-              selectionApplied = applyStyleToActiveTextSelection(elId, attribute, value);
+              let runAttr = attribute;
+              let runVal = value;
+              if (attribute === 'stroke' || attribute === 'stroke-opacity') {
+                runAttr = 'strokeColor';
+                const s = attribute === 'stroke' ? finalVal : (liveEl.getAttribute('stroke') || 'none');
+                const op = attribute === 'stroke-opacity' ? finalVal : (liveEl.getAttribute('stroke-opacity') || '1');
+                runVal = getStrokeColorWithOpacity(s, op);
+              } else if (attribute === 'strokeWidth') {
+                runAttr = 'strokeWidth';
+                runVal = `${finalVal}px`;
+              }
+              selectionApplied = applyStyleToActiveTextSelection(elId, runAttr, runVal);
               if (selectionApplied) {
+                appliedToTextSelection = true;
                 const liveTarget = liveEl.querySelector('.flipbook-text-scrollbar') || liveEl.firstElementChild;
                 if (liveTarget) {
                   updateElementAttributeLocal(activePageIndex, elId, 'innerHTML', liveTarget.innerHTML, true);
@@ -1326,21 +1396,30 @@ const TextProperties = ({
                 const contentW = div.scrollWidth;
                 const foW = parseFloat(liveEl.getAttribute('width')) || 0;
                 if (Math.abs(contentW - foW) > 2) {
-                  liveEl.setAttribute('width', contentW + 4);
+                  // keep the box anchored according to its alignment
+                  const newW = contentW + 4;
+                  const oldX = parseFloat(liveEl.getAttribute('x')) || 0;
+                  const align = div.style.textAlign || liveEl.getAttribute('data-text-align') || 'left';
+                  if (align === 'center') liveEl.setAttribute('x', oldX - (newW - foW) / 2);
+                  else if (align === 'right' || align === 'end') liveEl.setAttribute('x', oldX - (newW - foW));
+                  liveEl.setAttribute('width', newW);
                 }
                 div.style.setProperty('width', '100%', 'important');
               }
 
-              div.style.setProperty('height', 'auto', 'important');
-              div.style.setProperty('min-height', '0px', 'important');
-
-              const contentH = div.scrollHeight;
-              const foH = parseFloat(liveEl.getAttribute('height')) || 0;
-
-              if (Math.abs(contentH - foH) > 2 || (mode === 'auto-width' && Math.abs(div.scrollWidth - parseFloat(liveEl.getAttribute('width') || 0)) > 2)) {
-                liveEl.setAttribute('height', contentH + 4);
-                window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: liveEl.id } }));
+              // Fixed boxes keep their size; auto modes grow/shrink height to the content
+              if (mode !== 'fixed') {
+                div.style.setProperty('height', 'auto', 'important');
+                div.style.setProperty('min-height', '0px', 'important');
+                const contentH = div.scrollHeight;
+                const foH = parseFloat(liveEl.getAttribute('height')) || 0;
+                div.style.setProperty('height', '100%', 'important');
+                div.style.setProperty('min-height', '100%', 'important');
+                if (Math.abs(contentH - foH) > 2) {
+                  liveEl.setAttribute('height', contentH + 4);
+                }
               }
+              window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: liveEl.id } }));
             }
           }
           if (attribute === 'stroke' || attribute === 'strokeWidth' || attribute === 'data-stroke-position') {
@@ -1461,11 +1540,21 @@ const TextProperties = ({
         if (attribute === 'data-scrollable') {
           liveEl.setAttribute('data-scrollable', value);
           if (value === 'true') {
-            liveEl.firstElementChild.style.overflowY = 'auto';
-            liveEl.firstElementChild.classList.add('flipbook-text-scrollbar');
-            liveEl.firstElementChild.style.height = '100%';
-            liveEl.firstElementChild.style.overflowX = 'hidden';
-            liveEl.firstElementChild.style.removeProperty('box-sizing');
+            const sd = liveEl.firstElementChild;
+            sd.classList.add('flipbook-text-scrollbar');
+            // !important: Fixed mode sets `overflow: visible !important`, which would win otherwise
+            sd.style.setProperty('overflow', 'hidden', 'important');
+            sd.style.setProperty('overflow-y', 'auto', 'important');
+            sd.style.setProperty('overflow-x', 'hidden', 'important');
+            sd.style.setProperty('height', '100%', 'important');
+            // Block layout: a centered flex column makes overflowing text unreachable at the top
+            sd.style.setProperty('display', 'block', 'important');
+            sd.style.setProperty('justify-content', 'flex-start', 'important');
+            // Scroll container must fit the box exactly (padding inside, never taller than the box),
+            // otherwise the box clips the last lines and they can't be scrolled into view.
+            sd.style.setProperty('box-sizing', 'border-box', 'important');
+            sd.style.setProperty('min-height', '0px', 'important');
+            sd.style.setProperty('max-height', '100%', 'important');
             liveEl.firstElementChild.style.removeProperty('margin');
             // liveEl.firstElementChild.style.removeProperty('padding');
             // liveEl.firstElementChild.style.border = 'none'; // Border is on the SVG element, not the div
@@ -1525,6 +1614,8 @@ const TextProperties = ({
         }
       }
     }
+
+    if (appliedToTextSelection) return;
 
     const executeCommit = () => {
       window.__skipCanvasUpdateForPage = pageIdx;
@@ -1710,16 +1801,20 @@ const TextProperties = ({
                   liveEl.firstElementChild.style.setProperty('width', '100%', 'important');
                 }
 
-                liveEl.firstElementChild.style.setProperty('height', 'auto', 'important');
-                liveEl.firstElementChild.style.setProperty('min-height', '0px', 'important');
+                if (mode !== 'fixed') {
+                  liveEl.firstElementChild.style.setProperty('height', 'auto', 'important');
+                  liveEl.firstElementChild.style.setProperty('min-height', '0px', 'important');
 
-                const contentH = liveEl.firstElementChild.scrollHeight;
-                const foH = parseFloat(liveEl.getAttribute('height')) || 0;
+                  const contentH = liveEl.firstElementChild.scrollHeight;
+                  const foH = parseFloat(liveEl.getAttribute('height')) || 0;
+                  liveEl.firstElementChild.style.setProperty('height', '100%', 'important');
+                  liveEl.firstElementChild.style.setProperty('min-height', '100%', 'important');
 
-                if (Math.abs(contentH - foH) > 2 || mode === 'auto-width') {
-                  liveEl.setAttribute('height', contentH + 4);
-                  window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: liveEl.id } }));
+                  if (Math.abs(contentH - foH) > 2 || mode === 'auto-width') {
+                    liveEl.setAttribute('height', contentH + 4);
+                  }
                 }
+                window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: liveEl.id } }));
               }
             } else if (liveTag === 'text') {
               if (!skipLiveUpdate) {
@@ -1755,6 +1850,13 @@ const TextProperties = ({
             Array.from(tempDoc.body.firstChild.childNodes).forEach(child => {
               elemTarget.appendChild(doc.importNode(child, true));
             });
+
+            // Keep the saved container in block flow too (flex column splits styled runs into lines)
+            if (elemTarget.style && String(elemTarget.style.display).includes('flex')) {
+              elemTarget.style.setProperty('display', 'block', 'important');
+              elemTarget.style.removeProperty('flex-direction');
+              elemTarget.style.removeProperty('justify-content');
+            }
 
             // Mirror live DOM dimensions to Virtual DOM
             if (liveEl && liveEl.getAttribute('data-scrollable') !== 'true' && liveEl.getAttribute('data-auto-wrap') !== 'false') {
@@ -1924,6 +2026,10 @@ const TextProperties = ({
               div.style.removeProperty('box-sizing');
               div.style.removeProperty('margin');
 
+              // Wrappers must fill the box so the inner scroller has a real height to scroll within
+              [outer, viewport].forEach(w => w.setAttribute('style', 'width:100%;height:100%;box-sizing:border-box;overflow:hidden;position:relative;'));
+              div.style.setProperty('box-sizing', 'border-box', 'important');
+
               parentFo.replaceChild(outer, div);
               outer.appendChild(viewport);
               viewport.appendChild(div);
@@ -1943,9 +2049,9 @@ const TextProperties = ({
               targetDiv.style.setProperty('width', mode === 'fixed' ? '100%' : 'calc(100% + 4px)', 'important');
               targetDiv.style.setProperty('overflow-x', 'visible', 'important');
               if (mode !== 'fixed') {
-                targetDiv.style.display = 'flex';
-                targetDiv.style.flexDirection = 'column';
-                targetDiv.style.justifyContent = 'center';
+                targetDiv.style.setProperty('display', 'block', 'important'); // keep styled runs inline
+                targetDiv.style.removeProperty('flex-direction');
+                targetDiv.style.removeProperty('justify-content');
               } else {
                 targetDiv.style.setProperty('display', 'block', 'important');
                 targetDiv.style.removeProperty('flex-direction');
@@ -1997,9 +2103,9 @@ const TextProperties = ({
                 targetDiv.style.setProperty('height', '100%', 'important');
                 targetDiv.style.setProperty('width', mode === 'fixed' ? '100%' : 'calc(100% + 4px)', 'important');
                 if (mode !== 'fixed') {
-                  targetDiv.style.display = 'flex';
-                  targetDiv.style.flexDirection = 'column';
-                  targetDiv.style.justifyContent = 'center';
+                  targetDiv.style.setProperty('display', 'block', 'important'); // keep styled runs inline
+                  targetDiv.style.removeProperty('flex-direction');
+                  targetDiv.style.removeProperty('justify-content');
                 } else {
                   targetDiv.style.setProperty('display', 'block', 'important');
                   targetDiv.style.removeProperty('flex-direction');
@@ -2060,6 +2166,14 @@ const TextProperties = ({
             }
             const attrName = SVG_ATTR_MAP[attribute] || attribute;
             element.setAttribute(attrName, value);
+
+            // Layout-affecting styles may have resized the live box: mirror its geometry
+            if (tag === 'foreignobject' && liveEl && liveEl.getAttribute('data-scrollable') !== 'true') {
+              ['x', 'width', 'height'].forEach(a => {
+                const v = liveEl.getAttribute(a);
+                if (v !== null) element.setAttribute(a, v);
+              });
+            }
 
             if (liveEl) {
               if (liveEl.firstElementChild) {
@@ -2182,12 +2296,60 @@ const TextProperties = ({
             if (element.firstElementChild) {
               element.firstElementChild.style.setProperty('--' + attribute.substring(5), value, 'important');
             }
+            // Persist the real background/border on the text container so it also shows for
+            // non-scrollable text in preview/export (not only via the scrollable wrapper's CSS var).
+            const bgTarget = element.querySelector('.flipbook-text-outer') || element.firstElementChild;
+            if (bgTarget && bgTarget.style) {
+              const fill = element.getAttribute('data-bg-fill');
+              const fillOp = element.getAttribute('data-bg-fill-opacity') ?? '1';
+              if (fill && fill !== 'none' && fill !== 'transparent' && fill !== '#') {
+                let c = fill.replace('#', '');
+                if (c.length === 3) c = c.split('').map(x => x + x).join('');
+                const num = parseInt(c.slice(0, 6), 16);
+                const op = parseFloat(fillOp);
+                const a = isNaN(op) ? 1 : (op > 1 ? op / 100 : op);
+                bgTarget.style.setProperty('background-color', isNaN(num) ? fill : `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${a})`, 'important');
+              } else {
+                bgTarget.style.removeProperty('background-color');
+              }
+              const bs = element.getAttribute('data-bg-stroke');
+              const bw = parseFloat(element.getAttribute('data-bg-stroke-width') || '0');
+              const dash = element.getAttribute('data-bg-stroke-dasharray');
+              if (bs && bs !== 'none' && bs !== 'transparent' && bw > 0) {
+                bgTarget.style.setProperty('border', `${bw}px ${(dash && dash !== 'none') ? 'dashed' : 'solid'} ${bs}`, 'important');
+              } else {
+                bgTarget.style.removeProperty('border');
+              }
+            }
           }
           if (attribute === 'data-scrollbar-color') {
-            // Virtual DOM only needs the attribute; MainEditor observer handles the style
+            // Persist on the box + scroller so preview/export use the chosen color
+            [element, liveEl].forEach(fo => {
+              if (!fo) return;
+              fo.style.setProperty('--scrollbar-color', value);
+              fo.querySelectorAll('.flipbook-text-scrollbar').forEach(sc => {
+                sc.style.setProperty('--scrollbar-color', value);
+                sc.style.setProperty('scrollbar-color', `${value} transparent`, 'important');
+              });
+            });
           }
           if (liveEl) {
             liveEl.setAttribute(attribute, value);
+          }
+
+          // Switching sizing mode resizes the live box: persist its geometry + text layout
+          // so the new size survives undo / page switch / reload.
+          if (attribute === 'data-sizing-mode' && tag === 'foreignobject' && liveEl) {
+            ['x', 'y', 'width', 'height'].forEach(a => {
+              const v = liveEl.getAttribute(a);
+              if (v !== null) element.setAttribute(a, v);
+            });
+            const liveDiv = liveEl.firstElementChild;
+            const storedDiv = element.firstElementChild;
+            if (liveDiv && storedDiv && liveEl.getAttribute('data-scrollable') !== 'true') {
+              const st = liveDiv.getAttribute('style');
+              if (st !== null) storedDiv.setAttribute('style', st);
+            }
           }
 
           // Handle scrollable updates for virtual doc
@@ -2504,11 +2666,26 @@ const TextProperties = ({
         }
       }
 
-      const isCharacterProp = ['fill', 'color', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'textDecoration', 'textTransform'].includes(property);
+      const isCharacterProp = [
+        'fill', 'color', 'fontSize', 'fontFamily', 'fontWeight',
+        'fontStyle', 'textDecoration', 'textTransform', 'letterSpacing',
+        'stroke', 'strokeWidth', 'stroke-opacity'
+      ].includes(property);
       let selectionApplied = false;
 
       if (isCharacterProp) {
-        selectionApplied = applyStyleToActiveTextSelection(selectedLayerId, property, value);
+        let runProp = property;
+        let runVal = value;
+        if (property === 'stroke' || property === 'stroke-opacity') {
+          runProp = 'strokeColor';
+          const s = property === 'stroke' ? value : (el.getAttribute('stroke') || 'none');
+          const op = property === 'stroke-opacity' ? value : (el.getAttribute('stroke-opacity') || '1');
+          runVal = getStrokeColorWithOpacity(s, op);
+        } else if (property === 'strokeWidth') {
+          runProp = 'strokeWidth';
+          runVal = `${value}px`;
+        }
+        selectionApplied = applyStyleToActiveTextSelection(selectedLayerId, runProp, runVal);
       }
 
       if (selectionApplied) {
@@ -2727,13 +2904,19 @@ const TextProperties = ({
       if (mode === 'auto-width') {
         // Single line, no wrap — grow width to fit content
         div.style.setProperty('white-space', 'pre', 'important');
+        div.style.setProperty('overflow-wrap', 'normal', 'important');
         div.style.setProperty('overflow', 'visible', 'important');
         div.style.setProperty('height', 'auto', 'important');
         div.style.setProperty('min-height', '0px', 'important');
         div.style.setProperty('width', 'max-content', 'important');
-        // Measure and apply
+        // Measure and apply (keep the box anchored according to its text alignment)
         const newW = div.scrollWidth + 4;
         const newH = div.scrollHeight + 4;
+        const oldW = parseFloat(liveEl.getAttribute('width')) || newW;
+        const oldX = parseFloat(liveEl.getAttribute('x')) || 0;
+        const align = div.style.textAlign || liveEl.getAttribute('data-text-align') || 'left';
+        if (align === 'center') liveEl.setAttribute('x', oldX - (newW - oldW) / 2);
+        else if (align === 'right' || align === 'end') liveEl.setAttribute('x', oldX - (newW - oldW));
         liveEl.setAttribute('width', newW);
         liveEl.setAttribute('height', newH);
         // Fix div back to 100%
@@ -2743,20 +2926,24 @@ const TextProperties = ({
       } else if (mode === 'auto-height') {
         // Wrap text, grow height
         div.style.setProperty('white-space', 'pre-wrap', 'important');
+        div.style.setProperty('overflow-wrap', 'break-word', 'important');
         div.style.setProperty('overflow', 'visible', 'important');
         div.style.setProperty('height', 'auto', 'important');
         div.style.setProperty('min-height', '0px', 'important');
         div.style.setProperty('width', '100%', 'important');
         const newH = div.scrollHeight + 4;
         liveEl.setAttribute('height', newH);
+        div.style.setProperty('height', '100%', 'important');
 
       } else if (mode === 'fixed') {
         // Both dimensions fixed, overflow visible unless scrollable is enabled
         div.style.setProperty('white-space', 'pre-wrap', 'important');
+        div.style.setProperty('overflow-wrap', 'break-word', 'important');
         div.style.setProperty('overflow', 'visible', 'important');
         div.style.setProperty('height', '100%', 'important');
         div.style.setProperty('width', '100%', 'important');
         div.style.setProperty('display', 'block', 'important');
+        div.style.setProperty('justify-content', 'flex-start', 'important'); // text starts at the top
       }
 
       window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: liveEl.id } }));
@@ -3276,12 +3463,15 @@ const TextProperties = ({
         <div className="flex-1 flex items-center justify-between border border-gray-300 rounded-[0.45vw] px-[0.55vw] h-[2.1vw] bg-white hover:border-gray-400 focus-within:border-gray-400 shadow-2xs transition-colors">
           <input
             type="text"
-            value={letterSpacing}
+            inputMode="decimal"
+            value={letterSpacingDraft ?? letterSpacing}
             onChange={(e) => {
-              setLetterSpacing(e.target.value);
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) updateStyle('letterSpacing', val);
+              const raw = e.target.value;
+              if (!/^-?\d*\.?\d*$/.test(raw)) return; // digits, one decimal point, optional minus
+              setLetterSpacingDraft(raw);
+              if (isCompleteNumber(raw)) updateStyle('letterSpacing', parseFloat(raw));
             }}
+            onBlur={() => setLetterSpacingDraft(null)}
             className="w-full bg-transparent outline-none text-[0.8vw] text-gray-800 font-medium"
           />
           <div
@@ -3297,12 +3487,15 @@ const TextProperties = ({
         <div className="flex-1 flex items-center justify-between border border-gray-300 rounded-[0.45vw] px-[0.55vw] h-[2.1vw] bg-white hover:border-gray-400 focus-within:border-gray-400 shadow-2xs transition-colors">
           <input
             type="text"
-            value={lineHeight}
+            inputMode="decimal"
+            value={lineHeightDraft ?? lineHeight}
             onChange={(e) => {
-              setLineHeight(e.target.value);
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val)) updateStyle('lineHeight', val);
+              const raw = e.target.value;
+              if (!/^\d*\.?\d*$/.test(raw)) return; // digits and one decimal point
+              setLineHeightDraft(raw);
+              if (isCompleteNumber(raw) && parseFloat(raw) > 0) updateStyle('lineHeight', parseFloat(raw));
             }}
+            onBlur={() => setLineHeightDraft(null)}
             className="w-full bg-transparent outline-none text-[0.8vw] text-gray-800 font-medium"
           />
           <div

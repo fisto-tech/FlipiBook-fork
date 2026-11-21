@@ -13,7 +13,8 @@ import {
   MoreVertical,
   Upload,
   Trash2,
-  Edit2
+  Edit2,
+  ChevronsLeft
 } from 'lucide-react';
 import NavIconStylesPopup, { NavIconRenderer } from '../popups/NavIconStylesPopup';
 import { ImageCropOverlay } from '../AppearanceShared';
@@ -1058,7 +1059,7 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
   }
 
   return (
-    <div className="flex flex-col h-full bg-white relative overflow-visible">
+    <div className="flex flex-col h-full bg-transparent relative overflow-visible">
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -1075,8 +1076,8 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
           <Icon icon="lucide:settings" className="w-[1vw] h-[1vw] text-gray-700 font-semibold" />
           <span className="text-[1vw] font-semibold text-gray-900">Other Setup</span>
         </div>
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-900">
-          <Icon icon="ic:round-arrow-back" className="w-[1.25vw] h-[1.25vw]" />
+        <button onClick={onBack} className="w-[2vw] h-[2vw] rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all active:scale-90">
+          <ChevronsLeft className="w-[1.2vw] h-[1.2vw]" strokeWidth={2.2} />
         </button>
       </div>
 

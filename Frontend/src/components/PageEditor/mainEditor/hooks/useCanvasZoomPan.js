@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 
 const calculateFitZoom = (containerWidth, containerHeight, baseWidth, baseHeight) => {
   const padding = window.innerWidth * 0.01;
@@ -22,6 +22,31 @@ const calculateFitZoom = (containerWidth, containerHeight, baseWidth, baseHeight
 };
 
 /**
+ * Calculates pan boundaries to ensure the canvas book/sheet is never hidden or lost out of view.
+ * Guarantees that at least a comfortable margin of the sheet remains visible on screen at all times.
+ */
+export const computePanBounds = (containerEl, zoomContainerEl, currentScale = 1, baseW = 210, baseH = 297) => {
+  const containerWidth = containerEl?.clientWidth || window.innerWidth;
+  const containerHeight = containerEl?.clientHeight || window.innerHeight;
+
+  const sheetEl = zoomContainerEl?.querySelector?.('.group\\/page') || zoomContainerEl?.firstElementChild || zoomContainerEl;
+  const unscaledW = sheetEl?.offsetWidth || ((containerHeight * 0.78) * ((baseW || 210) / (baseH || 297))) || 500;
+  const unscaledH = sheetEl?.offsetHeight || (containerHeight * 0.78) || 700;
+
+  const scaledW = unscaledW * currentScale;
+  const scaledH = unscaledH * currentScale;
+
+  // At least 100px or 30% of sheet must always remain inside the viewport boundary
+  const minVisibleX = Math.min(100, scaledW * 0.3);
+  const minVisibleY = Math.min(100, scaledH * 0.3);
+
+  const maxPanX = Math.max(0, (containerWidth / 2) + (scaledW / 2) - minVisibleX);
+  const maxPanY = Math.max(0, (containerHeight / 2) + (scaledH / 2) - minVisibleY);
+
+  return { maxPanX, maxPanY };
+};
+
+/**
  * Hook to manage smooth canvas zooming, panning, auto-fit to container,
  * mouse wheel zoom gestures, and window resize listeners.
  */
@@ -42,6 +67,13 @@ export const useCanvasZoomPan = ({
   lastWheelTimeRef,
   suppressClickRef
 }) => {
+  // Smooth wheel-zoom & smooth wheel-pan animation state
+  const targetZoomRef = useRef(null);
+  const zoomAnchorRef = useRef({ x: 0, y: 0 });
+  const panRafRef = useRef(null);
+  const targetPanRef = useRef(null);
+  const suppressClickTimeoutRef = useRef(null);
+
   const handleZoomIn = () => {
     const currentP = currentPanRef.current || pan || { x: 0, y: 0 };
     setZoom(prev => {
@@ -50,7 +82,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -64,7 +96,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -110,13 +142,17 @@ export const useCanvasZoomPan = ({
   }, [activePageIndex, pagesCount, baseWidth, baseHeight, handleAutoFitZoom]);
 
   // Sync pan & zoom tracking refs
+  // (skipped while a wheel-zoom animation runs: the refs are the live source of truth
+  //  then, and syncing from a lagging render would snap the canvas backwards)
   useEffect(() => {
+    if (wheelRafRef.current) return;
     currentPanRef.current = pan;
-  }, [pan, currentPanRef]);
+  }, [pan, currentPanRef, wheelRafRef]);
 
   useEffect(() => {
+    if (wheelRafRef.current) return;
     currentZoomRef.current = zoom;
-  }, [zoom, currentZoomRef]);
+  }, [zoom, currentZoomRef, wheelRafRef]);
 
   // Maintain fit on window/container resize
   useEffect(() => {
@@ -133,76 +169,210 @@ export const useCanvasZoomPan = ({
     const el = editorContainerRef.current;
     if (!el) return;
     const handleWheel = (e) => {
-      if (e.target.closest('.editor-ss-overlay') || e.target.closest('input')) return;
+      if (e.target.closest('.editor-ss-overlay, input, textarea, select, .flipbook-text-scrollbar, [contenteditable="true"], [data-scrollable="true"]')) return;
+      if (window.__isAdjustingShapeImage) return;
+
       if (e.ctrlKey || e.metaKey || e.altKey) {
         e.preventDefault();
         e.stopPropagation();
 
         lastWheelTimeRef.current = Date.now();
         suppressClickRef.current = true;
-        setTimeout(() => { suppressClickRef.current = false; }, 200);
+        if (suppressClickTimeoutRef.current) clearTimeout(suppressClickTimeoutRef.current);
+        suppressClickTimeoutRef.current = setTimeout(() => { suppressClickRef.current = false; }, 200);
 
         const containerEl = zoomContainerRef.current;
         if (!containerEl) return;
 
-        const currentZoom = currentZoomRef.current || zoom || 100;
-        const currentPan = currentPanRef.current || pan || { x: 0, y: 0 };
         const minZ = 10;
         const maxZ = 500;
 
-        let factor;
-        if (Math.abs(e.deltaY) >= 40) {
-          factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
-        } else {
-          factor = Math.exp(-e.deltaY * 0.005);
-        }
+        // Normalize delta (line/page modes) and convert to a continuous zoom factor
+        let delta = e.deltaY;
+        if (e.deltaMode === 1) delta *= 16;
+        else if (e.deltaMode === 2) delta *= 100;
+        delta = Math.max(-100, Math.min(100, delta));
+        const factor = Math.exp(-delta * 0.0035);
 
-        let newZoom = Math.round(currentZoom * factor * 10) / 10;
-        newZoom = Math.min(Math.max(newZoom, minZ), maxZ);
-
-        if (Math.abs(newZoom - currentZoom) < 0.01) return;
-
-        const currentScale = currentZoom / 100;
-        const newScale = newZoom / 100;
-
-        const editorRect = el.getBoundingClientRect();
-        const centerScreenX = editorRect.left + editorRect.width / 2 + currentPan.x;
-        const centerScreenY = editorRect.top + editorRect.height / 2 + currentPan.y;
-
-        const mouseOffsetX = e.clientX - centerScreenX;
-        const mouseOffsetY = e.clientY - centerScreenY;
-
-        const scaleRatio = newScale / currentScale;
-        const newPanX = currentPan.x + mouseOffsetX * (1 - scaleRatio);
-        const newPanY = currentPan.y + mouseOffsetY * (1 - scaleRatio);
-
-        const newPan = { x: newPanX, y: newPanY };
-
-        currentZoomRef.current = newZoom;
-        currentPanRef.current = newPan;
+        // Accumulate on the animation target so rapid wheel ticks stack smoothly
+        const baseZoom = targetZoomRef.current ?? (currentZoomRef.current || zoom || 100);
+        const newTarget = Math.min(Math.max(baseZoom * factor, minZ), maxZ);
+        targetZoomRef.current = newTarget;
+        zoomAnchorRef.current = { x: e.clientX, y: e.clientY };
 
         containerEl.style.transition = 'none';
-        containerEl.style.transform = `translate(${newPanX}px, ${newPanY}px) scale(${newScale})`;
 
+        if (wheelRafRef.current) return; // animation already running
+
+        const step = () => {
+          const target = targetZoomRef.current;
+          const currentZoom = currentZoomRef.current || 100;
+          const currentPan = currentPanRef.current || { x: 0, y: 0 };
+
+          const diff = target - currentZoom;
+          const done = Math.abs(diff) < 0.02;
+          const nextZoom = done ? target : currentZoom + diff * 0.22;
+
+          // Keep the point under the cursor fixed while scaling
+          const editorRect = el.getBoundingClientRect();
+          const centerX = editorRect.left + editorRect.width / 2 + currentPan.x;
+          const centerY = editorRect.top + editorRect.height / 2 + currentPan.y;
+          const ratio = nextZoom / currentZoom;
+          const rawNextX = currentPan.x + (zoomAnchorRef.current.x - centerX) * (1 - ratio);
+          const rawNextY = currentPan.y + (zoomAnchorRef.current.y - centerY) * (1 - ratio);
+
+          const { maxPanX, maxPanY } = computePanBounds(el, zoomContainerRef.current, nextZoom / 100, baseWidth, baseHeight);
+          const clampedX = Math.min(Math.max(rawNextX, -maxPanX), maxPanX);
+          const clampedY = Math.min(Math.max(rawNextY, -maxPanY), maxPanY);
+          const nextPan = { x: clampedX, y: clampedY };
+
+          currentZoomRef.current = nextZoom;
+          currentPanRef.current = nextPan;
+          if (zoomContainerRef.current) {
+            zoomContainerRef.current.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0px) scale(${nextZoom / 100})`;
+          }
+          window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextPan }));
+
+          // Commit every frame so selection box / handles (which counter-scale by zoom)
+          // stay a constant on-screen size throughout the animation
+          setZoom(nextZoom); // unrounded so zoom & pan stay consistent (display rounds)
+          setPan(nextPan);
+
+          if (done) {
+            wheelRafRef.current = null;
+            targetZoomRef.current = null;
+            return;
+          }
+          wheelRafRef.current = requestAnimationFrame(step);
+        };
+        wheelRafRef.current = requestAnimationFrame(step);
+      } else {
+        // Standard Scroll:
+        // - Normal scroll: sheet moves top and bottom
+        // - Shift + scroll: sheet moves left and right
+        e.preventDefault();
+        e.stopPropagation();
+
+        lastWheelTimeRef.current = Date.now();
+        suppressClickRef.current = true;
+        if (suppressClickTimeoutRef.current) clearTimeout(suppressClickTimeoutRef.current);
+        suppressClickTimeoutRef.current = setTimeout(() => { suppressClickRef.current = false; }, 200);
+
+        const containerEl = zoomContainerRef.current;
+        if (!containerEl) return;
+
+        // Cancel any running wheel-zoom animation so it doesn't fight pan
         if (wheelRafRef.current) {
           cancelAnimationFrame(wheelRafRef.current);
+          wheelRafRef.current = null;
+          targetZoomRef.current = null;
         }
-        wheelRafRef.current = requestAnimationFrame(() => {
-          setZoom(newZoom);
-          setPan(newPan);
-        });
 
-        window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: newPan }));
+        let multiplier = 1;
+        if (e.deltaMode === 1) multiplier = 16;
+        else if (e.deltaMode === 2) multiplier = 100;
+
+        let dx = 0;
+        let dy = 0;
+
+        if (e.shiftKey) {
+          // Shift + scroll -> Move sheet left and right
+          const rawDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          dx = rawDelta * multiplier;
+          dy = 0;
+        } else {
+          // Normal scroll -> Move sheet top and bottom (and trackpad horizontal if deltaX present)
+          dx = e.deltaX * multiplier;
+          dy = e.deltaY * multiplier;
+        }
+
+        const currentP = currentPanRef.current || pan || { x: 0, y: 0 };
+        const currentZ = currentZoomRef.current || zoom || 100;
+        const currentScale = currentZ / 100;
+
+        const { maxPanX, maxPanY } = computePanBounds(el, containerEl, currentScale, baseWidth, baseHeight);
+
+        // Accumulate displacement on targetPan so rapid wheel ticks stack smoothly with natural momentum
+        const baseTargetX = targetPanRef.current ? targetPanRef.current.x : currentP.x;
+        const baseTargetY = targetPanRef.current ? targetPanRef.current.y : currentP.y;
+
+        const nextTargetX = Math.min(Math.max(baseTargetX - dx, -maxPanX), maxPanX);
+        const nextTargetY = Math.min(Math.max(baseTargetY - dy, -maxPanY), maxPanY);
+
+        targetPanRef.current = { x: nextTargetX, y: nextTargetY };
+
+        if (panRafRef.current) return; // animation already gliding smoothly
+
+        const panStep = () => {
+          if (!targetPanRef.current) {
+            panRafRef.current = null;
+            return;
+          }
+          const target = targetPanRef.current;
+          const curr = currentPanRef.current || { x: 0, y: 0 };
+          const diffX = target.x - curr.x;
+          const diffY = target.y - curr.y;
+
+          const doneX = Math.abs(diffX) < 0.25;
+          const doneY = Math.abs(diffY) < 0.25;
+
+          // Smooth exponential ease-out interpolation
+          const stepX = doneX ? target.x : curr.x + diffX * 0.28;
+          const stepY = doneY ? target.y : curr.y + diffY * 0.28;
+
+          const currZ = currentZoomRef.current || zoom || 100;
+          const scale = currZ / 100;
+
+          const nextP = { x: stepX, y: stepY };
+          currentPanRef.current = nextP;
+
+          if (zoomContainerRef.current) {
+            zoomContainerRef.current.style.transition = 'none';
+            zoomContainerRef.current.style.transform = `translate3d(${stepX}px, ${stepY}px, 0px) scale(${scale})`;
+          }
+          window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextP }));
+
+          setPan(nextP);
+
+          if (doneX && doneY) {
+            panRafRef.current = null;
+            targetPanRef.current = null;
+            return;
+          }
+
+          panRafRef.current = requestAnimationFrame(panStep);
+        };
+
+        panRafRef.current = requestAnimationFrame(panStep);
       }
     };
+
+    const handleMouseDown = () => {
+      // If user starts clicking or dragging with hand/spacebar, immediately freeze any active glide
+      if (panRafRef.current) {
+        cancelAnimationFrame(panRafRef.current);
+        panRafRef.current = null;
+        targetPanRef.current = null;
+      }
+    };
+
     el.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    el.addEventListener('mousedown', handleMouseDown, { capture: true });
     return () => {
       el.removeEventListener('wheel', handleWheel, { capture: true });
-      if (wheelRafRef.current) {
-        cancelAnimationFrame(wheelRafRef.current);
-      }
+      el.removeEventListener('mousedown', handleMouseDown, { capture: true });
     };
   }, [currentPanRef, currentZoomRef, editorContainerRef, lastWheelTimeRef, pan, setPan, setZoom, suppressClickRef, wheelRafRef, zoom, zoomContainerRef]);
+
+  // Cancel any running wheel-zoom or pan animation on unmount
+  useEffect(() => () => {
+    if (wheelRafRef.current) cancelAnimationFrame(wheelRafRef.current);
+    if (panRafRef.current) cancelAnimationFrame(panRafRef.current);
+    if (suppressClickTimeoutRef.current) clearTimeout(suppressClickTimeoutRef.current);
+    wheelRafRef.current = null;
+    panRafRef.current = null;
+    targetPanRef.current = null;
+  }, [wheelRafRef]);
 
   return {
     handleZoomIn,

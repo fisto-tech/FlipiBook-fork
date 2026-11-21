@@ -5,8 +5,8 @@ import ProfileModal from '../Settings/ProfileModal';
 import NotificationDrawer from '../Notification/NotificationDrawer';
 import { Bell, ArrowRight, ChevronDown, Menu, X, Monitor, Laptop } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { verifyToken, getInitialUser } from '../../utils/authUtils';
-import { resolveUploadsPath } from '../../utils/assetUtils';
+import { verifyToken, getInitialUser } from '../../utils/auth/authUtils';
+import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 
 const FlipibookLogo = '/Login/logo.svg';
 

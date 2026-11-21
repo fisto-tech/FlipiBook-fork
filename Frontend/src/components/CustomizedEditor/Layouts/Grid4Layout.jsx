@@ -331,6 +331,8 @@ const Grid4Layout = ({
 
     const localOffset = React.useMemo(() => {
         if (offset === 0) return 0; // Use offset prop to respect single page mode
+        // Follow the offset sign from PreviewArea (set when a turn STARTS) so centring glides with the page
+        if (typeof offset === 'number') return offset < 0 ? -(dimWidth / 2) : (dimWidth / 2);
         if (currentPage === 0) {
             return -(dimWidth / 2);
         } else if (currentPage >= pages.length - 1) {
@@ -519,7 +521,8 @@ const Grid4Layout = ({
                     <div
                         className="transition-transform duration-600 ease-in-out"
                         style={{
-                            transform: `translateX(${localOffset}px) scale(1)`,
+                            translate: `${localOffset}px 0`, transform: `scale(1)`,
+                            transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.6s ease-in-out',
                             transformOrigin: 'center center'
                         }}
                     >
@@ -1089,6 +1092,8 @@ const Grid4Layout = ({
                         const isPortraitLayout = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
                         const isSinglePage = isPortraitLayout || isCover || isBackCover;
                         const bookHalfWidth = isSinglePage ? dimWidth / 2 : dimWidth;
+                        // Arrows sit at the spread position; the cover/back-cover shift is a GPU `translate` (no per-frame layout)
+                        const arrowShift = (isCover || isBackCover) && !isPortraitLayout ? bookHalfWidth : 0;
                         const gap = 3.5;
                         return (
                             <>
@@ -1098,10 +1103,11 @@ const Grid4Layout = ({
                                         style={{
                                             color: getLayoutColor('toolbar-icon', '#FFFFFF'),
                                             backgroundColor: getLayoutColorRgba('toolbar-bg', '87, 92, 156', '0.15'),
-                                            left: `calc(50% - ${bookHalfWidth}px - ${gap}vw)`,
+                                            left: `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`,
                                             opacity: hasPrev ? 1 : 0,
                                             pointerEvents: hasPrev ? 'auto' : 'none',
-                                            transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                            translate: `calc(${arrowShift}px - var(--fbe-arrow-nudge, 0px)) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                         }}
                                         onClick={() => {
                                             if (!hasPrev) return;
@@ -1117,10 +1123,11 @@ const Grid4Layout = ({
                                         style={{
                                             color: getLayoutColor('toolbar-icon', '#FFFFFF'),
                                             backgroundColor: getLayoutColorRgba('toolbar-bg', '87, 92, 156', '0.15'),
-                                            right: `calc(50% - ${bookHalfWidth}px - ${gap}vw)`,
+                                            right: `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`,
                                             opacity: hasNext ? 1 : 0,
                                             pointerEvents: hasNext ? 'auto' : 'none',
-                                            transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                            translate: `calc(var(--fbe-arrow-nudge, 0px) - ${arrowShift}px) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                         }}
                                         onClick={() => {
                                             if (!hasNext) return;
@@ -1203,7 +1210,8 @@ const Grid4Layout = ({
                         <div
                             className="transition-transform duration-600 ease-in-out"
                             style={{
-                                transform: `translateX(${localOffset}px) scale(1)`,
+                                translate: `${localOffset}px 0`, transform: `scale(1)`,
+                                transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.6s ease-in-out',
                                 transformOrigin: 'center center'
                             }}
                         >
