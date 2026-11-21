@@ -32,15 +32,15 @@ export const extractPageTexture = (rawContent, pageNum = '') => {
 /* Inner-seam (spine) shadows. Rendered inside each page so they curl with the paper,
  * and duplicated above live overlay iframes so they stay visible at rest. */
 export const SPINE_SHADOWS = {
+    // Same look as the Home page books (components/common/TurnBook.jsx). Widths are % of the page width.
     // On a LEFT page, along its right (inner) edge
-    // (Darkness matches the previous "stacked" look; only ONE copy is ever visible at a time.)
-    left: { width: 24, background: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.02) 40%, rgba(0,0,0,0.06) 75%, rgba(0,0,0,0.155) 100%)' },
+    left: { width: '14%', background: 'linear-gradient(to left, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.12) 18%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0) 100%)' },
     // On a RIGHT page, along its left (inner) edge
-    right: { width: 24, background: 'linear-gradient(to left, transparent 0%, rgba(0,0,0,0.02) 40%, rgba(0,0,0,0.06) 75%, rgba(0,0,0,0.155) 100%)' },
-    // Front cover, along its left edge
-    cover: { width: 28, background: 'linear-gradient(to right, rgba(0,0,0,0.33) 0%, rgba(0,0,0,0.155) 25%, rgba(0,0,0,0.04) 60%, transparent 100%)' },
-    // Back cover, along its right edge
-    backCover: { width: 28, background: 'linear-gradient(to left, rgba(0,0,0,0.33) 0%, rgba(0,0,0,0.155) 25%, rgba(0,0,0,0.04) 60%, transparent 100%)' },
+    right: { width: '14%', background: 'linear-gradient(to right, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.12) 18%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0) 100%)' },
+    // Front cover: spine edge: dark seam fading to grey into the cover (left edge)
+    cover: { width: 'max(10px, 2.2%)', background: 'linear-gradient(to right, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.24) 12%, rgba(0,0,0,0.13) 32%, rgba(0,0,0,0.05) 62%, rgba(0,0,0,0) 100%)' },
+    // Back cover: spine edge: dark seam fading to grey into the cover (right edge)
+    backCover: { width: 'max(10px, 2.2%)', background: 'linear-gradient(to left, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.24) 12%, rgba(0,0,0,0.13) 32%, rgba(0,0,0,0.05) 62%, rgba(0,0,0,0) 100%)' },
 };
 
 /**
