@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
  */
 
 // Change to the real launch moment (ISO 8601 with offset)
-const LAUNCH_DATE = '2026-11-30T09:00:00+05:30';
+const LAUNCH_DATE = '2026-12-11T12:00:00+05:30';
 
 const pad = (n, len) => {
   const s = n.toString();
