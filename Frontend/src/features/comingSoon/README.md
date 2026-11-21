@@ -48,13 +48,23 @@ independently of this flow.
    >
    ```
 
-4. **`src/pages/Home.jsx`** — show the popup:
+4. **`src/Layouts/MainLayout.jsx`** — render the popup for every page (opens on Home load, and on any
+   page when a locked link is clicked):
 
    ```jsx
    import ComingSoonModal from '../features/comingSoon/ComingSoonModal';
-   // … first child inside Home's root <div>:
-   <ComingSoonModal />
+   import { LAUNCH_LOCK } from '../config/launchLock';
+   // …
+   {LAUNCH_LOCK && (
+     <ComingSoonModal
+       key={pathname === '/' || pathname === '/home' ? 'home' : 'page'}
+       openOnMount={pathname === '/' || pathname === '/home'}
+     />
+   )}
    ```
 
+Open pages during the lock are listed in `config/launchLock.js` (`LAUNCH_ALLOWED_PATHS` /
+`LAUNCH_ALLOWED_PREFIXES`) — currently Home, Features and the legal pages.
+
 To open the site again later, either undo steps 2–4 or simply set `LAUNCH_LOCK = false`
-(the gate and header blocker then do nothing; remove `<ComingSoonModal />` from Home to stop the popup).
+(the gate, header blocker and popup then all switch off).
