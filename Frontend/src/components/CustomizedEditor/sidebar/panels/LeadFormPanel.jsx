@@ -1067,10 +1067,12 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                       <Icon icon="fluent:form-48-regular" className="w-[1.1vw] h-[1.1vw] text-[#E05638]" />
                       <span className="text-[0.72vw] font-medium text-gray-800">Use Quick Form Templates</span>
                     </div>
-                    <Icon
-                      icon="lucide:arrow-right"
-                      className="w-[0.9vw] h-[0.9vw] text-gray-400"
-                    />
+                    <div className="w-[1.3vw] h-[1.3vw] rounded-full bg-black flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                      <Icon
+                        icon="lucide:arrow-right"
+                        className="w-[0.75vw] h-[0.75vw] text-white"
+                      />
+                    </div>
                   </button>
                 </div>
 
@@ -1749,10 +1751,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
               onClick={() => setIsEmailOpen(!isEmailOpen)}
               className="w-full flex items-center justify-between p-[0.9vw] bg-white hover:bg-gray-50/50 transition-colors"
             >
-              <div className="flex flex-col text-left">
-                <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Email Configuration</span>
-                <span className="text-[0.65vw] text-gray-500 font-normal mt-[0.1vw]">Set up confirmation email & manage recipients.</span>
-              </div>
+              <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Email Configuration</span>
               <Icon
                 icon="fluent:chevron-down-12-regular"
                 className={`w-[0.9vw] h-[0.9vw] text-gray-400 transition-transform duration-200 ${isEmailOpen ? 'rotate-180' : ''}`}
