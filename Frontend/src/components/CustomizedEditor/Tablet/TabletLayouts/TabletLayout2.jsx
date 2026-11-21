@@ -432,7 +432,7 @@ const TabletLayout2 = ({ children, bookRef, currentPage, pages, offset = 0, onPa
         {/* The Book */}
         <div className="absolute inset-0 w-full h-full flex items-center justify-center z-0">
            <div 
-              style={{ transform: `translateX(${offset}px)`, transition: 'transform 0.5s ease-out' }} 
+              style={{ translate: `${offset}px 0`, transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.5s ease-out' }} 
               className="flex items-center justify-center w-full h-full"
            >
              {children ? (

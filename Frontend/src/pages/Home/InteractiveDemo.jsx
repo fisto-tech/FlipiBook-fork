@@ -106,13 +106,29 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
   // Dynamic pages for active book: foodPages for Food (book 0), dressPages for Dress (book 1), hospitalPages for Hospital (book 2), travelPages for Travel (book 3), companyPages for Company (book 4), defaultPages for others
   const isCustomBook = !!(activeModalBook?.isFood || activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany);
-  const themeColor = activeModalBook?.isDress
-    ? '#362517'
+  // Light Theme styling for modal bars matching each book's background aesthetic
+  const themeBgColor = activeModalBook?.isDress
+    ? '#EFEBE7'
     : activeModalBook?.isHospital
-      ? '#2A6790'
-      : activeModalBook?.isCompany
-        ? '#684919'
-        : '#062232';
+      ? '#E8F1F7'
+      : activeModalBook?.isTravel
+        ? '#E9EFF4'
+        : activeModalBook?.isCompany
+          ? '#EFECE6'
+          : '#E9EFE9';
+
+  const themeTextColor = activeModalBook?.isDress
+    ? '#4A3B32'
+    : activeModalBook?.isHospital
+      ? '#1E4A6D'
+      : activeModalBook?.isTravel
+        ? '#1D4568'
+        : activeModalBook?.isCompany
+          ? '#4E3E2E'
+          : '#234433';
+
+  const themeBorderColor = 'rgba(0, 0, 0, 0.08)';
+  const themeColor = themeTextColor;
   const activePages = activeModalBook?.isFood
     ? foodPages
     : activeModalBook?.isDress
@@ -533,7 +549,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
       transition={{ duration: 0.6 }}
       id="interactive-demo-section"
-      className="w-full bg-[#f6f6f6] pt-5 pb-6 sm:pt-6 sm:pb-8 lg:pt-[1.5vw] lg:pb-[1.8vw] px-6 sm:px-8 md:px-10 lg:px-[4.2vw] font-poppins select-none [--book-shadow:2px_4px_7px_rgba(0,0,0,0.18)] sm:[--book-shadow:4px_7px_12px_rgba(0,0,0,0.22)] lg:[--book-shadow:8px_14px_20px_rgba(0,0,0,0.28)] [--book-shadow-hover:4px_6px_10px_rgba(0,0,0,0.24)] sm:[--book-shadow-hover:6px_10px_16px_rgba(0,0,0,0.28)] lg:[--book-shadow-hover:10px_18px_24px_rgba(0,0,0,0.36)]"
+      className="w-full bg-[#F6F6F6] pt-5 pb-6 sm:pt-6 sm:pb-8 lg:pt-[1.5vw] lg:pb-[1.8vw] px-6 sm:px-8 md:px-10 lg:px-[4.2vw] font-poppins select-none [--book-shadow:2px_4px_7px_rgba(0,0,0,0.18)] sm:[--book-shadow:4px_7px_12px_rgba(0,0,0,0.22)] lg:[--book-shadow:8px_14px_20px_rgba(0,0,0,0.28)] [--book-shadow-hover:4px_6px_10px_rgba(0,0,0,0.24)] sm:[--book-shadow-hover:6px_10px_16px_rgba(0,0,0,0.28)] lg:[--book-shadow-hover:10px_18px_24px_rgba(0,0,0,0.36)]"
     >
       {/* Top Header Tag: Single Line like other sections */}
       <motion.div
@@ -695,7 +711,6 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
         {activeModalBook && (
           <div
             className={`fixed inset-0 z-[1000] flex items-center justify-center ${isFullScreen ? 'p-0' : 'p-3 pt-[6vh] sm:p-[2vw] sm:pt-[7vh]'} bg-black/60 backdrop-blur-sm`}
-            onClick={() => setActiveModalBook(null)}
           >
             <motion.div
               ref={modalContainerRef}
@@ -749,16 +764,25 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
             >
               {/* Modal Top Header Bar */}
               {isCustomBook ? (
-                <div className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 bg-[#424242] border-b border-white/10 z-30">
+                <div
+                  className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 z-30"
+                  style={{
+                    backgroundColor: themeBgColor,
+                    color: themeTextColor,
+                    borderBottom: `1px solid ${themeBorderColor}`
+                  }}
+                >
                   <h3
-                    className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white/95 select-none"
+                    className="text-xs sm:text-sm font-bold tracking-wider uppercase select-none"
+                    style={{ color: themeTextColor }}
                   >
                     {activeModalBook?.headerTitle || (activeModalBook?.isFood ? "FOOD PRODUCTS" : "FASHION PRODUCTS")}
                   </h3>
                   <button
                     type="button"
                     onClick={() => setActiveModalBook(null)}
-                    className="hover:opacity-70 transition-opacity p-1 text-white cursor-pointer"
+                    className="hover:opacity-70 transition-opacity p-1 cursor-pointer"
+                    style={{ color: themeTextColor }}
                     aria-label="Close modal"
                   >
                     <Icon icon="lucide:x" className={isFullScreen ? "w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5]" : "w-5 h-5 stroke-[2.5]"} />
@@ -1083,15 +1107,23 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
                   )}
 
-                  {/* Dark Bottom Bar */}
-                  <div className="w-full bg-[#424242] border-t border-white/10 px-2 sm:px-5 py-2.5 flex items-center justify-between text-white/90">
+                  {/* Light Bottom Bar */}
+                  <div
+                    className="w-full px-2 sm:px-5 py-2.5 flex items-center justify-between"
+                    style={{
+                      backgroundColor: themeBgColor,
+                      color: themeTextColor,
+                      borderTop: `1px solid ${themeBorderColor}`
+                    }}
+                  >
                     {/* Left: Table of contents & Thumbnail Grid Icons */}
                     <div className="flex items-center gap-2 sm:gap-3">
                       <button
                         type="button"
                         onClick={() => setShowThumbnails((prev) => !prev)}
-                        className={`p-1.5 rounded-md hover:bg-white/15 transition-all cursor-pointer ${showThumbnails ? 'bg-white/20 text-white' : 'text-white/80'
+                        className={`p-1.5 rounded-md hover:bg-black/5 transition-all cursor-pointer ${showThumbnails ? 'bg-black/10' : ''
                           }`}
+                        style={{ color: themeTextColor }}
                         title={showThumbnails ? "Hide thumbnails" : "Show thumbnails"}
                       >
                         <Icon icon="lucide:layout-grid" className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1105,7 +1137,8 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                         type="button"
                         onClick={() => flipToStep(1)}
                         disabled={modalActiveStep <= 1}
-                        className="hover:opacity-75 transition-opacity hidden sm:flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="hover:opacity-75 transition-opacity hidden sm:flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ color: themeTextColor }}
                         title="First Page (Backward)"
                       >
                         <Icon icon="lucide:skip-back" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -1115,13 +1148,14 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                       <button
                         type="button"
                         onClick={() => setIsPlaying((prev) => !prev)}
-                        className="hover:opacity-75 transition-opacity flex items-center justify-center cursor-pointer shrink-0 text-white"
+                        className="hover:opacity-75 transition-opacity flex items-center justify-center cursor-pointer shrink-0"
+                        style={{ color: themeTextColor }}
                         title={isPlaying ? "Pause autoplay" : "Play flipbook"}
                       >
                         {isPlaying ? (
-                          <Icon icon="lucide:pause" className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-white text-white" />
+                          <Icon icon="lucide:pause" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                         ) : (
-                          <svg className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-white" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" viewBox="0 0 24 24">
                             <path d="M7 4.5v15l12-7.5-12-7.5z" />
                           </svg>
                         )}
@@ -1132,7 +1166,8 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                         type="button"
                         onClick={() => flipToStep(totalSteps)}
                         disabled={modalActiveStep >= totalSteps}
-                        className="hover:opacity-75 transition-opacity hidden sm:flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="hover:opacity-75 transition-opacity hidden sm:flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ color: themeTextColor }}
                         title="Last Page (Forward)"
                       >
                         <Icon icon="lucide:skip-forward" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -1140,7 +1175,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                       {/* Progress Bar */}
                       <div
-                        className="flex-1 min-w-[60px] h-1.5 bg-white/25 hover:bg-white/40 rounded-full cursor-pointer relative flex items-center transition-colors"
+                        className="flex-1 min-w-[60px] h-1.5 bg-black/10 hover:bg-black/15 rounded-full cursor-pointer relative flex items-center transition-colors"
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
                           const clickX = e.clientX - rect.left;
@@ -1151,19 +1186,26 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                         title="Click to seek"
                       >
                         <div
-                          className="h-full relative rounded-full bg-white"
+                          className="h-full relative rounded-full"
                           style={{
+                            backgroundColor: themeTextColor,
                             width: isMobileView
                               ? `${((modalPage - 1) / Math.max(1, activePages.length - 1)) * 100}%`
                               : `${((modalActiveStep - 1) / Math.max(1, totalSteps - 1)) * 100}%`,
                           }}
                         >
-                          <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-sm pointer-events-none" />
+                          <div
+                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 rounded-full shadow-sm pointer-events-none"
+                            style={{ backgroundColor: themeTextColor }}
+                          />
                         </div>
                       </div>
 
                       {/* Page Counter */}
-                      <span className="text-[11px] sm:text-xs font-semibold tracking-wider shrink-0 select-none text-white/90">
+                      <span
+                        className="text-[11px] sm:text-xs font-semibold tracking-wider shrink-0 select-none"
+                        style={{ color: themeTextColor }}
+                      >
                         {isMobileView ? (
                           `${String(Math.min(modalPage, activePages.length)).padStart(2, '0')} / ${String(activePages.length).padStart(2, '0')}`
                         ) : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany ? (
@@ -1195,7 +1237,8 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                       <button
                         type="button"
                         onClick={toggleMute}
-                        className="p-1.5 rounded-md hover:bg-white/15 transition-all cursor-pointer text-white/80 hover:text-white"
+                        className="p-1.5 rounded-md hover:bg-black/5 transition-all cursor-pointer"
+                        style={{ color: themeTextColor }}
                         title={isMuted ? "Unmute audio" : "Mute audio"}
                       >
                         <Icon icon={isMuted ? "lucide:volume-x" : "lucide:volume-2"} className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1204,7 +1247,8 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                       <button
                         type="button"
                         onClick={toggleFullScreen}
-                        className="p-1.5 rounded-md hover:bg-white/15 transition-all cursor-pointer text-white/80 hover:text-white"
+                        className="p-1.5 rounded-md hover:bg-black/5 transition-all cursor-pointer"
+                        style={{ color: themeTextColor }}
                         title="Toggle fullscreen"
                       >
                         <Icon icon="lucide:maximize" className="w-4 h-4 sm:w-5 sm:h-5" />

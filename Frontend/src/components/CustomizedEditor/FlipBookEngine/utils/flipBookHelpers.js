@@ -186,6 +186,8 @@ export const cleanStaticHtml = (html) => {
             updatedAttrs = updatedAttrs.replace(/\bheight=["'][^"']*["']/i, 'height="100%"');
             if (!/width="100%"/.test(updatedAttrs)) updatedAttrs += ' width="100%"';
             if (!/height="100%"/.test(updatedAttrs)) updatedAttrs += ' height="100%"';
+            // Fill the page edge to edge (default "meet" letterboxes a sub-pixel white strip at the spine)
+            updatedAttrs = updatedAttrs.replace(/\bpreserveAspectRatio=["'][^"']*["']/i, '') + ' preserveAspectRatio="none"';
             return `<svg ${updatedAttrs}>`;
         });
 
@@ -227,6 +229,8 @@ export const sanitizePageHtmlForPreview = (html) => {
             }
             rootSvg.setAttribute('width', '100%');
             rootSvg.setAttribute('height', '100%');
+            // Fill the page edge to edge (default "meet" letterboxes a sub-pixel white strip at the spine)
+            rootSvg.setAttribute('preserveAspectRatio', 'none');
         }
 
         doc.querySelectorAll('iframe').forEach(iframe => {

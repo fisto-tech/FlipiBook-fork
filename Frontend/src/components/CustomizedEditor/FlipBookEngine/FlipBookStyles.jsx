@@ -119,6 +119,27 @@ export default function FlipBookStyles({ cornerRadius = '0px' }) {
                 -webkit-user-drag: none !important;
             }
 
+            /* Spine backing: a thin dark strip under the two pages at the spine. The pages cover it;
+               it only shows through a sub-pixel gap while the book moves/turns, so the seam reads as a
+               dark crease instead of a white flash. Only on a two-page spread (never beside a cover). */
+            /* At rest, paint both pages in ONE layer: separate GPU layers (will-change) blend their edges
+               on their own while the book slides to centre (cover → first spread), opening a hairline at the spine. */
+            .fbe-book:not(.fbe-is-turning):not(.fbe-is-dragging):not(.fbe-is-flipping) .page-wrapper,
+            .fbe-book:not(.fbe-is-turning):not(.fbe-is-dragging):not(.fbe-is-flipping) .page-wrapper > * {
+                will-change: auto !important;
+            }
+            .fbe-book[data-spread]::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: calc(50% - 1.5px);
+                width: 3px;
+                background: rgba(20,20,26,0.85);
+                pointer-events: none;
+                z-index: 0;
+            }
+
             .fbe-page, .page {
                 background: #fff;
                 overflow: hidden;

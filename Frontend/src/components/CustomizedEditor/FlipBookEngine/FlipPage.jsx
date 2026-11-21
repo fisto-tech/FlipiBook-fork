@@ -70,7 +70,7 @@ const FlipPage = forwardRef(function FlipPage(props, ref) {
                             {rasterUrl ? (
                                 <img
                                     src={rasterUrl}
-                                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }}
+                                    style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block', pointerEvents: 'none' }}
                                     alt={`Page ${pageNum}`}
                                 />
                             ) : staticContent ? (
