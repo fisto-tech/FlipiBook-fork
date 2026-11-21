@@ -15,19 +15,6 @@ export const FLOOR_PRESETS = [
     description: "Default Blender-style anti-aliased viewport grid with XYZ axes"
   },
   {
-    id: "glass_dark",
-    name: "Obsidian Glass",
-    category: "Glass & Mirror",
-    icon: "solar:mirror-linear",
-    floorType: "glass_dark",
-    floorColor: "#121216",
-    floorRoughness: 12,
-    floorReflectivity: 85,
-    floorBlur: 30,
-    description: "Deep dark high-gloss mirror surface with sharp reflections"
-  },
-  
-  {
     id: "cyclorama",
     name: "Seamless Cyc Wall",
     category: "Studio & Lighting",

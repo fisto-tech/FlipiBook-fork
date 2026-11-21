@@ -94,6 +94,7 @@ export default function ThreedEditor() {
   const [xrayMode, setXrayMode] = useState(false);
   const [xrayMaterials, setXrayMaterials] = useState(() => new Set());
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(models.length === 0);
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [isTextureOpen, setIsTextureOpen] = useState(false);
   const [isMaterialDrawerOpen, setIsMaterialDrawerOpen] = useState(false);
   const [activeLeftTab, setActiveLeftTab] = useState("model");
@@ -3025,9 +3026,12 @@ export default function ThreedEditor() {
           </div>
         </div>
 
-        <div className="w-[23vw] min-w-[305px] max-w-[360px] h-full border-l border-gray-200 bg-white z-40 relative flex flex-col shrink-0">
+        <div className={`${isRightPanelCollapsed ? "w-[3.2vw] min-w-[48px]" : "w-[23vw]"} h-full border-l border-gray-200 bg-white z-40 relative flex flex-col shrink-0 transition-all duration-200`}>
           <RightPanel
+            isMinimized={isRightPanelCollapsed}
+            onToggleMinimize={() => setIsRightPanelCollapsed((prev) => !prev)}
             activeLeftTab={activeLeftTab}
+            onSelectLeftTab={setActiveLeftTab}
             onOpenMaterialDrawer={() => setIsMaterialDrawerOpen(true)}
             onFileProcess={processFile}
             hasModel={models.length > 0}
