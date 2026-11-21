@@ -75,8 +75,6 @@ const TableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage, setti
     // Ensure settings is at least an empty object if it's null
     const safeSettings = settings || {};
 
-    if (!onClose) return null;
-
     const hexToRgba = (hex, opacity = 100) => {
         if (!hex || !hex.startsWith('#')) return hex;
         const h = hex.replace('#', '');
@@ -187,6 +185,8 @@ const TableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage, setti
             [id]: !prev[id]
         }));
     };
+
+    if (!onClose) return null;
 
     if (isLayout8) {
         if (isMobile && !isLandscape) {

@@ -242,14 +242,10 @@ const TurnBook = forwardRef(function TurnBook(
           left: 0;
           background: linear-gradient(to right, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.12) 18%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0) 100%);
         }
-        /* Covers: narrow hinge crease along the binding edge */
-        .turnbook-gutter-cover { width: 6%; }
-        .turnbook-gutter-cover.turnbook-gutter-right-page {
-          background: linear-gradient(to right, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.10) 22%, rgba(255,255,255,0.22) 38%, rgba(0,0,0,0.06) 55%, rgba(0,0,0,0) 100%);
-        }
-        .turnbook-gutter-cover.turnbook-gutter-left-page {
-          background: linear-gradient(to left, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.10) 22%, rgba(255,255,255,0.22) 38%, rgba(0,0,0,0.06) 55%, rgba(0,0,0,0) 100%);
-        }
+        /* Covers (spine edge): dark seam fading to grey into the cover */
+        .turnbook-gutter-cover { width: max(10px, 2.2%); }
+        .turnbook-gutter-cover.turnbook-gutter-right-page { left: 0; right: auto; background: linear-gradient(to right, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.24) 12%, rgba(0,0,0,0.13) 32%, rgba(0,0,0,0.05) 62%, rgba(0,0,0,0) 100%); }
+        .turnbook-gutter-cover.turnbook-gutter-left-page { right: 0; left: auto; background: linear-gradient(to left, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.24) 12%, rgba(0,0,0,0.13) 32%, rgba(0,0,0,0.05) 62%, rgba(0,0,0,0) 100%); }
         /* One page at a time (mobile): no spine */
         .turnbook-single .turnbook-gutter { display: none; }
       `}</style>

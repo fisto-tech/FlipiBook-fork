@@ -642,12 +642,16 @@ export default function MyFlipbooks() {
                         if (prev?.stage === 'saving' || prev?.stage === 'done') {
                             return prev;
                         }
+                        const resolvedTotal = (pageCount && pageCount > 0)
+                            ? Math.max(pageCount, prev?.total || 0, prev?.pageCount || 0, totalPagesAllFiles)
+                            : (prev?.total || totalPagesAllFiles || 1);
+
                         return {
                             ...(prev || {}),
                             sessionId,
-                            current: Math.min(totalPagesAllFiles, overallCurrent),
-                            total: totalPagesAllFiles,
-                            pageCount: totalPagesAllFiles,
+                            current: Math.min(resolvedTotal, overallCurrent),
+                            total: resolvedTotal,
+                            pageCount: resolvedTotal,
                             loadedBytes: overallLoaded,
                             totalBytes: totalPdfSize,
                             fileIndex,

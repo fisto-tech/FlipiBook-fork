@@ -68,8 +68,9 @@ export const svgGlobalStyles = `
   }
 
   .page-svg-container.trim-view-on [data-trim-outside="true"] {
-    opacity: 1 !important;
+    opacity: 0.2 !important;
     pointer-events: all !important;
+    transition: opacity 0.15s ease;
   }
 
   .page-svg-container.trim-view-on [data-trim-outside="true"]:hover,

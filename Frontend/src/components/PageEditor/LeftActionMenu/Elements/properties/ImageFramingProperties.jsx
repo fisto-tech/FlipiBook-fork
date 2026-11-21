@@ -12,6 +12,7 @@ import { parseGradient } from '../../../../ColorPicker';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../../../modals/ImageAdjustmentModal';
 import { PropertySlider } from '../../../properties/propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../../utils/imageOptimizer';
+import { createManagedBlobUrl, revokeManagedBlobUrl } from '../../../../../utils';
 
 const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIndex, updateElementAttribute, selectedElementProps }) => {
   const [slots, setSlots] = useState([]);
@@ -704,8 +705,10 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
   useEffect(() => {
     slots.forEach(slot => {
       if (slot.currentImage && !slotMeta[slot.id]) {
-        const isDefault = slot.currentImage === DEFAULT_FRAME_IMAGE ||
-          slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD');
+        const isDefault = !slot.currentImage ||
+          slot.currentImage === DEFAULT_FRAME_IMAGE ||
+          slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD') ||
+          slot.currentImage.startsWith('data:image/svg+xml');
 
         const shapeEl = selectedElement?.querySelector(`[fill="url(#${slot.id})"]`) ||
           selectedElement?.querySelector(`[data-pattern-id="${slot.id}"]`);
@@ -771,16 +774,16 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
     setCompressingSlots(prev => ({ ...prev, [slotId]: true }));
 
     try {
-      let finalDataUrl = null;
+      let finalBlobUrl = null;
       let imgWidth = 0;
       let imgHeight = 0;
       let compBytes = file.size;
 
       if (shouldOptimizeImage(file)) {
         try {
-          const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
-          if (opt?.dataUrl) {
-            finalDataUrl = opt.dataUrl;
+          const opt = await optimizeImageForWeb(file, { maxDimension: 1200, quality: 0.82 });
+          if (opt?.file || opt?.blob) {
+            finalBlobUrl = createManagedBlobUrl(opt.file || opt.blob, 'framing_slot');
             imgWidth = opt.width;
             imgHeight = opt.height;
             compBytes = opt.compressedSize || opt.file?.size || compBytes;
@@ -790,16 +793,11 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
         }
       }
 
-      if (!finalDataUrl) {
-        finalDataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (event) => resolve(event.target.result);
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(file);
-        });
+      if (!finalBlobUrl) {
+        finalBlobUrl = createManagedBlobUrl(file, 'framing_slot');
       }
 
-      if (!finalDataUrl) return;
+      if (!finalBlobUrl) return;
 
       if (!imgWidth || !imgHeight) {
         await new Promise((resolve) => {
@@ -810,7 +808,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
             resolve();
           };
           img.onerror = () => resolve();
-          img.src = finalDataUrl;
+          img.src = finalBlobUrl;
         });
       }
 
@@ -820,12 +818,18 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
           : `${Math.max(1, Math.round(compBytes / 1024))}KB`)
         : '250KB';
 
+      // Revoke previous blob URL for this slot to maintain low memory usage
+      const oldSlotUrl = slotMeta[slotId]?.originalUrl;
+      if (oldSlotUrl && oldSlotUrl.startsWith('blob:')) {
+        revokeManagedBlobUrl(oldSlotUrl);
+      }
+
       setSlotMeta(prev => ({
         ...prev,
         [slotId]: {
           name: fileName,
           meta: `${imgWidth || 300} X ${imgHeight || 300} • ${fileSizeFormatted}`,
-          originalUrl: finalDataUrl,
+          originalUrl: finalBlobUrl,
           size: fileSizeFormatted,
           cropData: null,
           filters: null,
@@ -833,7 +837,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
           hasUploaded: true
         }
       }));
-      updateSlotImage(slotId, finalDataUrl, false, fileName, fileSizeFormatted);
+      updateSlotImage(slotId, finalBlobUrl, false, fileName, fileSizeFormatted);
     } catch (err) {
       console.error('[ImageFramingProperties] Failed to process slot file:', err);
     } finally {
@@ -847,6 +851,10 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
 
   const handleDeleteSlotImage = (slotId) => {
     if (!selectedElement) return;
+    const oldSlotUrl = slotMeta[slotId]?.originalUrl;
+    if (oldSlotUrl && oldSlotUrl.startsWith('blob:')) {
+      revokeManagedBlobUrl(oldSlotUrl);
+    }
     setSlotMeta(prev => ({
       ...prev,
       [slotId]: {
@@ -1308,7 +1316,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
       </div>
 
       {/* ── 1. Top Section: Add Images Dashed Button (shown before upload) ── */}
-      {!slots.some(s => s.currentImage && s.currentImage !== DEFAULT_FRAME_IMAGE) && (
+      {!slots.some(s => s.currentImage && s.currentImage !== DEFAULT_FRAME_IMAGE && !s.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD') && !s.currentImage.startsWith('data:image/svg+xml')) && (
         <div
           onClick={() => {
             const targetSlot = slots.find(s => s.id === activeSlotId) || slots[0];
@@ -1331,7 +1339,8 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
             const meta = slotMeta[slot.id] || {};
             const isDefault = !slot.currentImage ||
               slot.currentImage === DEFAULT_FRAME_IMAGE ||
-              slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD');
+              slot.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD') ||
+              slot.currentImage.startsWith('data:image/svg+xml');
             const hasUploaded = Boolean(
               meta.hasUploaded ||
               (meta.name && meta.name !== 'Image Name .jpg') ||
