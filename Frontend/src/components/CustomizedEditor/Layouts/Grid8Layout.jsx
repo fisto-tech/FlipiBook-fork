@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import PageThumbnail from '../common/PageThumbnail';
+import BrandLogo from '../common/BrandLogo';
 
 
 const ToolbarBtn = ({ icon, label, onClick, isActive, className = '', id, toolbarProps }) => {
@@ -818,32 +819,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
 
                 {/* Right: Logo */}
                 <div className="flex-1 flex justify-end items-center gap-[1vw] pointer-events-auto pr-[1vw]">
-                    {(settings?.brandingProfile?.logo !== false) && logoSettings?.src && (
-                        logoSettings.url ? (
-                            <a
-                                href={logoSettings.url.startsWith('http') ? logoSettings.url : `https://${logoSettings.url}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="transition-opacity hover:opacity-80"
-                            >
-                                <img
-                                    src={logoSettings.src}
-                                    alt="Logo"
-                                    className={`${isTablet ? 'h-[2vw]' : 'h-[2.8vw]'} w-auto transition-opacity`}
-                                    style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                                />
-                            </a>
-                        ) : (
-                            <button className="transition-opacity hover:opacity-80 cursor-default">
-                                <img
-                                    src={logoSettings.src}
-                                    alt="Logo"
-                                    className={`${isTablet ? 'h-[2vw]' : 'h-[2.8vw]'} w-auto transition-opacity`}
-                                    style={{ opacity: (logoSettings.opacity ?? 100) / 100 }}
-                                />
-                            </button>
-                        )
-                    )}
+                    <BrandLogo
+                        logoSettings={logoSettings}
+                        settings={settings}
+                        isTablet={isTablet}
+                    />
                 </div>
             </div>
             )}

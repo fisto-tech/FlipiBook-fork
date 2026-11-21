@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import HTMLFlipBook from 'react-pageflip';
+import TurnBook from '../../components/common/TurnBook';
 import softCoverAudio from '../../assets/Audios/Soft cover page.mp3';
 import audioTrack from '../../assets/Audios/audio.mp3';
 
@@ -73,6 +73,14 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
   const modalContainerRef = useRef(null);
   const modalBookRef = useRef(null);
   const [modalActiveStep, setModalActiveStep] = useState(1);
+  // Real page number (1-based) — used for the counter in mobile single-page view
+  const [modalPage, setModalPage] = useState(1);
+  const [isMobileView, setIsMobileView] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const onResize = () => setIsMobileView(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const modalActiveStepRef = useRef(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(false);
@@ -421,6 +429,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       setIsPlaying(false);
       isPlayingRef.current = false;
       setModalActiveStep(1);
+      setModalPage(1);
       modalActiveStepRef.current = 1;
       setModalCoverState('front');
       if (playIntervalRef.current) clearInterval(playIntervalRef.current);
@@ -429,6 +438,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       }
     } else {
       setModalActiveStep(1);
+      setModalPage(1);
       modalActiveStepRef.current = 1;
       setModalCoverState('front');
     }
@@ -436,6 +446,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
   const onBookFlip = useCallback((e) => {
     const pageIndex = e.data;
+    setModalPage(pageIndex + 1);
     updateStepFromPage(pageIndex);
     playFlipSound();
   }, [playFlipSound, updateStepFromPage]);
@@ -683,7 +694,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
       <AnimatePresence>
         {activeModalBook && (
           <div
-            className={`fixed inset-0 z-50 flex items-center justify-center ${isFullScreen ? 'p-0' : 'p-[2vw] pt-[7vh]'} bg-black/60 backdrop-blur-sm`}
+            className={`fixed inset-0 z-[1000] flex items-center justify-center ${isFullScreen ? 'p-0' : 'p-3 pt-[6vh] sm:p-[2vw] sm:pt-[7vh]'} bg-black/60 backdrop-blur-sm`}
             onClick={() => setActiveModalBook(null)}
           >
             <motion.div
@@ -727,7 +738,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
               }
               className={`relative w-full ${isFullScreen
                   ? 'max-w-none w-screen h-screen max-h-none rounded-none p-0'
-                  : 'max-w-[74vw] xl:max-w-[70vw] rounded-2xl shadow-2xl p-0 h-[84vh] max-h-[86vh]'
+                  : 'max-w-[96vw] sm:max-w-[90vw] lg:max-w-[74vw] xl:max-w-[70vw] rounded-2xl shadow-2xl p-0 h-[82dvh] sm:h-[84vh] max-h-[86vh]'
                 } bg-white flex flex-col items-center justify-between overflow-hidden`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -807,59 +818,33 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                 {/* Flipbook Canvas */}
                 <div
-                  className={`relative mx-auto aspect-[420/297] flex items-center justify-center ${isFullScreen
-                      ? 'w-auto h-[82vh] max-w-[95vw]'
-                      : 'w-auto h-[62vh] max-h-[64vh] max-w-[80vw]'
+                  className={`relative mx-auto aspect-[595/842] sm:aspect-[420/297] flex items-center justify-center ${isFullScreen
+                      ? 'w-[min(80vw,62vh)] sm:w-[min(95vw,116vh)] h-auto'
+                      : 'w-[min(76vw,52dvh)] sm:w-[min(80vw,87vh)] h-auto'
                     }`}
                 >
                   <div
                     key={`${activeModalBook?.id || 'modal-book'}-${isFullScreen ? 'fullscreen' : 'modal'}`}
-                    className={`w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${isCustomBook || activePages.length === 8
-                        ? modalCoverState === 'front'
-                          ? '-translate-x-[25%]'
-                          : modalCoverState === 'back'
-                            ? 'translate-x-[25%]'
-                            : 'translate-x-0'
-                        : 'translate-x-0'
-                      }`}
+                    className="w-full h-full flex items-center justify-center"
                   >
-                    <HTMLFlipBook
+                    <TurnBook
+                      ref={modalBookRef}
+                      pages={activePages}
                       width={595}
                       height={842}
-                      size="stretch"
-                      minWidth={210}
-                      maxWidth={1200}
-                      minHeight={297}
-                      maxHeight={1700}
-                      maxShadowOpacity={0.5}
-                      showCover={isCustomBook || activePages.length === 8}
-                      mobileScrollSupport={true}
-                      clickEventForward={false}
-                      useMouseEvents={true}
-                      onFlip={onBookFlip}
-                      flippingTime={900}
-                      swipeDistance={30}
-                      ref={modalBookRef}
+                      duration={900}
                       startPage={
-                        activeModalBook?.isFood
-                          ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : modalActiveStep === 4 ? 5 : 7
-                          : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany
-                            ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : 5
-                            : 0
+                        isMobileView
+                        ? modalPage - 1
+                        : activeModalBook?.isFood
+                        ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : modalActiveStep === 4 ? 5 : 7
+                        : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany
+                        ? modalActiveStep === 1 ? 0 : modalActiveStep === 2 ? 1 : modalActiveStep === 3 ? 3 : 5
+                        : 0
                       }
-                      className="w-full h-full mx-auto"
-                    >
-                      {activePages.map((pageSrc, index) => (
-                        <div key={index} className="bg-white overflow-hidden shadow-inner flex items-center justify-center w-full h-full">
-                          <img
-                            src={pageSrc}
-                            alt={`Page ${index + 1}`}
-                            className="w-full h-full block object-cover select-none pointer-events-none"
-                            style={{ margin: 0, padding: 0 }}
-                          />
-                        </div>
-                      ))}
-                    </HTMLFlipBook>
+                      onFlip={onBookFlip}
+                      className="mx-auto"
+                    />
                   </div>
                 </div>
 
@@ -1099,7 +1084,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                   )}
 
                   {/* Dark Bottom Bar */}
-                  <div className="w-full bg-[#424242] border-t border-white/10 px-3 sm:px-5 py-2.5 flex items-center justify-between text-white/90">
+                  <div className="w-full bg-[#424242] border-t border-white/10 px-2 sm:px-5 py-2.5 flex items-center justify-between text-white/90">
                     {/* Left: Table of contents & Thumbnail Grid Icons */}
                     <div className="flex items-center gap-2 sm:gap-3">
                       <button
@@ -1114,13 +1099,13 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
 
                     {/* Center: Play/Pause, Step controls & Progress */}
-                    <div className="flex items-center gap-2.5 sm:gap-3 flex-1 max-w-xl mx-3 sm:mx-4">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl mx-2 sm:mx-4">
                       {/* Backward / First Page Button */}
                       <button
                         type="button"
                         onClick={() => flipToStep(1)}
                         disabled={modalActiveStep <= 1}
-                        className="hover:opacity-75 transition-opacity flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="hover:opacity-75 transition-opacity hidden sm:flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
                         title="First Page (Backward)"
                       >
                         <Icon icon="lucide:skip-back" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -1147,7 +1132,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                         type="button"
                         onClick={() => flipToStep(totalSteps)}
                         disabled={modalActiveStep >= totalSteps}
-                        className="hover:opacity-75 transition-opacity flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="hover:opacity-75 transition-opacity hidden sm:flex items-center justify-center cursor-pointer shrink-0 text-white disabled:opacity-30 disabled:cursor-not-allowed"
                         title="Last Page (Forward)"
                       >
                         <Icon icon="lucide:skip-forward" className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -1155,7 +1140,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                       {/* Progress Bar */}
                       <div
-                        className="flex-1 h-1.5 bg-white/25 hover:bg-white/40 rounded-full cursor-pointer relative flex items-center transition-colors"
+                        className="flex-1 min-w-[60px] h-1.5 bg-white/25 hover:bg-white/40 rounded-full cursor-pointer relative flex items-center transition-colors"
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
                           const clickX = e.clientX - rect.left;
@@ -1168,7 +1153,9 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                         <div
                           className="h-full relative rounded-full bg-white"
                           style={{
-                            width: `${((modalActiveStep - 1) / Math.max(1, totalSteps - 1)) * 100}%`,
+                            width: isMobileView
+                              ? `${((modalPage - 1) / Math.max(1, activePages.length - 1)) * 100}%`
+                              : `${((modalActiveStep - 1) / Math.max(1, totalSteps - 1)) * 100}%`,
                           }}
                         >
                           <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-sm pointer-events-none" />
@@ -1177,7 +1164,9 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
 
                       {/* Page Counter */}
                       <span className="text-[11px] sm:text-xs font-semibold tracking-wider shrink-0 select-none text-white/90">
-                        {activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany ? (
+                        {isMobileView ? (
+                          `${String(Math.min(modalPage, activePages.length)).padStart(2, '0')} / ${String(activePages.length).padStart(2, '0')}`
+                        ) : activeModalBook?.isDress || activeModalBook?.isHospital || activeModalBook?.isTravel || activeModalBook?.isCompany ? (
                           modalActiveStep === 1
                             ? "01 / 06"
                             : modalActiveStep === 2
@@ -1202,7 +1191,7 @@ export default function InteractiveDemo({ page1: h1, page2: h2, page3: h3, page4
                     </div>
 
                     {/* Right: Sound & Fullscreen */}
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex items-center gap-0.5 sm:gap-3 shrink-0">
                       <button
                         type="button"
                         onClick={toggleMute}

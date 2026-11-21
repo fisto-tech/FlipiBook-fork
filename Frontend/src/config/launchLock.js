@@ -6,11 +6,20 @@
  */
 export const LAUNCH_LOCK = true;
 
-export const LAUNCH_ALLOWED_PATHS = ['/', '/home'];
+// Exact paths that stay open during the lock
+export const LAUNCH_ALLOWED_PATHS = ['/', '/home', '/coming-soon'];
+
+// Path prefixes that stay open (the page and anything under it)
+export const LAUNCH_ALLOWED_PREFIXES = [
+  '/features',
+  // Legal & policy pages (pages/LegalFile)
+  '/terms', '/privacy', '/cookie', '/refund', '/copyright',
+];
 
 export const isLaunchAllowedPath = (pathname = '/') => {
   const p = (pathname || '/').replace(/\/+$/, '') || '/';
-  return LAUNCH_ALLOWED_PATHS.includes(p);
+  if (LAUNCH_ALLOWED_PATHS.includes(p)) return true;
+  return LAUNCH_ALLOWED_PREFIXES.some((prefix) => p === prefix || p.startsWith(prefix));
 };
 
 /** Ask the Home page to show the Coming Soon modal (works whether or not Home is mounted yet). */

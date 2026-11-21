@@ -3,7 +3,9 @@ import { Outlet, useLocation } from 'react-router-dom';
 import HomeNav from '../components/NavBar/HomeNav';
 import { ChatBotButton, ChatBotDrawer } from '../components/ChatBot';
 import GoToTopButton from '../components/common/GoToTopButton';
-import { LAUNCH_LOCK, isLaunchAllowedPath, requestComingSoonModal } from '../config/launchLock';
+import launchLockHeaderClick from '../features/comingSoon/launchLockHeaderClick';
+import ComingSoonModal from '../features/comingSoon/ComingSoonModal';
+import { LAUNCH_LOCK } from '../config/launchLock';
 
 export default function MainLayout({ children }) {
   const location = useLocation();
@@ -40,7 +42,9 @@ export default function MainLayout({ children }) {
     pathname.startsWith('/help') ||
     pathname.startsWith('/explore') ||
     pathname.startsWith('/converter') ||
-    pathname.startsWith('/pricing');
+    pathname.startsWith('/pricing') ||
+    // Legal & policy pages (pages/LegalFile)
+    ['/terms', '/privacy', '/cookie', '/refund', '/copyright'].some((p) => pathname.startsWith(p));
 
   // Automatically close chat drawer if navigating to a page where chatbot is not allowed
   useEffect(() => {
@@ -61,17 +65,7 @@ export default function MainLayout({ children }) {
     <div className="w-screen h-screen max-w-full max-h-screen overflow-hidden bg-[#F8FAFC] flex flex-col font-sans">
       <header
         className="w-full flex-none bg-white z-[100] h-14 sm:h-16 md:h-[7vh] min-h-[52px]"
-        onClickCapture={(e) => {
-          if (!LAUNCH_LOCK) return;
-          const el = e.target.closest?.('a, button, [role="button"], [role="menuitem"]');
-          if (!el) return;
-          // Home link / logo stay usable
-          const href = el.tagName === 'A' ? el.getAttribute('href') : null;
-          if (href && isLaunchAllowedPath(href.split(/[?#]/)[0])) return;
-          e.preventDefault();
-          e.stopPropagation();
-          requestComingSoonModal();
-        }}
+        onClickCapture={launchLockHeaderClick}
       >
         <HomeNav />
       </header>
@@ -83,6 +77,15 @@ export default function MainLayout({ children }) {
         {children || <Outlet />}
       </main>
       {showGoToTop && <GoToTopButton scrollerRef={mainRef} resetKey={pathname} />}
+
+      {/* Coming Soon popup (launch lock): opens on every Home load, and on any page when a
+          locked link is clicked. Keyed so it re-opens each time you land on Home. */}
+      {LAUNCH_LOCK && (
+        <ComingSoonModal
+          key={pathname === '/' || pathname === '/home' ? 'home' : 'page'}
+          openOnMount={pathname === '/' || pathname === '/home'}
+        />
+      )}
 
       {/* Floating Chat Bot FAB & Drawer - strictly restricted to Home, Explore, Features, Converter, Pricing, Forum, Help */}
       {isChatBotAllowedPage && (

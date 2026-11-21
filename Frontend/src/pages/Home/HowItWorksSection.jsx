@@ -47,7 +47,7 @@ export default function HowItWorksSection() {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
       transition={{ duration: 0.8 }}
-      className="relative w-full bg-white font-poppins py-10 lg:py-[3vw] px-6 sm:px-10 lg:px-[6vw] flex flex-col items-center justify-between border-t border-gray-100"
+      className="relative w-full bg-white font-poppins pt-2 sm:pt-3 lg:pt-[1.2vw] pb-10 lg:pb-[3vw] px-6 sm:px-10 lg:px-[6vw] flex flex-col items-center justify-between border-t border-gray-100"
     >
       {/* Top Header */}
       <motion.div
@@ -55,13 +55,13 @@ export default function HowItWorksSection() {
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: false, margin: "-50px 0px -50px 0px" }}
         transition={{ duration: 0.6 }}
-        className="w-full text-left mb-6 lg:mb-[1.5vw]"
+        className="w-full text-left pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh]"
       >
-        <div className="flex items-center gap-3 lg:gap-[0.6vw]">
-          <span className="text-xs lg:text-[0.75vw] font-bold tracking-[0.25em] text-gray-700 uppercase">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw]">
+          <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
             HOW IT WORKS
           </span>
-          <div className="w-8 lg:w-[2.2vw] h-[1.5px] lg:h-[0.1vw] bg-gray-400"></div>
+          <div className="w-10 sm:w-14 lg:w-[3.6vw] h-[1.5px] lg:h-[0.15vh] bg-[#35363A]"></div>
         </div>
       </motion.div>
 

@@ -6,9 +6,7 @@ import {
   Route,
   Navigate,
   useSearchParams,
-  useLocation,
 } from "react-router-dom";
-import { LAUNCH_LOCK, isLaunchAllowedPath, requestComingSoonModal } from "./config/launchLock";
 import { ToastProvider } from "./components/CustomToast";
 import { ModernToastProvider } from "./components/ModernToast";
 import { ConfirmationProvider } from "./context/ConfirmationContext";
@@ -16,6 +14,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthModal } from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./Layouts/MainLayout";
+import LaunchLockGate from "./features/comingSoon/LaunchLockGate";
 import ScrollToTop from "./components/ScrollToTop";
 import { DocumentUploadProvider } from "./context/DocumentUploadContext";
 
@@ -50,26 +49,19 @@ const Converter = lazy(() => import("./pages/Converter"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 
-// Pre-launch lock: only Home is reachable; everything else redirects to Home + Coming Soon modal
-function LaunchLockGate({ children }) {
-  const location = useLocation();
-  if (LAUNCH_LOCK && !isLaunchAllowedPath(location.pathname)) {
-    requestComingSoonModal();
-    return <Navigate to="/" replace />;
-  }
-  return children;
-}
 const Forum = lazy(() => import("./pages/Forum"));
 const Overview = lazy(() => import("./pages/Overview"));
 const LeadFormAnalytics = lazy(() => import("./pages/LeadFormAnalytics"));
 const Guide = lazy(() => import("./pages/Guide/Guide"));
-const TermsAndConditions = lazy(() => import("./pages/LegalTerms"));
-const PrivacyPolicy = lazy(() => import("./pages/LegalPrivacy"));
-const CookiePolicy = lazy(() => import("./pages/LegalCookies"));
+const TermsAndConditions = lazy(() => import("./pages/LegalFile/LegalTerms"));
+const PrivacyPolicy = lazy(() => import("./pages/LegalFile/LegalPrivacy"));
+const CookiePolicy = lazy(() => import("./pages/LegalFile/LegalCookies"));
+const RefundPolicy = lazy(() => import("./pages/LegalFile/LegalRefund"));
+const CopyrightPolicy = lazy(() => import("./pages/LegalFile/LegalCopyright"));
 
 // Preview & Share Pages
 const PreviewPage = lazy(() => import("./pages/PreviewPage"));
-const ShareViewBook = lazy(() => import("./pages/shareviewbook"));
+const ShareViewBook = lazy(() => import("./pages/ShareViewBook/ShareViewBook"));
 const PublicShelfView = lazy(() => import("./pages/PublicShelfView"));
 const ARView = lazy(() => import("./pages/ARView"));
 const ComingSoonBanner = lazy(() => import("./pages/ComingSoonBanner"));
@@ -515,6 +507,38 @@ export default function App() {
                   element={
                     <Suspense fallback={null}>
                       <CookiePolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/refund-policy"
+                  element={
+                    <Suspense fallback={null}>
+                      <RefundPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/refund"
+                  element={
+                    <Suspense fallback={null}>
+                      <RefundPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/copyright-policy"
+                  element={
+                    <Suspense fallback={null}>
+                      <CopyrightPolicy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/copyright"
+                  element={
+                    <Suspense fallback={null}>
+                      <CopyrightPolicy />
                     </Suspense>
                   }
                 />

@@ -32,10 +32,10 @@ const SmartSolutionsSection = () => {
   }, []);
 
   return (
-    <section ref={sectionRef} className="relative w-full min-h-fit sm:min-h-0 sm:h-auto lg:h-[100vh] bg-[#FAFAFA] font-sans pt-4 sm:pt-4 lg:pt-[0.6vw] pb-8 sm:pb-6 lg:pb-[1.2vw] px-4 sm:px-8 lg:px-[6vw] flex flex-col justify-between items-center overflow-hidden">
+    <section ref={sectionRef} className="relative w-full min-h-fit sm:min-h-0 sm:h-auto lg:h-[100vh] bg-[#FAFAFA] font-sans pt-2 sm:pt-3 lg:pt-[1.2vw] pb-8 sm:pb-6 lg:pb-[1.2vw] px-5 sm:px-8 lg:px-[5.5vw] flex flex-col justify-between items-center overflow-hidden">
 
       {/* Top FEATURES Tag */}
-      <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-2.5 sm:pt-3.5 lg:pt-[2.2vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0">
+      <div className="w-full flex items-center justify-between pointer-events-none select-none z-10 pt-4 sm:pt-5 lg:pt-[3.4vh] mb-2 sm:mb-3 lg:mb-[1.2vh] flex-shrink-0">
         <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-[0.9vw]">
           <span className="text-[11px] sm:text-xs lg:text-[0.85vw] font-bold tracking-[0.24em] text-[#35363A] uppercase">
             INTERACTIVE 3D PRODUCT VIEWER
@@ -168,7 +168,7 @@ const SmartSolutionsSection = () => {
 
       {/* 3. BOTTOM FEATURE ITEMS (Clean Minimal Row with Red Dividers - matching Screenshot 2) */}
       <div
-        className="relative z-10 w-full max-w-xl lg:max-w-none lg:w-[86vw] xl:w-[84vw] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 md:gap-2 mt-4 sm:-mt-4 lg:-mt-[5.5vw] xl:-mt-[6vw] mb-4 sm:mb-4 lg:mb-[1vw] px-4 lg:px-2"
+        className="relative z-10 w-full max-w-xl md:max-w-3xl lg:max-w-none lg:w-[86vw] xl:w-[84vw] mx-auto grid grid-cols-1 md:grid-cols-2 lg:flex lg:flex-row items-center justify-between gap-6 md:gap-x-8 md:gap-y-6 lg:gap-2 mt-4 sm:-mt-4 lg:-mt-[5.5vw] xl:-mt-[6vw] mb-4 sm:mb-4 lg:mb-[1vw] px-4 lg:px-2"
       >
         {/* ITEM 1: Immersive 3D */}
         <motion.div
@@ -193,7 +193,7 @@ const SmartSolutionsSection = () => {
         </motion.div>
 
         {/* Vertical Divider 1 */}
-        <div className="hidden md:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
+        <div className="hidden lg:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
 
         {/* ITEM 2: Interactive Elements */}
         <motion.div
@@ -218,7 +218,7 @@ const SmartSolutionsSection = () => {
         </motion.div>
 
         {/* Vertical Divider 2 */}
-        <div className="hidden md:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
+        <div className="hidden lg:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
 
         {/* ITEM 3: Publish Anywhere */}
         <motion.div
@@ -243,7 +243,7 @@ const SmartSolutionsSection = () => {
         </motion.div>
 
         {/* Vertical Divider 3 */}
-        <div className="hidden md:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
+        <div className="hidden lg:block w-[1.5px] h-10 lg:h-[2.6vw] bg-[#EC5137] mx-2 lg:mx-[1.2vw] shrink-0" />
 
         {/* ITEM 4: Augmented Reality */}
         <motion.div
