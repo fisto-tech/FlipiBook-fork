@@ -277,7 +277,7 @@ export const createDefaultLeadFormSettings = (currentBook, locationState) => {
       appearance: {
         enabled: loaded.appearance?.enabled !== undefined ? Boolean(loaded.appearance.enabled) : false,
         timing: loaded.appearance?.timing || 'after-pages',
-        afterPages: loaded.appearance?.afterPages || 4,
+        afterPages: loaded.appearance?.afterPages || 1,
         afterSeconds: loaded.appearance?.afterSeconds || 30,
         allowSkip: loaded.appearance?.allowSkip !== undefined ? Boolean(loaded.appearance.allowSkip) : true,
         skipBehavior: loaded.appearance?.skipBehavior || 'never',
@@ -321,7 +321,7 @@ export const createDefaultLeadFormSettings = (currentBook, locationState) => {
     appearance: {
       enabled: false,
       timing: 'after-pages',
-      afterPages: 4,
+      afterPages: 1,
       afterSeconds: 30,
       allowSkip: true,
       skipBehavior: 'never',

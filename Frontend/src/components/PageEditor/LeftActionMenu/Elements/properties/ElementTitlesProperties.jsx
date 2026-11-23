@@ -4,7 +4,8 @@ import {
   Sliders,
   X,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowLeftRight
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { ElementDropdown, ElementSlider } from './ElementUIControls';
@@ -16,6 +17,7 @@ import {
   updateMotionGraphicAttributes
 } from '../utils/motionGraphicUtils';
 import { handleScrubHelper } from '../../../properties/propertiesShared';
+import { CUSTOM_FONT_FAMILIES } from '../../../../../utils/customFonts';
 
 const SectionHeader = ({ title, rightElement }) => (
   <div className="flex items-center gap-[0.8vw]">
@@ -143,8 +145,13 @@ const FONT_FAMILIES = [
   'Impact',
   'Arial',
   'Arial Black',
-  'Playfair Display'
+  'Playfair Display',
+  ...CUSTOM_FONT_FAMILIES
 ];
+
+// Titles are sized in px internally; the panel shows pt (1pt = 4/3 px)
+const pxToPt = (px) => Math.round((parseFloat(px) || 0) * 0.75 * 10) / 10;
+const ptToPx = (pt) => Math.round((parseFloat(pt) || 0) * (4 / 3) * 100) / 100;
 
 const FONT_SIZES = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 64];
 
@@ -335,7 +342,7 @@ const ElementTitlesProperties = ({
   const [activeTextSettings, setActiveTextSettings] = useState(null); // 'primary' | 'secondary' | null
 
   // Typography settings states for primary & secondary
-  const [primaryFontSize, setPrimaryFontSize] = useState(initialProps.primaryFontSize || 24);
+  const [primaryFontSize, setPrimaryFontSize] = useState(pxToPt(initialProps.primaryFontSize || 24));
   const [primaryFontFamily, setPrimaryFontFamily] = useState(initialProps.primaryFontFamily || 'Poppins');
   const [primaryFontWeight, setPrimaryFontWeight] = useState(initialProps.primaryFontWeight || 'Semi Bold');
   const [primaryLetterSpacing, setPrimaryLetterSpacing] = useState(initialProps.primaryLetterSpacing || 'Auto');
@@ -345,7 +352,7 @@ const ElementTitlesProperties = ({
   const [primaryIsStrikethrough, setPrimaryIsStrikethrough] = useState(initialProps.primaryIsStrikethrough || false);
   const [primaryIsList, setPrimaryIsList] = useState(initialProps.primaryIsList || false);
 
-  const [secondaryFontSize, setSecondaryFontSize] = useState(initialProps.secondaryFontSize || 24);
+  const [secondaryFontSize, setSecondaryFontSize] = useState(pxToPt(initialProps.secondaryFontSize || 18));
   const [secondaryFontFamily, setSecondaryFontFamily] = useState(initialProps.secondaryFontFamily || 'Poppins');
   const [secondaryFontWeight, setSecondaryFontWeight] = useState(initialProps.secondaryFontWeight || 'Semi Bold');
   const [secondaryLetterSpacing, setSecondaryLetterSpacing] = useState(initialProps.secondaryLetterSpacing || 'Auto');
@@ -379,7 +386,7 @@ const ElementTitlesProperties = ({
       setIconColor(p.iconColor || '#FFFFFF');
       setIconBgColor(p.iconBgColor || (currentTemplate === 'youtube-channel' ? '#FF0024' : '#0E34A8'));
 
-      setPrimaryFontSize(p.primaryFontSize || 24);
+      setPrimaryFontSize(pxToPt(p.primaryFontSize || 24));
       setPrimaryFontFamily(p.primaryFontFamily || 'Poppins');
       setPrimaryFontWeight(p.primaryFontWeight || 'Semi Bold');
       setPrimaryLetterSpacing(p.primaryLetterSpacing || 'Auto');
@@ -389,7 +396,7 @@ const ElementTitlesProperties = ({
       setPrimaryIsStrikethrough(p.primaryIsStrikethrough || false);
       setPrimaryIsList(p.primaryIsList || false);
 
-      setSecondaryFontSize(p.secondaryFontSize || 24);
+      setSecondaryFontSize(pxToPt(p.secondaryFontSize || 18));
       setSecondaryFontFamily(p.secondaryFontFamily || 'Poppins');
       setSecondaryFontWeight(p.secondaryFontWeight || 'Semi Bold');
       setSecondaryLetterSpacing(p.secondaryLetterSpacing || 'Auto');
@@ -892,7 +899,7 @@ const ElementTitlesProperties = ({
 
                   syncUpdates({
                     ...(updates.fontFamily !== undefined ? { primaryFontFamily: updates.fontFamily } : {}),
-                    ...(updates.fontSize !== undefined ? { primaryFontSize: updates.fontSize } : {}),
+                    ...(updates.fontSize !== undefined ? { primaryFontSize: ptToPx(updates.fontSize) } : {}),
                     ...(updates.fontWeight !== undefined ? { primaryFontWeight: updates.fontWeight } : {}),
                     ...(updates.letterSpacing !== undefined ? { primaryLetterSpacing: updates.letterSpacing } : {}),
                     ...(updates.lineHeight !== undefined ? { primaryLineHeight: updates.lineHeight } : {}),
@@ -978,7 +985,7 @@ const ElementTitlesProperties = ({
 
                     syncUpdates({
                       ...(updates.fontFamily !== undefined ? { secondaryFontFamily: updates.fontFamily } : {}),
-                      ...(updates.fontSize !== undefined ? { secondaryFontSize: updates.fontSize } : {}),
+                      ...(updates.fontSize !== undefined ? { secondaryFontSize: ptToPx(updates.fontSize) } : {}),
                       ...(updates.fontWeight !== undefined ? { secondaryFontWeight: updates.fontWeight } : {}),
                       ...(updates.letterSpacing !== undefined ? { secondaryLetterSpacing: updates.letterSpacing } : {}),
                       ...(updates.lineHeight !== undefined ? { secondaryLineHeight: updates.lineHeight } : {}),

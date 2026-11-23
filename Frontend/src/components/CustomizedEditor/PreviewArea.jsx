@@ -28,6 +28,7 @@ const PreviewArea = React.memo(({
     logoSettings: incomingLogoSettingsProp,
     watermarkSettings: watermarkSettingsProp,
     leadFormSettings: incomingLeadFormSettingsProp,
+    onUpdateLeadForm,
     settings: incomingSettings,
     profileSettings: profileSettingsProp,
     zoom = 1.0,
@@ -922,6 +923,7 @@ const PreviewArea = React.memo(({
         }
     }, [externalShowTOC]);
     const [showExportPopup, setShowExportPopup] = useState(false);
+    const [isAutoDownloadPDF, setIsAutoDownloadPDF] = useState(false);
     const [showSharePopup, setShowSharePopup] = useState(false);
     const [showProfilePopup, setShowProfilePopup] = useState(false);
 
@@ -1342,7 +1344,8 @@ const PreviewArea = React.memo(({
     const handleDownload = useCallback(() => {
         // Close share popup first
         setShowSharePopup(false);
-        // Open export/download popup after the call stack
+        // Automatically download PDF directly without opening the export modal
+        setIsAutoDownloadPDF(true);
         setTimeout(() => setShowExportPopup(true), 0);
     }, []);
 
@@ -2372,6 +2375,8 @@ const PreviewArea = React.memo(({
             setShowSharePopup={setShowSharePopup}
             showExportPopup={showExportPopup}
             setShowExportPopup={setShowExportPopup}
+            isAutoDownloadPDF={isAutoDownloadPDF}
+            setIsAutoDownloadPDF={setIsAutoDownloadPDF}
             showProfilePopup={showProfilePopup}
             setShowProfilePopup={setShowProfilePopup}
             creatorProfileData={creatorProfileData}
@@ -2427,7 +2432,17 @@ const PreviewArea = React.memo(({
             notes={notes}
             isMobileLandscape={isMobileLandscape}
             leadFormSettings={leadFormSettings}
-            onOpenLeadForm={() => setShowLeadForm(true)}
+            onOpenLeadForm={() => {
+                setLeadFormSubmitted(false);
+                setShowLeadForm(true);
+                if (onUpdateLeadForm && leadFormSettings?._manualPreview === false) {
+                    onUpdateLeadForm({
+                        ...leadFormSettings,
+                        _manualPreview: true,
+                        _previewKey: Date.now()
+                    });
+                }
+            }}
         />
     );
 
@@ -2650,7 +2665,12 @@ const PreviewArea = React.memo(({
                     onClose={() => {
                         setShowLeadForm(false);
                         setLeadFormSubmitted(true);
-                        if (leadFormSettings?._manualPreview === true) {
+                        if (onUpdateLeadForm) {
+                            onUpdateLeadForm({
+                                ...leadFormSettings,
+                                _manualPreview: false
+                            });
+                        } else if (leadFormSettings?._manualPreview === true) {
                             leadFormSettings._manualPreview = false;
                         }
                     }}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import PremiumDropdown from './PremiumDropdown';
 import { Trash2 } from 'lucide-react';
+import { CUSTOM_FONT_FAMILIES } from '../../../utils/customFonts';
 
 export const getBookmarkSVGPath = (s) => {
     switch (s) {
@@ -106,7 +107,8 @@ const BookmarkStylesPopup = ({ _onClose, settings = {}, onUpdate, pages = [] }) 
     const fontFamilies = [
         'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana',
         'Helvetica', 'Poppins', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
-        'Inter', 'Playfair Display', 'Oswald', 'Merriweather'
+        'Inter', 'Playfair Display', 'Oswald', 'Merriweather',
+        ...CUSTOM_FONT_FAMILIES
     ];
 
     const [showStyleGrid, setShowStyleGrid] = useState(false);

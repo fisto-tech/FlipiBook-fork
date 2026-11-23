@@ -17,6 +17,7 @@ import { sanitizeSvgXml, safeSerializeSvg } from "../utils/editorUtils";
 import { optimizeImageForWeb, shouldOptimizeImage } from "../../../utils/imageOptimizer";
 import { startInFlightActivity, endInFlightActivity, createRevisionSequencer } from "../../../utils/storage/saveLockManager";
 import { notifyBookSaved } from "../../../utils/common/editorSyncChannel";
+import { buildCustomFontFaceCss } from '../../../utils/customFonts';
 
 const VIRTUAL_FOLDERS = new Set([
   "recent book",
@@ -1178,6 +1179,16 @@ export const useSaveEngine = ({
                 /<svg[^>]*>/i,
                 "$&<defs>" + fontsStyle + "</defs>",
               );
+            }
+          }
+
+          // Local display fonts — own block so pages saved before these fonts existed get them too
+          if (newHtml && !newHtml.includes('id="custom-fonts-style"')) {
+            const customFontsStyle = `<style id="custom-fonts-style">\n${buildCustomFontFaceCss(window.location.origin)}\n</style>`;
+            if (newHtml.includes("<defs>")) {
+              newHtml = newHtml.replace("<defs>", "<defs>" + customFontsStyle);
+            } else {
+              newHtml = newHtml.replace(/<svg[^>]*>/i, "$&<defs>" + customFontsStyle + "</defs>");
             }
           }
 

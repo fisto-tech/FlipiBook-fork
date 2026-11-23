@@ -1117,28 +1117,12 @@ const Color = ({
                   >
                     <div className="w-[1.2vw] h-[0.1vw] bg-gray-700 rounded-full" />
                   </button>
-                  {/* Dotted */}
-                  <button
-                    type="button"
-                    onClick={() => updateAttr('stroke-dasharray', '2,4')}
-                    className={`flex-1 h-full flex items-center justify-center rounded-[0.45vw] border transition-colors cursor-pointer ${
-                      (pseudoProps.strokeDasharray === '2,4' || pseudoProps.strokeDasharray === '1,3' || (pseudoProps.strokeDasharray && pseudoProps.strokeDasharray.split(',')[0] === '2'))
-                        ? 'bg-white border-gray-400 shadow-2xs'
-                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex gap-[0.1vw]">
-                      <div className="w-[0.2vw] h-[0.1vw] bg-gray-700 rounded-full" />
-                      <div className="w-[0.2vw] h-[0.1vw] bg-gray-700 rounded-full" />
-                      <div className="w-[0.2vw] h-[0.1vw] bg-gray-700 rounded-full" />
-                    </div>
-                  </button>
                   {/* Dashed */}
                   <button
                     type="button"
                     onClick={() => updateAttr('stroke-dasharray', '8,4')}
                     className={`flex-1 h-full flex items-center justify-center rounded-[0.45vw] border transition-colors cursor-pointer ${
-                      (pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray !== '2,4' && pseudoProps.strokeDasharray.split(',')[0] !== '2')
+                      (pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && true)
                         ? 'bg-white border-gray-400 shadow-2xs'
                         : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                     }`}
@@ -1468,27 +1452,16 @@ const Color = ({
                           <div className={`w-[1.2vw] h-[0.1vw] rounded-full ${(!selectedElementProps?.['data-bg-stroke-dasharray'] || selectedElementProps?.['data-bg-stroke-dasharray'] === 'none') ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
                         </button>
                         {/* Dashed (Short) */}
-                        <button
-                          onClick={() => updateAttr('data-bg-stroke-dasharray', '4,4')}
-                          className={`flex-1 h-full flex items-center justify-center rounded-[0.5vw] border transition-colors ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length <= 2) ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-200/60 hover:bg-gray-100'}`}
-                        >
-                          <div className="flex gap-[0.15vw]">
-                            <div className={`w-[0.2vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length <= 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                            <div className={`w-[0.2vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length <= 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                            <div className={`w-[0.2vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length <= 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                            <div className={`w-[0.2vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length <= 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                          </div>
-                        </button>
                         {/* Dashed (Long) */}
                         <button
                           onClick={() => updateAttr('data-bg-stroke-dasharray', '6, 12, 18, 12')}
-                          className={`flex-1 h-full flex items-center justify-center rounded-[0.5vw] border transition-colors ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length > 2) ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-200/60 hover:bg-gray-100'}`}
+                          className={`flex-1 h-full flex items-center justify-center rounded-[0.5vw] border transition-colors ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && true) ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-200/60 hover:bg-gray-100'}`}
                         >
                           <div className="flex gap-[0.1vw] items-center">
-                            <div className={`w-[0.4vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length > 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                            <div className={`w-[0.1vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length > 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                            <div className={`w-[0.4vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length > 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                            <div className={`w-[0.1vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && selectedElementProps?.['data-bg-stroke-dasharray'].split(',').length > 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
+                            <div className={`w-[0.4vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && true) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
+                            <div className={`w-[0.1vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && true) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
+                            <div className={`w-[0.4vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && true) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
+                            <div className={`w-[0.1vw] h-[0.1vw] rounded-full ${(selectedElementProps?.['data-bg-stroke-dasharray'] && selectedElementProps?.['data-bg-stroke-dasharray'] !== 'none' && true) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
                           </div>
                         </button>
                       </div>
@@ -1833,27 +1806,16 @@ const Color = ({
                         <div className={`w-[1.2vw] h-[0.1vw] rounded-full ${(!pseudoProps.strokeDasharray || pseudoProps.strokeDasharray === 'none') ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
                       </button>
                       {/* Dashed (Short) */}
-                      <button
-                        onClick={() => updateAttr('stroke-dasharray', '4,4')}
-                        className={`flex-1 h-full flex items-center justify-center rounded-[0.5vw] border transition-colors ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length <= 2) ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-200/60 hover:bg-gray-100'}`}
-                      >
-                        <div className="flex gap-[0.15vw]">
-                          <div className={`w-[0.2vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length <= 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                          <div className={`w-[0.2vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length <= 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                          <div className={`w-[0.2vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length <= 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                          <div className={`w-[0.2vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length <= 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                        </div>
-                      </button>
                       {/* Dashed (Long) */}
                       <button
                         onClick={() => updateAttr('stroke-dasharray', '6, 12, 18, 12')}
-                        className={`flex-1 h-full flex items-center justify-center rounded-[0.5vw] border transition-colors ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length > 2) ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-200/60 hover:bg-gray-100'}`}
+                        className={`flex-1 h-full flex items-center justify-center rounded-[0.5vw] border transition-colors ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && true) ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-200/60 hover:bg-gray-100'}`}
                       >
                         <div className="flex gap-[0.1vw] items-center">
-                          <div className={`w-[0.4vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length > 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                          <div className={`w-[0.1vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length > 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                          <div className={`w-[0.4vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length > 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
-                          <div className={`w-[0.1vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && pseudoProps.strokeDasharray.split(',').length > 2) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
+                          <div className={`w-[0.4vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && true) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
+                          <div className={`w-[0.1vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && true) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
+                          <div className={`w-[0.4vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && true) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
+                          <div className={`w-[0.1vw] h-[0.1vw] rounded-full ${(pseudoProps.strokeDasharray && pseudoProps.strokeDasharray !== 'none' && true) ? 'bg-gray-700' : 'bg-gray-400'}`}></div>
                         </div>
                       </button>
                     </div>

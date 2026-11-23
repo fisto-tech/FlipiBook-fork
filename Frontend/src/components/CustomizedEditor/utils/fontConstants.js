@@ -1,3 +1,4 @@
+import { CUSTOM_FONT_FAMILIES } from '../../../utils/customFonts';
 /**
  * Standard font families supported across CustomizedEditor panels.
  */
@@ -18,6 +19,7 @@ export const fontFamilies = [
   'Playfair Display',
   'Oswald',
   'Merriweather',
+  ...CUSTOM_FONT_FAMILIES,
 ];
 
 export default fontFamilies;
