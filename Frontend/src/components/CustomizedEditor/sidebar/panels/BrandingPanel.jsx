@@ -59,14 +59,14 @@ const Branding = ({
     );
     setTempPreloaderSettings({
       enabled: true,
-      isCustom: true,
+      isCustom: preloaderSettings?.isCustom === true,
       displayOption: existingOption,
-      text: "Preparing Flipibook",
-      layout: "spinner",
-      logoAnimation: "bounce",
-      spinnerColor: "#3B3C8A",
-      bgColor: "#D6E0F4",
-      textColor: "#1E293B",
+      text: preloaderSettings?.text || "Preparing Flipbook...",
+      layout: preloaderSettings?.layout || "spinner",
+      logoAnimation: preloaderSettings?.logoAnimation || "bounce",
+      spinnerColor: (!preloaderSettings?.spinnerColor || preloaderSettings.spinnerColor === "#3B3C8A") ? "#E04752" : preloaderSettings.spinnerColor,
+      bgColor: (!preloaderSettings?.bgColor || preloaderSettings.bgColor === "#D6E0F4") ? "#22252A" : preloaderSettings.bgColor,
+      textColor: preloaderSettings?.textColor || "#ffffff",
       showPercentage: false,
       ...(preloaderSettings || {}),
     });
@@ -1186,50 +1186,11 @@ const Branding = ({
             </div>
           )}
           {/* Preloader Customization Section */}
-          <div className="flex items-center gap-[1vw] mb-[0.5vw] mt-[1.5vw]">
-            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">
+          <div className="flex items-center gap-[1vw] mb-[0.8vw] mt-[1.5vw]">
+            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.2vw]">
               Preloaded Customization
             </span>
             <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
-          </div>
-
-          {/* Don't show preparing flipibook preloader Toggle */}
-          <div className="flex items-center justify-between mb-[0.8vw] px-[0.2vw]">
-            <div className="flex flex-col pr-2">
-              <span className="text-[0.82vw] font-medium text-gray-800">
-                Don't show preparing flipibook preloader
-              </span>
-              <span className="text-[0.68vw] text-gray-500">
-                Disable preloader screen when viewing flipbook
-              </span>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={preloaderSettings?.enabled === false}
-              onClick={() => {
-                const newEnabled = preloaderSettings?.enabled === false ? true : false;
-                const updated = {
-                  ...(preloaderSettings || {}),
-                  enabled: newEnabled,
-                };
-                onUpdatePreloader(updated);
-                setTempPreloaderSettings((prev) => ({ ...prev, enabled: newEnabled }));
-              }}
-              className={`w-[2.2vw] h-[1.2vw] rounded-full p-[0.1vw] transition-colors focus:outline-none cursor-pointer flex-shrink-0 ${
-                preloaderSettings?.enabled === false
-                  ? "bg-[#4A3AFF]"
-                  : "bg-gray-200 border border-gray-300"
-              }`}
-            >
-              <div
-                className={`w-[1vw] h-[1vw] rounded-full bg-white shadow-sm transition-transform ${
-                  preloaderSettings?.enabled === false
-                    ? "translate-x-[1vw]"
-                    : "translate-x-0"
-                }`}
-              />
-            </button>
           </div>
 
           {/* Interactive Preloader Preview Box */}
@@ -1237,19 +1198,10 @@ const Branding = ({
             const displayPreloader = showPreloaderModal
               ? { ...preloaderSettings, ...tempPreloaderSettings }
               : preloaderSettings || {};
-            const isPreloaderDisabled = displayPreloader?.enabled === false;
-            const isCustom = displayPreloader?.isCustom === true || (
-              displayPreloader && (
-                !!displayPreloader.displayOption ||
-                !!displayPreloader.logo ||
-                displayPreloader.layout === "logo-only" ||
-                displayPreloader.layout === "bar" ||
-                displayPreloader.layout === "dots" ||
-                (displayPreloader.text && displayPreloader.text !== "Preparing Flipibook" && displayPreloader.text !== "Loading Modal Please Wait....") ||
-                (displayPreloader.bgColor && displayPreloader.bgColor !== "#D6E0F4") ||
-                (displayPreloader.spinnerColor && displayPreloader.spinnerColor !== "#3B3C8A")
-              )
-            );
+            const isCustom = displayPreloader?.isCustom === true;
+            const darkBg = "#22252A";
+            const whiteText = "#ffffff";
+            const defaultSpinner = "#E04752";
 
             const displayOption = displayPreloader?.displayOption || (
               displayPreloader?.layout === "logo-only"
@@ -1263,15 +1215,23 @@ const Branding = ({
             const displayText =
               !displayPreloader?.text ||
               displayPreloader.text === "Loading Modal Please Wait...."
-                ? "Preparing Flipibook"
+                ? "Preparing Flipbook..."
                 : displayPreloader.text;
+
+            const cardBg = isCustom
+              ? ((!displayPreloader?.bgColor || displayPreloader.bgColor === "#D6E0F4") ? darkBg : displayPreloader.bgColor)
+              : darkBg;
+            const cardColor = isCustom ? (displayPreloader?.textColor || whiteText) : whiteText;
+            const spinnerColor = isCustom
+              ? ((!displayPreloader?.spinnerColor || displayPreloader.spinnerColor === "#3B3C8A") ? defaultSpinner : displayPreloader.spinnerColor)
+              : defaultSpinner;
 
             return (
               <div
                 className="relative w-full h-[9.2vw] min-h-[120px] rounded-[1vw] flex flex-col items-center justify-center shadow-md border border-white/10 group overflow-hidden flex-shrink-0"
                 style={{
-                  backgroundColor: isCustom ? (displayPreloader?.bgColor || "#D6E0F4") : "#D6E0F4",
-                  color: isCustom ? (displayPreloader?.textColor || "#1E293B") : "#1E293B",
+                  backgroundColor: cardBg,
+                  color: cardColor,
                 }}
               >
                 <style>{`
@@ -1306,41 +1266,32 @@ const Branding = ({
                 </button>
 
                 {/* Badge: Default vs Custom */}
-                <div className="absolute top-[0.7vw] left-[0.8vw] z-[20] flex items-center gap-1 px-[0.4vw] py-[0.1vw] rounded-full bg-black/15 text-[0.58vw] font-medium backdrop-blur-xs">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isCustom ? "bg-indigo-500" : "bg-emerald-500"}`} />
-                  <span>{isCustom ? "Custom Preloader" : "Default Preloader"}</span>
+                <div className="absolute top-[0.7vw] left-[0.8vw] z-[20] flex items-center gap-1 px-[0.4vw] py-[0.1vw] rounded-full bg-black/25 text-[0.58vw] font-medium backdrop-blur-xs text-white">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isCustom ? "bg-indigo-400" : "bg-emerald-400"}`} />
+                  <span>{isCustom ? "Custom Preloader" : "Default"}</span>
                 </div>
-
-                {/* Disabled Overlay Indicator */}
-                {isPreloaderDisabled && (
-                  <div className="absolute inset-0 z-[30] bg-gray-900/70 backdrop-blur-[2px] flex flex-col items-center justify-center gap-[0.2vw] text-white select-none pointer-events-none px-2">
-                    <Icon icon="lucide:eye-off" className="w-[1.2vw] h-[1.2vw] text-gray-300" />
-                    <span className="text-[0.72vw] font-semibold text-gray-100">Preloader Disabled</span>
-                    <span className="text-[0.58vw] text-gray-300">Will not show when opening book</span>
-                  </div>
-                )}
 
                 <div className="flex flex-col items-center gap-[0.45vw] px-[1vw] pt-2">
                   {!isCustom ? (
-                    /* DEFAULT PRELOADER DISPLAY */
+                    /* DEFAULT PRELOADER DISPLAY (Matching Image 1: Dark theme with centered spinner & Preparing Flipbook...) */
                     <div className="flex flex-col items-center justify-center gap-[0.4vw]">
                       <div className="relative flex items-center justify-center">
                         <div
                           className="w-[1.6vw] h-[1.6vw] border-[2.5px] border-t-transparent rounded-full animate-spin"
                           style={{
-                            borderColor: "#3B3C8A #3B3C8A #3B3C8A transparent",
+                            borderColor: `${defaultSpinner} ${defaultSpinner} ${defaultSpinner} transparent`,
                           }}
                         />
                       </div>
                       <p
-                        className="text-[0.72vw] font-semibold text-center truncate max-w-[15vw]"
+                        className="text-[0.72vw] font-medium text-center text-gray-200 tracking-wide truncate max-w-[15vw]"
                         style={{ fontFamily: "Poppins" }}
                       >
-                        Preparing Flipibook
+                        Preparing Flipbook...
                       </p>
                     </div>
                   ) : (
-                    /* CUSTOM PRELOADER DISPLAY (Based on 3 options) */
+                    /* CUSTOM PRELOADER DISPLAY */
                     <>
                       {/* OPTION 1: Logo Only */}
                       {displayOption === "logo-only" ? (
@@ -1355,7 +1306,7 @@ const Branding = ({
                             </div>
                           ) : (
                             <div style={animStyle}>
-                              <div className="w-[2.4vw] h-[2.4vw] rounded-[0.4vw] bg-black/10 flex items-center justify-center border border-black/10">
+                              <div className="w-[2.4vw] h-[2.4vw] rounded-[0.4vw] bg-white/10 flex items-center justify-center border border-white/10">
                                 <span className="text-[1.2vw]">📖</span>
                               </div>
                             </div>
@@ -1386,8 +1337,7 @@ const Branding = ({
                                   className="h-full rounded-full"
                                   style={{
                                     width: "45%",
-                                    backgroundColor:
-                                      displayPreloader?.spinnerColor || "#3B3C8A",
+                                    backgroundColor: spinnerColor,
                                   }}
                                 />
                               </div>
@@ -1400,22 +1350,19 @@ const Branding = ({
                               <div
                                 className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce [animation-delay:-0.3s]"
                                 style={{
-                                  backgroundColor:
-                                    displayPreloader?.spinnerColor || "#3B3C8A",
+                                  backgroundColor: spinnerColor,
                                 }}
                               />
                               <div
                                 className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce [animation-delay:-0.15s]"
                                 style={{
-                                  backgroundColor:
-                                    displayPreloader?.spinnerColor || "#3B3C8A",
+                                  backgroundColor: spinnerColor,
                                 }}
                               />
                               <div
                                 className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce"
                                 style={{
-                                  backgroundColor:
-                                    displayPreloader?.spinnerColor || "#3B3C8A",
+                                  backgroundColor: spinnerColor,
                                 }}
                               />
                               {displayPreloader?.showPercentage && (
@@ -1428,7 +1375,7 @@ const Branding = ({
                               <div
                                 className="w-[1.6vw] h-[1.6vw] border-[2.5px] border-t-transparent rounded-full animate-spin"
                                 style={{
-                                  borderColor: `${displayPreloader?.spinnerColor || "#3B3C8A"} ${displayPreloader?.spinnerColor || "#3B3C8A"} ${displayPreloader?.spinnerColor || "#3B3C8A"} transparent`,
+                                  borderColor: `${spinnerColor} ${spinnerColor} ${spinnerColor} transparent`,
                                 }}
                               />
                               {displayPreloader?.showPercentage && (
@@ -1442,7 +1389,7 @@ const Branding = ({
                       )}
 
                       <p
-                        className="text-[0.72vw] font-semibold text-center truncate max-w-[15vw]"
+                        className="text-[0.72vw] font-medium text-center truncate max-w-[15vw]"
                         style={{ fontFamily: displayPreloader?.font || "Poppins" }}
                       >
                         {displayText}
@@ -1492,42 +1439,6 @@ const Branding = ({
                       className="text-gray-500 hover:text-gray-800 focus:outline-none cursor-pointer"
                     >
                       <Icon icon="lucide:x" className="w-[1.2vw] h-[1.2vw]" />
-                    </button>
-                  </div>
-
-                  {/* Toggle: Don't show preparing flipibook preloader */}
-                  <div className="flex items-center justify-between p-[0.6vw] rounded-[0.5vw] bg-gray-50 border border-gray-200">
-                    <div className="flex flex-col pr-2">
-                      <span className="text-[0.82vw] font-medium text-gray-800">
-                        Don't show preparing flipibook preloader
-                      </span>
-                      <span className="text-[0.68vw] text-gray-500">
-                        Disable preloader screen completely
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={tempPreloaderSettings?.enabled === false}
-                      onClick={() => {
-                        setTempPreloaderSettings({
-                          ...tempPreloaderSettings,
-                          enabled: tempPreloaderSettings?.enabled === false ? true : false,
-                        });
-                      }}
-                      className={`w-[2.2vw] h-[1.2vw] rounded-full p-[0.1vw] transition-colors focus:outline-none cursor-pointer flex-shrink-0 ${
-                        tempPreloaderSettings?.enabled === false
-                          ? "bg-[#4A3AFF]"
-                          : "bg-gray-200 border border-gray-300"
-                      }`}
-                    >
-                      <div
-                        className={`w-[1vw] h-[1vw] rounded-full bg-white shadow-sm transition-transform ${
-                          tempPreloaderSettings?.enabled === false
-                            ? "translate-x-[1vw]"
-                            : "translate-x-0"
-                        }`}
-                      />
                     </button>
                   </div>
 
@@ -1584,13 +1495,20 @@ const Branding = ({
                     // RULE: when both are selected, no animation for logo (static)
                     const modalLogoAnim = currentOption === "both" ? "none" : (tempPreloaderSettings?.logoAnimation || "bounce");
                     const modalAnimStyle = getLogoAnimationStyle(modalLogoAnim);
+                    const modalBg = (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
+                      ? "#22252A"
+                      : tempPreloaderSettings.bgColor;
+                    const modalColor = tempPreloaderSettings?.textColor || "#ffffff";
+                    const modalSpinner = (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
+                      ? "#E04752"
+                      : tempPreloaderSettings.spinnerColor;
 
                     return (
                       <div
-                        className="relative w-full h-[6.5vw] min-h-[90px] rounded-[0.6vw] flex flex-col items-center justify-center border border-gray-200 overflow-hidden shadow-inner"
+                        className="relative w-full h-[6.5vw] min-h-[90px] rounded-[0.6vw] flex flex-col items-center justify-center border border-gray-700/30 overflow-hidden shadow-inner"
                         style={{
-                          backgroundColor: tempPreloaderSettings?.bgColor || "#D6E0F4",
-                          color: tempPreloaderSettings?.textColor || "#1E293B",
+                          backgroundColor: modalBg,
+                          color: modalColor,
                         }}
                       >
                         <div className="flex flex-col items-center gap-[0.3vw]">
@@ -1607,7 +1525,7 @@ const Branding = ({
                                 </div>
                               ) : (
                                 <div style={modalAnimStyle}>
-                                  <div className="w-[1.8vw] h-[1.8vw] rounded-[0.3vw] bg-black/10 flex items-center justify-center">
+                                  <div className="w-[1.8vw] h-[1.8vw] rounded-[0.3vw] bg-white/10 flex items-center justify-center">
                                     <span className="text-[1vw]">📖</span>
                                   </div>
                                 </div>
@@ -1636,8 +1554,7 @@ const Branding = ({
                                     className="h-full rounded-full"
                                     style={{
                                       width: "50%",
-                                      backgroundColor:
-                                        tempPreloaderSettings?.spinnerColor || "#3B3C8A",
+                                      backgroundColor: modalSpinner,
                                     }}
                                   />
                                 </div>
@@ -1646,22 +1563,19 @@ const Branding = ({
                                   <div
                                     className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce [animation-delay:-0.3s]"
                                     style={{
-                                      backgroundColor:
-                                        tempPreloaderSettings?.spinnerColor || "#3B3C8A",
+                                      backgroundColor: modalSpinner,
                                     }}
                                   />
                                   <div
                                     className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce [animation-delay:-0.15s]"
                                     style={{
-                                      backgroundColor:
-                                        tempPreloaderSettings?.spinnerColor || "#3B3C8A",
+                                      backgroundColor: modalSpinner,
                                     }}
                                   />
                                   <div
                                     className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce"
                                     style={{
-                                      backgroundColor:
-                                        tempPreloaderSettings?.spinnerColor || "#3B3C8A",
+                                      backgroundColor: modalSpinner,
                                     }}
                                   />
                                 </div>
@@ -1669,7 +1583,7 @@ const Branding = ({
                                 <div
                                   className="w-[1.2vw] h-[1.2vw] border-[2px] border-t-transparent rounded-full animate-spin"
                                   style={{
-                                    borderColor: `${tempPreloaderSettings?.spinnerColor || "#3B3C8A"} ${tempPreloaderSettings?.spinnerColor || "#3B3C8A"} ${tempPreloaderSettings?.spinnerColor || "#3B3C8A"} transparent`,
+                                    borderColor: `${modalSpinner} ${modalSpinner} ${modalSpinner} transparent`,
                                   }}
                                 />
                               )}
@@ -1677,12 +1591,12 @@ const Branding = ({
                           )}
 
                           <p
-                            className="text-[0.68vw] font-semibold text-center truncate max-w-[12vw]"
+                            className="text-[0.68vw] font-medium text-center truncate max-w-[12vw] text-gray-200"
                             style={{ fontFamily: tempPreloaderSettings?.font || "Poppins" }}
                           >
                             {!tempPreloaderSettings?.text ||
                             tempPreloaderSettings.text === "Loading Modal Please Wait...."
-                              ? "Preparing Flipibook"
+                              ? "Preparing Flipbook..."
                               : tempPreloaderSettings.text}
                           </p>
                         </div>
@@ -2027,7 +1941,7 @@ const Branding = ({
                         className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
                         style={{
                           backgroundColor:
-                            tempPreloaderSettings?.textColor || "#1E293B",
+                            tempPreloaderSettings?.textColor || "#ffffff",
                         }}
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -2045,7 +1959,7 @@ const Branding = ({
                         <input
                           type="text"
                           value={(
-                            tempPreloaderSettings?.textColor || "#1E293B"
+                            tempPreloaderSettings?.textColor || "#ffffff"
                           ).toUpperCase()}
                           onChange={(e) => {
                             let val = e.target.value;
@@ -2072,7 +1986,9 @@ const Branding = ({
                         className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
                         style={{
                           backgroundColor:
-                            tempPreloaderSettings?.bgColor || "#D6E0F4",
+                            (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
+                              ? "#22252A"
+                              : tempPreloaderSettings.bgColor,
                         }}
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -2090,7 +2006,9 @@ const Branding = ({
                         <input
                           type="text"
                           value={(
-                            tempPreloaderSettings?.bgColor || "#D6E0F4"
+                            (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
+                              ? "#22252A"
+                              : tempPreloaderSettings.bgColor
                           ).toUpperCase()}
                           onChange={(e) => {
                             let val = e.target.value;
@@ -2117,7 +2035,9 @@ const Branding = ({
                         className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
                         style={{
                           backgroundColor:
-                            tempPreloaderSettings?.spinnerColor || "#3B3C8A",
+                            (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
+                              ? "#E04752"
+                              : tempPreloaderSettings.spinnerColor,
                         }}
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -2135,7 +2055,9 @@ const Branding = ({
                         <input
                           type="text"
                           value={(
-                            tempPreloaderSettings?.spinnerColor || "#3B3C8A"
+                            (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
+                              ? "#E04752"
+                              : tempPreloaderSettings.spinnerColor
                           ).toUpperCase()}
                           onChange={(e) => {
                             let val = e.target.value;
@@ -2163,12 +2085,12 @@ const Branding = ({
                           enabled: true,
                           isCustom: false,
                           displayOption: "preloader-only",
-                          text: "Preparing Flipibook",
+                          text: "Preparing Flipbook...",
                           layout: "spinner",
                           logoAnimation: "bounce",
-                          spinnerColor: "#3B3C8A",
-                          bgColor: "#D6E0F4",
-                          textColor: "#1E293B",
+                          spinnerColor: "#E04752",
+                          bgColor: "#22252A",
+                          textColor: "#ffffff",
                           showPercentage: false,
                           logo: "",
                         };

@@ -446,26 +446,16 @@ const EditorNavbar = ({
                         className="fixed inset-0 z-40"
                         onClick={() => setIsSaveMenuOpen(false)}
                       />
-                      <div className="absolute left-0 top-full mt-[0.5vw] bg-white border border-gray-200 shadow-xl rounded-[0.8vw] w-[9vw] min-w-[8.5vw] z-50 overflow-hidden py-[0.3vw] animate-in fade-in slide-in-from-top-2 duration-150">
-                        <button
-                          onClick={() => {
-                            setIsSaveMenuOpen(false);
-                            if (onSave) onSave(true);
-                          }}
-                          className="w-full px-[0.8vw] py-[0.5vw] flex items-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 hover:text-[#EC5137] transition-colors font-normal text-[0.82vw] cursor-pointer text-left"
-                        >
-                          <Save size="1vw" className="text-gray-500" />
-                          <span>Save</span>
-                        </button>
+                      <div className="absolute left-0 top-full mt-[0.5vw] bg-white border border-gray-200 shadow-xl rounded-[0.8vw] w-[10.5vw] min-w-[10vw] z-50 overflow-hidden py-[0.3vw] animate-in fade-in slide-in-from-top-2 duration-150">
                         <button
                           onClick={() => {
                             setIsSaveMenuOpen(false);
                             window.dispatchEvent(new CustomEvent('editor-save-as'));
                           }}
-                          className="w-full px-[0.8vw] py-[0.5vw] flex items-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 hover:text-[#EC5137] transition-colors font-normal text-[0.82vw] cursor-pointer text-left"
+                          className="w-full px-[0.8vw] py-[0.5vw] flex items-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 hover:text-[#EC5137] transition-colors font-normal text-[0.82vw] cursor-pointer text-left whitespace-nowrap"
                         >
                           <Icon icon="material-symbols:save-as-outline" className="w-[1.05vw] h-[1.05vw] text-gray-500" />
-                          <span>Save as</span>
+                          <span>Save as Copy</span>
                         </button>
                         <div className="h-[1px] bg-gray-100 my-[0.2vw]" />
                         <button
@@ -473,10 +463,10 @@ const EditorNavbar = ({
                             setIsSaveMenuOpen(false);
                             window.dispatchEvent(new CustomEvent('editor-export-3d'));
                           }}
-                          className="w-full px-[0.8vw] py-[0.5vw] flex items-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 hover:text-[#EC5137] transition-colors font-normal text-[0.82vw] cursor-pointer text-left"
+                          className="w-full px-[0.8vw] py-[0.5vw] flex items-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 hover:text-[#EC5137] transition-colors font-normal text-[0.82vw] cursor-pointer text-left whitespace-nowrap"
                         >
                           <Download size="1vw" className="text-gray-500" />
-                          <span>Export</span>
+                          <span>Export as Glb</span>
                         </button>
                       </div>
                     </>
@@ -549,116 +539,118 @@ const EditorNavbar = ({
             </div>
           )}
 
-          {/* Publish Split Button */}
-          <div className="relative flex items-center ml-[0.5vw]">
-            <div className="flex items-center bg-[#EC5137] text-white rounded-[0.5vw]">
-              <div className="relative group/publish-tooltip flex items-center">
-                <button
-                  onClick={onPublish}
-                  className="flex items-center gap-[0.4vw] px-[0.9vw] py-[0.6vw] hover:bg-[#D5452E] transition-all duration-300 active:scale-95 cursor-pointer rounded-l-[0.5vw]"
-                >
-                  <Icon icon="entypo:publish" className="w-[1.1vw] h-[1.1vw]" />
-                  <span className="font-medium text-[0.85vw] whitespace-nowrap">
-                    {currentBook?.isPublished ||
-                    currentBook?.published ||
-                    currentBook?.is_published ||
-                    currentBook?.status === "publish" ||
-                    currentBook?.meta?.isPublished
-                      ? "Unpublish"
-                      : "Publish"}
-                  </span>
-                </button>
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-[0.4vw] hidden group-hover/publish-tooltip:flex flex-col items-center pointer-events-none z-50 whitespace-nowrap">
-                  <div className="w-0 h-0 border-x-[0.3vw] border-x-transparent border-b-[0.3vw] border-b-gray-900/90" />
-                  <div className="bg-gray-900/90 text-white text-[0.65vw] font-medium px-[0.5vw] py-[0.25vw] rounded-[0.3vw] shadow-md backdrop-blur-xs">
-                    {currentBook?.isPublished ||
-                    currentBook?.published ||
-                    currentBook?.is_published ||
-                    currentBook?.status === "publish" ||
-                    currentBook?.meta?.isPublished
-                      ? "Unpublish Project"
-                      : "Publish Project"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-[1px] h-[1.3vw] bg-white/40"></div>
-
-              <div className="relative group/chevron-tooltip flex items-center">
-                <button
-                  onClick={() => setIsPublishMenuOpen(!isPublishMenuOpen)}
-                  className="px-[0.4vw] py-[0.6vw] hover:bg-[#D5452E] transition-all duration-300 active:scale-95 flex items-center justify-center cursor-pointer rounded-r-[0.5vw]"
-                >
-                  <ChevronDown
-                    size="1.1vw"
-                    className={`transition-transform duration-300 ${isPublishMenuOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {!isPublishMenuOpen && (
-                  <div className="absolute right-0 top-full mt-[0.4vw] hidden group-hover/chevron-tooltip:flex flex-col items-end pointer-events-none z-50 whitespace-nowrap">
-                    <div className="w-0 h-0 border-x-[0.3vw] border-x-transparent border-b-[0.3vw] border-b-gray-900/90 mr-[0.4vw]" />
+          {/* Publish Split Button - Hidden inside 3D Editor */}
+          {!isThreedEditor && (
+            <div className="relative flex items-center ml-[0.5vw]">
+              <div className="flex items-center bg-[#EC5137] text-white rounded-[0.5vw]">
+                <div className="relative group/publish-tooltip flex items-center">
+                  <button
+                    onClick={onPublish}
+                    className="flex items-center gap-[0.4vw] px-[0.9vw] py-[0.6vw] hover:bg-[#D5452E] transition-all duration-300 active:scale-95 cursor-pointer rounded-l-[0.5vw]"
+                  >
+                    <Icon icon="entypo:publish" className="w-[1.1vw] h-[1.1vw]" />
+                    <span className="font-medium text-[0.85vw] whitespace-nowrap">
+                      {currentBook?.isPublished ||
+                      currentBook?.published ||
+                      currentBook?.is_published ||
+                      currentBook?.status === "publish" ||
+                      currentBook?.meta?.isPublished
+                        ? "Unpublish"
+                        : "Publish"}
+                    </span>
+                  </button>
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-[0.4vw] hidden group-hover/publish-tooltip:flex flex-col items-center pointer-events-none z-50 whitespace-nowrap">
+                    <div className="w-0 h-0 border-x-[0.3vw] border-x-transparent border-b-[0.3vw] border-b-gray-900/90" />
                     <div className="bg-gray-900/90 text-white text-[0.65vw] font-medium px-[0.5vw] py-[0.25vw] rounded-[0.3vw] shadow-md backdrop-blur-xs">
-                      Flipbook Options
+                      {currentBook?.isPublished ||
+                      currentBook?.published ||
+                      currentBook?.is_published ||
+                      currentBook?.status === "publish" ||
+                      currentBook?.meta?.isPublished
+                        ? "Unpublish Project"
+                        : "Publish Project"}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {isPublishMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsPublishMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full mt-[0.6vw] bg-white border-[0.12vw] border-[#EC5137] shadow-xl rounded-[0.8vw] w-[11vw] z-50 overflow-hidden py-[0.4vw] animate-in fade-in slide-in-from-top-2 duration-200">
-                  <button
-                    onClick={() => {
-                      setIsPublishMenuOpen(false);
-                      setIsShareOpen(true);
-                    }}
-                    disabled={isThreedEditor}
-                    className={`w-full px-[1vw] py-[0.6vw] flex items-center justify-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 transition-colors font-medium text-[0.8vw] cursor-pointer ${isThreedEditor ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <Share2 size="1vw" />
-                    <span>Share</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsPublishMenuOpen(false);
-                      if (onExport) onExport();
-                    }}
-                    disabled={isThreedEditor}
-                    className={`w-full px-[1vw] py-[0.6vw] flex items-center justify-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 transition-colors font-medium text-[0.8vw] cursor-pointer ${isThreedEditor ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <Download size="1vw" />
-                    <span>Export</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsPublishMenuOpen(false);
-                      if (onClearFlipbook) onClearFlipbook();
-                    }}
-                    className="w-full px-[1vw] py-[0.6vw] text-center text-gray-700 hover:bg-gray-50 transition-colors font-medium text-[0.8vw] cursor-pointer"
-                  >
-                    Clear Flipbook
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsPublishMenuOpen(false);
-                      if (onDeleteFlipbook) onDeleteFlipbook();
-                    }}
-                    className="w-full px-[1vw] py-[0.6vw] text-center text-red-500 hover:bg-red-50 transition-colors font-bold text-[0.8vw] cursor-pointer"
-                  >
-                    Delete Flipbook
-                  </button>
                 </div>
-              </>
-            )}
-          </div>
 
-          {/* Settings Button - In-between Profile and Preview (Hidden in Customized Editor) */}
-          {!isCustomizedEditor && (
+                <div className="w-[1px] h-[1.3vw] bg-white/40"></div>
+
+                <div className="relative group/chevron-tooltip flex items-center">
+                  <button
+                    onClick={() => setIsPublishMenuOpen(!isPublishMenuOpen)}
+                    className="px-[0.4vw] py-[0.6vw] hover:bg-[#D5452E] transition-all duration-300 active:scale-95 flex items-center justify-center cursor-pointer rounded-r-[0.5vw]"
+                  >
+                    <ChevronDown
+                      size="1.1vw"
+                      className={`transition-transform duration-300 ${isPublishMenuOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {!isPublishMenuOpen && (
+                    <div className="absolute right-0 top-full mt-[0.4vw] hidden group-hover/chevron-tooltip:flex flex-col items-end pointer-events-none z-50 whitespace-nowrap">
+                      <div className="w-0 h-0 border-x-[0.3vw] border-x-transparent border-b-[0.3vw] border-b-gray-900/90 mr-[0.4vw]" />
+                      <div className="bg-gray-900/90 text-white text-[0.65vw] font-medium px-[0.5vw] py-[0.25vw] rounded-[0.3vw] shadow-md backdrop-blur-xs">
+                        Flipbook Options
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {isPublishMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsPublishMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-[0.6vw] bg-white border-[0.12vw] border-[#EC5137] shadow-xl rounded-[0.8vw] w-[11vw] z-50 overflow-hidden py-[0.4vw] animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => {
+                        setIsPublishMenuOpen(false);
+                        setIsShareOpen(true);
+                      }}
+                      disabled={isThreedEditor}
+                      className={`w-full px-[1vw] py-[0.6vw] flex items-center justify-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 transition-colors font-medium text-[0.8vw] cursor-pointer ${isThreedEditor ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <Share2 size="1vw" />
+                      <span>Share</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsPublishMenuOpen(false);
+                        if (onExport) onExport();
+                      }}
+                      disabled={isThreedEditor}
+                      className={`w-full px-[1vw] py-[0.6vw] flex items-center justify-center gap-[0.5vw] text-gray-700 hover:bg-gray-50 transition-colors font-medium text-[0.8vw] cursor-pointer ${isThreedEditor ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <Download size="1vw" />
+                      <span>Export</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsPublishMenuOpen(false);
+                        if (onClearFlipbook) onClearFlipbook();
+                      }}
+                      className="w-full px-[1vw] py-[0.6vw] text-center text-gray-700 hover:bg-gray-50 transition-colors font-medium text-[0.8vw] cursor-pointer"
+                    >
+                      Clear Flipbook
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsPublishMenuOpen(false);
+                        if (onDeleteFlipbook) onDeleteFlipbook();
+                      }}
+                      className="w-full px-[1vw] py-[0.6vw] text-center text-red-500 hover:bg-red-50 transition-colors font-bold text-[0.8vw] cursor-pointer"
+                    >
+                      Delete Flipbook
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Settings Button - Hidden in Customized Editor and 3D Editor */}
+          {!isCustomizedEditor && !isThreedEditor && (
             <div className="relative group/tooltip flex items-center ml-[0.5vw]">
               <button
                 onClick={() => setIsEditorSettingsOpen(true)}
@@ -760,6 +752,7 @@ const EditorNavbar = ({
         onClose={() => setIsEditorSettingsOpen(false)}
         isAutoSaveEnabled={isAutoSaveEnabled}
         onToggleAutoSave={onToggleAutoSave}
+        currentBook={currentBook}
       />
       {/* Render Share Modal */}
       <ShareModal

@@ -2145,8 +2145,8 @@ const PageEditor = () => {
 
           <MainEditor
             isPdfProject={isPdfProject}
-            isRulerEnabled={isRulerEnabled}
-            isTrimView={isTrimView}
+            isRulerEnabled={isPdfProject ? false : isRulerEnabled}
+            isTrimView={isPdfProject ? false : isTrimView}
             pages={pages}
             activePageIndex={activePageIndex}
             setActivePageIndex={setActivePageIndex}
@@ -2251,7 +2251,7 @@ const PageEditor = () => {
         <RightSidebar
           isDoublePage={isDoublePage}
           setIsDoublePage={setIsDoublePage}
-          isRulerEnabled={isRulerEnabled}
+          isRulerEnabled={isPdfProject ? false : isRulerEnabled}
           setIsRulerEnabled={setIsRulerEnabled}
           activeMainTool={activeMainTool}
           setActiveMainTool={setActiveMainTool}

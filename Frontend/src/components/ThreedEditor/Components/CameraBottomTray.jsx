@@ -22,7 +22,7 @@ export default function CameraBottomTray({
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [isExporting, setIsExporting] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
 
   const qualityDropdownRef = useRef(null);
   const fileTypeDropdownRef = useRef(null);
@@ -433,7 +433,7 @@ export default function CameraBottomTray({
   return (
     <div
       className={`absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-200/90 shadow-[0_-8px_25px_rgba(0,0,0,0.08)] flex flex-col font-sans select-none transition-all duration-300 ease-in-out ${
-        isMinimized ? "py-[0.45vw] px-[1.2vw]" : "px-[1.4vw] py-[0.75vw] gap-[0.7vw]"
+        isMinimized ? "py-2 px-3 md:py-[0.45vw] md:px-[1.2vw]" : "px-3 py-2 md:px-[1.4vw] md:py-[0.75vw] gap-2 md:gap-[0.7vw]"
       }`}
     >
       {/* ── FLOATING "SAVE CURRENT ANGLE" BUTTON DIRECTLY ABOVE THE TRAY ── */}
@@ -442,7 +442,12 @@ export default function CameraBottomTray({
           <button
             type="button"
             disabled={isCapturing}
-            onClick={() => onCaptureSnapshot && onCaptureSnapshot({ quality })}
+            onClick={() => {
+              setIsMinimized(false);
+              if (onCaptureSnapshot) {
+                onCaptureSnapshot({ quality });
+              }
+            }}
             className="flex items-center gap-[0.55vw] px-[1.1vw] py-[0.55vw] bg-[#17202C] hover:bg-[#253243] text-white rounded-[0.5vw] shadow-xl border border-[#17202C] text-[0.8vw] font-bold transition-all cursor-pointer active:scale-95 group shrink-0"
             title="Save current camera viewport angle"
           >
@@ -455,32 +460,38 @@ export default function CameraBottomTray({
         </div>
       )}
       {/* ── TOP HEADER / CONTROLS ROW ── */}
-      <div className="flex items-center justify-between gap-[1vw]">
+      <div 
+        onClick={() => {
+          if (isMinimized) setIsMinimized(false);
+        }}
+        className={`flex items-center justify-between gap-1.5 md:gap-[0.5vw] ${isMinimized ? "cursor-pointer" : ""}`}
+        title={isMinimized ? "Click to expand Saved Angles Preview" : undefined}
+      >
         {/* Left: Title & Count & Select All */}
-        <div className="flex items-center gap-[0.8vw]">
+        <div className="flex items-center gap-1.5 md:gap-[0.45vw] shrink-0">
           {/* Minimize / Expand Toggle Button */}
           <button
             type="button"
             onClick={() => setIsMinimized((prev) => !prev)}
-            className="flex items-center gap-[0.35vw] px-[0.55vw] py-[0.25vw] rounded-[0.4vw] bg-gray-100/90 hover:bg-orange-50 hover:text-[#EC5137] text-gray-700 transition-all cursor-pointer shadow-2xs group"
+            className="flex items-center gap-1 md:gap-[0.25vw] px-1.5 py-1 md:px-[0.45vw] md:py-[0.2vw] rounded-md md:rounded-[0.35vw] bg-gray-100/90 hover:bg-orange-50 hover:text-[#EC5137] text-gray-700 transition-all cursor-pointer shadow-2xs group shrink-0"
             title={isMinimized ? "Expand Saved Angles Tray" : "Minimize Tray"}
           >
             <Icon
               icon="heroicons:chevron-up-20-solid"
-              className={`w-[0.9vw] h-[0.9vw] text-gray-500 group-hover:text-[#EC5137] transition-transform duration-200 ${
+              className={`w-3.5 h-3.5 md:w-[0.8vw] md:h-[0.8vw] text-gray-500 group-hover:text-[#EC5137] transition-transform duration-200 ${
                 isMinimized ? "rotate-0" : "rotate-180"
               }`}
             />
-            <span className="text-[0.72vw] font-medium">
+            <span className="text-[11px] md:text-[0.68vw] font-medium whitespace-nowrap">
               {isMinimized ? "Expand" : "Minimize"}
             </span>
           </button>
 
-          <div className="flex items-center gap-[0.45vw]">
-            <h3 className="text-[0.84vw] font-semibold text-gray-900 tracking-normal whitespace-nowrap">
+          <div className="flex items-center gap-1 md:gap-[0.35vw] shrink-0">
+            <h3 className="text-xs md:text-[0.78vw] font-semibold text-gray-900 tracking-normal whitespace-nowrap">
               Saved Angles Preview
             </h3>
-            <span className="inline-flex items-center text-[0.66vw] font-medium px-[0.45vw] py-[0.12vw] rounded-full bg-orange-50 text-[#EC5137] border border-orange-200/60 leading-none whitespace-nowrap">
+            <span className="inline-flex items-center text-[10px] md:text-[0.62vw] font-medium px-1.5 py-0.5 md:px-[0.35vw] md:py-[0.1vw] rounded-full bg-orange-50 text-[#EC5137] border border-orange-200/60 leading-none whitespace-nowrap">
               {snapshots.length} {snapshots.length === 1 ? "Angle" : "Angles"}
             </span>
           </div>
@@ -489,26 +500,26 @@ export default function CameraBottomTray({
             <button
               type="button"
               onClick={handleToggleSelectAll}
-              className="flex items-center gap-[0.35vw] px-[0.6vw] py-[0.25vw] rounded-[0.4vw] bg-white border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900 transition-colors shadow-2xs cursor-pointer group"
+              className="flex items-center gap-1 md:gap-[0.25vw] px-1.5 py-1 md:px-[0.45vw] md:py-[0.2vw] rounded-md md:rounded-[0.35vw] bg-white border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900 transition-colors shadow-2xs cursor-pointer group shrink-0"
               title={isAllSelected ? "Unselect all angles" : "Select all angles"}
             >
               {isAllSelected ? (
                 <Icon
                   icon="ant-design:check-circle-filled"
-                  className="w-[0.85vw] h-[0.85vw] text-[#EC5137] shrink-0"
+                  className="w-3.5 h-3.5 md:w-[0.75vw] md:h-[0.75vw] text-[#EC5137] shrink-0"
                 />
               ) : isPartiallySelected ? (
                 <Icon
                   icon="ant-design:minus-circle-filled"
-                  className="w-[0.85vw] h-[0.85vw] text-[#EC5137] shrink-0"
+                  className="w-3.5 h-3.5 md:w-[0.75vw] md:h-[0.75vw] text-[#EC5137] shrink-0"
                 />
               ) : (
-                <div className="w-[0.8vw] h-[0.8vw] rounded-full border-[1.5px] border-gray-300 bg-white group-hover:border-gray-400 shrink-0" />
+                <div className="w-3 h-3 md:w-[0.75vw] md:h-[0.75vw] rounded-full border-[1.5px] border-gray-300 bg-white group-hover:border-gray-400 shrink-0" />
               )}
-              <span className="text-[0.7vw] font-medium whitespace-nowrap">
+              <span className="text-[11px] md:text-[0.66vw] font-medium whitespace-nowrap">
                 {isAllSelected ? "Unselect All" : "Select All"}
               </span>
-              <span className="text-[0.64vw] text-gray-400 font-normal whitespace-nowrap">
+              <span className="text-[10px] md:text-[0.6vw] text-gray-400 font-normal whitespace-nowrap">
                 ({selectedIds.size}/{snapshots.length})
               </span>
             </button>
@@ -519,22 +530,22 @@ export default function CameraBottomTray({
             <button
               type="button"
               onClick={handleDeleteSelected}
-              className="flex items-center justify-center p-[0.32vw] rounded-[0.4vw] bg-white border border-red-200 hover:border-red-400 text-red-600 hover:bg-red-50 transition-all shadow-2xs cursor-pointer group"
+              className="flex items-center justify-center p-1 md:p-[0.25vw] rounded-md md:rounded-[0.35vw] bg-white border border-red-200 hover:border-red-400 text-red-600 hover:bg-red-50 transition-all shadow-2xs cursor-pointer group shrink-0"
               title={`Delete ${selectedIds.size} selected ${selectedIds.size === 1 ? 'angle' : 'angles'}`}
             >
               <Icon
                 icon="heroicons:trash-20-solid"
-                className="w-[0.9vw] h-[0.9vw] text-red-500 group-hover:scale-110 transition-transform shrink-0"
+                className="w-3.5 h-3.5 md:w-[0.8vw] md:h-[0.8vw] text-red-500 group-hover:scale-110 transition-transform shrink-0"
               />
             </button>
           )}
         </div>
 
         {/* Right: Controls (Quality, Type, Export With Label, Export) */}
-        <div className="flex items-center gap-[0.75vw]">
+        <div className="flex items-center gap-1.5 md:gap-[0.45vw] shrink-0">
           {/* Export with Label toggle */}
-          <div className="flex items-center gap-[0.35vw]">
-            <span className="text-[0.72vw] font-medium text-gray-600 whitespace-nowrap">
+          <div className="flex items-center gap-1 md:gap-[0.25vw] shrink-0">
+            <span className="text-[11px] md:text-[0.68vw] font-medium text-gray-600 whitespace-nowrap">
               Export with label
             </span>
             <button
@@ -542,39 +553,39 @@ export default function CameraBottomTray({
               onClick={() => setExportWithLabel((prev) => !prev)}
               role="switch"
               aria-checked={exportWithLabel}
-              className={`relative inline-flex h-[1.1vw] w-[2vw] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              className={`relative inline-flex h-3.5 w-6 md:h-[0.95vw] md:w-[1.7vw] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                 exportWithLabel ? "bg-[#EC5137]" : "bg-gray-200"
               }`}
               title={exportWithLabel ? "Label will appear on exported image" : "Label will not appear on exported image"}
             >
               <span
                 aria-hidden="true"
-                className={`pointer-events-none inline-block h-[0.88vw] w-[0.88vw] transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                  exportWithLabel ? "translate-x-[0.9vw]" : "translate-x-0"
+                className={`pointer-events-none inline-block h-2.5 w-2.5 md:h-[0.75vw] md:w-[0.75vw] transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  exportWithLabel ? "translate-x-2.5 md:translate-x-[0.75vw]" : "translate-x-0"
                 }`}
               />
             </button>
           </div>
 
           {/* Quality dropdown */}
-          <div className="flex items-center gap-[0.35vw] relative" ref={qualityDropdownRef}>
-            <span className="text-[0.72vw] font-medium text-gray-600 whitespace-nowrap">Quality</span>
+          <div className="flex items-center gap-1 md:gap-[0.2vw] relative shrink-0" ref={qualityDropdownRef}>
+            <span className="text-[11px] md:text-[0.68vw] font-medium text-gray-600 whitespace-nowrap">Quality</span>
             <button
               type="button"
               onClick={() => setIsQualityOpen((prev) => !prev)}
-              className="flex items-center justify-between gap-[0.5vw] px-[0.6vw] py-[0.24vw] bg-white border border-gray-200 rounded-[0.4vw] text-[0.72vw] font-medium text-gray-700 min-w-[5.2vw] hover:border-gray-300 transition-colors cursor-pointer shadow-2xs"
+              className="flex items-center justify-between gap-1 md:gap-[0.3vw] px-1.5 py-0.5 md:px-[0.4vw] md:py-[0.2vw] bg-white border border-gray-200 rounded-md md:rounded-[0.35vw] text-[11px] md:text-[0.68vw] font-medium text-gray-700 min-w-[58px] md:min-w-[4vw] hover:border-gray-300 transition-colors cursor-pointer shadow-2xs"
             >
               <span>{quality}</span>
               <Icon
                 icon="heroicons:chevron-down-20-solid"
-                className={`w-[0.75vw] h-[0.75vw] text-gray-400 transition-transform ${
+                className={`w-3 h-3 md:w-[0.7vw] md:h-[0.7vw] text-gray-400 transition-transform ${
                   isQualityOpen ? "rotate-180" : ""
                 }`}
               />
             </button>
 
             {isQualityOpen && (
-              <div className="absolute right-0 bottom-full mb-[0.25vw] bg-white border border-gray-200 rounded-[0.45vw] shadow-xl z-50 py-[0.2vw] min-w-[6.2vw] animate-in fade-in slide-in-from-bottom-1 duration-150">
+              <div className="absolute right-0 bottom-full mb-1 md:mb-[0.2vw] bg-white border border-gray-200 rounded-md md:rounded-[0.4vw] shadow-xl z-50 py-1 md:py-[0.15vw] min-w-[75px] md:min-w-[5.5vw] animate-in fade-in slide-in-from-bottom-1 duration-150">
                 {["Low", "Medium", "High", "Ultra"].map((q) => (
                   <button
                     key={q}
@@ -583,7 +594,7 @@ export default function CameraBottomTray({
                       setQuality(q);
                       setIsQualityOpen(false);
                     }}
-                    className={`w-full text-left px-[0.7vw] py-[0.28vw] text-[0.72vw] hover:bg-gray-50 transition-colors cursor-pointer ${
+                    className={`w-full text-left px-2 py-0.5 md:px-[0.6vw] md:py-[0.22vw] text-[11px] md:text-[0.68vw] hover:bg-gray-50 transition-colors cursor-pointer ${
                       quality === q ? "font-semibold text-[#EC5137]" : "text-gray-700 font-normal"
                     }`}
                   >
@@ -595,24 +606,24 @@ export default function CameraBottomTray({
           </div>
 
           {/* Type dropdown */}
-          <div className="flex items-center gap-[0.35vw] relative" ref={fileTypeDropdownRef}>
-            <span className="text-[0.72vw] font-medium text-gray-600 whitespace-nowrap">Type</span>
+          <div className="flex items-center gap-1 md:gap-[0.2vw] relative shrink-0" ref={fileTypeDropdownRef}>
+            <span className="text-[11px] md:text-[0.68vw] font-medium text-gray-600 whitespace-nowrap">Type</span>
             <button
               type="button"
               onClick={() => setIsFileTypeOpen((prev) => !prev)}
-              className="flex items-center justify-between gap-[0.5vw] px-[0.6vw] py-[0.24vw] bg-white border border-gray-200 rounded-[0.4vw] text-[0.72vw] font-medium text-gray-700 min-w-[4.8vw] hover:border-gray-300 transition-colors cursor-pointer shadow-2xs"
+              className="flex items-center justify-between gap-1 md:gap-[0.3vw] px-1.5 py-0.5 md:px-[0.4vw] md:py-[0.2vw] bg-white border border-gray-200 rounded-md md:rounded-[0.35vw] text-[11px] md:text-[0.68vw] font-medium text-gray-700 min-w-[50px] md:min-w-[3.6vw] hover:border-gray-300 transition-colors cursor-pointer shadow-2xs"
             >
               <span>{fileType}</span>
               <Icon
                 icon="heroicons:chevron-down-20-solid"
-                className={`w-[0.75vw] h-[0.75vw] text-gray-400 transition-transform ${
+                className={`w-3 h-3 md:w-[0.7vw] md:h-[0.7vw] text-gray-400 transition-transform ${
                   isFileTypeOpen ? "rotate-180" : ""
                 }`}
               />
             </button>
 
             {isFileTypeOpen && (
-              <div className="absolute right-0 bottom-full mb-[0.25vw] bg-white border border-gray-200 rounded-[0.45vw] shadow-xl z-50 py-[0.2vw] min-w-[5.5vw] animate-in fade-in slide-in-from-bottom-1 duration-150">
+              <div className="absolute right-0 bottom-full mb-1 md:mb-[0.2vw] bg-white border border-gray-200 rounded-md md:rounded-[0.4vw] shadow-xl z-50 py-1 md:py-[0.15vw] min-w-[65px] md:min-w-[4.8vw] animate-in fade-in slide-in-from-bottom-1 duration-150">
                 {["PNG", "JPG", "PDF"].map((t) => (
                   <button
                     key={t}
@@ -621,7 +632,7 @@ export default function CameraBottomTray({
                       setFileType(t);
                       setIsFileTypeOpen(false);
                     }}
-                    className={`w-full text-left px-[0.7vw] py-[0.28vw] text-[0.72vw] hover:bg-gray-50 transition-colors cursor-pointer ${
+                    className={`w-full text-left px-2 py-0.5 md:px-[0.6vw] md:py-[0.22vw] text-[11px] md:text-[0.68vw] hover:bg-gray-50 transition-colors cursor-pointer ${
                       fileType === t ? "font-semibold text-[#EC5137]" : "text-gray-700 font-normal"
                     }`}
                   >
@@ -637,7 +648,7 @@ export default function CameraBottomTray({
             type="button"
             disabled={selectedIds.size === 0 || isExporting}
             onClick={handleExportClick}
-            className={`flex items-center gap-[0.35vw] px-[0.95vw] py-[0.26vw] rounded-[0.4vw] text-[0.74vw] font-medium text-white transition-all cursor-pointer shadow-sm active:scale-95 whitespace-nowrap ${
+            className={`flex items-center gap-1 md:gap-[0.25vw] px-2.5 py-1 md:px-[0.7vw] md:py-[0.22vw] rounded-md md:rounded-[0.35vw] text-[11px] md:text-[0.7vw] font-medium text-white transition-all cursor-pointer shadow-sm active:scale-95 whitespace-nowrap shrink-0 ${
               selectedIds.size === 0 || isExporting
                 ? "bg-gray-300 cursor-not-allowed shadow-none"
                 : "bg-[#EC5137] hover:bg-[#d9442a]"
@@ -645,7 +656,7 @@ export default function CameraBottomTray({
           >
             <Icon
               icon={isExporting ? "line-md:loading-loop" : "solar:export-linear"}
-              className="w-[0.88vw] h-[0.88vw]"
+              className="w-3.5 h-3.5 md:w-[0.8vw] md:h-[0.8vw]"
             />
             <span>{isExporting ? "Exporting..." : "Export"}</span>
           </button>

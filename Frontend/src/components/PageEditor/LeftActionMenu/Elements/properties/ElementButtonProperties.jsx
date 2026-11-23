@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { StrokeWidthInput } from '../../../properties/Color';
 import { createPortal } from 'react-dom';
 import {
   Pencil,
@@ -15,6 +16,7 @@ import CornerRadius from '../../../properties/CornerRadius';
 import { ElementToggle, ElementDropdown, ElementSlider } from './ElementUIControls';
 import { handleScrubHelper } from '../../../properties/propertiesShared';
 import { BUTTON_TEMPLATES } from '../utils/buttonElementUtils';
+import { CUSTOM_FONT_FAMILIES } from '../../../../../utils/customFonts';
 
 const SectionHeader = ({ title }) => (
   <div className="flex items-center gap-[0.8vw]">
@@ -110,7 +112,8 @@ const fontFamilies = [
   'Poppins', 'Arial', 'Bangers', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana',
   'Helvetica', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
   'Inter', 'Playfair Display', 'Oswald', 'Merriweather',
-  'Public Sans', 'Lora', 'Cabin', 'Satisfy'
+  'Public Sans', 'Lora', 'Cabin', 'Satisfy',
+  ...CUSTOM_FONT_FAMILIES
 ];
 
 const fontWeights = [
@@ -573,12 +576,14 @@ export const ButtonEditor = ({
       setStrokeAlignment(sa);
 
       const sda = shapeEl.getAttribute('stroke-dasharray');
+      // Dotted was removed: any dash pattern (incl. short ones like "2,4") is Dashed and keeps its L/G
       if (!sda || sda === 'none') {
         setLineStyle('Solid');
-      } else if (sda.includes('2,') || sda.includes('1,')) {
-        setLineStyle('Dotted');
       } else {
         setLineStyle('Dashed');
+        const [dl, dg] = sda.split(/[\s,]+/).map((v) => parseFloat(v));
+        if (dl > 0) setDashL(Math.round(dl));
+        if (dg > 0) setDashG(Math.round(dg));
       }
 
       const savedCornerLine = el.getAttribute('data-line-corner');
@@ -1830,7 +1835,7 @@ export const ButtonEditor = ({
     el.setAttribute('data-dash-l', newL.toString());
     el.setAttribute('data-dash-g', newG.toString());
 
-    if (lineStyle === 'Dashed') {
+    if (lineStyle !== 'Solid') {
       const mainPoly = el.querySelector('.btn-main-poly');
       const rectEl = el.querySelector('rect.btn-bg') || el.querySelector('rect') || (el.tagName?.toLowerCase() === 'rect' ? el : null);
       const targetEl = mainPoly || rectEl;
@@ -2404,7 +2409,7 @@ export const ButtonEditor = ({
                   <button
                     type="button"
                     disabled={isStrokeDisabled}
-                    onClick={() => handleStrokeWidthChange(Math.max(0, strokeWidth - 1))}
+                    onClick={() => handleStrokeWidthChange(Math.max(0, Math.round((parseFloat(strokeWidth) - 1) * 100) / 100))}
                     className="w-[2.1vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     <span className="text-[1vw] leading-none mb-[0.1vw]">-</span>
@@ -2413,21 +2418,20 @@ export const ButtonEditor = ({
                     className="flex-grow h-full bg-white border border-gray-300 rounded-[0.45vw] flex items-center cursor-ew-resize shadow-2xs hover:border-gray-400 transition-colors"
                     onPointerDown={(e) => {
                       if (isStrokeDisabled) return;
-                      handleScrubHelper(e, strokeWidth, (v) => handleStrokeWidthChange(Math.max(0, parseInt(v) || 0)));
+                      handleScrubHelper(e, strokeWidth, (v) => handleStrokeWidthChange(Math.max(0, Math.round((parseFloat(v) || 0) * 10) / 10)));
                     }}
                   >
-                    <input
-                      type="number"
-                      disabled={isStrokeDisabled}
+                    {/* Accepts decimals (e.g. 0.5, 1.25) */}
+                    <StrokeWidthInput
                       value={strokeWidth}
-                      onChange={(e) => handleStrokeWidthChange(Math.max(0, parseInt(e.target.value || 0)))}
-                      className="w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent no-spin cursor-text disabled:cursor-not-allowed"
+                      onChange={(v) => { if (!isStrokeDisabled) handleStrokeWidthChange(Math.max(0, parseFloat(v) || 0)); }}
+                      className={`w-full text-center text-[0.8vw] font-medium text-gray-700 outline-none bg-transparent no-spin cursor-text ${isStrokeDisabled ? 'pointer-events-none opacity-50' : ''}`}
                     />
                   </div>
                   <button
                     type="button"
                     disabled={isStrokeDisabled}
-                    onClick={() => handleStrokeWidthChange(strokeWidth + 1)}
+                    onClick={() => handleStrokeWidthChange(Math.round((parseFloat(strokeWidth) + 1) * 100) / 100)}
                     className="w-[2.1vw] h-full flex items-center justify-center bg-gray-100 rounded-[0.4vw] text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
                   >
                     <span className="text-[0.9vw] leading-none mb-[0.1vw]">+</span>

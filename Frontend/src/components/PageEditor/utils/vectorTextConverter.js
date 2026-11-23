@@ -1,4 +1,5 @@
 import opentype from 'opentype.js';
+import { getCustomFontUrl } from '../../../utils/customFonts';
 
 // Cache for loaded opentype font instances
 const fontCache = new Map();
@@ -7,6 +8,8 @@ const fontCache = new Map();
  * Resolves local font URL based on fontFamily, weight, and style.
  */
 export const getFontUrl = (fontFamily, fontWeight = 'normal', fontStyle = 'normal') => {
+  const customUrl = getCustomFontUrl(fontFamily, fontWeight);
+  if (customUrl) return customUrl;
   const normFamily = (fontFamily || '').replace(/['"]/g, '').trim().toLowerCase();
   const isBold = fontWeight === 'bold' || parseInt(fontWeight, 10) >= 600;
   const isItalic = fontStyle === 'italic' || fontStyle === 'oblique';

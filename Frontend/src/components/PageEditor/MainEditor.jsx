@@ -158,6 +158,13 @@ const MainEditor = ({
   const isConvertedFlipbook = Boolean(isPdfProject || (pages && pages.some(p => p.html && (p.html.includes('PDF Background') || p.html.includes('pdf-vector-layer') || p.html.includes('Document Shield')))));
   const isPdfMode = Boolean(isPdfProject || isConvertedFlipbook);
 
+  // Converted PDF / DOC / PPT books: Ruler and Trim View don't apply — keep them off (saved prefs untouched)
+  useEffect(() => {
+    if (!isConvertedFlipbook) return;
+    if (localTrimView) setLocalTrimView(false);
+    if (localRulerEnabled) setLocalRulerEnabled(false);
+  }, [isConvertedFlipbook, localTrimView, localRulerEnabled]);
+
   const pdfDefaultsSetRef = useRef(false);
   useEffect(() => {
     if (isConvertedFlipbook) {

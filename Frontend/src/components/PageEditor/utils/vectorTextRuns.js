@@ -289,6 +289,71 @@ export function runsToHtml(chars, baseStyle = {}) {
 /**
  * Computes exact character offsets [start, end) of the current selection inside rootDiv.
  */
+/**
+ * Character offsets MUST be counted exactly like parseHtmlToRuns counts characters:
+ * text = 1 per char, <br> = 1 ('\n'), and a block (<div>/<p>, not the root) adds a '\n' after it
+ * unless the text already ends with one. Range.toString() skips <br> / block breaks, so offsets taken
+ * from it drifted one character left per preceding line break (styling & re-selection landed on the
+ * wrong characters).
+ */
+function walkCharPositions(rootDiv, visit) {
+  let pos = 0;
+  let lastChar = '';
+  let stop = false;
+  const walk = (node) => {
+    if (stop || !node) return;
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (visit({ type: 'text', node, pos }) === false) { stop = true; return; }
+      const t = node.textContent;
+      pos += t.length;
+      if (t.length) lastChar = t[t.length - 1];
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'br') {
+      if (visit({ type: 'br', node, pos }) === false) { stop = true; return; }
+      pos += 1;
+      lastChar = '\n';
+      return;
+    }
+    const kids = node.childNodes;
+    for (let i = 0; i < kids.length; i++) {
+      if (visit({ type: 'child', node, index: i, pos }) === false) { stop = true; return; }
+      walk(kids[i]);
+      if (stop) return;
+    }
+    if (visit({ type: 'end', node, pos }) === false) { stop = true; return; }
+    if ((tag === 'div' || tag === 'p') && node !== rootDiv && pos > 0 && lastChar !== '\n') {
+      pos += 1;
+      lastChar = '\n';
+    }
+  };
+  walk(rootDiv);
+  return pos;
+}
+
+/** Offset (parseHtmlToRuns units) of a DOM boundary point (container, offset) inside rootDiv. */
+export function boundaryToCharOffset(rootDiv, container, offset) {
+  let result = null;
+  walkCharPositions(rootDiv, (step) => {
+    if (step.type === 'text' && step.node === container) {
+      result = step.pos + Math.min(offset, step.node.textContent.length);
+      return false;
+    }
+    if (step.type === 'child' && step.node === container && step.index === offset) {
+      result = step.pos;
+      return false;
+    }
+    if (step.type === 'end' && step.node === container) {
+      result = step.pos;
+      return false;
+    }
+    return true;
+  });
+  return result;
+}
+
 export function getSelectionCharacterOffsets(rootDiv) {
   if (!rootDiv) return null;
   const sel = window.getSelection();
@@ -298,13 +363,11 @@ export function getSelectionCharacterOffsets(rootDiv) {
   if (!rootDiv.contains(range.commonAncestorContainer)) return null;
 
   try {
-    const preCaretRange = range.cloneRange();
-    preCaretRange.selectNodeContents(rootDiv);
-    preCaretRange.setEnd(range.startContainer, range.startOffset);
-    const start = preCaretRange.toString().length;
-    const len = range.toString().length;
-    const end = start + len;
-
+    const a = boundaryToCharOffset(rootDiv, range.startContainer, range.startOffset);
+    const b = boundaryToCharOffset(rootDiv, range.endContainer, range.endOffset);
+    if (a === null || b === null) return null;
+    const start = Math.min(a, b);
+    const end = Math.max(a, b);
     if (start === end) return null;
     return { start, end, text: range.toString() };
   } catch {
@@ -320,60 +383,36 @@ export function setSelectionCharacterOffsets(rootDiv, start, end) {
   const sel = window.getSelection();
   if (!sel) return;
 
-  let currentPos = 0;
-  let startNode = null;
-  let startOffset = 0;
-  let endNode = null;
-  let endOffset = 0;
-
-  function traverse(node) {
-    if (startNode && endNode) return;
-
-    if (node.nodeType === Node.TEXT_NODE) {
-      const len = node.textContent.length;
-      if (!startNode && currentPos + len >= start) {
-        startNode = node;
-        startOffset = Math.max(0, start - currentPos);
+  // Same counting rules as parseHtmlToRuns (see walkCharPositions)
+  const toBoundary = (k, isEnd) => {
+    let res = null;
+    walkCharPositions(rootDiv, (step) => {
+      if (step.type === 'text') {
+        const len = step.node.textContent.length;
+        const inside = isEnd ? (k > step.pos && k <= step.pos + len) : (k >= step.pos && k < step.pos + len);
+        if (inside) { res = [step.node, k - step.pos]; return false; }
+      } else if (step.type === 'br') {
+        const parent = step.node.parentNode;
+        const idx = Array.prototype.indexOf.call(parent.childNodes, step.node);
+        if (!isEnd && k === step.pos) { res = [parent, idx]; return false; }
+        if (isEnd && k === step.pos + 1) { res = [parent, idx + 1]; return false; }
       }
-      if (!endNode && currentPos + len >= end) {
-        endNode = node;
-        endOffset = Math.max(0, end - currentPos);
-      }
-      currentPos += len;
-      return;
-    }
+      return true;
+    });
+    if (!res) res = [rootDiv, rootDiv.childNodes.length];
+    return res;
+  };
 
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      if (node.tagName.toLowerCase() === 'br') {
-        if (!startNode && currentPos + 1 >= start) {
-          startNode = node.parentNode;
-          startOffset = Array.from(node.parentNode.childNodes).indexOf(node);
-        }
-        if (!endNode && currentPos + 1 >= end) {
-          endNode = node.parentNode;
-          endOffset = Array.from(node.parentNode.childNodes).indexOf(node) + 1;
-        }
-        currentPos += 1;
-        return;
-      }
-      for (const child of node.childNodes) {
-        traverse(child);
-      }
-    }
-  }
-
-  traverse(rootDiv);
-
-  if (startNode && endNode) {
-    try {
-      const newRange = document.createRange();
-      newRange.setStart(startNode, startOffset);
-      newRange.setEnd(endNode, endOffset);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-    } catch {
-      // Fallback
-    }
+  const [startNode, startOffset] = toBoundary(Math.min(start, end), false);
+  const [endNode, endOffset] = toBoundary(Math.max(start, end), true);
+  try {
+    const newRange = document.createRange();
+    newRange.setStart(startNode, startOffset);
+    newRange.setEnd(endNode, endOffset);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  } catch {
+    // Fallback: leave the current selection untouched
   }
 }
 

@@ -168,7 +168,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
   const [sourceType, setSourceType] = useState('Location'); // 'Location' | 'URL' | 'Embed Code'
   const [location, setLocation] = useState('Harur');
   const [locationInput, setLocationInput] = useState('Harur');
-  const [coords, setCoords] = useState([12.0625, 78.4981]); // Default to Harur coords
+  const [coords, setCoords] = useState(() => DEFAULT_MAP_DATA.coords || [11.0168, 76.9558]); // user's current location when known
   const [urlInput, setUrlInput] = useState('');
   const [embedCode, setEmbedCode] = useState('');
   const [iframeUrl, setIframeUrl] = useState('');
@@ -529,7 +529,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
 
   // Sync state with selected element on canvas
   useEffect(() => {
-    const defaultUrl = `https://maps.google.com/maps?q=${encodeURIComponent('Gandhipuram, Coimbatore, Tamil Nadu')}&t=&z=14&ie=UTF8&iwloc=near&output=embed`;
+    const defaultUrl = `https://maps.google.com/maps?q=${encodeURIComponent(DEFAULT_MAP_DATA.location)}&t=&z=14&ie=UTF8&iwloc=near&output=embed`;
 
     if (selectedElement) {
       const url = selectedElement.getAttribute('data-url') || defaultUrl;
@@ -577,12 +577,12 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
       if (savedName && !savedName.toLowerCase().includes('fisto')) {
         setBusinessName(savedName);
       } else {
-        setBusinessName('Gandhipuram');
+        setBusinessName(DEFAULT_MAP_DATA.name);
       }
       if (savedAddress && !savedAddress.toLowerCase().includes('fisto')) {
         setBusinessAddress(savedAddress);
       } else {
-        setBusinessAddress('Coimbatore, Tamil Nadu, India');
+        setBusinessAddress(DEFAULT_MAP_DATA.address);
       }
       if (savedRating) setBusinessRating(savedRating);
       if (savedReviews) setBusinessReviews(savedReviews);
@@ -603,8 +603,8 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
         setLocation(savedName);
         setLocationInput(savedName);
       } else {
-        setLocation('Gandhipuram, Coimbatore, Tamil Nadu');
-        setLocationInput('Gandhipuram, Coimbatore, Tamil Nadu');
+        setLocation(DEFAULT_MAP_DATA.location);
+        setLocationInput(DEFAULT_MAP_DATA.location);
       }
 
       if (!savedLocation && !savedName && url.includes('maps.google.com') && url.includes('q=')) {
@@ -621,7 +621,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
 
       if (savedRawUrl) {
         setUrlInput(savedRawUrl);
-      } else if (url && !url.includes('Gandhipuram') && !url.includes('Coimbatore')) {
+      } else if (url && url !== defaultUrl && !url.includes('Gandhipuram') && !url.includes(encodeURIComponent(DEFAULT_MAP_DATA.location))) {
         setUrlInput(url);
       }
 
@@ -647,8 +647,8 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
 
         const effectiveStyle = savedStyle || layoutStyle || 'none';
         const freshOverlayHtml = generateOverlayHtml(effectiveStyle, {
-          name: (savedName && !savedName.toLowerCase().includes('fisto')) ? savedName : 'Gandhipuram',
-          address: (savedAddress && !savedAddress.toLowerCase().includes('fisto')) ? savedAddress : 'Coimbatore, Tamil Nadu, India',
+          name: (savedName && !savedName.toLowerCase().includes('fisto')) ? savedName : DEFAULT_MAP_DATA.name,
+          address: (savedAddress && !savedAddress.toLowerCase().includes('fisto')) ? savedAddress : DEFAULT_MAP_DATA.address,
           rating: savedRating || businessRating || DEFAULT_MAP_DATA.rating,
           reviews: savedReviews || businessReviews || DEFAULT_MAP_DATA.reviews,
           category: savedCategory || businessCategory || DEFAULT_MAP_DATA.category,
@@ -689,8 +689,52 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Location search input handler
-  const handleLocationInputChange = async (e) => {
+  // Location search input handler — search-as-you-type suggestions (Photon: prefix/fuzzy, good for
+  // business names like "fisto" → "Fisto Tech"), biased to the current map area, with Nominatim as
+  // fallback. Debounced and sequence-guarded so a slow older answer never replaces newer results.
+  const suggestSeqRef = useRef(0);
+  const fetchSuggestions = async (query, seq) => {
+    const [lat, lon] = Array.isArray(coords) ? coords : [12.0625, 78.4981];
+    const fmtPhoton = (f) => {
+      const p = f.properties || {};
+      const c = f.geometry?.coordinates || [];
+      const parts = [p.name, p.housenumber && p.street ? `${p.housenumber} ${p.street}` : p.street, p.district || p.locality, p.city || p.county, p.state, p.country]
+        .filter(Boolean)
+        .filter((v, i, a) => a.indexOf(v) === i);
+      return {
+        place_id: `ph-${p.osm_type || ''}${p.osm_id || ''}-${c.join(',')}`,
+        display_name: parts.join(', '),
+        lat: c[1],
+        lon: c[0],
+        type: p.osm_value || p.type || 'location',
+      };
+    };
+    let results = [];
+    try {
+      const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=7&lang=en&lat=${lat}&lon=${lon}&zoom=12&location_bias_scale=0.1`);
+      const data = await r.json();
+      results = (data?.features || []).filter((f) => f.properties?.name || f.properties?.street).map(fmtPhoton);
+    } catch { /* fall back below */ }
+    if (results.length < 3) {
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=in`);
+        const data = await r.json();
+        const seen = new Set(results.map((x) => `${Number(x.lat).toFixed(4)},${Number(x.lon).toFixed(4)}`));
+        for (const item of Array.isArray(data) ? data : []) {
+          const key = `${Number(item.lat).toFixed(4)},${Number(item.lon).toFixed(4)}`;
+          if (!seen.has(key)) { seen.add(key); results.push(item); }
+        }
+      } catch { /* ignore */ }
+    }
+    if (seq !== suggestSeqRef.current) return; // a newer keystroke owns the list
+    const list = results.slice(0, 7);
+    // Always offer the raw text: Google's own search finds businesses OpenStreetMap doesn't know
+    list.push({ display_name: query, isCustomQuery: true });
+    setSuggestions(list);
+    setShowSuggestions(true);
+  };
+
+  const handleLocationInputChange = (e) => {
     const value = e.target.value;
     setLocationInput(value);
     setErrorMessage('');
@@ -698,55 +742,18 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
-    if (value.trim().length >= 3 && value.trim() !== location) {
-      debounceTimerRef.current = setTimeout(() => {
-        handleSearchSubmit(value.trim());
-      }, 700);
-    }
+    const seq = ++suggestSeqRef.current;
 
-    // Check if coordinates
+    // Coordinates typed directly
     const isCoordinateRegex = /^[-+]?\d{1,2}(\.\d+)?\s*,\s*[-+]?\d{1,3}(\.\d+)?$/;
     if (isCoordinateRegex.test(value.trim())) {
-      setSuggestions([{
-        display_name: value.trim(),
-        isCoordinate: true
-      }]);
+      setSuggestions([{ display_name: value.trim(), isCoordinate: true }]);
       setShowSuggestions(true);
       return;
     }
 
-    if (value.length > 1) {
-      try {
-        // First prioritize Indian locations, then append global results if needed
-        const [indiaRes, globalRes] = await Promise.all([
-          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&countrycodes=in&limit=5`).then(r => r.json()).catch(() => []),
-          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=5`).then(r => r.json()).catch(() => [])
-        ]);
-
-        const inResults = Array.isArray(indiaRes) ? indiaRes : [];
-        const globResults = Array.isArray(globalRes) ? globalRes : [];
-
-        // Deduplicate: Indian locations first, followed by others
-        const seenIds = new Set(inResults.map(item => item.place_id));
-        const combined = [...inResults];
-        for (const item of globResults) {
-          if (!seenIds.has(item.place_id)) {
-            seenIds.add(item.place_id);
-            combined.push(item);
-          }
-        }
-
-        const results = combined.slice(0, 7);
-        results.push({
-          display_name: value.trim(),
-          isCustomQuery: true
-        });
-        setSuggestions(results);
-        setShowSuggestions(true);
-      } catch (err) {
-        setSuggestions([{ display_name: value.trim(), isCustomQuery: true }]);
-        setShowSuggestions(true);
-      }
+    if (value.trim().length > 1) {
+      debounceTimerRef.current = setTimeout(() => fetchSuggestions(value.trim(), seq), 300);
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -961,6 +968,17 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
               key={type}
               type="button"
               onClick={() => {
+                if (type !== sourceType) {
+                  // Fresh input for the new source: drop what was typed in the previous tab
+                  // (the map on the canvas stays until a new location / URL / code is applied)
+                  if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                  suggestSeqRef.current += 1; // ignore any in-flight suggestion response
+                  setLocationInput('');
+                  setUrlInput('');
+                  setEmbedCode('');
+                  setSuggestions([]);
+                  setShowSuggestions(false);
+                }
                 setSourceType(type);
                 setErrorMessage('');
               }}
@@ -987,6 +1005,10 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
               </button>
               <input
                 type="text"
+                name="fbe-map-place-search"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={locationInput}
                 onChange={handleLocationInputChange}
                 onKeyDown={handleKeyDown}
@@ -1015,6 +1037,7 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
                   return (
                     <div
                       key={index}
+                      onMouseDown={(e) => e.preventDefault()} // keep focus: no blur-search with the half-typed text
                       onClick={() => handleSuggestionClick(suggestion)}
                       className="flex flex-col px-3 py-1.5 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
                     >

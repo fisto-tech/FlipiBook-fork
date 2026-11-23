@@ -52,6 +52,29 @@ const CreateFlipbookModal = ({
     });
   }, [existingFlipbooks, currentFolder]);
 
+  const templateNameInputRef = React.useRef(null);
+  const uploadNameInputRef = React.useRef(null);
+
+  // Auto-generate smart default name ensuring uniqueness in current folder
+  const generateDefaultName = React.useCallback((baseName = 'Untitled Flipbook') => {
+    const existingNames = new Set(
+      booksInCurrentFolder.map(item => {
+        const name = (typeof item === 'string' ? item : item?.realName || item?.title || item?.flipbookName || '').trim().toLowerCase();
+        return name;
+      }).filter(Boolean)
+    );
+
+    if (!existingNames.has(baseName.toLowerCase())) {
+      return baseName;
+    }
+
+    let counter = 1;
+    while (existingNames.has(`${baseName} ${counter}`.toLowerCase())) {
+      counter++;
+    }
+    return `${baseName} ${counter}`;
+  }, [booksInCurrentFolder]);
+
   // Debounce check for duplicate name in current folder (300ms)
   React.useEffect(() => {
     const trimmed = flipbookName.trim().toLowerCase();
@@ -74,19 +97,30 @@ const CreateFlipbookModal = ({
   React.useEffect(() => {
     if (isOpen) {
       setIsSubmitting(false);
-      setView(initialView === 'selection' ? 'upload' : initialView);
+      const targetView = initialView === 'selection' ? 'upload' : initialView;
+      setView(targetView);
       setSelectedTemplateId(initialTemplateId);
       if (initialPageCount && initialPageCount >= 4) {
         setPageCount(initialPageCount);
       }
       setUploadedFiles([]);
-      setFlipbookName('');
+      const defaultName = generateDefaultName('Untitled Flipbook');
+      setFlipbookName(defaultName);
       setIsDuplicate(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      setTimeout(() => {
+        if (targetView === 'template' && templateNameInputRef.current) {
+          templateNameInputRef.current.focus();
+          templateNameInputRef.current.select();
+        } else if (targetView === 'upload' && uploadNameInputRef.current) {
+          uploadNameInputRef.current.focus();
+          uploadNameInputRef.current.select();
+        }
+      }, 100);
     }
-  }, [isOpen, initialView, initialTemplateId, initialPageCount]);
+  }, [isOpen, initialView, initialTemplateId, initialPageCount, generateDefaultName]);
 
   const handleNameChange = (e) => {
     setFlipbookName(e.target.value);
@@ -206,6 +240,13 @@ const CreateFlipbookModal = ({
     // Clear input so same file can be selected again
     if (event?.target && event.target.value !== undefined) {
       event.target.value = '';
+    }
+
+    if (files.length > 0 && (!flipbookName.trim() || flipbookName.startsWith('Untitled Flipbook'))) {
+      const baseFromFile = files[0].name.replace(/\.[^/.]+$/, "");
+      if (baseFromFile) {
+        setFlipbookName(generateDefaultName(baseFromFile));
+      }
     }
 
     // Calculate current total size
@@ -374,8 +415,12 @@ const CreateFlipbookModal = ({
 
   const handleCreateFlipbook = async () => {
     if (isSubmitting) return;
-    const trimmed = flipbookName.trim();
-    if (!trimmed) return;
+    let trimmed = flipbookName.trim();
+    if (!trimmed) {
+      const fallbackBase = uploadedFiles[0]?.file?.name ? uploadedFiles[0].file.name.replace(/\.[^/.]+$/, "") : 'Untitled Flipbook';
+      trimmed = generateDefaultName(fallbackBase);
+      setFlipbookName(trimmed);
+    }
     const isDup = booksInCurrentFolder.some(n => {
       const existingName = (typeof n === 'string' ? n : n?.realName || n?.title || n?.flipbookName || '').trim().toLowerCase();
       return existingName && existingName === trimmed.toLowerCase();
@@ -436,8 +481,11 @@ const CreateFlipbookModal = ({
   };
 
   const handleCreateFromTemplate = () => {
-    const trimmed = flipbookName.trim();
-    if (!trimmed) return;
+    let trimmed = flipbookName.trim();
+    if (!trimmed) {
+      trimmed = generateDefaultName('Untitled Flipbook');
+      setFlipbookName(trimmed);
+    }
     const isDup = booksInCurrentFolder.some(n => {
       const existingName = (typeof n === 'string' ? n : n?.realName || n?.title || n?.flipbookName || '').trim().toLowerCase();
       return existingName && existingName === trimmed.toLowerCase();
@@ -501,7 +549,7 @@ const CreateFlipbookModal = ({
   const renderUploadView = () => (
     <div
       onKeyDown={(e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
           e.preventDefault();
           if (
             !isSubmitting &&
@@ -585,6 +633,7 @@ const CreateFlipbookModal = ({
           Flipbook Name <span className="text-[#ea543a]">*</span>
         </label>
         <input
+          ref={uploadNameInputRef}
           type="text"
           value={flipbookName}
           onChange={handleNameChange}
@@ -596,18 +645,17 @@ const CreateFlipbookModal = ({
                 !isProcessingFiles &&
                 uploadedFiles.length > 0 &&
                 uploadedFiles.every(f => f.progress === 100) &&
-                !isDuplicate &&
-                flipbookName.trim()
+                !isDuplicate
               ) {
                 handleCreateFlipbook();
               }
             }
           }}
           placeholder="Enter flipbook name..."
-          className={`w-full border rounded-[0.5vw] px-[0.75vw] py-[0.5vw] text-[0.75vw] focus:outline-none transition-colors ${
+          className={`w-full border rounded-[0.5vw] px-[0.75vw] py-[0.5vw] text-[0.75vw] font-medium focus:outline-none transition-all ${
             isDuplicate 
               ? 'border-red-500 text-red-500 focus:border-red-500 bg-red-50/50' 
-              : 'border-gray-300 text-gray-700 focus:border-[#ea543a]'
+              : 'border-gray-300 text-gray-800 hover:border-gray-400 focus:border-[#ea543a] focus:ring-2 focus:ring-[#ea543a]/20 shadow-sm'
           }`}
         />
         {isDuplicate && <p className="text-red-500 text-[0.65vw] mt-[0.3vw] font-medium">This name already exists</p>}
@@ -697,9 +745,9 @@ const CreateFlipbookModal = ({
         </button>
         <button
           onClick={handleCreateFlipbook}
-          disabled={isSubmitting || isProcessingFiles || uploadedFiles.length === 0 || !uploadedFiles.every(f => f.progress === 100) || isDuplicate || !flipbookName.trim()}
+          disabled={isSubmitting || isProcessingFiles || uploadedFiles.length === 0 || !uploadedFiles.every(f => f.progress === 100) || isDuplicate}
           className={`flex-1 py-[0.6vw] font-semibold cursor-pointer rounded-[0.5vw] text-[0.85vw] transition-all flex items-center justify-center gap-[0.5vw] ${
-            !isSubmitting && !isProcessingFiles && uploadedFiles.length > 0 && uploadedFiles.every(f => f.progress === 100) && !isDuplicate && flipbookName.trim()
+            !isSubmitting && !isProcessingFiles && uploadedFiles.length > 0 && uploadedFiles.every(f => f.progress === 100) && !isDuplicate
               ? 'bg-[#ea543a] text-white hover:bg-[#d9482f] shadow-lg shadow-orange-500/20 active:scale-95'
               : 'bg-[#ffedea] text-[#ea543a]/40 cursor-not-allowed'
           }`}
@@ -816,17 +864,18 @@ const CreateFlipbookModal = ({
                 Flipbook Name <span className="text-[#ea543a]">*</span>
               </label>
               <input
+                ref={templateNameInputRef}
                 type="text"
                 value={flipbookName}
                 onChange={handleNameChange}
-                placeholder="Enter flipbook name..."
-                className={`w-full border rounded-[0.5vw] px-[0.75vw] py-[0.45vw] text-[0.75vw] focus:outline-none bg-white transition-colors ${
+                placeholder="Enter the name"
+                className={`w-full bg-transparent border-0 border-b-2 rounded-none px-[0.1vw] py-[0.4vw] text-[0.8vw] font-medium placeholder:text-gray-400 placeholder:font-normal focus:outline-none transition-colors ${
                   isDuplicate
-                    ? 'border-red-500 text-red-500 bg-red-50/50 focus:border-red-500'
-                    : 'border-gray-200 text-gray-800 focus:border-[#ea543a]'
+                    ? 'border-red-500 text-red-600 focus:border-red-600'
+                    : 'border-[#ea543a] text-gray-900 focus:border-[#d9482f]'
                 }`}
               />
-              {isDuplicate && <p className="text-red-500 text-[0.65vw] mt-[0.3vw] font-medium">This name already exists</p>}
+              {isDuplicate && <p className="text-red-500 text-[0.65vw] mt-[0.3vw] font-medium">This name already exists in this folder</p>}
             </div>
 
             {/* Pages Orientation - Disabled for Square */}
@@ -944,9 +993,9 @@ const CreateFlipbookModal = ({
           </button>
           <button
             onClick={handleCreateFromTemplate}
-            disabled={isDuplicate || !flipbookName.trim()}
-            className={`flex-1 bg-[#ea543a] hover:bg-[#d9482f] text-white rounded-[0.6vw] py-[0.6vw] text-[0.8vw] font-semibold shadow-md transition-colors cursor-pointer ${
-              isDuplicate || !flipbookName.trim() ? 'opacity-50 cursor-not-allowed' : ''
+            disabled={isDuplicate}
+            className={`flex-1 bg-[#ea543a] hover:bg-[#d9482f] text-white rounded-[0.6vw] py-[0.6vw] text-[0.8vw] font-semibold shadow-md transition-all cursor-pointer ${
+              isDuplicate ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'
             }`}
           >
             Create Flipbook

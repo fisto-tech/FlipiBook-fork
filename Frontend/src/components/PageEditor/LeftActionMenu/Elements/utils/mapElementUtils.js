@@ -6,13 +6,79 @@ export const DEFAULT_MAP_DATA = {
   category: 'Commercial Center',
   phone: '',
   image: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=400&auto=format&fit=crop&q=80',
-  location: 'Gandhipuram, Coimbatore, Tamil Nadu',
+  location: 'Gandhipuram, Coimbatore, Tamil Nadu', // fallback only — replaced by the user's current location
+  city: 'Coimbatore',
+  coords: [11.0168, 76.9558],
   gallery: [
     'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=200&auto=format&fit=crop&q=80',
     'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=200&auto=format&fit=crop&q=80',
     'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=200&auto=format&fit=crop&q=80',
     'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=200&auto=format&fit=crop&q=80'
   ]
+};
+
+/* ── Default location = the user's current location ──────────────────────────────────────────
+   New maps start at where the user is (browser geolocation → reverse-geocoded place name), not a
+   hard-coded city. Resolved once, remembered in localStorage, and applied to DEFAULT_MAP_DATA so
+   every new map / preview / properties default uses it. If location is denied or unavailable the
+   built-in default stays. */
+const MAP_LOC_STORAGE_KEY = 'fbe_map_default_location_v1';
+const mapLocListeners = new Set();
+let mapLocPromise = null;
+
+const applyMapDefaultLocation = (loc) => {
+  if (!loc || !loc.location) return;
+  DEFAULT_MAP_DATA.name = loc.name || DEFAULT_MAP_DATA.name;
+  DEFAULT_MAP_DATA.address = loc.address || DEFAULT_MAP_DATA.address;
+  DEFAULT_MAP_DATA.location = loc.location;
+  DEFAULT_MAP_DATA.city = loc.city || loc.name || DEFAULT_MAP_DATA.city;
+  if (Number.isFinite(loc.lat) && Number.isFinite(loc.lon)) DEFAULT_MAP_DATA.coords = [loc.lat, loc.lon];
+  DEFAULT_MAP_DATA.isCurrentLocation = true;
+  mapLocListeners.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
+};
+
+// Apply a remembered location immediately (no prompt, no network)
+try {
+  const saved = typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem(MAP_LOC_STORAGE_KEY) || 'null') : null;
+  if (saved) applyMapDefaultLocation(saved);
+} catch { /* ignore */ }
+
+export const subscribeMapDefaultLocation = (fn) => {
+  mapLocListeners.add(fn);
+  return () => mapLocListeners.delete(fn);
+};
+
+export const resolveCurrentMapLocation = () => {
+  if (mapLocPromise) return mapLocPromise;
+  mapLocPromise = new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      let loc = { lat, lon, name: 'My Location', address: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, location: `${lat.toFixed(6)},${lon.toFixed(6)}` };
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16&addressdetails=1&accept-language=en`);
+        const d = await r.json();
+        const a = d?.address || {};
+        const area = a.suburb || a.neighbourhood || a.quarter || a.village || a.town || a.city_district || a.city || a.county;
+        const city = a.city || a.town || a.village || a.county || a.state_district;
+        const parts = [area, city !== area ? city : null, a.state].filter(Boolean);
+        if (parts.length) {
+          loc = {
+            lat, lon,
+            name: area || city,
+            city: city || area,
+            address: [city !== area ? city : null, a.state, a.country].filter(Boolean).join(', '),
+            location: parts.join(', '),
+          };
+        }
+      } catch { /* keep coordinate label */ }
+      try { localStorage.setItem(MAP_LOC_STORAGE_KEY, JSON.stringify(loc)); } catch { /* ignore */ }
+      applyMapDefaultLocation(loc);
+      resolve(loc);
+    }, () => resolve(null), { enableHighAccuracy: false, timeout: 10000, maximumAge: 30 * 60 * 1000 });
+  });
+  return mapLocPromise;
 };
 
 export const MAP_TEMPLATES = [
@@ -33,13 +99,8 @@ export const MAP_TEMPLATES = [
     name: 'Pin Callout',
     description: 'Interactive map marker with floating speech bubble',
     badge: 'Clean'
-  },
-  {
-    id: 'actions',
-    name: 'Quick Actions',
-    description: 'Bottom sheet with Directions, Call & Share buttons',
-    badge: 'Action'
   }
+  // 'actions' (Quick Actions) removed from the catalog; existing maps of that style still render
 ];
 
 export const escapeXml = (str) => {
@@ -240,7 +301,7 @@ export const generateOverlayHtml = (style, data = {}) => {
 export const getMapSvgCode = (templateId = 'none', isClick = false, customData = {}) => {
   const uniqueId = Date.now();
   const data = { ...DEFAULT_MAP_DATA, ...customData };
-  const loc = data.location || 'Gandhipuram, Coimbatore, Tamil Nadu';
+  const loc = data.location || DEFAULT_MAP_DATA.location;
   const zoom = customData.zoom !== undefined ? customData.zoom : (data.zoom !== undefined ? data.zoom : 14);
   const defaultUrl = `https://maps.google.com/maps?q=${encodeURIComponent(loc)}&t=&z=${zoom}&ie=UTF8&iwloc=near&output=embed`;
   const theme = data.theme || 'Light Theme';

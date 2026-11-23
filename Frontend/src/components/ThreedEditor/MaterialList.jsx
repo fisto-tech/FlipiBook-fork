@@ -470,7 +470,7 @@ const TreeItem = ({
                         });
                     }}
                     title={`Object: ${visualTitle} (${childMeshCount} meshes)`}
-                    className={`group relative flex items-center justify-between py-[0.38vw] px-[0.45vw] rounded-[0.45vw] text-[0.7vw] cursor-pointer transition-all duration-150 border select-none w-full min-w-0 ${
+                    className={`group relative flex items-center justify-between py-[0.45vw] px-[0.48vw] rounded-[0.45vw] text-[0.85vw] cursor-pointer transition-all duration-150 border select-none w-full min-w-0 ${
                         isSelected
                             ? "bg-indigo-50/95 border-indigo-200/90 text-indigo-950 font-semibold shadow-2xs"
                             : "border-transparent text-gray-800 hover:bg-gray-100/75"
@@ -482,29 +482,29 @@ const TreeItem = ({
                     )}
 
                     {/* Left: Chevron + Folder Icon + Object Badge + Name + Mesh Count */}
-                    <div className="flex items-center gap-[0.3vw] min-w-0 flex-1 pr-[0.2vw]">
+                    <div className="flex items-center gap-[0.45vw] min-w-0 flex-1 pr-[0.2vw]">
                         <button
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsOpen(!isOpen);
                             }}
-                            className="w-[1vw] h-[1vw] flex items-center justify-center rounded-[0.22vw] text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 transition-colors shrink-0 cursor-pointer"
+                            className="w-[1.15vw] h-[1.15vw] flex items-center justify-center rounded-[0.25vw] text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 transition-colors shrink-0 cursor-pointer"
                             title={isOpen ? "Collapse folder" : "Expand folder"}
                         >
                             <Icon
                                 icon="heroicons:chevron-down-20-solid"
-                                width="0.75vw"
-                                height="0.75vw"
+                                width="0.9vw"
+                                height="0.9vw"
                                 className={`transition-transform duration-200 ${isOpen ? "rotate-0" : "-rotate-90"}`}
                             />
                         </button>
 
-                        <div className="w-[1.2vw] h-[1.2vw] rounded-[0.28vw] flex items-center justify-center shrink-0">
+                        <div className="w-[1.35vw] h-[1.35vw] rounded-[0.3vw] flex items-center justify-center shrink-0">
                             <Icon
                                 icon={isOpen ? "lucide:folder-open" : "lucide:folder"}
-                                width="0.9vw"
-                                height="0.9vw"
+                                width="1.15vw"
+                                height="1.15vw"
                                 className={`transition-colors ${
                                     isSelected
                                         ? "text-[#5d5efc]"
@@ -524,18 +524,18 @@ const TreeItem = ({
                                 onBlur={handleRenameSubmit}
                                 onKeyDown={handleKeyDown}
                                 onClick={(e) => e.stopPropagation()}
-                                className="bg-white border border-indigo-400 rounded px-[0.25vw] py-[0.04vw] text-[0.68vw] text-gray-900 font-normal outline-none w-full shadow-xs"
+                                className="bg-white border border-indigo-400 rounded px-[0.25vw] py-[0.06vw] text-[0.85vw] text-gray-900 font-normal outline-none w-full shadow-xs"
                             />
                         ) : (
                             <span 
-                                className="truncate font-normal text-[0.7vw] text-gray-800 tracking-tight flex-1 min-w-0 leading-tight"
+                                className="truncate font-medium text-[0.85vw] text-gray-900 tracking-tight flex-1 min-w-0 leading-tight"
                                 title={displayName}
                             >
                                 {visualTitle}
                             </span>
                         )}
 
-                        <span className="text-[0.52vw] font-normal px-[0.28vw] py-[0.04vw] rounded-[0.22vw] bg-gray-100 text-gray-400 shrink-0 ml-auto mr-[0.1vw]">
+                        <span className="text-[0.68vw] font-medium px-[0.38vw] py-[0.08vw] rounded-[0.25vw] bg-gray-100 text-gray-600 shrink-0 ml-auto mr-[0.1vw]">
                             {childMeshCount}
                         </span>
                     </div>
@@ -594,7 +594,7 @@ const TreeItem = ({
             data-mesh-key={toSafeString(node.meshUuid || node.id || displayName)}
             data-mesh-name={displayName}
             title={displayName}
-            className={`group relative flex items-center justify-between py-[0.32vw] px-[0.42vw] rounded-[0.42vw] text-[0.68vw] cursor-pointer transition-all duration-150 border select-none w-full min-w-0 my-[0.03vw] ${
+            className={`group relative flex items-center justify-between py-[0.4vw] px-[0.45vw] rounded-[0.42vw] text-[0.82vw] cursor-pointer transition-all duration-150 border select-none w-full min-w-0 my-[0.04vw] ${
                 isSelected
                     ? "bg-indigo-50/90 border-indigo-200/90 text-indigo-950 font-normal shadow-2xs"
                     : "border-transparent text-gray-700 hover:bg-gray-100/70"
@@ -606,15 +606,15 @@ const TreeItem = ({
             )}
 
             {/* Left: 3D Box Icon + Mesh Name */}
-            <div className="flex items-center gap-[0.35vw] min-w-0 flex-1 pr-[0.2vw]">
+            <div className="flex items-center gap-[0.45vw] min-w-0 flex-1 pr-[0.2vw]">
                 <div
-                    className={`w-[1.15vw] h-[1.15vw] rounded-[0.26vw] flex items-center justify-center shrink-0 transition-colors ${
+                    className={`w-[1.3vw] h-[1.3vw] rounded-[0.3vw] flex items-center justify-center shrink-0 transition-colors ${
                         isSelected
                             ? "bg-indigo-100 text-[#5d5efc]"
                             : "bg-gray-100/90 text-gray-400 group-hover:text-[#5d5efc] group-hover:bg-indigo-50/80"
                     }`}
                 >
-                    <Icon icon="f7:cube" width="0.75vw" height="0.75vw" />
+                    <Icon icon="f7:cube" width="0.95vw" height="0.95vw" />
                 </div>
 
                 {isEditing ? (
@@ -626,11 +626,11 @@ const TreeItem = ({
                         onBlur={handleRenameSubmit}
                         onKeyDown={handleKeyDown}
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-white border border-indigo-400 rounded px-[0.25vw] py-[0.04vw] text-[0.68vw] text-gray-900 font-normal outline-none w-full shadow-xs"
+                        className="bg-white border border-indigo-400 rounded px-[0.25vw] py-[0.06vw] text-[0.82vw] text-gray-900 font-normal outline-none w-full shadow-xs"
                     />
                 ) : (
                     <span 
-                        className="truncate font-normal text-[0.68vw] text-gray-700 group-hover:text-gray-900 tracking-tight flex-1 min-w-0 leading-tight"
+                        className="truncate font-normal text-[0.82vw] text-gray-700 group-hover:text-gray-900 tracking-tight flex-1 min-w-0 leading-tight"
                         title={displayName}
                     >
                         {visualTitle}
@@ -755,7 +755,7 @@ export default function MaterialList({
     }
 
     return (
-        <div className="relative z-40 flex flex-col w-[20vw] min-w-[290px] max-w-[360px] select-none font-sans">
+        <div className="relative z-40 flex flex-col w-[20vw] select-none font-sans">
             {/* --- STATIC FLOATING HEADER PILL --- */}
             <div
                 onClick={() => setIsCollapsed(!isCollapsed)}

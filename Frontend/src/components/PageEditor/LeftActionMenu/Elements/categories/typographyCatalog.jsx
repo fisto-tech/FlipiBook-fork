@@ -3,14 +3,11 @@ import {
   createMotionGraphicElementNode
 } from '../utils/motionGraphicUtils';
 import {
-  RAW_SVG_1,
-  RAW_SVG_2,
-  RAW_SVG_3,
-  RAW_SVG_4,
-  RAW_SVG_5,
-  TYPOGRAPHY_PREVIEW_URIS,
-  parseSvgStringToGroupNode
-} from '../utils/textElementUtils';
+  buildTypographyPreviewMarkup,
+  createTypographyPresetNode,
+  loadPresetFonts
+} from '../utils/typographyPresetBuilder';
+import { TYPOGRAPHY_PRESET_SPECS } from './typographyPresets';
 
 // --- 9 Motion Graphic Titles (subtopic: 'Titles') ---
 export const MOTION_GRAPHIC_PRESETS = [
@@ -239,104 +236,39 @@ const renderMotionGraphicPreview = (preset) => {
   );
 };
 
-// --- SVG Typography Text Presets (subtopic: 'Typography') ---
-export const TYPOGRAPHY_SVG_PRESETS = [
-  {
-    id: 'typography-svg-1',
-    name: 'Typeface Bortons',
-    category: 'text',
-    subtopic: 'Typography',
-    type: 'group',
-    tag: 'Typography',
-    src: TYPOGRAPHY_PREVIEW_URIS['typography-svg-1'],
-    renderPreview: () => (
-      <div className="w-full h-full flex items-center justify-center p-[0.3vw] bg-[#ffffff] border border-gray-100 rounded-[0.35vw]">
-        <img
-          src={TYPOGRAPHY_PREVIEW_URIS['typography-svg-1']}
-          alt="Typeface Bortons"
-          className="w-full h-full object-contain pointer-events-none select-none"
-        />
-      </div>
-    ),
-    insert: (cx, cy) => parseSvgStringToGroupNode(RAW_SVG_1, 'Typeface Bortons', 95, 55, cx, cy)
-  },
-  {
-    id: 'typography-svg-2',
-    name: 'Masterpiece Mind',
-    category: 'text',
-    subtopic: 'Typography',
-    type: 'group',
-    tag: 'Typography',
-    src: TYPOGRAPHY_PREVIEW_URIS['typography-svg-2'],
-    renderPreview: () => (
-      <div className="w-full h-full flex items-center justify-center p-[0.3vw] bg-[#ffffff] border border-gray-100 rounded-[0.35vw]">
-        <img
-          src={TYPOGRAPHY_PREVIEW_URIS['typography-svg-2']}
-          alt="Masterpiece Mind"
-          className="w-full h-full object-contain pointer-events-none select-none"
-        />
-      </div>
-    ),
-    insert: (cx, cy) => parseSvgStringToGroupNode(RAW_SVG_2, 'Masterpiece Mind', 95, 50, cx, cy)
-  },
-  {
-    id: 'typography-svg-3',
-    name: 'MadMax Fury Road',
-    category: 'text',
-    subtopic: 'Typography',
-    type: 'group',
-    tag: 'Typography',
-    src: TYPOGRAPHY_PREVIEW_URIS['typography-svg-3'],
-    renderPreview: () => (
-      <div className="w-full h-full flex items-center justify-center p-[0.3vw] bg-[#ffffff] border border-gray-100 rounded-[0.35vw]">
-        <img
-          src={TYPOGRAPHY_PREVIEW_URIS['typography-svg-3']}
-          alt="MadMax Fury Road"
-          className="w-full h-full object-contain pointer-events-none select-none"
-        />
-      </div>
-    ),
-    insert: (cx, cy) => parseSvgStringToGroupNode(RAW_SVG_3, 'MadMax Fury Road', 95, 40, cx, cy)
-  },
-  {
-    id: 'typography-svg-4',
-    name: 'Typography Poster',
-    category: 'text',
-    subtopic: 'Typography',
-    type: 'group',
-    tag: 'Typography',
-    src: TYPOGRAPHY_PREVIEW_URIS['typography-svg-4'],
-    renderPreview: () => (
-      <div className="w-full h-full flex items-center justify-center p-[0.3vw] bg-[#ffffff] border border-gray-100 rounded-[0.35vw]">
-        <img
-          src={TYPOGRAPHY_PREVIEW_URIS['typography-svg-4']}
-          alt="Typography Poster"
-          className="w-full h-full object-contain pointer-events-none select-none"
-        />
-      </div>
-    ),
-    insert: (cx, cy) => parseSvgStringToGroupNode(RAW_SVG_4, 'Typography Poster', 80, 80, cx, cy)
-  },
-  {
-    id: 'typography-svg-5',
-    name: 'Fresh Fonts 25',
-    category: 'text',
-    subtopic: 'Typography',
-    type: 'group',
-    tag: 'Typography',
-    src: TYPOGRAPHY_PREVIEW_URIS['typography-svg-5'],
-    renderPreview: () => (
-      <div className="w-full h-full flex items-center justify-center p-[0.3vw] bg-[#ffffff] border border-gray-100 rounded-[0.35vw]">
-        <img
-          src={TYPOGRAPHY_PREVIEW_URIS['typography-svg-5']}
-          alt="Fresh Fonts 25"
-          className="w-full h-full object-contain pointer-events-none select-none"
-        />
-      </div>
-    ),
-    insert: (cx, cy) => parseSvgStringToGroupNode(RAW_SVG_5, 'Fresh Fonts 25', 55, 108, cx, cy)
-  }
-];
+// --- Typography Presets (subtopic: 'Typography') — editable text built from installed fonts ---
+// Thumbnail re-renders once the preset fonts are loaded so text widths are measured correctly.
+let presetFontsReady = false;
+const presetFontsPromise = loadPresetFonts(TYPOGRAPHY_PRESET_SPECS).then(() => { presetFontsReady = true; });
+
+const TypographyPresetPreview = ({ spec }) => {
+  const [ready, setReady] = React.useState(presetFontsReady);
+  React.useEffect(() => {
+    if (ready) return undefined;
+    let alive = true;
+    presetFontsPromise.then(() => { if (alive) setReady(true); });
+    return () => { alive = false; };
+  }, [ready]);
+  const markup = React.useMemo(() => buildTypographyPreviewMarkup(spec), [spec, ready]);
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center p-[0.3vw] bg-[#ffffff] border border-gray-100 rounded-[0.35vw] overflow-hidden pointer-events-none select-none"
+      style={{ opacity: ready ? 1 : 0.4 }}
+      dangerouslySetInnerHTML={{ __html: markup }}
+    />
+  );
+};
+
+export const TYPOGRAPHY_SVG_PRESETS = TYPOGRAPHY_PRESET_SPECS.map((spec) => ({
+  id: spec.id,
+  name: spec.name,
+  category: 'text',
+  subtopic: 'Typography',
+  type: 'group',
+  tag: 'Typography',
+  renderPreview: () => <TypographyPresetPreview spec={spec} />,
+  insert: (cx, cy) => createTypographyPresetNode(spec, cx, cy, spec.h > spec.w ? 70 : 90)
+}));
 
 // Unified Typography Items Export
 export const TYPOGRAPHY_ITEMS = [

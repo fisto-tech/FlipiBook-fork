@@ -5,6 +5,7 @@
  */
 
 import { useEffect } from 'react';
+import { parseClipboardTable } from '../utils/clipboardTable';
 import { checkIsAnimatedWebp } from '../utils/editorUtils';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 import { getTopLevelFrames, getDirectChildFrames, isPageRootElement, getAllSelectablePageElements } from '../mainEditor/utils/frameHierarchyUtils';
@@ -368,6 +369,25 @@ export const useKeyboardShortcuts = ({
 
       const clipboardData = e.clipboardData || e.originalEvent?.clipboardData;
       let handledExternal = false;
+
+      // Spreadsheet cells (Excel / Sheets) — checked BEFORE images: Excel also puts a picture of the
+      // range on the clipboard, which used to be pasted as an image instead of table data.
+      const inTableCell = Boolean(activeEl?.closest?.('td, th'));
+      if (clipboardData && (!isEditingInput || inTableCell)) {
+        const tableRows = parseClipboardTable(clipboardData);
+        if (tableRows) {
+          e.preventDefault();
+          e.stopPropagation();
+          // 1) a selected table fills its cells (its properties panel answers by setting handled)
+          const detail = { rows: tableRows, pageIndex: activePageIndex, handled: false };
+          window.dispatchEvent(new CustomEvent('fbe-table-paste', { detail }));
+          // 2) otherwise drop a new table with the data onto the page
+          if (!detail.handled) {
+            window.dispatchEvent(new CustomEvent('paste-table-to-editor', { detail: { rows: tableRows, pageIndex: activePageIndex } }));
+          }
+          return;
+        }
+      }
 
       if (clipboardData) {
         const files = Array.from(clipboardData.files || []);

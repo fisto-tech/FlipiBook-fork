@@ -153,7 +153,7 @@ const TurnBook = forwardRef(function TurnBook(
         const $ = window.jQuery;
 
         // turn.js owns this DOM: build the pages imperatively
-        bookEl.innerHTML = '';
+        bookEl.replaceChildren();
         pages.forEach((src, i) => {
           const page = document.createElement('div');
           page.className = `turnbook-page ${pageClassName}`.trim();
@@ -161,6 +161,8 @@ const TurnBook = forwardRef(function TurnBook(
           img.src = src;
           img.alt = `Page ${i + 1}`;
           img.draggable = false;
+          img.loading = 'lazy';
+          img.decoding = 'async';
           img.className = 'turnbook-img';
           page.appendChild(img);
           // Spine (gutter) shadow on the inner edge of each page in an open spread.

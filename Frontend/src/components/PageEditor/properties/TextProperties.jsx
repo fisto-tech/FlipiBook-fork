@@ -10,6 +10,7 @@ import {
   ListOrdered,
   ArrowLeftRight, ArrowUpDown, Maximize
 } from 'lucide-react';
+import { CUSTOM_FONT_FAMILIES } from '../../../utils/customFonts';
 
 const systemFonts = new Set([
   'arial', 'times new roman', 'courier new', 'georgia', 'verdana',
@@ -60,7 +61,8 @@ export const fontFamilies = [
   'Bebas Neue',
   'Mr Dafoe',
   'Kaushan Script',
-  'Designer_Signature'
+  'Designer_Signature',
+  ...CUSTOM_FONT_FAMILIES
 ];
 
 export const fontWeights = [
@@ -906,7 +908,22 @@ const TextPropertiesSubComponentAdapter = ({ selectedElementProps, activePageInd
       const fillChanged = prev.fill !== backgroundColor.fill || prev.fillOpacity !== backgroundColor.fillOpacity || prev.fillType !== backgroundColor.fillType || prev.fillStops !== backgroundColor.fillStops;
       const strokeChanged = prev.stroke !== backgroundColor.stroke || prev.strokeOpacity !== backgroundColor.strokeOpacity || prev.strokeWeight !== backgroundColor.strokeWeight || prev.strokeType !== backgroundColor.strokeType || prev.strokeStops !== backgroundColor.strokeStops;
 
-      if (fillChanged) {
+      // Solid colour picked while part of the text is selected → colour ONLY that selection
+      const onlyColorChanged = prev.fill !== backgroundColor.fill &&
+        prev.fillOpacity === backgroundColor.fillOpacity && prev.fillType === backgroundColor.fillType &&
+        prev.fillStops === backgroundColor.fillStops;
+      const isSolidColor = typeof backgroundColor.fill === 'string' && /^#|^rgb/i.test(backgroundColor.fill) &&
+        !/gradient|url\(/i.test(backgroundColor.fill);
+      if (fillChanged && onlyColorChanged && isSolidColor &&
+          applyStyleToActiveTextSelection(selectedLayerId, 'color', backgroundColor.fill)) {
+        const el = document.getElementById(selectedLayerId);
+        const liveTarget = el && (el.querySelector('.flipbook-text-scrollbar') || el.firstElementChild);
+        if (liveTarget) {
+          updateElementAttributeLocal(activePageIndex, selectedLayerId, 'innerHTML', liveTarget.innerHTML, true);
+        }
+        if (el) window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: el.id } }));
+        window.dispatchEvent(new CustomEvent('fbe-text-color-refresh'));
+      } else if (fillChanged) {
         updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill', backgroundColor.fill);
         updateElementAttributeLocal(activePageIndex, selectedLayerId, 'opacity', (backgroundColor.fillOpacity / 100).toString());
         if (backgroundColor.fillType) updateElementAttributeLocal(activePageIndex, selectedLayerId, 'fill-type', backgroundColor.fillType);
@@ -1046,6 +1063,7 @@ const TextPropertiesSubComponentAdapter = ({ selectedElementProps, activePageInd
         showDetailedPicker={showDetailedPicker}
         setShowDetailedPicker={setShowDetailedPicker}
         isText={true}
+        textElementId={selectedLayerId}
         sizingMode={sizingMode}
         isScrollable={isScrollable}
       />
