@@ -245,6 +245,7 @@ export const useCanvasZoomPan = ({
           }
           wheelRafRef.current = requestAnimationFrame(step);
         };
+        if (zoomContainerRef.current) zoomContainerRef.current.style.willChange = 'transform';
         wheelRafRef.current = requestAnimationFrame(step);
       } else {
         // Standard Scroll:
@@ -303,6 +304,9 @@ export const useCanvasZoomPan = ({
 
         if (panRafRef.current) return; // animation already gliding smoothly
 
+        // GPU layer for the whole glide (CanvasViewport drops it ~150ms after the final pan commit)
+        containerEl.style.willChange = 'transform';
+
         const panStep = () => {
           if (!targetPanRef.current) {
             panRafRef.current = null;
@@ -332,11 +336,13 @@ export const useCanvasZoomPan = ({
           }
           window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextP }));
 
-          setPan(nextP);
-
+          // Commit React state only when the glide settles: a setPan every frame re-rendered the whole
+          // canvas (all page HTML) ~60×/s, which made scrolling stutter. The DOM transform above
+          // already moves the sheet each frame.
           if (doneX && doneY) {
             panRafRef.current = null;
             targetPanRef.current = null;
+            setPan(nextP);
             return;
           }
 
@@ -353,6 +359,8 @@ export const useCanvasZoomPan = ({
         cancelAnimationFrame(panRafRef.current);
         panRafRef.current = null;
         targetPanRef.current = null;
+        // Keep where the glide stopped (state is only committed at the end of a glide)
+        if (currentPanRef.current) setPan({ ...currentPanRef.current });
       }
     };
 

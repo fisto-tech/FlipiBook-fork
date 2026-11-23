@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -122,12 +122,26 @@ export const CanvasViewport = ({
     return clean;
   };
 
+  // Promote the zoom layer only during an active zoom/pan gesture, then let it re-render crisp
+  useEffect(() => {
+    const el = zoomContainerRef?.current;
+    if (!el) return undefined;
+    el.style.willChange = 'transform';
+    const t = setTimeout(() => { el.style.willChange = 'auto'; }, 150);
+    return () => clearTimeout(t);
+  }, [zoom, pan.x, pan.y]);
+
   return (
           <div
             id="main-zoom-container"
             ref={zoomContainerRef}
             className="flex items-center justify-center origin-center relative"
             style={{
+              // No permanent will-change / backface-visibility: those freeze the page into ONE bitmap
+              // rasterised at its base size, so zoomed text looks blurry and every DOM update (applying a
+              // property to any element) re-rasterises it — visible as text glitching. will-change is
+              // switched on only while zooming/panning (effect below) and dropped right after, so the
+              // browser re-renders crisp at the current zoom.
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / 100})`,
               cursor: isSpaceDown
                 ? 'grab'

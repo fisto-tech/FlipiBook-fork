@@ -65,7 +65,8 @@ const findGroupAtPoint = (svg, clientX, clientY) => {
     g.id && g.id.startsWith('group-') && // user-made groups only (not template/page wrapper groups)
     g.getAttribute('data-hidden') !== 'true' &&
     g.getAttribute('data-locked') !== 'true' &&
-    !g.parentElement?.closest('g[data-type="group"]') // outermost group only
+    // outermost USER group only — a template/page wrapper tagged data-type="group" must not hide it
+    !g.parentElement?.closest('g[data-type="group"][id^="group-"]')
   );
   for (let i = groups.length - 1; i >= 0; i--) {
     const r = groups[i].getBoundingClientRect();
@@ -75,6 +76,21 @@ const findGroupAtPoint = (svg, clientX, clientY) => {
   }
   return null;
 };
+
+// Hover diagnostics: run `window.__fbeHoverDebug = true` in the console, hover, then read the log.
+// ON by default for now; `window.__fbeHoverDebug = false` silences it. Repeats are skipped so moving
+// within one element doesn't flood the console.
+let lastHoverDbg = '';
+const hoverDbg = (...args) => {
+  try {
+    if (window.__fbeHoverDebug === false) return;
+    const key = JSON.stringify(args);
+    if (key === lastHoverDbg) return;
+    lastHoverDbg = key;
+    console.log('%c[hover]', 'color:#5255CA;font-weight:bold', ...args);
+  } catch { /* noop */ }
+};
+if (typeof window !== 'undefined') console.log('%c[hover] logging is ON — move the mouse over the canvas', 'color:#5255CA;font-weight:bold');
 
 export const useCanvasPointerEvents = ({
   zoom = 90,
@@ -1665,7 +1681,23 @@ export const useCanvasPointerEvents = ({
     if (!svg) return;
 
     // Fast-path: do not process canvas hover states while user is actively typing or editing text
-    if (isEditingTextRef.current || editCacheManager.isEditing()) return;
+    if (isEditingTextRef.current || editCacheManager.isEditing()) {
+      // A text edit that ended without its cleanup (element re-rendered / removed, focus lost another
+      // way) leaves these flags on and silently kills ALL hover boxes in Edit mode. Only a live,
+      // still-editing text element keeps hover suppressed; otherwise end the stale session.
+      const editTarget = editCacheManager.getActiveTarget?.() ||
+        document.querySelector('.page-svg-container [data-editing="true"]');
+      const stillEditing = !!(editTarget && editTarget.isConnected && editTarget.getAttribute?.('data-editing') === 'true');
+      if (stillEditing) {
+        if (e.target && e.target !== svg && e.target.closest?.('[id]') && e.target.closest('[id]') !== svg) {
+          hoverDbg('NOT drawn: a text box is still in edit mode →', editTarget.id, '(click outside the text to finish editing)');
+        }
+        return;
+      }
+      hoverDbg('ending stale text-edit session');
+      isEditingTextRef.current = false;
+      try { editCacheManager.endSession(null); } catch { /* noop */ }
+    }
 
     // Converted Flipbook Mode (PDF, DOC, PPT): Only hover user-added Frames or Hotspots
     if (isConvertedFlipbook) {
@@ -1691,6 +1723,26 @@ export const useCanvasPointerEvents = ({
         curr = curr.parentElement || curr.parentNode;
       }
 
+      // Any other element the user added on top of the converted page (text, image, QR, map, embed,
+      // button, shape…): hover what a click selects — same box as hovering it in the Layers panel.
+      // The PDF page itself (background / vector layer / shield / overlay / page frame) never hovers.
+      if (!hoverTarget) {
+        const isPdfBase = (node) => !!node?.closest?.(
+          '[data-name="PDF Background"], [data-type="pdf-vector-layer"], [data-name="Document Shield"], [data-type="shield"], [data-name="Overlay"], [data-type="background"]'
+        );
+        const clickTarget = getDraggableElement(e.target, svg);
+        if (
+          clickTarget && clickTarget !== svg && clickTarget.id &&
+          !isPdfBase(e.target) && !isPdfBase(clickTarget) &&
+          clickTarget.getAttribute('data-type') !== 'frame' &&
+          clickTarget.getAttribute('data-locked') !== 'true' &&
+          clickTarget.getAttribute('data-hidden') !== 'true' &&
+          !isPageRootElement(clickTarget, svg)
+        ) {
+          hoverTarget = clickTarget;
+        }
+      }
+
       const hId = hoverTarget?.id || null;
       if (hId === lastHoveredIdRef.current) return;
       if (lastHoveredIdRef.current) {
@@ -1703,6 +1755,7 @@ export const useCanvasPointerEvents = ({
         lastHoveredIdRef.current = hoverTarget.id;
         hoverTarget.setAttribute('data-hovered', 'true');
         drawOverlayHighlight(hoverTarget, 'hover');
+        hoverDbg('DRAWN hover box →', hoverTarget.id, document.getElementById(`overlay-poly-hover-${hoverTarget.id}`) ? 'polygon present ✔' : 'NO polygon created ✘');
       }
       return;
     }
@@ -1727,7 +1780,9 @@ export const useCanvasPointerEvents = ({
     }
 
     // Normal Mode: Direct O(1) Target Resolution (avoids forced synchronous reflows across hundreds of template elements)
-    const isBackground = !e.target || e.target === svg ||
+    // The page container behind the SVG (e.g. "canvas-content-0") is hit through empty gaps — inside a
+    // group's outline too — so it counts as empty page and goes through the group-gap lookup.
+    const isBackground = !e.target || e.target === svg || !svg.contains(e.target) ||
       e.target.getAttribute?.('data-name') === 'Overlay' ||
       e.target.getAttribute?.('data-type') === 'background' ||
       e.target.getAttribute?.('data-type') === 'shield' ||
@@ -1752,6 +1807,17 @@ export const useCanvasPointerEvents = ({
     if (effectiveFrameId) {
       const frameEl = svg.querySelector(`[id="${effectiveFrameId}"]`);
       if (frameEl && frameEl.contains(e.target) && e.target !== frameEl) {
+        // Outline exactly what a click here selects (handleSvgClick → getDraggableElement), so the
+        // hover box and the selection box are the same box
+        const clickTarget = getDraggableElement(e.target, svg);
+        if (clickTarget && clickTarget !== frameEl && clickTarget.id && frameEl.contains(clickTarget) &&
+            clickTarget.getAttribute('data-name') !== 'Overlay' && clickTarget.getAttribute('data-locked') !== 'true' &&
+            !getDirectChildFrames(frameEl).some(f => f.contains(clickTarget))) {
+          candidate = clickTarget;
+          isChild = true;
+        }
+      }
+      if (!candidate && frameEl && frameEl.contains(e.target) && e.target !== frameEl) {
         let curr = e.target;
         while (curr && curr.parentElement && curr.parentElement !== frameEl) {
           curr = curr.parentElement;
@@ -1807,17 +1873,24 @@ export const useCanvasPointerEvents = ({
       lastHoveredIdRef.current = null;
     }
 
-    if (!candidate || !candidateId) return;
+    if (!candidate || !candidateId) {
+      const contentEl = e.target?.closest?.('[id]');
+      if (contentEl && contentEl !== svg) hoverDbg('NOT drawn: no hoverable element found for →', contentEl.id);
+      return;
+    }
 
     // If candidate is already selected, don't draw hover box
     if (multiSelectedIdsRef.current.has(candidateId) || selectedLayerIdRef.current === candidateId) {
       lastHoveredIdRef.current = candidateId;
+      hoverDbg('skip: element already selected →', candidateId);
       return;
     }
 
     lastHoveredIdRef.current = candidateId;
     candidate.setAttribute(isChild ? 'data-child-hovered' : 'data-hovered', 'true');
     drawOverlayHighlight(candidate, isChild ? 'child-hover' : 'hover');
+    hoverDbg('DRAWN hover box →', candidateId, isChild ? '(child-hover)' : '(hover)',
+      document.getElementById(`overlay-poly-${isChild ? 'child-hover' : 'hover'}-${candidateId}`) ? 'polygon present ✔' : 'NO polygon created ✘');
   };
 
   // ── MARQUEE SELECTION LOGIC (Screen-Space Intersection) ──
