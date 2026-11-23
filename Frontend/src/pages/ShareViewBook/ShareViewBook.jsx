@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import FlipbookPreview from '../../components/PageEditor/modals/FlipbookPreview';
+import PreloaderOverlay from '../../components/CustomizedEditor/components/PreloaderOverlay';
+import { createDefaultPreloaderSettings } from '../../components/CustomizedEditor/utils/defaultSettings';
 import { LAYOUT_DEFAULT_COLORS } from '../../components/CustomizedEditor/utils/layoutColors';
 import { Icon } from '@iconify/react';
 import { Ghost, ArrowLeft, Home, BookOpen, Clock, X, Heart } from 'lucide-react';
@@ -812,7 +814,12 @@ const ShareViewBook = () => {
     const isMobileDevice = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     if (loading) return (
-        <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#ffffff' }} />
+        <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#22252A' }}>
+            <PreloaderOverlay
+                isLoading={true}
+                preloaderSettings={tempSettings?.preloader || createDefaultPreloaderSettings()}
+            />
+        </div>
     );
 
     if (accessMode === 'password') return (

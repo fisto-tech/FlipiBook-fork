@@ -22,27 +22,7 @@ import { startInFlightActivity, endInFlightActivity } from '../storage/saveLockM
  * @returns {boolean}
  */
 export function shouldOptimizeImage(input, minBytes = 300 * 1024) {
-  if (!input) return false;
-  if (typeof input === 'string') {
-    const trimmed = input.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/storage/') || trimmed.startsWith('../assets/')) {
-      return false; // Already hosted / compressed
-    }
-    if (trimmed.startsWith('data:image/svg+xml') || trimmed.startsWith('data:image/gif')) {
-      return false; // Vector or animated
-    }
-    if (trimmed.startsWith('data:image/')) {
-      return trimmed.length > (minBytes * 1.33); // Base64 length equivalent to minBytes
-    }
-    return false;
-  }
-  if (input instanceof Blob || (typeof File !== 'undefined' && input instanceof File)) {
-    const type = input.type || '';
-    if (type.includes('svg') || type.includes('gif') || type.startsWith('video/')) {
-      return false;
-    }
-    return input.size > minBytes;
-  }
+  // Preserve full original image resolution and quality in the editor so zooming does not lose sharpness
   return false;
 }
 
@@ -101,6 +81,20 @@ export async function optimizeImageForWeb(fileOrDataUrl, options = {}) {
   }
 
   const originalSize = file.size || 0;
+
+  if (!shouldOptimizeImage(file, minBytes)) {
+    const dataUrl = await readFileAsDataUrl(file);
+    return {
+      file: file instanceof File ? file : null,
+      dataUrl,
+      width: 0,
+      height: 0,
+      originalSize,
+      compressedSize: originalSize,
+      isBypassed: true,
+    };
+  }
+
   const fileName = (file.name || 'image').replace(/\.[^/.]+$/, '');
   const fileType = file.type || '';
 

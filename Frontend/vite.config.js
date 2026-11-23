@@ -24,11 +24,20 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules/three/') || id.includes('node_modules/@react-three/')) {
+            if (id.includes('node_modules/three/') || id.includes('node_modules/@react-three/') || id.includes('node_modules/three-stdlib/')) {
               return 'three-bundle';
             }
             if (id.includes('node_modules/jspdf/') || id.includes('node_modules/html2canvas/')) {
               return 'export-libs';
+            }
+            if (id.includes('node_modules/exceljs/')) {
+              return 'exceljs-bundle';
+            }
+            if (id.includes('node_modules/pdfjs-dist/')) {
+              return 'pdfjs-bundle';
+            }
+            if (id.includes('node_modules/konva/') || id.includes('node_modules/react-konva/')) {
+              return 'konva-bundle';
             }
             if (id.includes('ImageFraming') || id.includes('imageFramingCatalog') || id.includes('imageFramingUtils')) {
               return 'image-framing';

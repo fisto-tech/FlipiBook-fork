@@ -374,7 +374,7 @@ export const usePageManager = ({
         v_id: newPageId,
         name: copyName,
         html: newHtml,
-        layers: pageToDuplicate.layers ? JSON.parse(JSON.stringify(pageToDuplicate.layers)) : []
+        layers: pageToDuplicate.layers ? structuredClone(pageToDuplicate.layers) : []
       };
       const updated = [...prev];
       updated.splice(index + 1, 0, newPage);

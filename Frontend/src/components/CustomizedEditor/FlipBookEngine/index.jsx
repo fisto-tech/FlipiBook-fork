@@ -130,6 +130,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     pageOpacity,
     singlePage = false,
     hardCoverZoom,
+    onBookReady,
   },
   ref,
 ) {
@@ -1628,6 +1629,14 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     [initPage, initPage + 1, initPage + 2].forEach((p) => preloadPageToDom(p));
     markUnderSheetRef.current();
 
+    if (typeof onBookReady === "function") {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          onBookReady();
+        }, 80);
+      });
+    }
+
     // No automatic corner peel on load — the corner only peels when the user hovers it.
 
     return () => {
@@ -2113,13 +2122,21 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "#f7f7f7",
-            color: "#999",
-            fontSize: "13px",
+            background: "transparent",
             zIndex: 10,
           }}
         >
-          Loading FlipBook…
+          <div
+            className="fbe-spinner"
+            style={{
+              width: "32px",
+              height: "32px",
+              border: "3px solid rgba(224, 71, 82, 0.2)",
+              borderTopColor: "#E04752",
+              borderRadius: "50%",
+              animation: "fbe-spin 0.7s linear infinite",
+            }}
+          />
         </div>
       )}
 

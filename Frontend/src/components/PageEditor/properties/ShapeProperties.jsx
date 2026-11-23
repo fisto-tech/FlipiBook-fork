@@ -368,36 +368,16 @@ const ShapeProperties = ({
     setIsCompressingShapeImage(true);
 
     try {
-      let targetFile = file;
-      let finalDataUrl = null;
-      let imgWidth = 0;
-      let imgHeight = 0;
-      let compBytes = file.size;
-
-      if (shouldOptimizeImage(file)) {
-        try {
-          const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
-          if (opt?.dataUrl) {
-            finalDataUrl = opt.dataUrl;
-            imgWidth = opt.width;
-            imgHeight = opt.height;
-            compBytes = opt.compressedSize || opt.file?.size || compBytes;
-          }
-        } catch (optErr) {
-          console.warn('[ShapeProperties] Optimization fallback:', optErr);
-        }
-      }
-
-      if (!finalDataUrl) {
-        finalDataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (event) => resolve(event.target.result);
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(targetFile);
-        });
-      }
+      // Load pristine original image without lossy compression so zooming retains 100% sharpness
+      const finalDataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
 
       if (finalDataUrl) {
+        const compBytes = file.size;
         const sizeStr = compBytes > 1024 * 1024
           ? `${(compBytes / (1024 * 1024)).toFixed(1)}MB`
           : `${Math.round(compBytes / 1024)}KB`;
@@ -1258,7 +1238,7 @@ const ShapeProperties = ({
               {isCompressingShapeImage ? (
                 <>
                   <Loader2 size="1vw" className="text-indigo-600 animate-spin" />
-                  <span>Compressing image...</span>
+                  <span>Loading image...</span>
                 </>
               ) : (
                 <>
@@ -1299,11 +1279,11 @@ const ShapeProperties = ({
                     className="w-full h-full object-cover"
                   />
 
-                  {/* Circular Spinner while compressing */}
+                  {/* Circular Spinner while loading */}
                   {isCompressingShapeImage && (
                     <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex flex-col items-center justify-center z-20">
                       <Loader2 className="w-[1.4vw] h-[1.4vw] text-white animate-spin" />
-                      <span className="text-[0.62vw] text-white font-medium mt-[0.2vw]">Compressing...</span>
+                      <span className="text-[0.62vw] text-white font-medium mt-[0.2vw]">Loading...</span>
                     </div>
                   )}
 

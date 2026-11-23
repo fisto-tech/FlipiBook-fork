@@ -596,6 +596,7 @@ export const applyShapeImageMask = ({
 
     imageNode.setAttribute('href', dataUrl);
     imageNode.setAttribute('xlink:href', dataUrl);
+    imageNode.setAttribute('style', 'image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;');
 
     updateShapeMaskTransform({
       selectedElement,
@@ -1025,6 +1026,7 @@ export const updateShapeMaskTransform = ({
       curImg.setAttribute('width', String(imgW));
       curImg.setAttribute('height', String(imgH));
       curImg.setAttribute('preserveAspectRatio', 'none');
+      curImg.setAttribute('style', 'image-rendering: -webkit-optimize-contrast; image-rendering: high-quality;');
 
       if (currentAngle !== 0) {
         curImg.setAttribute('transform', `rotate(${currentAngle}, ${tileCenterX + dx}, ${tileCenterY + dy})`);

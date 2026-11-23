@@ -1447,7 +1447,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
                           {meta.name}
                         </span>
                         <span className="text-[0.75vw] text-gray-500 font-medium truncate">
-                          {compressingSlots[slot.id] ? 'Optimizing image...' : meta.meta}
+                          {compressingSlots[slot.id] ? 'Loading image...' : meta.meta}
                         </span>
                       </>
                     ) : (
@@ -1456,7 +1456,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
                           Slot {idx + 1}
                         </span>
                         <span className="text-[0.72vw] text-gray-400 font-normal">
-                          {compressingSlots[slot.id] ? 'Optimizing image...' : 'No image uploaded'}
+                          {compressingSlots[slot.id] ? 'Loading image...' : 'No image uploaded'}
                         </span>
                       </>
                     )}
