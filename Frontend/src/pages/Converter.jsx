@@ -37,7 +37,7 @@ const MEDIA_CONVERTERS = [
     accentBg: 'bg-[#1e232d]',
     accentHover: 'hover:bg-[#ea543a]',
     defaultOutput: 'WEBP',
-    compressionLevels: ['Original Quality (Format Only)', 'High Quality (85%)', 'Balanced (70%)', 'Maximum Compression (50%)'],
+    compressionLevels: ['Original Quality (Format Only)', 'High Quality (85%)', 'Balanced (70%)', 'Low Quality (50%)'],
     maxSize: MAX_FILE_SIZES.image
   },
   {
@@ -73,7 +73,7 @@ const MEDIA_CONVERTERS = [
     accentBg: 'bg-[#1e232d]',
     accentHover: 'hover:bg-[#ea543a]',
     defaultOutput: 'GLB',
-    compressionLevels: ['Original Quality (Lossless)', 'Draco + Meshopt (High)', 'Texture Only (70%)', 'Lossless Optimization'],
+    compressionLevels: ['Original (Lossless)', 'Lossless (Optimized)', 'Texture Only (70%)', 'Draco + Meshopt (High)'],
     maxSize: MAX_FILE_SIZES.threed
   }
 ];

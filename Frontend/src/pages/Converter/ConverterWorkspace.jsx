@@ -515,7 +515,11 @@ export default function ConverterWorkspace({
                     </span>
                     <span className="font-mono text-emerald-700 font-medium">
                       {convertedResult.newSize} • {convertedResult.targetFormat}
-                      {convertedResult.savedPercent > 0 && ` (-${convertedResult.savedPercent}%)`}
+                      {convertedResult.savedPercent > 0 ? (
+                        ` (-${convertedResult.savedPercent}%)`
+                      ) : convertedResult.savedPercent < 0 ? (
+                        <span className="text-amber-600 font-normal"> (+{Math.abs(convertedResult.savedPercent)}%)</span>
+                      ) : null}
                     </span>
                   </div>
                   <div

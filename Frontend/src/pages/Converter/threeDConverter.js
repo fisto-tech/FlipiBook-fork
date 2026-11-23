@@ -617,7 +617,7 @@ const export3DModel = async (scene, targetFormat, compressionPreset, onProgress)
           embedImages: true,
           maxTextureSize: maxTextureSize,
           truncateDrawRange: true,
-          animations: animations.length > 0 ? animations : undefined
+          animations: animations
         }
       );
     });
@@ -634,7 +634,7 @@ const export3DModel = async (scene, targetFormat, compressionPreset, onProgress)
     // - Texture Only: Downscales and compresses textures (geometry untouched)
     // - Draco + Meshopt: Full quantization + texture compression (highest reduction)
     try {
-      const isLossless = compressionPreset?.includes('Lossless');
+      const isLossless = compressionPreset?.includes('Lossless') && !compressionPreset?.includes('Original');
       onProgress?.(85, 'Applying preset-specific compression...');
       await yieldToMain();
 
@@ -715,7 +715,7 @@ const export3DModel = async (scene, targetFormat, compressionPreset, onProgress)
 
   // Fallback to GLB export
   const exporter = new GLTFExporter();
-  const animations = scene.animations && Array.isArray(scene.animations) ? scene.animations : undefined;
+  const animations = scene.animations && Array.isArray(scene.animations) ? scene.animations : [];
   return new Promise((resolve, reject) => {
     exporter.parse(
       scene,

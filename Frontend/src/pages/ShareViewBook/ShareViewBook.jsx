@@ -31,7 +31,7 @@ const ShareViewBook = () => {
     const [passwordError, setPasswordError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
-    const [, setTempSettings] = useState(null);
+    const [tempSettings, setTempSettings] = useState(null);
 
     // Current Logged-in User via Auth Context
     const { user } = useAuth();
