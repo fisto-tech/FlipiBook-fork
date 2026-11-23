@@ -54,26 +54,54 @@ export default function FloorPresetSelector({
         <span className="text-[0.85vw] font-semibold text-gray-900">Floor Preset</span>
       </div>
 
-      {/* Top 5 Quick Presets */}
-      <div className="grid grid-cols-5 gap-[0.3vw]">
-        {FLOOR_PRESETS.slice(0, 5).map((preset) => {
+      {/* Top Quick Presets */}
+      <div className="grid grid-cols-4 gap-[0.3vw]">
+        {FLOOR_PRESETS.map((preset, idx) => {
           const active = currentPreset.id === preset.id;
+          // Determine tooltip alignment so edges don't overflow the panel
+          const alignClass = idx === 0 
+            ? "left-0 -translate-x-0" 
+            : idx === FLOOR_PRESETS.length - 1 
+              ? "right-0 translate-x-0" 
+              : "left-1/2 -translate-x-1/2";
+          const arrowAlignClass = idx === 0 
+            ? "left-[1vw]" 
+            : idx === FLOOR_PRESETS.length - 1 
+              ? "right-[1vw]" 
+              : "left-1/2 -translate-x-1/2";
+
           return (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => handleSelectPreset(preset)}
-              className={`flex flex-col items-center justify-center gap-[0.25vw] py-[0.5vw] px-[0.2vw] rounded-[0.5vw] border transition-all cursor-pointer ${active
-                  ? "bg-[#ea543a]/10 border-[#ea543a] text-[#ea543a] font-bold shadow-2xs"
-                  : "bg-[#f8f9fb] hover:bg-gray-100 border-gray-200 text-gray-600 hover:text-gray-900"
-                }`}
-              title={preset.description}
-            >
-              <Icon icon={preset.icon} className="w-[1.1vw] h-[1.1vw]" />
-              {/* <span className="text-[0.6vw] leading-none truncate max-w-full px-[0.1vw]">
-                {preset.name.split(" ")[0]}
-              </span> */}
-            </button>
+            <div key={preset.id} className="relative group/preset">
+              <button
+                type="button"
+                onClick={() => handleSelectPreset(preset)}
+                className={`w-full flex flex-col items-center justify-center gap-[0.25vw] py-[0.5vw] px-[0.2vw] rounded-[0.5vw] border transition-all cursor-pointer ${active
+                    ? "bg-[#ea543a]/10 border-[#ea543a] text-[#ea543a] font-bold shadow-2xs"
+                    : "bg-[#f8f9fb] hover:bg-gray-100 border-gray-200 text-gray-600 hover:text-gray-900"
+                  }`}
+              >
+                <Icon icon={preset.icon} className="w-[1.1vw] h-[1.1vw]" />
+              </button>
+
+              {/* Custom Tooltip */}
+              <div className={`absolute bottom-[calc(100%+0.6vw)] ${alignClass} pointer-events-none opacity-0 group-hover/preset:opacity-100 group-hover/preset:translate-y-0 translate-y-[0.25vw] transition-all duration-200 z-50 flex flex-col items-center`}>
+                <div className="bg-[#1e2229]/95 backdrop-blur-md border border-white/15 text-white px-[0.75vw] py-[0.5vw] rounded-[0.55vw] shadow-2xl min-w-[11.5vw] max-w-[15.5vw] flex flex-col gap-[0.2vw]">
+                  <div className="flex items-center justify-between gap-[0.5vw]">
+                    <span className="text-[0.8vw] font-semibold text-white tracking-tight whitespace-nowrap">
+                      {preset.name}
+                    </span>
+                    <span className="text-[0.62vw] font-medium text-gray-300 bg-white/15 px-[0.35vw] py-[0.1vw] rounded-[0.22vw] whitespace-nowrap">
+                      {preset.category}
+                    </span>
+                  </div>
+                  <p className="text-[0.7vw] text-gray-300 leading-relaxed font-normal text-left">
+                    {preset.description}
+                  </p>
+                </div>
+                {/* Arrow */}
+                <div className={`w-0 h-0 border-x-[0.35vw] border-x-transparent border-t-[0.45vw] border-t-[#1e2229]/95 absolute top-full ${arrowAlignClass}`}></div>
+              </div>
+            </div>
           );
         })}
       </div>

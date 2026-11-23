@@ -360,17 +360,13 @@ export const inspectDocumentViaBackend = async (file, backendUrl = null) => {
   const formData = new FormData();
   formData.append('document', file);
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000);
-
   try {
     const response = await fetch(`${resolvedBackendUrl}/api/flipbook/inspect-document`, {
       method: 'POST',
       body: formData,
       credentials: 'include',
-      signal: controller.signal
+      signal: AbortSignal.timeout(60000)
     });
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       let errData = null;

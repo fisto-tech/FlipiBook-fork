@@ -369,20 +369,17 @@ const ShapeProperties = ({
     setIsCompressingShapeImage(true);
 
     try {
-      let targetFile = file;
       let finalDataUrl = null;
-      let imgWidth = 0;
-      let imgHeight = 0;
       let compBytes = file.size;
 
+      // Smart Gate: If raw image is very heavy (> 3MB), optimize off-thread to 4K UHD @ 0.94 quality
+      // so 10+ images won't hang the canvas, while keeping crisp detail at high zoom.
       if (shouldOptimizeImage(file)) {
         try {
-          const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+          const opt = await optimizeImageForWeb(file, { maxDimension: 3840, quality: 0.94 });
           if (opt?.dataUrl) {
             finalDataUrl = opt.dataUrl;
-            imgWidth = opt.width;
-            imgHeight = opt.height;
-            compBytes = opt.compressedSize || opt.file?.size || compBytes;
+            compBytes = opt.compressedSize || compBytes;
           }
         } catch (optErr) {
           console.warn('[ShapeProperties] Optimization fallback:', optErr);
@@ -394,7 +391,7 @@ const ShapeProperties = ({
           const reader = new FileReader();
           reader.onload = (event) => resolve(event.target.result);
           reader.onerror = () => resolve(null);
-          reader.readAsDataURL(targetFile);
+          reader.readAsDataURL(file);
         });
       }
 
@@ -1273,7 +1270,7 @@ const ShapeProperties = ({
               {isCompressingShapeImage ? (
                 <>
                   <Loader2 size="1vw" className="text-indigo-600 animate-spin" />
-                  <span>Compressing image...</span>
+                  <span>Loading image...</span>
                 </>
               ) : (
                 <>
@@ -1314,11 +1311,11 @@ const ShapeProperties = ({
                     className="w-full h-full object-cover"
                   />
 
-                  {/* Circular Spinner while compressing */}
+                  {/* Circular Spinner while loading */}
                   {isCompressingShapeImage && (
                     <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex flex-col items-center justify-center z-20">
                       <Loader2 className="w-[1.4vw] h-[1.4vw] text-white animate-spin" />
-                      <span className="text-[0.62vw] text-white font-medium mt-[0.2vw]">Compressing...</span>
+                      <span className="text-[0.62vw] text-white font-medium mt-[0.2vw]">Loading...</span>
                     </div>
                   )}
 

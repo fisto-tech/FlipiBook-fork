@@ -405,7 +405,7 @@ export const CanvasViewport = ({
                                           let finalUrl = fileUrl;
                                           if (!isGif && !file.type.includes('svg') && shouldOptimizeImage(file)) {
                                             try {
-                                              const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+                                              const opt = await optimizeImageForWeb(file, { maxDimension: 3840, quality: 0.94 });
                                               if (opt?.file) {
                                                 finalFile = opt.file;
                                                 finalUrl = opt.dataUrl || URL.createObjectURL(opt.file);

@@ -99,7 +99,7 @@ const AccordionItem = ({ title, isOpen, onToggle, children }) => (
 
 const MAX_GALLERY_IMAGES = 12;
 
-const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pages = [], targetAccordion, inlineMode }) => {
+const AdvancedSettings = ({ onBack, settings, onUpdate, bookAppearanceSettings, folderName, bookName, pages = [], targetAccordion, inlineMode }) => {
   const { user } = useAuth();
   const [openAccordion, setOpenAccordion] = useState(targetAccordion || 'layout');
   const [bookAppearance, setBookAppearance] = useState({});
@@ -122,7 +122,13 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
     }
   }, []);
 
-  const isHardCoverEnabled = bookAppearance.hardCover || bookAppearance.makeFirstLastPageHard || bookAppearance.selectCustomHardPages;
+  const effectiveBookAppearance = bookAppearanceSettings || bookAppearance;
+  const isHardCoverEnabled = Boolean(
+    effectiveBookAppearance.hardCover ||
+    effectiveBookAppearance.makeFirstLastPageHard ||
+    effectiveBookAppearance.selectCustomHardPages ||
+    (Array.isArray(effectiveBookAppearance.customHardPages) && effectiveBookAppearance.customHardPages.length > 0)
+  );
 
 
   // Gallery Logic State
@@ -526,18 +532,28 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
               </button>
             ))}
           </div>
-          <div className="flex items-center justify-between mt-[1.25vw] pl-[0.2vw]">
+          <div className={`flex items-center justify-between mt-[1.25vw] pl-[0.2vw] ${!isHardCoverEnabled ? 'opacity-50' : ''}`}>
             <div className="flex flex-col">
               <span className="text-[0.75vw] font-semibold text-gray-700 leading-tight">Add specific sound effect for pages :</span>
-              {settings.sound?.pageSpecificSound && (
-                <span className="text-[0.65vw] text-[#4A3AFF] font-medium mt-[0.2vw]">
-                  {isHardCoverEnabled ? 'Combination of both soft and hard cover music' : 'Soft cover page music only'}
+              {isHardCoverEnabled ? (
+                settings.sound?.pageSpecificSound && (
+                  <span className="text-[0.65vw] text-[#4A3AFF] font-medium mt-[0.2vw]">
+                    Combination of both soft and hard cover music
+                  </span>
+                )
+              ) : (
+                <span className="text-[0.6vw] text-gray-400 font-medium mt-[0.2vw]">
+                  Enable Hard Cover in Book Appearance to use
                 </span>
               )}
             </div>
             <Switch
-              enabled={settings.sound?.pageSpecificSound}
-              onChange={(val) => updateNested('sound', 'pageSpecificSound', val)}
+              disabled={!isHardCoverEnabled}
+              enabled={Boolean(isHardCoverEnabled && settings.sound?.pageSpecificSound)}
+              onChange={(val) => {
+                if (!isHardCoverEnabled) return;
+                updateNested('sound', 'pageSpecificSound', val);
+              }}
             />
           </div>
         </div>
@@ -1189,18 +1205,28 @@ const AdvancedSettings = ({ onBack, settings, onUpdate, folderName, bookName, pa
                   </button>
                 ))}
               </div>
-              <div className="flex items-center justify-between mt-[1.25vw] pl-[0.2vw]">
+              <div className={`flex items-center justify-between mt-[1.25vw] pl-[0.2vw] ${!isHardCoverEnabled ? 'opacity-50' : ''}`}>
                 <div className="flex flex-col">
                   <span className="text-[0.75vw] font-semibold text-gray-700 leading-tight">Add specific sound effect for pages :</span>
-                  {settings.sound?.pageSpecificSound && (
-                    <span className="text-[0.65vw] text-[#4A3AFF] font-medium mt-[0.2vw]">
-                      {isHardCoverEnabled ? 'Combination of both soft and hard cover music' : 'Soft cover page music only'}
+                  {isHardCoverEnabled ? (
+                    settings.sound?.pageSpecificSound && (
+                      <span className="text-[0.65vw] text-[#4A3AFF] font-medium mt-[0.2vw]">
+                        Combination of both soft and hard cover music
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-[0.6vw] text-gray-400 font-medium mt-[0.2vw]">
+                      Enable Hard Cover in Book Appearance to use
                     </span>
                   )}
                 </div>
                 <Switch
-                  enabled={settings.sound?.pageSpecificSound}
-                  onChange={(val) => updateNested('sound', 'pageSpecificSound', val)}
+                  disabled={!isHardCoverEnabled}
+                  enabled={Boolean(isHardCoverEnabled && settings.sound?.pageSpecificSound)}
+                  onChange={(val) => {
+                    if (!isHardCoverEnabled) return;
+                    updateNested('sound', 'pageSpecificSound', val);
+                  }}
                 />
               </div>
             </div>

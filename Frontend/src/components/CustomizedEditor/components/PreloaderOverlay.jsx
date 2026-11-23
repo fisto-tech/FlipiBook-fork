@@ -16,24 +16,15 @@ export const getLogoAnimationStyle = (anim) => {
   }
 };
 
+const DEFAULT_BG = '#22252A';
+const DEFAULT_TEXT = '#ffffff';
+const DEFAULT_SPINNER = '#E04752';
+
 const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 }) => {
-  // If not loading or if user disabled preloader ("Don't show preparing flipibook preloader"), do not render
   if (!isLoading || preloaderSettings?.enabled === false) return null;
 
   // Determine if user has set a custom preloader
-  const isCustom = preloaderSettings?.isCustom === true || (
-    preloaderSettings && (
-      !!preloaderSettings.displayOption ||
-      !!preloaderSettings.logo ||
-      preloaderSettings.layout === 'logo-only' ||
-      preloaderSettings.layout === 'bar' ||
-      preloaderSettings.layout === 'dots' ||
-      (preloaderSettings.text && preloaderSettings.text !== 'Preparing Flipibook' && preloaderSettings.text !== 'Loading Modal Please Wait....') ||
-      (preloaderSettings.bgColor && preloaderSettings.bgColor !== '#D6E0F4') ||
-      (preloaderSettings.spinnerColor && preloaderSettings.spinnerColor !== '#3B3C8A')
-    )
-  );
-
+  const isCustom = preloaderSettings?.isCustom === true;
   const isComplete = loadingProgress >= 100;
 
   // Keyframes for animations
@@ -76,7 +67,7 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
     `}</style>
   );
 
-  // 1. DEFAULT PRELOADER (When user has NOT set custom preloader)
+  // 1. DEFAULT PRELOADER (Exactly like Image 1: Dark theme with centered spinner & "Preparing Flipbook...")
   if (!isCustom) {
     return (
       <div 
@@ -84,31 +75,31 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
           isComplete ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
         style={{
-          backgroundColor: '#D6E0F4',
-          color: '#1E293B'
+          backgroundColor: DEFAULT_BG,
+          color: DEFAULT_TEXT
         }}
       >
         <div className="flex flex-col items-center justify-center gap-4 px-4 text-center">
           <div className="relative flex flex-col items-center justify-center">
             <div 
-              className="w-10 h-10 border-[3.5px] border-t-transparent rounded-full animate-spin"
+              className="w-10 h-10 border-[2.5px] border-t-transparent rounded-full animate-spin"
               style={{ 
-                borderColor: '#3B3C8A #3B3C8A #3B3C8A transparent' 
+                borderColor: `${DEFAULT_SPINNER} ${DEFAULT_SPINNER} ${DEFAULT_SPINNER} transparent` 
               }}
             />
           </div>
           <p 
-            className="font-semibold text-sm tracking-wide text-center max-w-[320px] truncate"
+            className="font-medium text-sm tracking-wide text-center text-gray-200"
             style={{ fontFamily: 'Poppins' }}
           >
-            Preparing Flipibook
+            Preparing Flipbook...
           </p>
         </div>
       </div>
     );
   }
 
-  // 2. CUSTOM PRELOADER (When user has configured custom preloader)
+  // 2. CUSTOM PRELOADER (When user explicitly customizes it)
   const displayOption = preloaderSettings?.displayOption || (
     preloaderSettings?.layout === 'logo-only'
       ? 'logo-only'
@@ -117,12 +108,20 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
 
   const rawText = preloaderSettings?.text;
   const displayText = (!rawText || rawText === 'Loading Modal Please Wait....')
-    ? 'Preparing Flipibook'
+    ? 'Preparing Flipbook...'
     : rawText;
 
   // RULE: when both are shown, DO NOT show animation for logo (static only!)
   const logoAnimation = displayOption === 'both' ? 'none' : (preloaderSettings?.logoAnimation || 'bounce');
   const animStyle = getLogoAnimationStyle(logoAnimation);
+
+  const customBg = (!preloaderSettings?.bgColor || preloaderSettings.bgColor === '#D6E0F4')
+    ? DEFAULT_BG
+    : preloaderSettings.bgColor;
+  const customColor = preloaderSettings?.textColor || DEFAULT_TEXT;
+  const customSpinner = (!preloaderSettings?.spinnerColor || preloaderSettings.spinnerColor === '#3B3C8A')
+    ? DEFAULT_SPINNER
+    : preloaderSettings.spinnerColor;
 
   return (
     <div 
@@ -130,8 +129,8 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
         isComplete ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{
-        backgroundColor: preloaderSettings?.bgColor || '#D6E0F4',
-        color: preloaderSettings?.textColor || '#1E293B'
+        backgroundColor: customBg,
+        color: customColor
       }}
     >
       {keyframesStyle}
@@ -150,7 +149,7 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
               </div>
             ) : (
               <div className="flex items-center justify-center p-2" style={animStyle}>
-                <div className="w-16 h-16 rounded-2xl bg-black/10 flex items-center justify-center border border-black/10 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border border-white/10 shadow-sm">
                   <span className="text-3xl">📖</span>
                 </div>
               </div>
@@ -191,7 +190,7 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
                     className="h-full rounded-full transition-all duration-100 ease-out" 
                     style={{ 
                       width: `${loadingProgress}%`, 
-                      backgroundColor: preloaderSettings?.spinnerColor || '#3B3C8A' 
+                      backgroundColor: customSpinner 
                     }}
                   />
                 </div>
@@ -214,15 +213,15 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
                 <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full animate-bounce [animation-delay:-0.3s]"
-                    style={{ backgroundColor: preloaderSettings?.spinnerColor || '#3B3C8A' }}
+                    style={{ backgroundColor: customSpinner }}
                   />
                   <div
                     className="w-3 h-3 rounded-full animate-bounce [animation-delay:-0.15s]"
-                    style={{ backgroundColor: preloaderSettings?.spinnerColor || '#3B3C8A' }}
+                    style={{ backgroundColor: customSpinner }}
                   />
                   <div
                     className="w-3 h-3 rounded-full animate-bounce"
-                    style={{ backgroundColor: preloaderSettings?.spinnerColor || '#3B3C8A' }}
+                    style={{ backgroundColor: customSpinner }}
                   />
                 </div>
                 {preloaderSettings?.showPercentage && (
@@ -243,9 +242,9 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
               /* Default Circular Spinner: rendered strictly below logo */
               <div className="relative flex flex-col items-center justify-center">
                 <div 
-                  className="w-10 h-10 border-[3.5px] border-t-transparent rounded-full animate-spin"
+                  className="w-10 h-10 border-[2.5px] border-t-transparent rounded-full animate-spin"
                   style={{ 
-                    borderColor: `${preloaderSettings?.spinnerColor || '#3B3C8A'} ${preloaderSettings?.spinnerColor || '#3B3C8A'} ${preloaderSettings?.spinnerColor || '#3B3C8A'} transparent` 
+                    borderColor: `${customSpinner} ${customSpinner} ${customSpinner} transparent` 
                   }}
                 />
                 {preloaderSettings?.showPercentage && (
@@ -268,7 +267,7 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
 
         {/* Text */}
         <p 
-          className="font-semibold text-sm tracking-wide text-center max-w-[320px] truncate"
+          className="font-medium text-sm tracking-wide text-center max-w-[320px] truncate"
           style={{ 
             fontFamily: preloaderSettings?.font || 'Poppins',
             fontSize: preloaderSettings?.fontSize ? `${preloaderSettings.fontSize}px` : undefined

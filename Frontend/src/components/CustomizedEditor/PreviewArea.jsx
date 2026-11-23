@@ -57,6 +57,7 @@ const PreviewArea = React.memo(({
     shareId: incomingShareId,
     currentBook: currentBookProp,
     baseUrl,
+    onBookReady,
 }) => {
     const customizerRedux = useCustomizerState();
     const activeBookRedux = useActiveBook();
@@ -77,10 +78,17 @@ const PreviewArea = React.memo(({
     const [processedLogoSrc, setProcessedLogoSrc] = useState(incomingLogoSettings?.src || '');
     const [isInitialPreparing, setIsInitialPreparing] = useState(true);
 
+    const handleBookReady = useCallback(() => {
+        setIsInitialPreparing(false);
+        if (typeof onBookReady === 'function') {
+            onBookReady();
+        }
+    }, [onBookReady]);
+
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsInitialPreparing(false);
-        }, 1800);
+        }, 3000);
         return () => clearTimeout(timer);
     }, []);
 
@@ -1763,7 +1771,8 @@ const PreviewArea = React.memo(({
         isTurnJs,
         physicalZoom: actualPhysicalZoom,
         watermarkSettings,
-        style: interactionZoomStyle
+        style: interactionZoomStyle,
+        onBookReady: handleBookReady,
     }), [
         augmentedPages, incomingVId, incomingVIdProp, currentBook?.v_id,
         WIDTH, HEIGHT, baseDimensions, flipTime, flipStyle, useHardCover,
@@ -1772,7 +1781,8 @@ const PreviewArea = React.memo(({
         textureStyle, shadowActive, shadowStyle, shadowFilter, currentPage,
         isSinglePage, onPageClick, settings, setShowViewBookmarkPopup,
         memoizedBuildPageDoc, activeLayout, interactionZoom, activeTooltip,
-        isTurnJs, actualPhysicalZoom, watermarkSettings, interactionZoomStyle
+        isTurnJs, actualPhysicalZoom, watermarkSettings, interactionZoomStyle,
+        handleBookReady
     ]);
 
 
@@ -2422,6 +2432,7 @@ const PreviewArea = React.memo(({
             notes={notes}
             isMobileLandscape={isMobileLandscape}
             leadFormSettings={leadFormSettings}
+            watermarkSettings={watermarkSettings}
             onOpenLeadForm={() => {
                 setLeadFormSubmitted(false);
                 setShowLeadForm(true);
@@ -2578,8 +2589,8 @@ const PreviewArea = React.memo(({
             {(!['Tablet', 'Mobile'].includes(activeDevice) || (activeDevice === 'Tablet' && isPhysicalTablet) || (activeDevice === 'Mobile' && isPhysicalMobile)) && backgroundLayers}
 
             {isInitialPreparing && (
-                <div style={{ position: 'absolute', inset: 0, zIndex: 99999, backgroundColor: '#1E1F24', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', transition: 'opacity 0.4s ease' }}>
-                    <div className="w-9 h-9 border-2 border-white/20 border-t-[#ea543a] rounded-full animate-spin" />
+                <div style={{ position: 'absolute', inset: 0, zIndex: 99999, backgroundColor: '#22252A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', transition: 'opacity 0.4s ease' }}>
+                    <div className="w-9 h-9 border-2 border-white/20 border-t-[#E04752] rounded-full animate-spin" />
                     <span style={{ color: '#fff', fontSize: '13px', fontWeight: 500, letterSpacing: '0.03em' }}>Preparing Flipbook…</span>
                 </div>
             )}

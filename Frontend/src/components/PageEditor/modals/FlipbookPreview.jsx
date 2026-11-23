@@ -110,6 +110,11 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [bookIsReady, setBookIsReady] = useState(false);
+
+  const handleBookReady = useCallback(() => {
+    setBookIsReady(true);
+  }, []);
 
   useEffect(() => {
     if (settings && Object.keys(settings).length > 0) {
@@ -122,18 +127,20 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
     if (isLoading) {
       progressInterval = setInterval(() => {
         setLoadingProgress((prev) => {
-          if (prev >= 100) {
+          if (bookIsReady) {
             clearInterval(progressInterval);
-            setTimeout(() => setIsLoading(false), 200);
             return 100;
           }
-          const increment = prev < 80 ? 8 : (settingsLoaded ? 12 : 3);
-          return Math.min(prev + increment, 100);
+          if (prev >= 90) {
+            return 90;
+          }
+          const increment = prev < 70 ? 8 : (settingsLoaded ? 4 : 2);
+          return Math.min(prev + increment, 90);
         });
-      }, 40);
+      }, 50);
     }
     return () => clearInterval(progressInterval);
-  }, [isLoading, settingsLoaded]);
+  }, [isLoading, settingsLoaded, bookIsReady]);
 
   useEffect(() => {
     if ((Object.keys(localSettings).length > 0 || (pages && pages.length > 0)) && !isLoadingParent) {
@@ -141,21 +148,23 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
     }
   }, [localSettings, isLoadingParent, pages]);
 
+  // Once the book signals ready, finish progress to 100% and smoothly dismiss preloader
   useEffect(() => {
-    if (settingsLoaded && loadingProgress >= 90) {
+    if (bookIsReady && isLoading) {
+      setLoadingProgress(100);
       const timer = setTimeout(() => {
-        setLoadingProgress(100);
         setIsLoading(false);
-      }, 200);
+      }, 250);
       return () => clearTimeout(timer);
     }
-  }, [settingsLoaded, loadingProgress]);
+  }, [bookIsReady, isLoading]);
 
-  // Safety fallback: ensure preloader always hides cleanly once page is ready
+  // Safety fallback: ensure preloader always hides cleanly if book load times out (e.g. 6 seconds)
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
+      setLoadingProgress(100);
       setIsLoading(false);
-    }, 2000);
+    }, 6000);
     return () => clearTimeout(fallbackTimer);
   }, []);
   // 3D model states moved to PreviewArea
@@ -605,6 +614,7 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
         currentBook={currentBook || settings}
         v_id={v_id}
         shareId={effectiveShareId}
+        onBookReady={handleBookReady}
       />
 
       {/* Draggable Device Settings - Tablet/Mobile: outside device frame */}
@@ -712,10 +722,11 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
       {(() => {
         const preloader = localSettings?.preloader || localSettings?.preloaderSettings || settings?.preloader || settings?.preloaderSettings || settings?.Branding?.preloaderSettings || {
           enabled: true,
-          text: 'Preparing Flipibook',
-          bgColor: '#2D2F33',
+          isCustom: false,
+          text: 'Preparing Flipbook...',
+          bgColor: '#22252A',
           textColor: '#ffffff',
-          spinnerColor: '#3B3C8A',
+          spinnerColor: '#E04752',
           showPercentage: false,
           layout: 'spinner',
           logoAnimation: 'bounce'

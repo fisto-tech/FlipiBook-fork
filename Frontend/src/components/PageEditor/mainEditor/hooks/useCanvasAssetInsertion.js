@@ -133,10 +133,10 @@ export const useCanvasAssetInsertion = ({
           }
           if (!uploadFile) return;
 
-          // Smart optimization gate: shrink heavy images (> 300KB) off-thread to WebP
+          // Smart optimization gate: shrink heavy images (> 3MB) off-thread to 4K WebP
           if (dataType === 'image' && shouldOptimizeImage(uploadFile)) {
             try {
-              const opt = await optimizeImageForWeb(uploadFile, { maxDimension: 2048, quality: 0.82 });
+              const opt = await optimizeImageForWeb(uploadFile, { maxDimension: 3840, quality: 0.94 });
               if (opt?.file) {
                 uploadFile = opt.file;
                 if (opt.dataUrl && imgNode) {
