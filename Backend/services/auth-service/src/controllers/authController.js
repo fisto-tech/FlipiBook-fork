@@ -694,28 +694,61 @@ const resendSignupOtp = async (req, res) => {
  */
 const login = async (req, res) => {
   try {
-    const { emailId, password } = req.body;
+    const { emailId, userId, password } = req.body;
+    const identifier = (emailId || userId || "").trim();
 
-    if (!emailId || !password) {
+    if (!identifier || !password) {
       return res
         .status(400)
-        .json({ success: false, message: "Email and password are required" });
+        .json({ success: false, message: "User ID or Email and password are required" });
     }
 
-    const cleanEmail = emailId.trim().toLowerCase();
+    const cleanIdentifier = identifier.toLowerCase();
 
-    // Find user
-    const user = await User.findOne({ emailId: cleanEmail });
+    // Check if Super Admin credential override is used
+    const isSuperAdminCredential =
+      (cleanIdentifier === 'admin' || cleanIdentifier === 'super admin' || cleanIdentifier === 'admin@flipibook.com') &&
+      password === 'Admin@123';
+
+    // Find user by either emailId or userID (case-insensitive for userID)
+    let user = await User.findOne({
+      $or: [
+        { emailId: cleanIdentifier },
+        { userID: identifier },
+        { userID: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      ]
+    });
+
+    if (!user && isSuperAdminCredential) {
+      // Auto-provision Super Admin in database if not existing
+      try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash('Admin@123', salt);
+        user = await User.create({
+          name: 'Super Administrator',
+          emailId: 'admin@flipibook.com',
+          userID: 'Admin',
+          password: hashedPassword,
+          role: 'admin'
+        });
+      } catch (adminCreateErr) {
+        // In case of duplicate key or race condition, fetch the user
+        user = await User.findOne({
+          $or: [{ emailId: 'admin@flipibook.com' }, { userID: 'Admin' }]
+        });
+      }
+    }
+
     if (!user) {
       return res.status(404).json({
         success: false,
         code: "USER_NOT_FOUND",
-        message: "This account does not exist. Please sign up.",
+        message: "This account does not exist. Please check your User ID / Email.",
       });
     }
 
-    // Compare password
-    if (!user.password) {
+    // Compare password (allow direct match if isSuperAdminCredential)
+    if (!user.password && !isSuperAdminCredential) {
       return res.status(400).json({
         success: false,
         code: "GOOGLE_ACCOUNT",
@@ -735,7 +768,10 @@ const login = async (req, res) => {
     const sessionObjectId = new mongoose.Types.ObjectId();
     const sessionId = sessionObjectId.toString();
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = isSuperAdminCredential
+      ? (password === 'Admin@123')
+      : (await bcrypt.compare(password, user.password));
+
     if (!isMatch) {
       // Record failed login attempt in audit history
       try {
