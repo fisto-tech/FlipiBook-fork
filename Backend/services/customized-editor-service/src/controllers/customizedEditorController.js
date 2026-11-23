@@ -2669,7 +2669,20 @@ const getPublicBook = async (req, res) => {
       ? book.viewers.length
       : (typeof book.viewsCount === 'number' ? book.viewsCount : 0);
 
-    const publisherName = docFlipbookInfo.publisher || (book.userEmail ? book.userEmail.split('@')[0] : 'FlipiBook');
+    // Publisher: the name the creator saved, else the owner's account name — never their email
+    const emailLocal = book.userEmail ? String(book.userEmail).split('@')[0] : '';
+    const savedPublisher = String(docFlipbookInfo.publisher || '').trim();
+    let ownerName = '';
+    if (book.userEmail) {
+      try {
+        const owner = await User.findOne({ emailId: String(book.userEmail).toLowerCase() }).select('name').lean();
+        ownerName = String(owner?.name || '').trim();
+      } catch (e) {
+        console.warn('[customizedEditorController] Publisher lookup failed:', e.message);
+      }
+    }
+    const savedIsEmailDerived = !savedPublisher || savedPublisher.includes('@') || savedPublisher === emailLocal;
+    const publisherName = (!savedIsEmailDerived && savedPublisher) || ownerName || emailLocal || 'FlipiBook';
 
     const flipbookInfoObj = {
       ...docFlipbookInfo,

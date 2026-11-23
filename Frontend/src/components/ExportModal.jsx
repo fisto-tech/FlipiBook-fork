@@ -10,7 +10,7 @@ import domtoimage from 'dom-to-image-more';
 import ColorPicker, { default as TemplateColorPicker } from './ColorPicker';
 import { getAssetBaseUrl, getSupabaseBaseUrl } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
-import { convertSvgTextToOutlines } from './PageEditor/utils/vectorTextConverter';
+import { prepareExportSvg } from './PageEditor/utils/exportPageRenderer';
 import { analyticsApi } from '../api/analyticsApi';
 import { TemplatePreview, COVER_TEMPLATES, detectFlipbookOrientation } from './FlipbookInfoModal';
 
@@ -616,7 +616,8 @@ const ExportModal = ({
   const [quality, setQuality] = useState('Medium');
   const [format, setFormat] = useState('JPG');
   const [includeCover, setIncludeCover] = useState(true);
-  const [includePoster, setIncludePoster] = useState(true);
+  // Export Poster is hidden for now — never add the poster image to exports
+  const [includePoster, setIncludePoster] = useState(false);
   const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false);
   const [coverPictureData, setCoverPictureData] = useState(null);
   const [inlinedCoverPages, setInlinedCoverPages] = useState([]);
@@ -839,6 +840,76 @@ const ExportModal = ({
     return out;
   };
 
+  // Output size for the cover = the exported page size (first page's aspect at the chosen quality)
+  const getPageExportSize = (maxPx) => {
+    const res = (modalPages && modalPages.length > 0) ? buildExportSvg(0, maxPx) : null;
+    if (res && res.targetW && res.targetH) return { w: res.targetW, h: res.targetH };
+    return { w: Math.round(maxPx), h: Math.round((maxPx * 3) / 4) };
+  };
+
+  /**
+   * Crisp capture of a DOM element (the cover template) into a canvas of outW×outH:
+   * the element's HTML (inline page SVGs stay vector) is wrapped in an SVG foreignObject,
+   * made self-contained (fonts, images, app CSS) and rasterised at full resolution.
+   * The element keeps its own aspect, centred, with its background filling the rest.
+   */
+  const captureElementCrisp = async (el, outW, outH) => {
+    const elW = el.offsetWidth || 1;
+    const elH = el.offsetHeight || 1;
+    const scale = Math.min(outW / elW, outH / elH);
+    const offX = (outW - elW * scale) / 2;
+    const offY = (outH - elH * scale) / 2;
+    const cs = window.getComputedStyle(el);
+    const bg = cs.backgroundImage && cs.backgroundImage !== 'none'
+      ? `${cs.backgroundColor} ${cs.backgroundImage}`
+      : (cs.backgroundColor || '#ffffff');
+    const inner = new XMLSerializer().serializeToString(el);
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${outW}" height="${outH}" viewBox="0 0 ${outW} ${outH}">`
+      + `<foreignObject x="0" y="0" width="${outW}" height="${outH}">`
+      + `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${outW}px;height:${outH}px;overflow:hidden;background:${bg};">`
+      + `<div style="position:absolute;left:${offX}px;top:${offY}px;width:${elW}px;height:${elH}px;transform:scale(${scale});transform-origin:0 0;">${inner}</div>`
+      + `</div></foreignObject></svg>`;
+    svg = await prepareExportSvg(svg, { baseUrl: projectBaseUrl || '' });
+    // The template is laid out in screen units (vw/vh); inside an SVG image those would refer to
+    // the image size, so pin them to the editor window's pixel values.
+    const vw = window.innerWidth / 100;
+    const vh = window.innerHeight / 100;
+    // (never inside embedded data: URLs — base64 can contain "…3vw…")
+    svg = svg.split(/(data:[^"')\s]+)/g).map((part) => (part.startsWith('data:') ? part : part
+      .replace(/(-?\d*\.?\d+)vw\b/g, (m, n) => `${(parseFloat(n) * vw).toFixed(3)}px`)
+      .replace(/(-?\d*\.?\d+)vh\b/g, (m, n) => `${(parseFloat(n) * vh).toFixed(3)}px`))).join('');
+    const blob = await svgToBlob(svg, 'image/png', outW, outH);
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = outW;
+        c.height = outH;
+        c.getContext('2d').drawImage(img, 0, 0, outW, outH);
+        URL.revokeObjectURL(img.src);
+        resolve(c);
+      };
+      img.onerror = () => resolve(null);
+      img.src = URL.createObjectURL(blob);
+    });
+  };
+
+  // Fit any canvas into the page export size (contained, centred, on a background colour)
+  const fitCanvasToSize = (src, outW, outH, bg = '#ffffff') => {
+    const c = document.createElement('canvas');
+    c.width = outW;
+    c.height = outH;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, outW, outH);
+    const sc = Math.min(outW / src.width, outH / src.height);
+    const w = src.width * sc;
+    const h = src.height * sc;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, (outW - w) / 2, (outH - h) / 2, w, h);
+    return c;
+  };
+
   // Function to render cover picture into a canvas
   const getCoverCanvas = async (maxPx = 1200) => {
     if (!resolvedCoverPicture) return null;
@@ -909,6 +980,15 @@ const ExportModal = ({
             }));
           }
 
+          // Crisp, page-sized capture (vector pages, embedded fonts/images)
+          try {
+            const { w: outW, h: outH } = getPageExportSize(maxPx);
+            const crisp = await captureElementCrisp(el, outW, outH);
+            if (crisp) return crisp;
+          } catch (crispErr) {
+            console.warn('Crisp cover capture failed, falling back to html2canvas:', crispErr);
+          }
+
           const rect = el.getBoundingClientRect();
           const longestSide = Math.max(rect.width, rect.height) || 800;
           const scale = Math.max(1, maxPx / longestSide);
@@ -970,7 +1050,7 @@ const ExportModal = ({
           const res = buildExportSvg(0, maxPx);
           if (res) {
             const { svgString, targetW, targetH } = res;
-            const inlined = await inlineSvgImages(svgString);
+            const inlined = await prepareExportSvg(svgString, { baseUrl: projectBaseUrl || '' });
             const blob = await svgToBlob(inlined, 'image/png', targetW, targetH);
             const pageCanvas = await new Promise((resolve) => {
               const img = new Image();
@@ -1008,7 +1088,8 @@ const ExportModal = ({
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, rawCvs.width, rawCvs.height);
           ctx.drawImage(img, 0, 0, rawCvs.width, rawCvs.height);
-          resolve(fitCanvasTo4x3(rawCvs, maxPx));
+          const { w: outW, h: outH } = getPageExportSize(maxPx);
+          resolve(fitCanvasToSize(rawCvs, outW, outH, resolvedCoverPicture.bgColor || '#ffffff'));
         };
         img.onerror = () => {
           console.warn('Failed to load cover image url for export:', resolvedCoverPicture.url);
@@ -1726,45 +1807,14 @@ const ExportModal = ({
     //  - Remove all default browser borders, outlines, and backgrounds from foreignObject content
     //  - Preserve text alignment and font properties exactly as authored
     //  - Hide Free Frame & Document Shield interaction borders in exported files
+    // Only hide editor-only helpers — never override authored styling (borders, backgrounds,
+    // padding, text stroke, table lines…) so the export matches the page exactly.
     const exportStyle = `
       <style>
         [data-name="Free Frame"], [data-type="free-frame"], .free-frame-rect { display: none !important; }
         [data-name="Document Shield"], [data-type="shield"], [id^="shield-"] { display: none !important; }
-        foreignObject * {
-          -webkit-box-sizing: border-box;
-          box-sizing: border-box;
-          outline: none !important;
-          border: none !important;
-          background-color: transparent !important;
-          -webkit-text-stroke: 0 !important;
-          text-stroke: 0 !important;
-          -webkit-appearance: none;
-          appearance: none;
-        }
-        foreignObject div,
-        foreignObject p,
-        foreignObject span {
-          margin: 0;
-          padding: 0;
-          line-height: inherit;
-          letter-spacing: inherit;
-          font-family: inherit;
-          font-size: inherit;
-          font-weight: inherit;
-          font-style: inherit;
-          color: inherit;
-          text-align: inherit;
-          text-decoration: inherit;
-          text-transform: inherit;
-          white-space: inherit;
-          overflow-wrap: inherit;
-          word-break: inherit;
-        }
-        foreignObject [class],
-        foreignObject [style] {
-          outline: none !important;
-          border-color: transparent !important;
-        }
+        foreignObject * { outline: none !important; }
+        [contenteditable] { caret-color: transparent !important; }
       </style>
     `;
     svg = svg.replace(/<\/svg>\s*$/i, `${exportStyle}</svg>`);
@@ -1834,8 +1884,11 @@ const ExportModal = ({
     // ── Helper: render SVG blob URL onto a canvas ─────────────────
     // NOTE: blob URLs don't need crossOrigin. The SecurityError from tainted
     // canvas is caught inside onload via try/catch so reject() is always called.
-    const renderSvgToCanvas = (svgBlob) => new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(svgBlob);
+    // NOTE: a data: URL (not a blob: URL) — Chrome taints the canvas when an SVG containing
+    // <foreignObject> (all text/tables) is loaded from a blob URL, which made every export fall
+    // back to the lower-fidelity domtoimage path.
+    const renderSvgToCanvas = (svgText) => new Promise((resolve, reject) => {
+      const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
       const img = new Image();
       // No crossOrigin on blob URLs — it causes unnecessary CORS failures
       img.onload = () => {
@@ -1849,7 +1902,6 @@ const ExportModal = ({
             ctx.fillRect(0, 0, targetW, targetH);
           }
           ctx.drawImage(img, 0, 0, targetW, targetH);
-          URL.revokeObjectURL(url);
           // canvas.toBlob throws SecurityError synchronously when tainted;
           // that error is caught here and forwarded to reject().
           canvas.toBlob(
@@ -1858,18 +1910,16 @@ const ExportModal = ({
             0.97
           );
         } catch (err) {
-          URL.revokeObjectURL(url);
           reject(err); // SecurityError (tainted canvas) lands here → falls to domtoimage
         }
       };
-      img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      img.onerror = (e) => reject(e);
       img.src = url;
     });
 
     // ── Primary path: native Canvas rendering ─────────────────────
     try {
-      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const { canvas, blob: pngBlob } = await renderSvgToCanvas(svgBlob);
+      const { canvas, blob: pngBlob } = await renderSvgToCanvas(svgString);
 
       if (mimeType === 'image/webp') {
         // Convert the PNG canvas to WebP
@@ -1898,30 +1948,7 @@ const ExportModal = ({
 
       // Apply comprehensive style reset directly to the live DOM element
       const styleEl = document.createElement('style');
-      styleEl.textContent = `
-        foreignObject * {
-          outline: none !important;
-          border: none !important;
-          background-color: transparent !important;
-          -webkit-box-sizing: border-box;
-          box-sizing: border-box;
-          -webkit-text-stroke: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          color: inherit !important;
-          font-family: inherit !important;
-          font-size: inherit !important;
-          font-weight: inherit !important;
-          font-style: inherit !important;
-          text-align: inherit !important;
-          line-height: inherit !important;
-          letter-spacing: inherit !important;
-          text-transform: inherit !important;
-          text-decoration: inherit !important;
-          white-space: inherit !important;
-        }
-        foreignObject div { width: 100% !important; height: 100% !important; }
-      `;
+      styleEl.textContent = `foreignObject * { outline: none !important; }`;
       if (svgElement) {
         svgElement.appendChild(styleEl);
       }
@@ -1973,6 +2000,14 @@ const ExportModal = ({
     } finally {
       document.body.removeChild(container);
     }
+  };
+
+  /** Page SVG → self-contained SVG (frozen animations, embedded images, fonts, video frames). */
+  const buildSelfContainedSvg = async (pageIndex, maxPx, isVector = false) => {
+    const res = buildExportSvg(pageIndex, maxPx, isVector);
+    if (!res) return null;
+    const svgString = await prepareExportSvg(res.svgString, { baseUrl: projectBaseUrl || '' });
+    return { ...res, svgString };
   };
 
   const handleDownloadPoster = async () => {
@@ -2112,7 +2147,7 @@ const ExportModal = ({
       let coverCanvas = null;
       if (!autoDownloadPDF && includeCover && resolvedCoverPicture) {
         try {
-          coverCanvas = await getCoverCanvas(maxPx);
+          coverCanvas = await getCoverCanvas(activeFormat === 'PDF' ? Math.max(maxPx, 2048) : maxPx);
         } catch (cErr) {
           console.warn('Could not generate cover image for export:', cErr);
         }
@@ -2137,24 +2172,25 @@ const ExportModal = ({
         //    - Convert <foreignObject> text into pure vector <path> outlines (opentype.js)
         //      or clean SVG <text> elements (so Inkscape --export-text-to-path outlines them)
         //    - Preserve exact physical dimensions (mm/pt) matching the viewBox
+        // Each page is rendered exactly as it looks (fonts, tables, effects, mixed text styles,
+        // frozen animations) and placed as a high-resolution image on its PDF page.
         const preparedPages = [];
+        const pdfPx = Math.max(maxPx, 2048);
 
         for (const idx of indices) {
-          const res = buildExportSvg(idx, maxPx, true);
+          const res = await buildSelfContainedSvg(idx, pdfPx);
           if (!res) continue;
-          let { svgString, nativeW, nativeH } = res;
-
-          // 1. Inline all referenced images in the SVG to Base64
-          let inlinedSvg = await inlineSvgImages(svgString);
-
-          // 2. Convert <foreignObject> text into vector outlines / clean SVG text
-          inlinedSvg = await convertSvgTextToOutlines(inlinedSvg);
-
+          const imgBlob = await svgToBlob(res.svgString, 'image/jpeg', res.targetW, res.targetH);
+          const dataUrl = await new Promise((ok) => {
+            const r = new FileReader();
+            r.onload = () => ok(r.result);
+            r.readAsDataURL(imgBlob);
+          });
           preparedPages.push({
-            svgString: inlinedSvg,
+            dataUrl,
             pageNumber: idx + 1,
-            width: nativeW,
-            height: nativeH,
+            width: res.nativeW || res.targetW,
+            height: res.nativeH || res.targetH,
           });
         }
 
@@ -2171,13 +2207,20 @@ const ExportModal = ({
         let pdf = null;
         let first = true;
 
-        // If coverCanvas exists, add cover picture as the very first page
+        // If coverCanvas exists, add cover picture as the very first page — same page size as the book pages
         if (coverCanvas) {
           const coverW = coverCanvas.width || 800;
           const coverH = coverCanvas.height || 1000;
           const PX_TO_PT = 72 / 96;
-          const pdfW = Math.round(coverW * PX_TO_PT);
-          const pdfH = Math.round(coverH * PX_TO_PT);
+          const MM_TO_PT_C = 72 / 25.4;
+          const firstPage = preparedPages[0];
+          const fpPx = firstPage && (firstPage.width > 500 || firstPage.height > 500);
+          const pdfW = firstPage
+            ? Math.round(fpPx ? firstPage.width * PX_TO_PT : firstPage.width * MM_TO_PT_C)
+            : Math.round(coverW * PX_TO_PT);
+          const pdfH = firstPage
+            ? Math.round(fpPx ? firstPage.height * PX_TO_PT : firstPage.height * MM_TO_PT_C)
+            : Math.round(coverH * PX_TO_PT);
 
           pdf = new jsPDF({
             orientation: pdfW > pdfH ? 'landscape' : 'portrait',
@@ -2220,25 +2263,7 @@ const ExportModal = ({
           pdf.setFillColor(255, 255, 255);
           pdf.rect(0, 0, pdfW, pdfH, 'F');
 
-          // Since text was already outlined to <path> by convertSvgTextToOutlines,
-          // pdf.svg() embeds true vector bezier paths without crashing on foreignObject!
-          try {
-            await pdf.svg(new DOMParser().parseFromString(p.svgString, 'image/svg+xml').documentElement, {
-              x: 0,
-              y: 0,
-              width: pdfW,
-              height: pdfH,
-            });
-          } catch (svgErr) {
-            console.warn('Client-side vector embed error:', svgErr);
-            const imgBlob = await svgToBlob(p.svgString, 'image/png', pdfW * 2, pdfH * 2);
-            const dataUrl = await new Promise((ok) => {
-              const r = new FileReader();
-              r.onload = () => ok(r.result);
-              r.readAsDataURL(imgBlob);
-            });
-            pdf.addImage(dataUrl, 'PNG', 0, 0, pdfW, pdfH);
-          }
+          pdf.addImage(p.dataUrl, 'JPEG', 0, 0, pdfW, pdfH, undefined, 'FAST');
         }
 
         // If posterCanvas exists, append poster as page in PDF
@@ -2276,19 +2301,9 @@ const ExportModal = ({
       } else if (format === 'SVG') {
         // ── TRUE DIRECT VECTOR SVG EXPORT ────────────────────────
         if (indices.length === 1 && !hasExtraItems) {
-          const res = buildExportSvg(indices[0], maxPx, true);
+          const res = await buildSelfContainedSvg(indices[0], maxPx, true);
           if (!res) throw new Error('Page content not available');
           let { svgString } = res;
-
-          // 1. Inline all referenced images in the SVG to Base64
-          svgString = await inlineSvgImages(svgString);
-
-          // 2. Convert <foreignObject> text into clean vector path outlines
-          try {
-            svgString = await convertSvgTextToOutlines(svgString);
-          } catch (e) {
-            console.warn('Text outlining skipped:', e);
-          }
 
           if (!svgString.startsWith('<?xml')) {
             svgString = `<?xml version="1.0" encoding="UTF-8"?>\n${svgString}`;
@@ -2311,16 +2326,9 @@ const ExportModal = ({
           }
 
           for (const idx of indices) {
-            const res = buildExportSvg(idx, maxPx, true);
+            const res = await buildSelfContainedSvg(idx, maxPx, true);
             if (!res) continue;
             let { svgString } = res;
-
-            svgString = await inlineSvgImages(svgString);
-            try {
-              svgString = await convertSvgTextToOutlines(svgString);
-            } catch (e) {
-              console.warn('Text outlining skipped for page:', idx, e);
-            }
 
             if (!svgString.startsWith('<?xml')) {
               svgString = `<?xml version="1.0" encoding="UTF-8"?>\n${svgString}`;
@@ -2346,14 +2354,11 @@ const ExportModal = ({
 
       } else if (indices.length === 1 && !hasExtraItems) {
         // ── Single page without cover/poster -> direct download ─────────
-        const res = buildExportSvg(indices[0], maxPx);
+        const res = await buildSelfContainedSvg(indices[0], maxPx);
         if (!res) throw new Error('Page content not available');
         const { svgString, targetW, targetH } = res;
 
-        // 1. Inline all referenced images in the SVG to Base64
-        const inlinedSvg = await inlineSvgImages(svgString);
-
-        const blob = await svgToBlob(inlinedSvg, mime, targetW, targetH);
+        const blob = await svgToBlob(svgString, mime, targetW, targetH);
         const pgName = (modalPages[indices[0]]?.name || `Page_${indices[0] + 1}`).replace(/\s+/g, '_');
         saveAs(blob, `${bookName}_${pgName}.${ext}`);
 
@@ -2373,14 +2378,11 @@ const ExportModal = ({
         }
 
         for (const idx of indices) {
-          const res = buildExportSvg(idx, maxPx);
+          const res = await buildSelfContainedSvg(idx, maxPx);
           if (!res) continue;
           const { svgString, targetW, targetH } = res;
 
-          // 1. Inline all referenced images in the SVG to Base64
-          const inlinedSvg = await inlineSvgImages(svgString);
-
-          const blob = await svgToBlob(inlinedSvg, mime, targetW, targetH);
+          const blob = await svgToBlob(svgString, mime, targetW, targetH);
           const pgName = (modalPages[idx]?.name || `Page_${idx + 1}`).replace(/\s+/g, '_');
           folder.file(`${pgName}.${ext}`, blob);
         }
@@ -2516,20 +2518,7 @@ const ExportModal = ({
             <div className="flex flex-col gap-[0.5vw] px-[0.5vw]">
               {!isEditingPoster ? (
                 <>
-                  <div className="flex gap-[0.8vw]">
-                    <button
-                      onClick={() => setActiveTab('flipbook')}
-                      className={`px-[1.2vw] py-[0.5vw] rounded-[0.5vw] font-semibold text-[0.75vw] transition-all cursor-pointer ${activeTab === 'flipbook' ? 'bg-white text-gray-900 shadow-[0_2px_10px_rgba(0,0,0,0.08)] border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
-                    >
-                      Export Flipbook
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('poster')}
-                      className={`px-[1.2vw] py-[0.5vw] rounded-[0.5vw] font-semibold text-[0.75vw] transition-all cursor-pointer ${activeTab === 'poster' ? 'bg-white text-gray-900 shadow-[0_2px_10px_rgba(0,0,0,0.08)] border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
-                    >
-                      Export Poster
-                    </button>
-                  </div>
+                  {/* Export Flipbook / Export Poster tabs removed — poster export is hidden */}
                   {activeTab === 'poster' && (
                     <p className="text-[0.7vw] text-gray-500 font-medium">Create and export customizable posters for social sharing and promotion.</p>
                   )}
@@ -2795,11 +2784,7 @@ const ExportModal = ({
                               <div className="flex-1 h-[1px] border-b border-dashed border-gray-200"></div>
                               <button onClick={() => setIncludeCover(!includeCover)} className={`flex-shrink-0 w-[2vw] h-[1.1vw] rounded-full p-[0.2vw] transition-all duration-300 cursor-pointer shadow-inner ${includeCover ? 'bg-[#4A3AFF]' : 'bg-gray-200'}`}><div className={`w-[0.7vw] h-[0.7vw] bg-white rounded-full transition-all duration-300 shadow-md ${includeCover ? 'translate-x-[0.9vw]' : 'translate-x-0'}`} /></button>
                             </div>
-                            <div className="flex items-center justify-between gap-[0.5vw]">
-                              <div className="flex items-center gap-[0.6vw] flex-shrink-0"><div className="w-[2.2vw] h-[2.2vw] bg-gray-50 rounded-[0.4vw] flex items-center justify-center border border-gray-100 shadow-sm overflow-hidden"><div className="w-full h-full bg-red-50 flex items-center justify-center"><FileText size="1vw" className="text-red-400" /></div></div><div className="flex flex-col gap-[0.2vw]"><span className="text-[0.8vw] font-semibold text-gray-700 leading-tight">Include Poster Image</span><span className="text-[0.55vw] text-gray-400">Export • Export Poster</span></div></div>
-                              <div className="flex-1 h-[1px] border-b border-dashed border-gray-200"></div>
-                              <button onClick={() => setIncludePoster(!includePoster)} className={`flex-shrink-0 w-[2vw] h-[1.1vw] rounded-full p-[0.2vw] transition-all duration-300 cursor-pointer shadow-inner ${includePoster ? 'bg-[#4A3AFF]' : 'bg-gray-200'}`}><div className={`w-[0.7vw] h-[0.7vw] bg-white rounded-full transition-all duration-300 shadow-md ${includePoster ? 'translate-x-[0.9vw]' : 'translate-x-0'}`} /></button>
-                            </div>
+                            {/* Include Poster Image option hidden (poster export disabled) */}
                           </div>
                         </div>
                       </>

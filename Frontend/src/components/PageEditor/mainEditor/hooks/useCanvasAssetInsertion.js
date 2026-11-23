@@ -501,7 +501,9 @@ export const useCanvasAssetInsertion = ({
       hitRect.setAttribute('width', String(size));
       hitRect.setAttribute('height', String(size));
       hitRect.setAttribute('fill', 'transparent');
+      hitRect.setAttribute('stroke', 'none'); // never inherit the icon's stroke (would draw a box)
       hitRect.setAttribute('pointer-events', 'all');
+      hitRect.setAttribute('data-icon-hit', 'true');
       g.appendChild(hitRect);
 
       // Scaled icon paths container
@@ -513,6 +515,7 @@ export const useCanvasAssetInsertion = ({
       iconGroup.setAttribute('stroke-linecap', 'round');
       iconGroup.setAttribute('stroke-linejoin', 'round');
       iconGroup.setAttribute('pointer-events', 'none');
+      iconGroup.setAttribute('data-icon-paint', 'true');
 
       if (icon.html) {
         iconGroup.innerHTML = icon.html;

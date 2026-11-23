@@ -1157,6 +1157,16 @@ const getDraggableElement = (target, canvasRoot) => {
       return titleGroup;
     }
 
+    // Icons are single compound elements (hit-box + icon paths); always select the whole icon group,
+    // never its transparent hit-box rect (styling that rect draws a box around the icon)
+    const iconGroup = current && typeof current.closest === 'function' ? current.closest('g[data-type="icon"]') : null;
+    if (iconGroup) {
+      if (!iconGroup.id) {
+        iconGroup.id = `icon-${Date.now()}`;
+      }
+      return iconGroup;
+    }
+
     // Decorator elements are single compound elements; always drag/select the whole decorator group
     // Element shapes are single compound elements; always drag/select the whole shape group (ensure never inside audio frame)
     const shapeGroup = current && typeof current.closest === 'function' ? (

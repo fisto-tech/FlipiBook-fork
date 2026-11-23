@@ -32,6 +32,7 @@ import { parseGradient } from './ColorPicker';
 import { PropertySlider } from './propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
+import { applyIconPaint, isIconElement } from '../utils/iconPaint';
 // ShapeAppearanceControls export for backwards compatibility
 export const ShapeAppearanceControls = ({
   backgroundColor,
@@ -523,7 +524,8 @@ const ShapeProperties = ({
   );
 
   const isCircleOrLine = isCircleShape || shapeType === 'ellipse' || shapeType === 'circle' || shapeType === 'line';
-  const shouldHideCornerRadius = hideCornerRadius || isCircleOrLine || !isCornerRadiusShape;
+  const isIconShape = selectedElementProps?.['data-type'] === 'icon';
+  const shouldHideCornerRadius = hideCornerRadius || isCircleOrLine || !isCornerRadiusShape || isIconShape;
 
   const shapeCornerId = selectedElementProps?.['data-shape-id'] || (() => {
     try {
@@ -816,12 +818,15 @@ const ShapeProperties = ({
 
   const parsedFillGrad = (safeFill && typeof safeFill === 'string' && safeFill.includes('gradient')) ? parseGradient(safeFill) : null;
 
-  const rawStroke = selectedElementProps?.['data-stroke-color'] || selectedElementProps?.stroke;
+  // Icons: stroke/width come from the icon paths (read by the sidebar), not stale data-* on the wrapper
+  const rawStroke = isIconShape ? selectedElementProps?.stroke : (selectedElementProps?.['data-stroke-color'] || selectedElementProps?.stroke);
   const safeStroke = (!rawStroke || rawStroke === 'inherit')
     ? (selectedElementProps?.['data-stroke-color'] || 'none')
     : rawStroke;
 
-  const rawStrokeWeight = parseFloat(selectedElementProps?.['data-stroke-width'] || selectedElementProps?.['stroke-width'] || selectedElementProps?.strokeWidth || 0);
+  const rawStrokeWeight = isIconShape
+    ? parseFloat(selectedElementProps?.strokeWidth || 0)
+    : parseFloat(selectedElementProps?.['data-stroke-width'] || selectedElementProps?.['stroke-width'] || selectedElementProps?.strokeWidth || 0);
   const safeStrokeWeight = isNaN(rawStrokeWeight) ? 0 : rawStrokeWeight;
 
   const backgroundColor = {
@@ -1010,9 +1015,13 @@ const ShapeProperties = ({
       const pos = next.strokePosition || 'Outside';
       updates['data-stroke-width'] = sw.toString();
       updates['data-stroke-position'] = pos;
-      updates['vector-effect'] = 'non-scaling-stroke';
+      if (!isIconShape) updates['vector-effect'] = 'non-scaling-stroke';
 
-      if (pos === 'Outside') {
+      if (isIconShape) {
+        // icons are open strokes — no alignment, the width is applied as-is
+        updates['stroke-width'] = sw.toString();
+        updates['strokeWidth'] = sw.toString();
+      } else if (pos === 'Outside') {
         updates['stroke-width'] = (sw * 2).toString();
         updates['strokeWidth'] = (sw * 2).toString();
         updates['paint-order'] = 'stroke fill';
@@ -1079,6 +1088,10 @@ const ShapeProperties = ({
         if (updates['stroke-linecap']) child.setAttribute('stroke-linecap', updates['stroke-linecap']);
         if (updates['stroke-linejoin']) child.setAttribute('stroke-linejoin', updates['stroke-linejoin']);
       });
+      if (isIconElement(liveEl)) {
+        // paint the icon paths, keep the transparent hit-box invisible
+        Object.entries(updates).forEach(([k, v]) => applyIconPaint(liveEl, k, v));
+      }
     }
 
     if (isMaskedShape || hasAppliedGradient) {
@@ -1180,11 +1193,12 @@ const ShapeProperties = ({
 
       {/* ===================== HEADER ===================== */}
       <div className="flex items-center gap-[0.8vw]">
-        <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-wider">Shape Properties</span>
+        <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-wider">{isIconShape ? 'Icon Properties' : 'Shape Properties'}</span>
         <div className="flex-1 h-[1px] bg-gray-200" />
       </div>
 
-      {/* ===================== MASKING & FLATTEN ACTIONS ===================== */}
+      {/* ===================== MASKING & FLATTEN ACTIONS (not for icons) ===================== */}
+      {!isIconShape && (
       <div className="flex flex-col gap-[0.6vw]">
         <div className="grid grid-cols-2 gap-[0.7vw]">
           {/* Mask Button */}
@@ -1228,6 +1242,7 @@ const ShapeProperties = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* ===================== IMAGE MASKING / FRAMING SECTION ===================== */}
       {shapeType !== 'line' && (isMaskEnabled || hasUploadedImage) && (
@@ -1456,6 +1471,9 @@ const ShapeProperties = ({
         showDetailedPicker={showDetailedPicker}
         setShowDetailedPicker={setShowDetailedPicker}
         hideFill={shapeType === 'line'}
+        hideAlignment={isIconShape}
+        hideLineCorner={isIconShape}
+        hideDash={isIconShape}
         noAccordion={true}
       />
 

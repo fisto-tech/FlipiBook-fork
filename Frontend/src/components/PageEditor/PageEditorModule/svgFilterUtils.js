@@ -134,6 +134,12 @@ export const parseLayersFromSVG = (element) => {
         (child.getAttribute('data-name') || '').toLowerCase().startsWith('hotspot')
       );
 
+      // Icons (hit-box + icon paths) are a single layer — never expand into their inner parts
+      const isIconLayer = !isPageRoot && child.tagName.toLowerCase() === 'g' && (
+        child.getAttribute('data-type') === 'icon' ||
+        (lowerId.startsWith('icon-') && !!child.querySelector('[data-icon-paint="true"], rect[pointer-events="all"]'))
+      );
+
       const isFreeFrame = !isPageRoot && (
         child.getAttribute('data-name') === 'Free Frame' ||
         child.getAttribute('data-type') === 'free-frame' ||
@@ -146,7 +152,7 @@ export const parseLayersFromSVG = (element) => {
         child.getAttribute('data-is-gif-group') === 'true' ||
         isEmbedGroup || isAudioFrame || isButton || isQRCode ||
         isMap || isSlideshow || isImageFrame || isShape || isTable || isDecorator || isTypography ||
-        isHotspot || isFreeFrame
+        isHotspot || isFreeFrame || isIconLayer
       );
 
       const isPdfVector = child.getAttribute('data-type') === 'pdf-vector-layer';
@@ -160,7 +166,7 @@ export const parseLayersFromSVG = (element) => {
         const isElementPresetContainer =
           isImageFrame || isQRCode || isAudioFrame || isEmbedGroup ||
           isButton || isMap || isSlideshow || isTable || isTypography || isShape || isDecorator ||
-          isHotspot || isFreeFrame;
+          isHotspot || isFreeFrame || isIconLayer;
 
         if (!isElementPresetContainer) {
           const stripIds = (node) => {
@@ -221,6 +227,10 @@ export const parseLayersFromSVG = (element) => {
         } else if (child.getAttribute('data-is-gif-group') === 'true') {
           coreName = 'GIF';
           coreType = 'image';
+        } else if (isIconLayer) {
+          const customName = child.getAttribute('data-name');
+          coreName = customName && !customName.startsWith('icon-') ? customName.replace(/^tpl-[a-z0-9]{4}-/, '') : 'Icon';
+          coreType = 'icon';
         } else if (isEmbedGroup) {
           coreName = 'Embed Frame';
           coreType = 'embed-frame';
