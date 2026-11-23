@@ -389,7 +389,6 @@ const PreviewArea = React.memo(({
     const containerRef = useRef();
     const screenRef = useRef();
     const isFlippingRef = useRef(false);
-    const lastPreviewOpen = useRef(otherSetupSettings?.gallery?.previewOpen);
 
     const activeDevice = activeDeviceProp; // Desktop, Tablet, Mobile
     const isPortraitLayout = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
@@ -865,12 +864,7 @@ const PreviewArea = React.memo(({
         return finalPages;
     }, [pages, bookAppearanceSettings?.transparentSheets]);
 
-    useEffect(() => {
-        if (!disableAutoGallery && !isPublishedPreview && otherSetupSettings?.gallery?.previewOpen && otherSetupSettings.gallery.previewOpen !== lastPreviewOpen.current) {
-            setShowGalleryPopup(true);
-            lastPreviewOpen.current = otherSetupSettings.gallery.previewOpen;
-        }
-    }, [otherSetupSettings?.gallery?.previewOpen, isPublishedPreview, disableAutoGallery]);
+
 
     // Sync current page with targetPage prop (from PageEditor's activePageIndex or direct URL)
     useEffect(() => {
@@ -1789,17 +1783,41 @@ const PreviewArea = React.memo(({
 
     const prevEnabledRef = useRef(leadFormSettings?.enabled);
     const prevTemplateKeyRef = useRef(leadFormSettings?._previewKey);
+    const prevManualPreviewRef = useRef(leadFormSettings?._manualPreview);
     useEffect(() => {
         const currentEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
         const prevEnabled = prevEnabledRef.current === true || prevEnabledRef.current === 'true';
         const templateChanged = leadFormSettings?._previewKey && leadFormSettings?._previewKey !== prevTemplateKeyRef.current;
-        if ((currentEnabled && !prevEnabled && !isPublishedPreview) || templateChanged) {
+        
+        // When a template is selected or preview key changes, reset submitted and show form
+        if (templateChanged) {
+            prevTemplateKeyRef.current = leadFormSettings._previewKey;
+            prevManualPreviewRef.current = true;
+            prevEnabledRef.current = leadFormSettings?.enabled;
+            setLeadFormSubmitted(false);
+            setShowLeadForm(true);
+            return;
+        }
+
+        // Handle explicit manual preview toggle from the eye icon
+        if (leadFormSettings?._manualPreview !== undefined && leadFormSettings?._manualPreview !== prevManualPreviewRef.current) {
+            prevManualPreviewRef.current = leadFormSettings._manualPreview;
+            if (leadFormSettings._manualPreview === false) {
+                setShowLeadForm(false);
+            } else if (leadFormSettings._manualPreview === true) {
+                setLeadFormSubmitted(false);
+                setShowLeadForm(true);
+            }
+            return;
+        }
+
+        if (currentEnabled && !prevEnabled && !isPublishedPreview) {
             setLeadFormSubmitted(false);
             setShowLeadForm(true);
         }
         prevEnabledRef.current = leadFormSettings?.enabled;
         prevTemplateKeyRef.current = leadFormSettings?._previewKey;
-    }, [leadFormSettings?.enabled, leadFormSettings?._previewKey, isPublishedPreview]);
+    }, [leadFormSettings?.enabled, leadFormSettings?._previewKey, leadFormSettings?._manualPreview, isPublishedPreview]);
 
     useEffect(() => {
         const isEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
@@ -1815,6 +1833,10 @@ const PreviewArea = React.memo(({
 
         const isLeadFormTabActive = (activeSubView || '').toLowerCase() === 'leadform';
         if (isLeadFormTabActive && !leadFormSubmitted) {
+            if (leadFormSettings?._manualPreview === false) {
+                setShowLeadForm(false);
+                return;
+            }
             setShowLeadForm(true);
             return;
         }
@@ -2618,6 +2640,9 @@ const PreviewArea = React.memo(({
                     onClose={() => {
                         setShowLeadForm(false);
                         setLeadFormSubmitted(true);
+                        if (leadFormSettings?._manualPreview === true) {
+                            leadFormSettings._manualPreview = false;
+                        }
                     }}
                 />
             )}

@@ -351,7 +351,7 @@ const SharedOverlays = ({
       {(() => {
         const isLeadFormEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
         const enquiryBtn = leadFormSettings?.enquiryButton;
-        const isEnquiryBtnEnabled = enquiryBtn?.enabled !== false;
+        const isEnquiryBtnEnabled = enquiryBtn?.enabled === true || enquiryBtn?.enabled === 'true';
 
         if (!isLeadFormEnabled || !isEnquiryBtnEnabled) return null;
 
