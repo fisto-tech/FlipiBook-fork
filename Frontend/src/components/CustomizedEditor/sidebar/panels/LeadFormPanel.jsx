@@ -49,7 +49,8 @@ const CategoryGroupItem = ({
   onProductChange,
   onProductImageUpload,
   onRemoveProduct,
-  uploadingProductImgId
+  uploadingProductImgId,
+  onPreviewImage
 }) => {
   const [localName, setLocalName] = useState(catName);
 
@@ -106,34 +107,40 @@ const CategoryGroupItem = ({
         {prodsInCat.map((prod, pIdx) => (
           <div key={prod.id || pIdx} className="flex items-center gap-[0.35vw] p-[0.3vw] bg-white rounded-[0.35vw] border border-gray-200/80 shadow-2xs">
             {/* Product Image Upload Thumbnail */}
-            <label className="w-[1.9vw] h-[1.9vw] rounded-[0.25vw] border border-dashed border-gray-300 hover:border-indigo-500 bg-gray-50 flex items-center justify-center cursor-pointer shrink-0 relative overflow-hidden group/img transition-colors" title="Upload Product Image">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) {
-                    onProductImageUpload(fieldId, prod.id, e.target.files[0]);
-                  }
-                }}
-              />
-              {uploadingProductImgId === prod.id ? (
-                <div className="flex flex-col items-center justify-center text-indigo-600">
-                  <Icon icon="lucide:loader-2" className="w-[0.9vw] h-[0.9vw] animate-spin" />
+            {prod.image ? (
+              <div
+                className="w-[1.9vw] h-[1.9vw] rounded-[0.25vw] border border-gray-200 bg-gray-50 flex items-center justify-center cursor-pointer shrink-0 relative overflow-hidden group/img transition-all hover:ring-2 hover:ring-indigo-400"
+                onClick={() => onPreviewImage && onPreviewImage({ fieldId, productId: prod.id, name: prod.name, image: prod.image })}
+                title="Click to view large preview"
+              >
+                <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/35 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
+                  <Icon icon="lucide:maximize-2" className="w-[0.8vw] h-[0.8vw]" />
                 </div>
-              ) : prod.image ? (
-                <>
-                  <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
-                    <Icon icon="lucide:camera" className="w-[0.8vw] h-[0.8vw]" />
+              </div>
+            ) : (
+              <label className="w-[1.9vw] h-[1.9vw] rounded-[0.25vw] border border-dashed border-gray-300 hover:border-indigo-500 bg-gray-50 flex items-center justify-center cursor-pointer shrink-0 relative overflow-hidden group/img transition-colors" title="Upload Product Image">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      onProductImageUpload(fieldId, prod.id, e.target.files[0]);
+                    }
+                  }}
+                />
+                {uploadingProductImgId === prod.id ? (
+                  <div className="flex flex-col items-center justify-center text-indigo-600">
+                    <Icon icon="lucide:loader-2" className="w-[0.9vw] h-[0.9vw] animate-spin" />
                   </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center text-gray-400 group-hover/img:text-indigo-600">
-                  <Icon icon="lucide:image-plus" className="w-[0.8vw] h-[0.8vw]" />
-                </div>
-              )}
-            </label>
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-gray-400 group-hover/img:text-indigo-600">
+                    <Icon icon="lucide:image-plus" className="w-[0.8vw] h-[0.8vw]" />
+                  </div>
+                )}
+              </label>
+            )}
 
             {/* Product Name Input */}
             <div className="flex-1 min-w-0">
@@ -167,6 +174,9 @@ const CategoryGroupItem = ({
 const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName, v_id }) => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
   const [uploadingProductImgId, setUploadingProductImgId] = useState(null);
+  const [previewProductImage, setPreviewProductImage] = useState(null); // { fieldId, productId, name, image }
+  const [isImageMenuOpen, setIsImageMenuOpen] = useState(false);
+  const imageFileInputRef = useRef(null);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [modalSelectedTemplate, setModalSelectedTemplate] = useState(null);
@@ -714,31 +724,30 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
         <div className="flex items-center justify-between">
           <span className="text-[0.88vw] font-bold text-gray-900 whitespace-nowrap">Turn ON/OFF the Lead Form</span>
           <div className="flex items-center gap-[0.6vw]">
-            {/* Preview Eye Icon Button */}
-            <button
-              type="button"
-              disabled={!settings.enabled}
-              onClick={() => {
-                const isCurrentlyActive = settings._manualPreview !== false;
-                onUpdate({
-                  ...settings,
-                  _manualPreview: !isCurrentlyActive,
-                  _previewKey: Date.now()
-                });
-              }}
-              className={`p-[0.3vw] rounded-[0.4vw] transition-all flex items-center justify-center ${!settings.enabled
-                ? 'text-gray-300 opacity-40 cursor-not-allowed'
-                : settings._manualPreview !== false
+            {/* Preview Eye Icon Button - only visible when lead form toggle is ON */}
+            {settings.enabled && (
+              <button
+                type="button"
+                onClick={() => {
+                  const isCurrentlyActive = settings._manualPreview !== false;
+                  onUpdate({
+                    ...settings,
+                    _manualPreview: !isCurrentlyActive,
+                    _previewKey: Date.now()
+                  });
+                }}
+                className={`p-[0.3vw] rounded-[0.4vw] transition-all flex items-center justify-center ${settings._manualPreview !== false
                   ? 'text-[#E05638] bg-orange-50 hover:bg-orange-100 shadow-2xs'
                   : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-              title={settings._manualPreview !== false ? 'Hide Form Preview' : 'Show Form Preview'}
-            >
-              <Icon
-                icon={settings._manualPreview !== false ? 'lucide:eye' : 'lucide:eye-off'}
-                className="w-[1.1vw] h-[1.1vw]"
-              />
-            </button>
+                  }`}
+                title={settings._manualPreview !== false ? 'Hide Form Preview' : 'Show Form Preview'}
+              >
+                <Icon
+                  icon={settings._manualPreview !== false ? 'lucide:eye' : 'lucide:eye-off'}
+                  className="w-[1.1vw] h-[1.1vw]"
+                />
+              </button>
+            )}
             <Switch
               enabled={settings.enabled}
               onChange={(val) => {
@@ -1446,6 +1455,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                                     onProductImageUpload={handleProductImageUpload}
                                     onRemoveProduct={handleRemoveProductItem}
                                     uploadingProductImgId={uploadingProductImgId}
+                                    onPreviewImage={setPreviewProductImage}
                                   />
                                 ));
                               })()}
@@ -1706,11 +1716,10 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                               {/* Label Input */}
                               <input
                                 type="text"
-                                value={field.label !== undefined ? field.label : (fieldOptions.find(o => o.type === field.type)?.label || field.type)}
+                                value={field.label !== undefined ? field.label : (fieldOptions.find(o => o.type === field.type)?.label || (field.type === 'empty' ? 'Enter label' : field.type))}
                                 onChange={(e) => handleFieldChange(field.id, field.placeholder, e.target.value)}
                                 className="flex-1 px-[0.55vw] py-[0.35vw] text-[0.7vw] text-gray-700 outline-none bg-transparent h-[1.9vw] w-full normal-case"
-                                placeholder="Full Name"
-                                disabled={field.type === 'empty'}
+                                placeholder={field.type === 'empty' ? 'Enter label' : 'Full Name'}
                               />
                             </div>
                           </div>
@@ -1722,9 +1731,8 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                               type="text"
                               value={field.placeholder || ''}
                               onChange={(e) => handleFieldChange(field.id, e.target.value, field.label)}
-                              placeholder={field.type === 'empty' ? 'Select a type...' : (field.placeholder || `Enter your ${field.type === 'email' ? 'Email' : fieldOptions.find(o => o.type === field.type)?.label || field.type}`)}
+                              placeholder={field.type === 'empty' ? 'Enter placeholder...' : (field.placeholder || `Enter your ${field.type === 'email' ? 'Email' : fieldOptions.find(o => o.type === field.type)?.label || field.type}`)}
                               className="flex-1 border border-gray-200 rounded-[0.45vw] px-[0.55vw] py-[0.35vw] text-[0.7vw] text-gray-700 outline-none focus:border-[#E05638] h-[1.9vw] bg-white w-full normal-case"
-                              disabled={field.type === 'empty'}
                             />
                           </div>
                         </div>
@@ -2051,6 +2059,121 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
             </div>
           </div>
         </>
+      )}
+
+      {/* Big Product Image Preview Modal */}
+      {previewProductImage && createPortal(
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-[1.5vw] animate-in fade-in duration-200"
+          onClick={() => {
+            setPreviewProductImage(null);
+            setIsImageMenuOpen(false);
+          }}
+        >
+          {/* Hidden file input for changing image */}
+          <input
+            type="file"
+            ref={imageFileInputRef}
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.[0] && previewProductImage) {
+                handleProductImageUpload(previewProductImage.fieldId, previewProductImage.productId, e.target.files[0]);
+                setPreviewProductImage(null);
+                setIsImageMenuOpen(false);
+              }
+            }}
+          />
+
+          <div
+            className="bg-white rounded-[0.8vw] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-gray-100 overflow-hidden flex flex-col max-w-[480px] w-full animate-in zoom-in-95 duration-200 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-[1vw] py-[0.7vw] border-b border-gray-100 bg-white">
+              <span className="text-[0.85vw] font-bold text-gray-800 truncate pr-2">
+                {previewProductImage.name || 'Product Image Preview'}
+              </span>
+              <div className="flex items-center gap-[0.4vw]">
+                {/* 3-Dot Options Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsImageMenuOpen(prev => !prev);
+                    }}
+                    className="w-[1.8vw] h-[1.8vw] rounded-[0.35vw] flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                    title="Options"
+                  >
+                    <Icon icon="lucide:more-vertical" className="w-[1vw] h-[1vw]" />
+                  </button>
+
+                  {/* 3-Dot Dropdown Menu */}
+                  {isImageMenuOpen && (
+                    <div
+                      className="absolute right-0 top-[100%] mt-[0.3vw] w-[9vw] min-w-[130px] bg-white rounded-[0.5vw] shadow-xl border border-gray-100 py-[0.3vw] z-[100] animate-in fade-in zoom-in-95 duration-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsImageMenuOpen(false);
+                          imageFileInputRef.current?.click();
+                        }}
+                        className="w-full flex items-center gap-[0.5vw] px-[0.8vw] py-[0.5vw] text-[0.72vw] font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors text-left"
+                      >
+                        <Icon icon="lucide:image" className="w-[0.9vw] h-[0.9vw]" />
+                        <span>Change Image</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (previewProductImage) {
+                            handleProductChange(previewProductImage.fieldId, previewProductImage.productId, 'image', '');
+                            if (previewProductImage.image && !previewProductImage.image.startsWith('data:')) {
+                              deleteProductImageFromSupabase(previewProductImage.image);
+                            }
+                          }
+                          setPreviewProductImage(null);
+                          setIsImageMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-[0.5vw] px-[0.8vw] py-[0.5vw] text-[0.72vw] font-medium text-red-600 hover:bg-red-50 transition-colors text-left"
+                      >
+                        <Icon icon="lucide:trash-2" className="w-[0.9vw] h-[0.9vw]" />
+                        <span>Delete Image</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewProductImage(null);
+                    setIsImageMenuOpen(false);
+                  }}
+                  className="w-[1.8vw] h-[1.8vw] rounded-[0.35vw] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  <Icon icon="lucide:x" className="w-[1vw] h-[1vw]" />
+                </button>
+              </div>
+            </div>
+
+            {/* Big Image Body */}
+            <div className="p-[1vw] bg-gray-50 flex items-center justify-center">
+              <div className="max-h-[380px] max-w-full rounded-[0.4vw] overflow-hidden shadow-inner bg-white border border-gray-200 flex items-center justify-center">
+                <img
+                  src={previewProductImage.image}
+                  alt={previewProductImage.name || 'Product'}
+                  className="w-full h-full object-contain max-h-[380px]"
+                />
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Quick Templates Modal */}
