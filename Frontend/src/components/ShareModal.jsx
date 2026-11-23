@@ -9,6 +9,7 @@ import { getAssetBaseUrl, getSupabaseBaseUrl, rewriteHtmlUploadsToSupabase } fro
 import { useAuth } from '../context/AuthContext';
 import { analyticsApi } from '../api/analyticsApi';
 import { TemplatePreview, COVER_TEMPLATES } from './FlipbookInfoModal';
+import { CUSTOM_FONT_FAMILIES } from '../utils/customFonts';
 
 
 // Lazy-load preview iframe: only fetches HTML when card is visible in viewport
@@ -2989,7 +2990,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                     const opacity = isT1 ? text1ColorOpacity : text2ColorOpacity;
                     const setOpacity = isT1 ? setText1ColorOpacity : setText2ColorOpacity;
 
-                    const fontFamilies = ['Poppins', 'Inter', 'Roboto', 'Outfit', 'Montserrat', 'Playfair Display'];
+                    const fontFamilies = ['Poppins', 'Inter', 'Roboto', 'Outfit', 'Montserrat', 'Playfair Display', ...CUSTOM_FONT_FAMILIES];
                     const fontSizes = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 64];
                     const fontWeights = ['Regular', 'Medium', 'Semi Bold', 'Bold', 'Black'];
 

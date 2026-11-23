@@ -44,6 +44,7 @@ import {
   weightToNumeric,
   normalizeToTailwindWeight
 } from '../../../properties/TextProperties';
+import { CUSTOM_FONT_FAMILIES } from '../../../../../utils/customFonts';
 
 const FONT_FAMILIES = [
   'Poppins',
@@ -53,7 +54,8 @@ const FONT_FAMILIES = [
   'Montserrat',
   'Lato',
   'Open Sans',
-  'Playfair Display'
+  'Playfair Display',
+  ...CUSTOM_FONT_FAMILIES
 ];
 
 const BORDER_STYLES = [
@@ -76,6 +78,187 @@ const hexToRgba = (hex, opacity = 100) => {
   const b = parseInt(cleanHex.substring(4, 6), 16) || 0;
   const a = Math.max(0, Math.min(1, (Number(opacity) || 100) / 100));
   return `rgba(${r}, ${g}, ${b}, ${a})`;
+};
+
+/**
+ * Custom dashed table lines (Dash Property L / G). CSS "dashed" borders use a fixed browser pattern, so
+ * when the table's stroke is dashed the lines are painted as repeating gradients on each cell instead:
+ * every cell draws its top + left line (last column / last row also draw right / bottom), borders stay
+ * transparent to keep the spacing. Reads ONLY the table element's saved attributes, so it can be re-run
+ * after anything that rewrites cell borders. Solid / none → removes the painted dashes again.
+ */
+const applyTableDashPattern = (el) => {
+  const table = el?.querySelector?.('table');
+  if (!table) return;
+  const cells = Array.from(table.querySelectorAll('td, th'));
+  const style = el.getAttribute('data-border-style');
+  const width = parseFloat(el.getAttribute('data-border-width') || '1') || 0;
+  const preset = el.getAttribute('data-border-preset') || 'all';
+
+  const clearDash = () => {
+    if (table.getAttribute('data-dash-applied') !== 'true') return;
+    table.removeAttribute('data-dash-applied');
+    table.style.borderCollapse = 'collapse';
+    table.style.removeProperty('border-spacing');
+    cells.forEach((c) => {
+      ['background-image', 'background-size', 'background-position', 'background-repeat', 'background-origin'].forEach((p) => c.style.removeProperty(p));
+      c.style.borderStyle = style && style !== 'none' ? style : 'solid';
+    });
+  };
+
+  if ((style !== 'dashed' && style !== 'dotted') || !(width > 0) || preset === 'none') { clearDash(); return; }
+
+  const color = hexToRgba(el.getAttribute('data-border-color') || '#000000', el.getAttribute('data-border-opacity') || 100);
+  const L = Math.max(1, parseFloat(el.getAttribute('data-dash-l') || '8') || 8);
+  const G = Math.max(1, parseFloat(el.getAttribute('data-dash-g') || '4') || 4);
+  const hLine = `repeating-linear-gradient(to right, ${color} 0 ${L}px, transparent ${L}px ${L + G}px)`;
+  const vLine = `repeating-linear-gradient(to bottom, ${color} 0 ${L}px, transparent ${L}px ${L + G}px)`;
+
+  // logical grid position of every cell (merged cells span several slots)
+  const trs = Array.from(table.querySelectorAll('tr'));
+  const occ = trs.map(() => []);
+  const pos = new Map();
+  let totalCols = 0;
+  trs.forEach((tr, r) => {
+    let c = 0;
+    Array.from(tr.children).forEach((td) => {
+      const tag = td.tagName.toLowerCase();
+      if (tag !== 'td' && tag !== 'th') return;
+      while (occ[r][c]) c++;
+      const cs = parseInt(td.getAttribute('colspan') || '1', 10);
+      const rs = parseInt(td.getAttribute('rowspan') || '1', 10);
+      for (let dr = 0; dr < rs; dr++) for (let dc = 0; dc < cs; dc++) { if (!occ[r + dr]) occ[r + dr] = []; occ[r + dr][c + dc] = true; }
+      pos.set(td, { r, c, rs, cs });
+      c += cs;
+      totalCols = Math.max(totalCols, c);
+    });
+  });
+  const totalRows = trs.length;
+
+  table.setAttribute('data-dash-applied', 'true');
+  table.style.borderCollapse = 'separate';
+  table.style.borderSpacing = '0';
+  table.style.border = 'none';
+
+  cells.forEach((cell) => {
+    const p = pos.get(cell) || { r: 0, c: 0, rs: 1, cs: 1 };
+    const top = preset === 'outer' ? p.r === 0 : true;
+    const left = preset === 'outer' ? p.c === 0 : true;
+    const right = p.c + p.cs >= totalCols;
+    const bottom = p.r + p.rs >= totalRows;
+    const imgs = [], sizes = [], places = [];
+    if (top) { imgs.push(hLine); sizes.push(`100% ${width}px`); places.push('0 0'); }
+    if (left) { imgs.push(vLine); sizes.push(`${width}px 100%`); places.push('0 0'); }
+    if (right) { imgs.push(vLine); sizes.push(`${width}px 100%`); places.push('100% 0'); }
+    if (bottom) { imgs.push(hLine); sizes.push(`100% ${width}px`); places.push('0 100%'); }
+    cell.style.borderStyle = 'solid';
+    cell.style.borderColor = 'transparent';
+    cell.style.borderTopWidth = top ? `${width}px` : '0px';
+    cell.style.borderLeftWidth = left ? `${width}px` : '0px';
+    cell.style.borderRightWidth = right ? `${width}px` : '0px';
+    cell.style.borderBottomWidth = bottom ? `${width}px` : '0px';
+    if (imgs.length) {
+      cell.style.backgroundImage = imgs.join(', ');
+      cell.style.backgroundSize = sizes.join(', ');
+      cell.style.backgroundPosition = places.join(', ');
+      cell.style.backgroundRepeat = 'no-repeat';
+      cell.style.backgroundOrigin = 'border-box';
+    } else {
+      ['background-image', 'background-size', 'background-position', 'background-repeat', 'background-origin'].forEach((q) => cell.style.removeProperty(q));
+    }
+  });
+};
+
+/**
+ * Fit an imported (auto-height) table to its content: every column at least as wide as its longest
+ * rendered word (table widens if they cannot all fit; spare width shared by content weight stored in
+ * data-col-weights), and the foreignObject height = the table's natural height. Idempotent, so it can
+ * be re-run after other effects touch the table. Returns true when it changed something.
+ */
+export const fitTableToContent = (el) => {
+  const table = el?.querySelector?.('table');
+  const fo = el?.querySelector?.('foreignObject');
+  if (!table || !fo) return false;
+  const trs = Array.from(table.querySelectorAll('tr'));
+  if (!trs.length) return false;
+
+  let totalCols = 0;
+  trs.forEach((tr) => {
+    let n = 0;
+    Array.from(tr.children).forEach((td) => { n += parseInt(td.getAttribute('colspan') || '1', 10); });
+    totalCols = Math.max(totalCols, n);
+  });
+  if (!totalCols) return false;
+
+  let weights = [];
+  try { weights = JSON.parse(el.getAttribute('data-col-weights') || '[]'); } catch { weights = []; }
+  if (weights.length !== totalCols) weights = Array.from({ length: totalCols }, () => 1);
+
+  // longest rendered word per column (single-span cells only)
+  const minW = Array.from({ length: totalCols }, () => 0);
+  trs.forEach((tr) => {
+    let c = 0;
+    Array.from(tr.children).forEach((td) => {
+      const span = parseInt(td.getAttribute('colspan') || '1', 10);
+      if (span === 1) {
+        const cs = window.getComputedStyle(td);
+        const chrome = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) +
+          (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+        const words = (td.textContent || '').split(/\s+/).filter(Boolean);
+        if (!words.length) {
+          minW[c] = Math.max(minW[c], chrome + 8);
+        } else {
+          const probe = document.createElement('span');
+          probe.style.cssText = 'white-space:nowrap;position:absolute;visibility:hidden;';
+          td.appendChild(probe);
+          words.forEach((w) => { probe.textContent = w; minW[c] = Math.max(minW[c], probe.offsetWidth + chrome + 2); });
+          probe.remove();
+        }
+      }
+      c += span;
+    });
+  });
+
+  const curW = parseFloat(fo.getAttribute('width')) || table.offsetWidth || 1;
+  const needW = minW.reduce((a, b) => a + b, 0);
+  let finalW = curW;
+  let colPx;
+  if (needW > curW) {
+    finalW = Math.ceil(needW);
+    colPx = minW;
+  } else {
+    const spare = curW - needW;
+    const wSum = weights.reduce((a, b) => a + b, 0) || 1;
+    colPx = minW.map((m, i) => m + spare * (weights[i] / wSum));
+  }
+  let changed = false;
+  if (Math.abs(finalW - curW) > 0.5) { fo.setAttribute('width', String(finalW)); changed = true; }
+
+  let colgroup = table.querySelector('colgroup');
+  if (!colgroup) { colgroup = document.createElement('colgroup'); table.insertBefore(colgroup, table.firstChild); }
+  const sum = colPx.reduce((a, b) => a + b, 0) || 1;
+  const pcts = colPx.map((w) => `${((w / sum) * 100).toFixed(3)}%`);
+  const curPcts = Array.from(colgroup.querySelectorAll('col')).map((col) => parseFloat(col.style.width) || 0);
+  const differs = curPcts.length !== pcts.length || pcts.some((pc, i) => Math.abs(parseFloat(pc) - curPcts[i]) > 0.05);
+  if (differs) {
+    colgroup.innerHTML = '';
+    pcts.forEach((pc) => { const col = document.createElement('col'); col.style.width = pc; colgroup.appendChild(col); });
+    changed = true;
+  }
+  table.style.tableLayout = 'fixed';
+  table.style.width = '100%';
+
+  // rows size to content; the box takes the table's natural height
+  trs.forEach((tr) => tr.style.removeProperty('height'));
+  const prevH = table.style.height;
+  table.style.height = 'auto';
+  const natural = Math.ceil(table.offsetHeight || 0);
+  table.style.height = prevH || '100%';
+  if (natural > 0 && Math.abs(natural - (parseFloat(fo.getAttribute('height')) || 0)) > 0.5) {
+    fo.setAttribute('height', String(natural));
+    changed = true;
+  }
+  return changed;
 };
 
 const parseRgbaColor = (colorStr, defaultHex = '#ffffff') => {
@@ -438,7 +621,7 @@ const ElementTableProperties = ({
           td.style.removeProperty('box-shadow');
           td.style.removeProperty('position');
           td.style.removeProperty('z-index');
-          if (td.getAttribute('data-cell-border-color')) {
+          if (td.getAttribute('data-cell-border-color') && td.closest('table')?.getAttribute('data-dash-applied') !== 'true') {
             td.style.borderColor = td.getAttribute('data-cell-border-color');
           }
         });
@@ -514,6 +697,8 @@ const ElementTableProperties = ({
     if (tableEl.__resizersController) {
       tableEl.__resizersController.abort();
       delete tableEl.__resizersController;
+      // the aborted listeners can no longer clear the global hover flag on mouseleave
+      if (!isResizingDividerRef.current) window.__isHoveringTableDivider = false;
     }
     delete tableEl.__hasTableResizers;
     const resizerController = new AbortController();
@@ -546,6 +731,7 @@ const ElementTableProperties = ({
         if (cell.hasAttribute('data-cell-border-left')) cell.style.borderLeftColor = cell.getAttribute('data-cell-border-left');
         if (cell.hasAttribute('data-cell-border-right')) cell.style.borderRightColor = cell.getAttribute('data-cell-border-right');
       });
+      if (el) applyTableDashPattern(el); // dashed tables keep transparent borders + painted dashes
     };
 
     const highlightColumnBorder = (colIndex) => {
@@ -724,12 +910,43 @@ const ElementTableProperties = ({
           }
         }
 
-        const minColWidthsPx = [];
-        for (let idx = 0; idx < totalCols; idx++) {
-          minColWidthsPx[idx] = 10;
-        }
+        // Screen px per layout px (canvas zoom / table scale)
+        const layoutScale = (tableEl.offsetWidth > 0) ? (tableRect.width / tableEl.offsetWidth) : 1;
 
-        const initialColPcts = startColWidthsPx.map(w => (w / tableRect.width) * 100);
+        // Minimum column width = its longest rendered word + padding/borders (never squeeze text out:
+        // overflowing text would push the column back and move every other line)
+        const minColWidthsPx = Array.from({ length: totalCols }, () => 10);
+        trs.forEach((tr) => {
+          Array.from(tr.children).forEach((cell) => {
+            if (parseInt(cell.getAttribute('colspan') || '1', 10) !== 1) return;
+            const ci = parseInt(cell.getAttribute('data-col') || '-1', 10);
+            if (ci < 0 || ci >= totalCols) return;
+            const cs = window.getComputedStyle(cell);
+            const chrome = ((parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) +
+              (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0)) * layoutScale;
+            const words = (cell.textContent || '').split(/\s+/).filter(Boolean);
+            if (!words.length) return;
+            const probe = document.createElement('span');
+            probe.style.cssText = 'white-space:nowrap;position:absolute;visibility:hidden;';
+            cell.appendChild(probe);
+            words.forEach((w) => {
+              probe.textContent = w;
+              minColWidthsPx[ci] = Math.max(minColWidthsPx[ci], probe.getBoundingClientRect().width + chrome + 2);
+            });
+            probe.remove();
+          });
+        });
+
+        // Work from the SAVED column percentages, normalised to exactly 100%. Measured px could disagree
+        // slightly with them; the pair then summed to != 100% and the browser rescaled every column.
+        let savedPcts = Array.from({ length: totalCols }, (_, idx) => parseFloat(cols[idx]?.style.width) || (100 / totalCols));
+        const savedSum = savedPcts.reduce((a, b) => a + b, 0) || 100;
+        if (Math.abs(savedSum - 100) > 0.01) {
+          savedPcts = savedPcts.map((v) => (v / savedSum) * 100);
+          savedPcts.forEach((v, idx) => { if (cols[idx]) cols[idx].style.width = `${v.toFixed(4)}%`; });
+        }
+        const initialColPcts = savedPcts;
+        for (let idx = 0; idx < totalCols; idx++) startColWidthsPx[idx] = (savedPcts[idx] / 100) * tableRect.width;
 
         const onColMouseMove = (moveEvt) => {
           const deltaX = moveEvt.clientX - e.clientX;
@@ -743,7 +960,7 @@ const ElementTableProperties = ({
           if (rightStart - appliedDelta < minRightPx) appliedDelta = rightStart - minRightPx;
 
           const newLeftPx = leftStart + appliedDelta;
-          const pairPctSum = (initialColPcts?.[dividerCol] || ((leftStart / tableRect.width) * 100)) + (initialColPcts?.[dividerCol + 1] || ((rightStart / tableRect.width) * 100));
+          const pairPctSum = initialColPcts[dividerCol] + initialColPcts[dividerCol + 1];
           const rawLeftPct = (newLeftPx / tableRect.width) * 100;
           const minLeftPct = (minLeftPx / tableRect.width) * 100;
           const minRightPct = (minRightPx / tableRect.width) * 100;
@@ -752,8 +969,8 @@ const ElementTableProperties = ({
           const rightPct = pairPctSum - leftPct;
 
           const { cols: curCols } = ensureColGroup(tableEl, totalCols);
-          if (curCols[dividerCol]) curCols[dividerCol].style.width = `${leftPct.toFixed(3)}%`;
-          if (curCols[dividerCol + 1]) curCols[dividerCol + 1].style.width = `${rightPct.toFixed(3)}%`;
+          if (curCols[dividerCol]) curCols[dividerCol].style.width = `${leftPct.toFixed(4)}%`;
+          if (curCols[dividerCol + 1]) curCols[dividerCol + 1].style.width = `${rightPct.toFixed(4)}%`;
 
           tableEl.querySelectorAll('td, th').forEach(cell => {
             const span = parseInt(cell.getAttribute('colspan') || '1', 10);
@@ -833,10 +1050,29 @@ const ElementTableProperties = ({
 
         const initialPcts = rowHeightsPx.map(h => (h / totalRowsHeightPx) * 100);
         trs.forEach((tr, i) => {
-          tr.style.height = `${initialPcts[i].toFixed(3)}%`;
+          tr.style.height = `${initialPcts[i].toFixed(4)}%`;
         });
 
-        const minRowHeightsPx = Array.from(trs).map(() => 8);
+        // Minimum row height = its tallest cell CONTENT (text + padding/borders). Dragging a row below
+        // that let the text push it back, the table grew and every other row line shifted.
+        const rowScale = (tableEl.offsetHeight > 0) ? (tableRect.height / tableEl.offsetHeight) : 1;
+        const minRowHeightsPx = Array.from(trs).map((tr) => {
+          let need = 8;
+          Array.from(tr.children).forEach((cell) => {
+            if (parseInt(cell.getAttribute('rowspan') || '1', 10) !== 1) return;
+            const cs = window.getComputedStyle(cell);
+            const chrome = ((parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0) +
+              (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0)) * rowScale;
+            let contentH = 0;
+            if (cell.childNodes.length) {
+              const range = document.createRange();
+              range.selectNodeContents(cell);
+              contentH = range.getBoundingClientRect().height;
+            }
+            need = Math.max(need, contentH + chrome + 1);
+          });
+          return need;
+        });
 
         const onRowMouseMove = (moveEvt) => {
           const deltaY = moveEvt.clientY - e.clientY;
@@ -862,8 +1098,8 @@ const ElementTableProperties = ({
           const topPct = Math.max(minTopPct, Math.min(rawTopPct, maxTopPct));
           const bottomPct = pairPctSum - topPct;
 
-          topTr.style.height = `${topPct.toFixed(3)}%`;
-          bottomTr.style.height = `${bottomPct.toFixed(3)}%`;
+          topTr.style.height = `${topPct.toFixed(4)}%`;
+          bottomTr.style.height = `${bottomPct.toFixed(4)}%`;
 
           // Continuously synchronize cell selection highlight with resized rows!
           if (selectedCellKeysRef.current && selectedCellKeysRef.current.size > 0) {
@@ -942,10 +1178,16 @@ const ElementTableProperties = ({
     const normalBorderColor = hexToRgba(bColor, bOpacity);
     const getCellBorderColor = (c) => c.getAttribute('data-cell-border-color') || normalBorderColor;
 
+    // Table-level stroke comes from the element's saved attributes, NOT component state: this callback
+    // is memoised with stale state, so deselecting a cell rewrote every border as solid / width 1
+    // (a just-applied dashed stroke "disappeared" on click outside).
+    const tableBorderWidth = el?.getAttribute('data-border-width') ?? borderWidth ?? '1';
+    const savedStyle = el?.getAttribute('data-border-style') || borderStyle || 'solid';
+    const tableBorderStyle = savedStyle === 'dotted' ? 'dashed' : savedStyle;
     const restoreCellBorders = (cell) => {
       const baseBorder = getCellBorderColor(cell);
-      const baseWidth = cell.getAttribute('data-cell-border-width') || borderWidth || '1';
-      const baseStyle = cell.getAttribute('data-cell-border-style') || borderStyle || 'solid';
+      const baseWidth = cell.getAttribute('data-cell-border-width') || tableBorderWidth || '1';
+      const baseStyle = cell.getAttribute('data-cell-border-style') || tableBorderStyle;
       cell.style.borderWidth = `${baseWidth}px`;
       cell.style.borderStyle = baseStyle;
       cell.style.borderColor = baseBorder;
@@ -989,6 +1231,7 @@ const ElementTableProperties = ({
       }
     });
 
+    applyTableDashPattern(el); // restored borders above are plain CSS; repaint custom dashes
     if (!selectedKeys || selectedKeys.size === 0 || !wrapper) return;
 
     const highlightColor = '#EA543A';
@@ -1014,6 +1257,7 @@ const ElementTableProperties = ({
         entries.push({ r, c, cell });
       }
     });
+    applyTableDashPattern(el);
 
     if (selectedCells.length === 0) return;
 
@@ -1424,15 +1668,19 @@ const ElementTableProperties = ({
     const bWidth = el.getAttribute('data-border-width') || '1';
     const bStyle = el.getAttribute('data-border-style') || 'solid';
     const bColor = el.getAttribute('data-border-color') || '#cbd5e1';
+    // Custom-dashed tables have per-side widths (the "border" shorthand reads empty) and transparent
+    // colours on purpose — not "missing" borders. Healing them stacked real CSS borders on the dashes.
+    const isDashPainted = table.getAttribute('data-dash-applied') === 'true';
     table.querySelectorAll('td, th').forEach(cell => {
-      if (!cell.style.border || cell.style.border === 'none' || !cell.style.borderWidth) {
+      if (!isDashPainted && (!cell.style.border || cell.style.border === 'none' || !cell.style.borderWidth)) {
         cell.style.border = `${bWidth}px ${bStyle} ${bColor}`;
       }
-      if (!cell.getAttribute('data-cell-border-color')) {
+      if (!isDashPainted && !cell.getAttribute('data-cell-border-color')) {
         cell.setAttribute('data-cell-border-color', bColor);
       }
       cell.style.removeProperty('height');
     });
+    applyTableDashPattern(el);
 
     const trs = Array.from(table.querySelectorAll('tr'));
     const numRows = trs.length;
@@ -1638,22 +1886,27 @@ const ElementTableProperties = ({
       const bWidth = el.getAttribute('data-border-width') || '1';
       const bStyle = el.getAttribute('data-border-style') || 'solid';
       const bColor = el.getAttribute('data-border-color') || '#cbd5e1';
+      const isDashPainted = existingTable.getAttribute('data-dash-applied') === 'true';
       existingTable.querySelectorAll('td, th').forEach(cell => {
-        if (!cell.style.border || cell.style.border === 'none' || !cell.style.borderWidth) {
+        if (!isDashPainted && (!cell.style.border || cell.style.border === 'none' || !cell.style.borderWidth)) {
           cell.style.border = `${bWidth}px ${bStyle} ${bColor}`;
         }
-        if (!cell.getAttribute('data-cell-border-color')) {
+        if (!isDashPainted && !cell.getAttribute('data-cell-border-color')) {
           cell.setAttribute('data-cell-border-color', bColor);
         }
         cell.style.removeProperty('height');
       });
+      applyTableDashPattern(el);
 
       ensureColGroup(existingTable);
 
       // Self-healing: if row 0 became enlarged (>= 70% with multiple rows), reset equally
       const trs = existingTable.querySelectorAll('tr');
       const rLen = trs.length;
-      if (rLen > 1) {
+      if (el.getAttribute('data-auto-height') === 'true') {
+        // imported table: rows size to their content and the box fits the table
+        fitTableToContent(el);
+      } else if (rLen > 1) {
         const firstRowH = parseFloat(trs[0].style.height) || 0;
         if (firstRowH >= 70 || !trs[0].style.height) {
           const equalPct = (100 / rLen).toFixed(3);
@@ -1887,6 +2140,12 @@ const ElementTableProperties = ({
       table.querySelectorAll('td, th').forEach((cell) => {
         const customBg = cell.getAttribute('data-cell-bg-color') || cell.getAttribute('data-cell-bg');
         if (!customBg && tColor) cell.style.backgroundColor = themeRgba;
+        // Clear per-side overrides BEFORE writing the border (removing them afterwards wiped it)
+        ['top', 'bottom', 'left', 'right'].forEach((side) => {
+          cell.style.removeProperty(`border-${side}-color`);
+          cell.style.removeProperty(`border-${side}-width`);
+          cell.style.removeProperty(`border-${side}-style`);
+        });
         cell.style.borderColor = borderRgba;
         cell.style.borderWidth = `${bWidth}px`;
         cell.style.borderStyle = bStyle;
@@ -1900,19 +2159,8 @@ const ElementTableProperties = ({
         cell.removeAttribute('data-cell-border-bottom');
         cell.removeAttribute('data-cell-border-left');
         cell.removeAttribute('data-cell-border-right');
-        cell.style.removeProperty('border-top-color');
-        cell.style.removeProperty('border-bottom-color');
-        cell.style.removeProperty('border-left-color');
-        cell.style.removeProperty('border-right-color');
-        cell.style.removeProperty('border-top-width');
-        cell.style.removeProperty('border-bottom-width');
-        cell.style.removeProperty('border-left-width');
-        cell.style.removeProperty('border-right-width');
-        cell.style.removeProperty('border-top-style');
-        cell.style.removeProperty('border-bottom-style');
-        cell.style.removeProperty('border-left-style');
-        cell.style.removeProperty('border-right-style');
       });
+      applyTableDashPattern(el);
 
       if (selectedCellKeysRef.current && selectedCellKeysRef.current.size > 0 && applyBorderHighlightRef.current) {
         applyBorderHighlightRef.current(table, selectedCellKeysRef.current);
@@ -1980,7 +2228,17 @@ const ElementTableProperties = ({
     syncChanges(el);
   }, [getTargetElement, getTargetCells, syncChanges]);
 
+  // Never leave the window-global divider flags set when this table panel closes
+  useEffect(() => () => {
+    window.__isHoveringTableDivider = false;
+    window.__isResizingTableDivider = false;
+    document.body.classList.remove('table-resizing-active');
+  }, []);
+
   // Appearance: Color state representation for Color.jsx
+  const [dashTick, setDashTick] = useState(0); // bumps when the saved Dash Property (L / G) changes
+  const savedDashL = parseFloat(getTargetElement()?.getAttribute('data-dash-l') || '') || 8;
+  const savedDashG = parseFloat(getTargetElement()?.getAttribute('data-dash-g') || '') || 4;
   const backgroundColor = useMemo(() => ({
     fill: themeColor || '#ffffff',
     fillOpacity: themeOpacity !== undefined ? themeOpacity : 100,
@@ -1992,12 +2250,14 @@ const ElementTableProperties = ({
     strokeGradientType: 'linear',
     strokeWeight: borderWidth !== undefined ? borderWidth : 1,
     strokeDashStyle: (borderStyle === 'dashed' || borderStyle === 'dotted') ? 'Dashed' : 'Solid',
-    strokeDasharrayValue: borderStyle === 'dashed' ? '8,4' : (borderStyle === 'dotted' ? '2,4' : 'none'),
-    strokeDashLength: borderStyle === 'dashed' ? 8 : (borderStyle === 'dotted' ? 2 : 10),
-    strokeDashGap: 4,
+    // the table's own saved L / G (was hard-coded 8,4, so reselecting showed different values)
+    strokeDasharrayValue: (borderStyle === 'dashed' || borderStyle === 'dotted') ? `${savedDashL},${savedDashG}` : 'none',
+    strokeDasharray: (borderStyle === 'dashed' || borderStyle === 'dotted') ? `${savedDashL},${savedDashG}` : 'none',
+    strokeDashLength: savedDashL,
+    strokeDashGap: savedDashG,
     strokeLinecap: 'butt',
     strokePosition: 'Center',
-  }), [themeColor, themeOpacity, borderColor, borderOpacity, borderWidth, borderStyle]);
+  }), [themeColor, themeOpacity, borderColor, borderOpacity, borderWidth, borderStyle, savedDashL, savedDashG, dashTick]);
 
   const handleSetBackgroundColor = useCallback((updater) => {
     const next = typeof updater === 'function' ? updater(backgroundColor) : updater;
@@ -2017,12 +2277,22 @@ const ElementTableProperties = ({
     let newBorderWidth = next.strokeWeight !== undefined ? next.strokeWeight : borderWidth;
     let newBorderStyle = borderStyle;
 
-    if (next.strokeDashStyle === 'Solid' || next.strokeDasharrayValue === 'none' || next.strokeDasharray === 'none') {
+    // Solid or Dashed only (Dotted removed). The old "contains a 2" test turned dash values like
+    // "2,4" / "12,4" into dotted, so Dashed seemed not to work.
+    const dashVal = next.strokeDasharrayValue ?? next.strokeDasharray;
+    if (next.strokeDashStyle === 'Solid' || dashVal === 'none') {
       newBorderStyle = 'solid';
-    } else if (next.strokeDasharrayValue?.includes('2') || next.strokeDasharray?.includes('2')) {
-      newBorderStyle = 'dotted';
-    } else if (next.strokeDashStyle === 'Dashed' || next.strokeDasharrayValue?.includes('8') || next.strokeDasharray?.includes('8')) {
+    } else if (next.strokeDashStyle === 'Dashed' || (dashVal && dashVal !== 'none')) {
       newBorderStyle = 'dashed';
+    }
+    if (newBorderStyle === 'dotted') newBorderStyle = 'dashed';
+
+    // Picking a stroke colour / width must SHOW lines: a table left at style "none" / width 0
+    // (e.g. after the "Clear" preset) otherwise wiped every cell border and only an outer box remained.
+    const isRealStrokeColor = newBorderColor && newBorderColor !== 'transparent' && newBorderColor !== 'none' && newBorderColor !== '#';
+    if (isStrokeChange && isRealStrokeColor) {
+      if (newBorderStyle === 'none') newBorderStyle = 'solid';
+      if (!(Number(newBorderWidth) > 0)) newBorderWidth = 1;
     }
 
     if (isFillChange) {
@@ -2080,6 +2350,14 @@ const ElementTableProperties = ({
         table.style.borderStyle = newBorderStyle;
 
         table.querySelectorAll('td, th').forEach((cell) => {
+          // Clear old per-side overrides FIRST: removing border-*-style/width/color longhands after
+          // setting the "border" shorthand wiped the shorthand too (cell border became "none 0px"),
+          // so only the table's outer border stayed visible.
+          ['top', 'bottom', 'left', 'right'].forEach((side) => {
+            cell.style.removeProperty(`border-${side}-color`);
+            cell.style.removeProperty(`border-${side}-width`);
+            cell.style.removeProperty(`border-${side}-style`);
+          });
           cell.style.border = bCss;
           cell.style.borderColor = bRgba;
           cell.style.borderWidth = `${newBorderWidth}px`;
@@ -2091,18 +2369,6 @@ const ElementTableProperties = ({
           cell.removeAttribute('data-cell-border-bottom');
           cell.removeAttribute('data-cell-border-left');
           cell.removeAttribute('data-cell-border-right');
-          cell.style.removeProperty('border-top-color');
-          cell.style.removeProperty('border-bottom-color');
-          cell.style.removeProperty('border-left-color');
-          cell.style.removeProperty('border-right-color');
-          cell.style.removeProperty('border-top-width');
-          cell.style.removeProperty('border-bottom-width');
-          cell.style.removeProperty('border-left-width');
-          cell.style.removeProperty('border-right-width');
-          cell.style.removeProperty('border-top-style');
-          cell.style.removeProperty('border-bottom-style');
-          cell.style.removeProperty('border-left-style');
-          cell.style.removeProperty('border-right-style');
         });
       }
     }
@@ -2138,6 +2404,17 @@ const ElementTableProperties = ({
         });
       }
     }
+
+    // Dash Property (L / G): remember it on the table and repaint the custom dashed lines
+    const dashValue = next.strokeDasharrayValue ?? next.strokeDasharray;
+    if (dashValue && dashValue !== 'none') {
+      const [dl, dg] = String(dashValue).split(/[\s,]+/).map((v) => parseFloat(v));
+      if (dl > 0) el.setAttribute('data-dash-l', String(dl));
+      if (dg > 0) el.setAttribute('data-dash-g', String(dg));
+      setDashTick((t) => t + 1);
+    }
+    if (isStrokeChange) el.setAttribute('data-border-preset', 'all');
+    applyTableDashPattern(el);
 
     if (selectedCellKeysRef.current && selectedCellKeysRef.current.size > 0 && applyBorderHighlightRef.current) {
       applyBorderHighlightRef.current(table, selectedCellKeysRef.current);
@@ -2249,6 +2526,7 @@ const ElementTableProperties = ({
     el.setAttribute('data-rows', String(trs.length));
     el.setAttribute('data-cols', String(totalCols));
 
+    applyTableDashPattern(el); // new / removed edges need their dashed lines
     let nextKeys = typeof pickKeys === 'function' ? pickKeys() : null;
     if (nextKeys) {
       // keep only keys that point at a real cell after the change
@@ -2426,6 +2704,66 @@ const ElementTableProperties = ({
       return cell ? new Set([`${cell.__gr}_${cell.__gc}`]) : new Set();
     });
   };
+
+  // Paste spreadsheet cells (Excel / Sheets) into this table: fills from the selected cell (or A1),
+  // adding rows / columns at the end when the pasted block is bigger than the table.
+  useEffect(() => {
+    const onTablePaste = (e) => {
+      const detail = e.detail;
+      const rows = detail?.rows;
+      if (!Array.isArray(rows) || !rows.length) return;
+      const el = getTargetElement();
+      const table = el?.querySelector('table');
+      if (!el || !table || !el.isConnected) return;
+      detail.handled = true;
+
+      let { trs, grid, totalCols } = buildTableGrid(table);
+      const b = getSelectionBounds(table);
+      const startR = b ? b.minR : 0;
+      const startC = b ? b.minC : 0;
+      const needR = startR + rows.length;
+      const needC = startC + Math.max(...rows.map((r) => r.length));
+
+      // grow: extra columns on every row, then extra rows
+      if (needC > totalCols) {
+        const widths = readColWidths(table, totalCols);
+        const extra = needC - totalCols;
+        trs.forEach((tr) => { for (let k = 0; k < extra; k++) tr.appendChild(makeTableCell()); });
+        const avg = widths.reduce((a, w) => a + w, 0) / (widths.length || 1);
+        for (let k = 0; k < extra; k++) widths.push(avg);
+        writeColWidths(table, widths);
+      }
+      const tbody = table.querySelector('tbody') || table;
+      const colsNow = Math.max(needC, totalCols);
+      for (let r = trs.length; r < needR; r++) {
+        const tr = document.createElement('tr');
+        tr.style.boxSizing = 'border-box';
+        for (let c = 0; c < colsNow; c++) tr.appendChild(makeTableCell());
+        tbody.appendChild(tr);
+      }
+
+      ({ grid } = buildTableGrid(table));
+      rows.forEach((rowVals, dr) => {
+        rowVals.forEach((val, dc) => {
+          const cell = grid[startR + dr]?.[startC + dc];
+          // write only into a cell's own top-left slot (merged cells keep one value)
+          if (cell && cell.__gr === startR + dr && cell.__gc === startC + dc) cell.textContent = val;
+        });
+      });
+
+      finishStructureChange(el, table, () => {
+        const keys = new Set();
+        for (let r = startR; r < needR; r++) for (let c = startC; c < needC; c++) keys.add(`${r}_${c}`);
+        return keys;
+      });
+      if (el.getAttribute('data-auto-height') === 'true') {
+        fitTableToContent(el);
+        syncChanges(el);
+      }
+    };
+    window.addEventListener('fbe-table-paste', onTablePaste);
+    return () => window.removeEventListener('fbe-table-paste', onTablePaste);
+  });
 
   // Rows / Cols +/- buttons
   const handleAddRow = () => insertRow('below');
@@ -2675,12 +3013,16 @@ const ElementTableProperties = ({
       el.setAttribute('data-border-width', String(activeWidth));
       el.setAttribute('data-border-style', activeStyle);
 
-      const trs = table.querySelectorAll('tr');
+      // Logical grid positions (merged cells span several slots) so "Outer" frames the real edges
+      const { trs: gridTrs, totalCols: gridCols } = buildTableGrid(table);
+      const trs = gridTrs;
       const totalR = trs.length;
-      const totalC = trs[0]?.children?.length || 1;
+      const totalC = gridCols || 1;
 
-      trs.forEach((tr, r) => {
-        Array.from(tr.children).forEach((cell, c) => {
+      trs.forEach((tr) => {
+        Array.from(tr.children).forEach((cell) => {
+          const r = cell.__gr ?? 0;
+          const c = cell.__gc ?? 0;
           const colSpan = parseInt(cell.getAttribute('colspan') || '1', 10);
           const rowSpan = parseInt(cell.getAttribute('rowspan') || '1', 10);
           cell.removeAttribute('data-cell-border-color');
@@ -2716,6 +3058,8 @@ const ElementTableProperties = ({
       });
     }
 
+    el.setAttribute('data-border-preset', preset);
+    applyTableDashPattern(el);
     if (selectedCellKeysRef.current && selectedCellKeysRef.current.size > 0 && applyBorderHighlightRef.current) {
       applyBorderHighlightRef.current(table, selectedCellKeysRef.current);
     }
@@ -2997,7 +3341,8 @@ const ElementTableProperties = ({
 
   // Excel Import & Export
   const handleExcelImport = async (e) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
     try {
@@ -3013,40 +3358,102 @@ const ElementTableProperties = ({
       const tbody = table?.querySelector('tbody') || table;
       if (!tbody) return;
 
+      // Display text of a cell (dates / formulas / rich text / hyperlinks, not "[object Object]")
+      const cellText = (cell) => {
+        try {
+          const t = cell.text;
+          if (t !== undefined && t !== null && typeof t !== 'object') return String(t);
+        } catch { /* fall through */ }
+        const v = cell.value;
+        if (v === null || v === undefined) return '';
+        if (typeof v === 'object') {
+          if (Array.isArray(v.richText)) return v.richText.map((r) => r.text || '').join('');
+          if (v.text !== undefined) return String(v.text);
+          if (v.result !== undefined) return String(v.result);
+          if (v instanceof Date) return v.toLocaleDateString();
+        }
+        return String(v);
+      };
+      const escapeCell = (str) => String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+      // Place every value in its REAL column (leading empty cells used to shift the row left)
       const excelRows = [];
       sheet.eachRow({ includeEmpty: false }, (row) => {
-        const rowVals = [];
-        row.eachCell({ includeEmpty: true }, (cell) => {
-          rowVals.push(cell.value !== null && cell.value !== undefined ? String(cell.value) : '');
-        });
-        excelRows.push(rowVals);
+        const vals = [];
+        row.eachCell({ includeEmpty: true }, (cell) => { vals[cell.col - 1] = cellText(cell); });
+        excelRows.push(vals);
       });
-
       if (excelRows.length === 0) return;
 
-      const maxCols = Math.max(...excelRows.map(r => r.length), 1);
-      const rowHeightPct = (100 / excelRows.length).toFixed(3);
-      const colWidthPct = (100 / maxCols).toFixed(3);
+      const maxCols = Math.max(...excelRows.map((r) => r.length), 1);
 
+      // Content-based column widths: never narrower than the longest word (no "E n g l i s h")
+      const weights = Array.from({ length: maxCols }, (_, c) => {
+        let longest = 1;
+        let longestWord = 1;
+        excelRows.forEach((r) => {
+          const t = String(r[c] || '').trim();
+          longest = Math.max(longest, Math.min(t.length, 40));
+          t.split(/\s+/).forEach((w) => { longestWord = Math.max(longestWord, Math.min(w.length, 24)); });
+        });
+        return Math.max(longestWord, Math.min(longest, 28) * 0.6) + 2;
+      });
+
+      const cellStyle = `border:${borderWidth}px ${borderStyle} ${hexToRgba(borderColor, borderOpacity)};padding:${paddingY}px ${paddingX}px;color:${cellColor};background-color:${hexToRgba(themeColor, themeOpacity)};text-align:${textAlign};vertical-align:${verticalAlign};box-sizing:border-box;white-space:normal;word-break:normal;overflow-wrap:break-word;outline:none;user-select:none;cursor:default;`;
       let rowsHtml = '';
-      excelRows.forEach((rVals, r) => {
+      excelRows.forEach((rVals) => {
         let tds = '';
-        for (let c = 0; c < maxCols; c++) {
-          const val = rVals[c] || '';
-          tds += `<td data-row="${r}" data-col="${c}" style="width:${colWidthPct}%;border:${borderWidth}px ${borderStyle} ${hexToRgba(borderColor, borderOpacity)};padding:${paddingY}px ${paddingX}px;color:${cellColor};background-color:${hexToRgba(themeColor, themeOpacity)};text-align:${textAlign};vertical-align:${verticalAlign};box-sizing:border-box;word-break:break-word;overflow-wrap:break-word;outline:none;user-select:none;cursor:default;">${val}</td>`;
-        }
-        rowsHtml += `<tr style="height:${rowHeightPct}%;box-sizing:border-box;">${tds}</tr>`;
+        for (let c = 0; c < maxCols; c++) tds += `<td style="${cellStyle}">${escapeCell(rVals[c] || '')}</td>`;
+        rowsHtml += `<tr style="box-sizing:border-box;">${tds}</tr>`;
       });
 
       tbody.innerHTML = rowsHtml;
+      writeColWidths(table, weights);
+      attachCellListeners(el); // data-row / data-col
+      ensureColGroup(table);
+
+      el.setAttribute('data-auto-height', 'true');
+      el.setAttribute('data-col-weights', JSON.stringify(weights.map((w) => Math.round(w * 100) / 100)));
+      fitTableToContent(el);
+
       setRowsCount(excelRows.length);
       setColsCount(maxCols);
       el.setAttribute('data-rows', String(excelRows.length));
       el.setAttribute('data-cols', String(maxCols));
-      attachCellListeners(el);
+
+      applyTableDashPattern(el);
+
+      // Old cell selection no longer points at the same data
+      selectedCellKeysRef.current = new Set();
+      setSelectedCellKeys(new Set());
+      applyBorderHighlight(table, new Set());
+
+      initTableResizers(table);
       syncChanges(el);
+      setStructureVersion((v) => v + 1);
+      window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: el.id } }));
+
+      // Other table effects run after this (re-render from saved HTML, structure healing on select);
+      // re-apply the content fit once things settle so widths / box height stay correct.
+      const elId = el.id;
+      const refit = () => {
+        const live = (elId && document.getElementById(elId)) || el;
+        if (!live?.isConnected) return;
+        if (fitTableToContent(live)) {
+          applyTableDashPattern(live);
+          syncChanges(live);
+        }
+        window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: elId } }));
+      };
+      requestAnimationFrame(() => requestAnimationFrame(refit));
+      setTimeout(refit, 150);
+      setTimeout(refit, 600);
     } catch (err) {
       console.error('Failed to parse Excel file:', err);
+    } finally {
+      // allow importing the same file again
+      if (input) input.value = '';
     }
   };
 

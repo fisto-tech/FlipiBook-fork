@@ -10,6 +10,7 @@ import {
   ListOrdered,
   ArrowLeftRight, ArrowUpDown, Maximize
 } from 'lucide-react';
+import { CUSTOM_FONT_FAMILIES } from '../../../utils/customFonts';
 
 const systemFonts = new Set([
   'arial', 'times new roman', 'courier new', 'georgia', 'verdana',
@@ -60,7 +61,8 @@ export const fontFamilies = [
   'Bebas Neue',
   'Mr Dafoe',
   'Kaushan Script',
-  'Designer_Signature'
+  'Designer_Signature',
+  ...CUSTOM_FONT_FAMILIES
 ];
 
 export const fontWeights = [

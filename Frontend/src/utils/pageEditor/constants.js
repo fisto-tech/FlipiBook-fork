@@ -1,4 +1,5 @@
 // Canvas dimensions
+import { CUSTOM_FONT_FAMILIES } from '../customFonts';
 export const CANVAS_WIDTH = 595;
 export const CANVAS_HEIGHT = 842;
 
@@ -21,6 +22,7 @@ export const fontFamilies = [
   "Allura",
   "Parisienne",
   "Satisfy",
+  ...CUSTOM_FONT_FAMILIES,
 ];
 
 // Font weights

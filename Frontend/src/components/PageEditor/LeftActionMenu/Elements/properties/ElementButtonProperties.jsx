@@ -16,6 +16,7 @@ import CornerRadius from '../../../properties/CornerRadius';
 import { ElementToggle, ElementDropdown, ElementSlider } from './ElementUIControls';
 import { handleScrubHelper } from '../../../properties/propertiesShared';
 import { BUTTON_TEMPLATES } from '../utils/buttonElementUtils';
+import { CUSTOM_FONT_FAMILIES } from '../../../../../utils/customFonts';
 
 const SectionHeader = ({ title }) => (
   <div className="flex items-center gap-[0.8vw]">
@@ -111,7 +112,8 @@ const fontFamilies = [
   'Poppins', 'Arial', 'Bangers', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana',
   'Helvetica', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
   'Inter', 'Playfair Display', 'Oswald', 'Merriweather',
-  'Public Sans', 'Lora', 'Cabin', 'Satisfy'
+  'Public Sans', 'Lora', 'Cabin', 'Satisfy',
+  ...CUSTOM_FONT_FAMILIES
 ];
 
 const fontWeights = [
@@ -574,12 +576,14 @@ export const ButtonEditor = ({
       setStrokeAlignment(sa);
 
       const sda = shapeEl.getAttribute('stroke-dasharray');
+      // Dotted was removed: any dash pattern (incl. short ones like "2,4") is Dashed and keeps its L/G
       if (!sda || sda === 'none') {
         setLineStyle('Solid');
-      } else if (sda.includes('2,') || sda.includes('1,')) {
-        setLineStyle('Dotted');
       } else {
         setLineStyle('Dashed');
+        const [dl, dg] = sda.split(/[\s,]+/).map((v) => parseFloat(v));
+        if (dl > 0) setDashL(Math.round(dl));
+        if (dg > 0) setDashG(Math.round(dg));
       }
 
       const savedCornerLine = el.getAttribute('data-line-corner');
@@ -1831,7 +1835,7 @@ export const ButtonEditor = ({
     el.setAttribute('data-dash-l', newL.toString());
     el.setAttribute('data-dash-g', newG.toString());
 
-    if (lineStyle === 'Dashed') {
+    if (lineStyle !== 'Solid') {
       const mainPoly = el.querySelector('.btn-main-poly');
       const rectEl = el.querySelector('rect.btn-bg') || el.querySelector('rect') || (el.tagName?.toLowerCase() === 'rect' ? el : null);
       const targetEl = mainPoly || rectEl;
