@@ -28,6 +28,8 @@ const LeadFormPopup = ({
     userEmail,
     onClose
 }) => {
+    // Temporary in-memory cache for cross-template question matching
+    const sharedValuesRef = useRef({});
     const [formValues, setFormValues] = useState({});
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,6 +38,37 @@ const LeadFormPopup = ({
     const [productDropdownOpen, setProductDropdownOpen] = useState({});
     const [productSearchTerm, setProductSearchTerm] = useState({});
     const hasRecordedView = useRef(false);
+
+    // Extract core question concept (name, email, phone, company, feedback/message)
+    const getFieldConceptKey = (field) => {
+        if (!field) return null;
+        const type = (field.type || '').toLowerCase();
+        const label = (field.label || '').toLowerCase();
+        if (type === 'email' || label.includes('email') || label.includes('gmail')) return 'email';
+        if (type === 'phone' || label.includes('phone') || label.includes('mobile') || label.includes('contact')) return 'phone';
+        if (type === 'name' || label.includes('full name') || label.includes('your name') || label === 'name') return 'name';
+        if (type === 'company' || label.includes('company') || label.includes('organization')) return 'company';
+        if (type === 'feedback' || label.includes('requirement') || label.includes('message') || label.includes('feedback')) return 'feedback';
+        return null;
+    };
+
+    // When fields change on template switch, auto-populate matching concepts from in-memory cache
+    useEffect(() => {
+        const fields = leadFormSettings?.fields || [];
+        if (fields.length > 0) {
+            setFormValues(prev => {
+                const next = { ...prev };
+                fields.forEach(field => {
+                    const fieldKey = field.id || field.label || field.type;
+                    const concept = getFieldConceptKey(field);
+                    if (concept && sharedValuesRef.current[concept] !== undefined) {
+                        next[fieldKey] = sharedValuesRef.current[concept];
+                    }
+                });
+                return next;
+            });
+        }
+    }, [leadFormSettings?.fields, leadFormSettings?.selectedTemplateId, leadFormSettings?._previewKey]);
 
     // Track lead form view impression on mount
     useEffect(() => {
@@ -92,6 +125,11 @@ const LeadFormPopup = ({
             ...prev,
             [fieldKey]: value
         }));
+        const fieldObj = (leadFormSettings?.fields || []).find(f => (f.id || f.label || f.type) === fieldKey);
+        const concept = getFieldConceptKey(fieldObj);
+        if (concept) {
+            sharedValuesRef.current[concept] = value;
+        }
         if (errors[fieldKey]) {
             setErrors(prev => {
                 const next = { ...prev };

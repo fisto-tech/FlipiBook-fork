@@ -19,19 +19,17 @@ const Switch = ({ enabled, onChange }) => (
       e.stopPropagation();
       onChange(!enabled);
     }}
-    className={`relative inline-flex items-center w-[2.4vw] min-w-[42px] h-[0.95vw] min-h-[16px] rounded-full transition-colors duration-200 ease-in-out outline-none shrink-0 cursor-pointer ${
-      enabled ? 'bg-[#E54826]' : 'bg-[#D1D5DB]'
-    }`}
+    className={`relative inline-flex items-center w-[1.9vw] min-w-[34px] h-[0.9vw] min-h-[15px] rounded-full transition-colors duration-200 ease-in-out outline-none shrink-0 cursor-pointer ${enabled ? 'bg-[#E54826]' : 'bg-[#D1D5DB]'
+      }`}
   >
     <div
-      className={`absolute w-[1.25vw] min-w-[20px] h-[1.25vw] min-h-[20px] rounded-full transition-transform duration-200 ease-in-out flex items-center justify-center shadow-[0_2px_4px_rgba(0,0,0,0.22)] -top-[0.15vw] ${
-        enabled
-          ? 'right-0 bg-[#E54826]'
-          : 'left-0 bg-white'
-      }`}
+      className={`absolute w-[1.15vw] min-w-[18px] h-[1.15vw] min-h-[18px] rounded-full transition-transform duration-200 ease-in-out flex items-center justify-center shadow-[0_2px_4px_rgba(0,0,0,0.22)] -top-[0.12vw] ${enabled
+        ? 'right-0 bg-[#E54826]'
+        : 'left-0 bg-white'
+        }`}
     >
       {enabled && (
-        <Icon icon="lucide:check" className="w-[0.7vw] min-w-[11px] h-[0.7vw] min-h-[11px] text-white stroke-[3.2]" />
+        <Icon icon="lucide:check" className="w-[0.65vw] min-w-[10px] h-[0.65vw] min-h-[10px] text-white stroke-[3.2]" />
       )}
     </div>
   </button>
@@ -170,12 +168,34 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [modalSelectedTemplate, setModalSelectedTemplate] = useState(null);
-  const [isAppearanceInPageOpen, setIsAppearanceInPageOpen] = useState(false);
-  const [isCustomizeFieldsOpen, setIsCustomizeFieldsOpen] = useState(true);
+  const [isAppearanceInPageOpen, setIsAppearanceInPageOpen] = useState(() => Boolean(settings?.appearance?.enabled));
+  const [isCustomizeFieldsOpen, setIsCustomizeFieldsOpen] = useState(false);
   const [isColorOpen, setIsColorOpen] = useState(false);
-  const [isEnquiryBtnOpen, setIsEnquiryBtnOpen] = useState(false);
-  const [isEmailOpen, setIsEmailOpen] = useState(true);
+  const [isEnquiryBtnOpen, setIsEnquiryBtnOpen] = useState(() => Boolean(settings?.enquiryButton?.enabled));
+  const [isEmailOpen, setIsEmailOpen] = useState(false);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+
+  const toggleAccordion = (name) => {
+    if (name === 'fields') {
+      setIsCustomizeFieldsOpen(prev => !prev);
+      if (!isCustomizeFieldsOpen) {
+        setIsColorOpen(false);
+        setIsEmailOpen(false);
+      }
+    } else if (name === 'style') {
+      setIsColorOpen(prev => !prev);
+      if (!isColorOpen) {
+        setIsCustomizeFieldsOpen(false);
+        setIsEmailOpen(false);
+      }
+    } else if (name === 'email') {
+      setIsEmailOpen(prev => !prev);
+      if (!isEmailOpen) {
+        setIsCustomizeFieldsOpen(false);
+        setIsColorOpen(false);
+      }
+    }
+  };
 
   const updateNested = (category, field, value) => {
     onUpdate({
@@ -405,7 +425,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
         try {
           const user = JSON.parse(storedUser);
           emailId = user.emailId || user.email || emailId;
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const formData = new FormData();
@@ -653,6 +673,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
     onUpdate({
       ...settings,
       enabled: true,
+      _manualPreview: true,
       _previewKey: Date.now(),
       selectedTemplateId: template.id,
       formTitle: template.config.formTitle,
@@ -690,36 +711,65 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
       <div className="flex flex-col pt-[1vw] pb-[0.5vw] px-[1vw] space-y-[0.35vw]">
         <div className="flex items-center justify-between">
           <span className="text-[0.88vw] font-bold text-gray-900 whitespace-nowrap">Turn ON/OFF the Lead Form</span>
-          <Switch
-            enabled={settings.enabled}
-            onChange={(val) => {
-              if (val && (!settings.fields || settings.fields.length === 0)) {
+          <div className="flex items-center gap-[0.6vw]">
+            {/* Preview Eye Icon Button */}
+            <button
+              type="button"
+              disabled={!settings.enabled}
+              onClick={() => {
+                const isCurrentlyActive = settings._manualPreview !== false;
                 onUpdate({
                   ...settings,
-                  enabled: true,
-                  selectedTemplateId: settings.selectedTemplateId || 'basic-contact',
-                  formTitle: settings.formTitle || 'Get in Touch',
-                  leadText: settings.leadText || 'Share your details and we will contact you shortly',
-                  buttonText: settings.buttonText || 'SUBMIT',
-                  fields: [
-                    { id: Date.now().toString() + '-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
-                    { id: Date.now().toString() + '-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Gmail', required: true },
-                    { id: Date.now().toString() + '-3', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true }
-                  ]
+                  _manualPreview: !isCurrentlyActive,
+                  _previewKey: Date.now()
                 });
-              } else {
-                onUpdate({ ...settings, enabled: val });
-              }
-            }}
-          />
+              }}
+              className={`p-[0.3vw] rounded-[0.4vw] transition-all flex items-center justify-center ${!settings.enabled
+                ? 'text-gray-300 opacity-40 cursor-not-allowed'
+                : settings._manualPreview !== false
+                  ? 'text-[#E05638] bg-orange-50 hover:bg-orange-100 shadow-2xs'
+                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              title={settings._manualPreview !== false ? 'Hide Form Preview' : 'Show Form Preview'}
+            >
+              <Icon
+                icon={settings._manualPreview !== false ? 'lucide:eye' : 'lucide:eye-off'}
+                className="w-[1.1vw] h-[1.1vw]"
+              />
+            </button>
+            <Switch
+              enabled={settings.enabled}
+              onChange={(val) => {
+                if (val && (!settings.fields || settings.fields.length === 0)) {
+                  onUpdate({
+                    ...settings,
+                    enabled: true,
+                    _manualPreview: true,
+                    _previewKey: Date.now(),
+                    selectedTemplateId: settings.selectedTemplateId || 'basic-contact',
+                    formTitle: settings.formTitle || 'Get in Touch',
+                    leadText: settings.leadText || 'Share your details and we will contact you shortly',
+                    buttonText: settings.buttonText || 'SUBMIT',
+                    fields: [
+                      { id: Date.now().toString() + '-1', type: 'name', label: 'Full Name', placeholder: 'Enter your Name', required: true },
+                      { id: Date.now().toString() + '-2', type: 'email', label: 'Email Address', placeholder: 'Enter your Gmail', required: true },
+                      { id: Date.now().toString() + '-3', type: 'phone', label: 'Phone Number', placeholder: 'Enter your Phone Number', required: true }
+                    ]
+                  });
+                } else {
+                  onUpdate({ ...settings, enabled: val, _manualPreview: val });
+                }
+              }}
+            />
+          </div>
         </div>
       </div>
 
       <div
-        className={`flex-1 ${settings.enabled ? 'overflow-y-auto' : 'overflow-hidden'} p-[1vw] space-y-[1vw] hide-scrollbar`}
+        className={`flex-1 ${settings.enabled ? 'overflow-y-auto' : 'overflow-hidden'} p-[1vw] space-y-[0.55vw] hide-scrollbar`}
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        <div className={`space-y-[1vw] transition-all duration-300 ${!settings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className={`space-y-[0.55vw] transition-all duration-300 ${!settings.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
 
           {/* Lead Form Mode Section */}
           <div className="space-y-[0.8vw] pt-[0.2vw]">
@@ -767,19 +817,25 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                 {settings.appearance.allowSkip && (
                   <div className="flex items-center gap-[0.6vw] pl-[1.7vw] pt-[0.2vw]">
                     <span className="text-[0.72vw] text-gray-500 font-normal whitespace-nowrap">If Skipped :</span>
-                    <div className="relative inline-block flex-1 max-w-[15vw]">
-                      <select
-                        value={settings.appearance.skipBehavior || 'never'}
-                        onChange={(e) => updateAppearance('skipBehavior', e.target.value)}
-                        className="w-full appearance-none bg-white border border-gray-300 rounded-[0.5vw] py-[0.45vw] pl-[0.8vw] pr-[2.2vw] text-[0.74vw] text-gray-700 outline-none focus:border-[#E05638] cursor-pointer shadow-xs"
-                      >
-                        <option value="never">Never Show again</option>
-                        <option value="1_day">Show again after 1 day</option>
-                        <option value="next_visit">Show again on next visit</option>
-                      </select>
-                      <div className="absolute right-[0.7vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                        <Icon icon="fluent:chevron-down-12-regular" className="w-[0.9vw] h-[0.9vw]" />
-                      </div>
+                    <div className="flex-1 max-w-[15vw]">
+                      <PremiumDropdown
+                        options={[
+                          { value: 'never', label: 'Never Show again' },
+                          { value: '1_day', label: 'Show again after 1 day' },
+                          { value: 'next_visit', label: 'Show again on next visit' }
+                        ]}
+                        value={
+                          settings.appearance.skipBehavior === '1_day'
+                            ? 'Show again after 1 day'
+                            : settings.appearance.skipBehavior === 'next_visit'
+                              ? 'Show again on next visit'
+                              : 'Never Show again'
+                        }
+                        onChange={(val) => updateAppearance('skipBehavior', val)}
+                        width="100%"
+                        buttonClassName="!border-gray-200 !rounded-[0.5vw] !h-[2vw] !py-[0.35vw] !px-[0.7vw] !text-[0.74vw]"
+                        align="left"
+                      />
                     </div>
                   </div>
                 )}
@@ -788,39 +844,36 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
           </div>
 
           {/* Lead form Appearance in Page Card */}
-          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="bg-white rounded-[0.8vw] border border-gray-200 shadow-[0_0.15vw_0.5vw_rgba(0,0,0,0.06)]">
             <div className="flex items-center justify-between px-[1vw] py-[0.85vw]">
               <span className="text-[0.84vw] font-medium text-gray-900">Lead form Appearance in Page</span>
               <div className="flex items-center gap-[0.8vw]">
                 <button
                   type="button"
-                  disabled={settings.appearance?.enabled === false}
+                  disabled={!settings.appearance?.enabled}
                   onClick={() => setIsAppearanceInPageOpen(!isAppearanceInPageOpen)}
-                  className={`p-[0.2vw] rounded transition-colors ${
-                    settings.appearance?.enabled === false
-                      ? 'text-gray-300 opacity-40 cursor-not-allowed'
-                      : isAppearanceInPageOpen
+                  className={`p-[0.2vw] rounded transition-colors ${!settings.appearance?.enabled
+                    ? 'text-gray-300 opacity-40 cursor-not-allowed'
+                    : isAppearanceInPageOpen
                       ? 'text-[#E05638] bg-orange-50'
                       : 'text-gray-500 hover:text-gray-800'
-                  }`}
+                    }`}
                   title="Lead form Appearance Properties"
                 >
                   <Icon icon="fluent:options-16-regular" className="w-[1.2vw] h-[1.2vw] text-gray-500" />
                 </button>
                 <Switch
-                  enabled={settings.appearance?.enabled !== false}
+                  enabled={Boolean(settings.appearance?.enabled)}
                   onChange={(val) => {
                     updateAppearance('enabled', val);
-                    if (!val) {
-                      setIsAppearanceInPageOpen(false);
-                    }
+                    setIsAppearanceInPageOpen(val);
                   }}
                 />
               </div>
             </div>
 
             {/* Expanded Appearance Timing Options */}
-            {isAppearanceInPageOpen && settings.appearance?.enabled !== false && (
+            {isAppearanceInPageOpen && Boolean(settings.appearance?.enabled) && (
               <div className="px-[0.9vw] pb-[0.9vw] pt-[0.2vw] border-t border-gray-100 space-y-[0.8vw]">
                 <div className="flex items-center gap-[0.5vw] pt-[0.4vw]">
                   <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Lead form should Appears at</span>
@@ -855,25 +908,19 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
 
                         {opt.id === 'after-pages' && isSelected && (
                           <div className="ml-[1.6vw] mt-[0.2vw]">
-                            <div className="relative inline-block w-[6.5vw]">
-                              <select
-                                value={settings.appearance.afterPages || 1}
-                                onChange={(e) => updateAppearance('afterPages', parseInt(e.target.value))}
-                                className="w-full appearance-none bg-white border border-gray-200 shadow-xs rounded-[0.4vw] py-[0.35vw] pl-[0.6vw] pr-[1.8vw] text-[0.7vw] text-gray-800 font-medium focus:outline-none focus:border-[#E05638] cursor-pointer"
-                              >
-                                {pages.length > 0 ? (
-                                  pages.map((_, idx) => (
-                                    <option key={idx} value={idx + 1}>Page {idx + 1}</option>
-                                  ))
-                                ) : (
-                                  [1, 2, 3, 4, 5].map(num => (
-                                    <option key={num} value={num}>Page {num}</option>
-                                  ))
-                                )}
-                              </select>
-                              <div className="absolute right-[0.5vw] top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                                <Icon icon="fluent:chevron-down-12-regular" className="w-[0.8vw] h-[0.8vw]" />
-                              </div>
+                            <div className="w-[7.5vw]">
+                              <PremiumDropdown
+                                options={
+                                  pages.length > 0
+                                    ? pages.map((_, idx) => ({ value: idx + 1, label: `Page ${idx + 1}` }))
+                                    : [1, 2, 3, 4, 5].map(num => ({ value: num, label: `Page ${num}` }))
+                                }
+                                value={`Page ${settings.appearance.afterPages || 1}`}
+                                onChange={(val) => updateAppearance('afterPages', parseInt(val))}
+                                width="100%"
+                                buttonClassName="!border-gray-200 !rounded-[0.45vw] !h-[1.9vw] !py-[0.25vw] !px-[0.6vw] !text-[0.72vw]"
+                                align="left"
+                              />
                             </div>
                           </div>
                         )}
@@ -909,175 +956,170 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
           </div>
 
           {/* Add Enquiry Button in Layout Card */}
-          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="bg-white rounded-[0.8vw] border border-gray-200 shadow-[0_0.15vw_0.5vw_rgba(0,0,0,0.06)]">
             {/* Header row */}
             <div className="flex items-center justify-between px-[1vw] py-[0.85vw]">
               <span className="text-[0.84vw] font-medium text-gray-900">Add Enquiry Button in Layout</span>
               <div className="flex items-center gap-[0.8vw]">
                 <button
                   type="button"
-                  disabled={settings.enquiryButton?.enabled === false}
+                  disabled={!settings.enquiryButton?.enabled}
                   onClick={() => setIsEnquiryBtnOpen(!isEnquiryBtnOpen)}
-                  className={`p-[0.2vw] rounded transition-colors ${
-                    settings.enquiryButton?.enabled === false
-                      ? 'text-gray-300 opacity-40 cursor-not-allowed'
-                      : isEnquiryBtnOpen
+                  className={`p-[0.2vw] rounded transition-colors ${!settings.enquiryButton?.enabled
+                    ? 'text-gray-300 opacity-40 cursor-not-allowed'
+                    : isEnquiryBtnOpen
                       ? 'text-[#E05638] bg-orange-50'
                       : 'text-gray-500 hover:text-gray-800'
-                  }`}
+                    }`}
                   title="Enquiry Button Properties"
                 >
                   <Icon icon="fluent:options-16-regular" className="w-[1.2vw] h-[1.2vw] text-gray-500" />
                 </button>
                 <Switch
-                  enabled={settings.enquiryButton?.enabled !== false}
+                  enabled={Boolean(settings.enquiryButton?.enabled)}
                   onChange={(val) => {
                     updateNested('enquiryButton', 'enabled', val);
-                    if (!val) {
-                      setIsEnquiryBtnOpen(false);
-                    }
+                    setIsEnquiryBtnOpen(val);
                   }}
                 />
               </div>
             </div>
 
             {/* Expanded Properties */}
-            {isEnquiryBtnOpen && settings.enquiryButton?.enabled !== false && (
+            {isEnquiryBtnOpen && Boolean(settings.enquiryButton?.enabled) && (
               <div className="p-[0.9vw] pt-[0.4vw] border-t border-gray-100 space-y-[0.9vw]">
-                    {/* Edit Button Header */}
-                    <div className="space-y-[0.6vw]">
-                      <div className="flex items-center gap-[0.5vw]">
-                        <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Edit Button</span>
-                        <div className="h-[1px] bg-gray-200 flex-1"></div>
-                      </div>
+                {/* Edit Button Header */}
+                <div className="space-y-[0.6vw]">
+                  <div className="flex items-center gap-[0.5vw]">
+                    <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Edit Button</span>
+                    <div className="h-[1px] bg-gray-200 flex-1"></div>
+                  </div>
 
-                      {/* Button Icon selector */}
-                      <div className="space-y-[0.35vw]">
-                        <span className="text-[0.68vw] text-gray-500 font-medium">Button Icon</span>
-                        <div className="grid grid-cols-5 gap-[0.4vw]">
-                          {[
-                            'lucide:message-square',
-                            'lucide:message-circle',
-                            'lucide:mail',
-                            'lucide:phone',
-                            'lucide:send'
-                          ].map((iconId) => {
-                            const isSelected = (settings.enquiryButton?.icon || 'lucide:message-square') === iconId;
-                            return (
-                              <button
-                                key={iconId}
-                                type="button"
-                                onClick={() => updateNested('enquiryButton', 'icon', iconId)}
-                                className={`flex items-center justify-center h-[2.5vw] rounded-[0.45vw] border transition-all ${
-                                  isSelected
-                                    ? 'border-[#E05638] bg-white text-[#E05638] shadow-xs'
-                                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                                }`}
-                              >
-                                <Icon icon={iconId} className="w-[1.2vw] h-[1.2vw]" />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Button Text */}
-                      <div className="space-y-[0.3vw]">
-                        <div className="flex items-center gap-[0.3vw]">
-                          <span className="text-[0.68vw] text-gray-700 font-medium">Button Text</span>
-                          <span className="text-[0.62vw] text-gray-400 font-normal">(Optional)</span>
-                        </div>
-                        <input
-                          type="text"
-                          value={settings.enquiryButton?.text !== undefined ? settings.enquiryButton.text : 'Enquiry Now'}
-                          onChange={(e) => updateNested('enquiryButton', 'text', e.target.value)}
-                          placeholder="Enter Text"
-                          className="w-full border border-gray-200 rounded-[0.45vw] px-[0.6vw] py-[0.45vw] text-[0.7vw] text-gray-700 outline-none focus:border-[#E05638] bg-white shadow-xs placeholder:text-gray-400"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Button Colors Header */}
-                    <div className="space-y-[0.6vw]">
-                      <div className="flex items-center gap-[0.5vw]">
-                        <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Button Colors</span>
-                        <div className="h-[1px] bg-gray-200 flex-1"></div>
-                      </div>
-
-                      <div className="space-y-[0.5vw]">
-                        <ColorPickerItem
-                          label="Icon Color"
-                          color={settings.enquiryButton?.iconColor || '#ffffff'}
-                          opacity={settings.enquiryButton?.iconOpacity ?? 100}
-                          onChange={(val) => updateNested('enquiryButton', 'iconColor', val)}
-                          onOpacityChange={(val) => updateNested('enquiryButton', 'iconOpacity', val)}
-                        />
-                        <ColorPickerItem
-                          label="Text Color"
-                          color={settings.enquiryButton?.textColor || '#ffffff'}
-                          opacity={settings.enquiryButton?.textOpacity ?? 100}
-                          onChange={(val) => updateNested('enquiryButton', 'textColor', val)}
-                          onOpacityChange={(val) => updateNested('enquiryButton', 'textOpacity', val)}
-                        />
-                        <ColorPickerItem
-                          label="Button Color"
-                          color={settings.enquiryButton?.bgFill || '#CE3439'}
-                          opacity={settings.enquiryButton?.bgOpacity ?? 100}
-                          onChange={(val) => updateNested('enquiryButton', 'bgFill', val)}
-                          onOpacityChange={(val) => updateNested('enquiryButton', 'bgOpacity', val)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Button Placement Header */}
-                    <div className="space-y-[0.6vw]">
-                      <div className="flex items-center gap-[0.5vw]">
-                        <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Button Placement</span>
-                        <div className="h-[1px] bg-gray-200 flex-1"></div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-[0.4vw]">
-                        {[
-                          { id: 'top-left', label: 'Top Left', icon: 'lucide:arrow-up-left' },
-                          { id: 'top-right', label: 'Top Right', icon: 'lucide:arrow-up-right' },
-                          { id: 'bottom-left', label: 'Bottom Left', icon: 'lucide:arrow-down-left' },
-                          { id: 'bottom-right', label: 'Bottom Right', icon: 'lucide:arrow-down-right' }
-                        ].map((pos) => {
-                          const currentPos = settings.enquiryButton?.position || 'bottom-right';
-                          const isSelected = currentPos === pos.id;
-                          return (
-                            <button
-                              key={pos.id}
-                              type="button"
-                              onClick={() => updateNested('enquiryButton', 'position', pos.id)}
-                              className={`flex items-center justify-center gap-[0.35vw] py-[0.45vw] px-[0.6vw] border rounded-[0.45vw] text-[0.68vw] font-medium transition-all ${
-                                isSelected
-                                  ? 'border-[#E05638] bg-orange-50 text-[#E05638] shadow-xs'
-                                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-800'
+                  {/* Button Icon selector */}
+                  <div className="space-y-[0.35vw]">
+                    <span className="text-[0.68vw] text-gray-500 font-medium">Button Icon</span>
+                    <div className="grid grid-cols-5 gap-[0.4vw]">
+                      {[
+                        'lucide:message-square',
+                        'lucide:message-circle',
+                        'lucide:mail',
+                        'lucide:phone',
+                        'lucide:send'
+                      ].map((iconId) => {
+                        const isSelected = (settings.enquiryButton?.icon || 'lucide:message-square') === iconId;
+                        return (
+                          <button
+                            key={iconId}
+                            type="button"
+                            onClick={() => updateNested('enquiryButton', 'icon', iconId)}
+                            className={`flex items-center justify-center h-[2.5vw] rounded-[0.45vw] border transition-all ${isSelected
+                              ? 'border-[#E05638] bg-white text-[#E05638] shadow-xs'
+                              : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                               }`}
-                            >
-                              <Icon icon={pos.icon} className="w-[0.85vw] h-[0.85vw]" />
-                              <span>{pos.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                          >
+                            <Icon icon={iconId} className="w-[1.2vw] h-[1.2vw]" />
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                )}
+
+                  {/* Button Text */}
+                  <div className="space-y-[0.3vw]">
+                    <div className="flex items-center gap-[0.3vw]">
+                      <span className="text-[0.68vw] text-gray-700 font-medium">Button Text</span>
+                      <span className="text-[0.62vw] text-gray-400 font-normal">(Optional)</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={settings.enquiryButton?.text !== undefined ? settings.enquiryButton.text : 'Enquiry Now'}
+                      onChange={(e) => updateNested('enquiryButton', 'text', e.target.value)}
+                      placeholder="Enter Text"
+                      className="w-full border border-gray-200 rounded-[0.45vw] px-[0.6vw] py-[0.45vw] text-[0.7vw] text-gray-700 outline-none focus:border-[#E05638] bg-white shadow-xs placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Button Colors Header */}
+                <div className="space-y-[0.6vw]">
+                  <div className="flex items-center gap-[0.5vw]">
+                    <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Button Colors</span>
+                    <div className="h-[1px] bg-gray-200 flex-1"></div>
+                  </div>
+
+                  <div className="space-y-[0.5vw]">
+                    <ColorPickerItem
+                      label="Icon Color"
+                      color={settings.enquiryButton?.iconColor || '#ffffff'}
+                      opacity={settings.enquiryButton?.iconOpacity ?? 100}
+                      onChange={(val) => updateNested('enquiryButton', 'iconColor', val)}
+                      onOpacityChange={(val) => updateNested('enquiryButton', 'iconOpacity', val)}
+                    />
+                    <ColorPickerItem
+                      label="Text Color"
+                      color={settings.enquiryButton?.textColor || '#ffffff'}
+                      opacity={settings.enquiryButton?.textOpacity ?? 100}
+                      onChange={(val) => updateNested('enquiryButton', 'textColor', val)}
+                      onOpacityChange={(val) => updateNested('enquiryButton', 'textOpacity', val)}
+                    />
+                    <ColorPickerItem
+                      label="Button Color"
+                      color={settings.enquiryButton?.bgFill || '#CE3439'}
+                      opacity={settings.enquiryButton?.bgOpacity ?? 100}
+                      onChange={(val) => updateNested('enquiryButton', 'bgFill', val)}
+                      onOpacityChange={(val) => updateNested('enquiryButton', 'bgOpacity', val)}
+                    />
+                  </div>
+                </div>
+
+                {/* Button Placement Header */}
+                <div className="space-y-[0.6vw]">
+                  <div className="flex items-center gap-[0.5vw]">
+                    <span className="text-[0.72vw] font-semibold text-gray-900 whitespace-nowrap">Button Placement</span>
+                    <div className="h-[1px] bg-gray-200 flex-1"></div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-[0.4vw]">
+                    {[
+                      { id: 'top-left', label: 'Top Left', icon: 'lucide:arrow-up-left' },
+                      { id: 'top-right', label: 'Top Right', icon: 'lucide:arrow-up-right' },
+                      { id: 'bottom-left', label: 'Bottom Left', icon: 'lucide:arrow-down-left' },
+                      { id: 'bottom-right', label: 'Bottom Right', icon: 'lucide:arrow-down-right' }
+                    ].map((pos) => {
+                      const currentPos = settings.enquiryButton?.position || 'bottom-right';
+                      const isSelected = currentPos === pos.id;
+                      return (
+                        <button
+                          key={pos.id}
+                          type="button"
+                          onClick={() => updateNested('enquiryButton', 'position', pos.id)}
+                          className={`flex items-center justify-center gap-[0.35vw] py-[0.45vw] px-[0.6vw] border rounded-[0.45vw] text-[0.68vw] font-medium transition-all ${isSelected
+                            ? 'border-[#E05638] bg-orange-50 text-[#E05638] shadow-xs'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-800'
+                            }`}
+                        >
+                          <Icon icon={pos.icon} className="w-[0.85vw] h-[0.85vw]" />
+                          <span>{pos.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
+            )}
+          </div>
 
           {/* Customization Options Header */}
-          <div className="pt-[0.4vw]">
+          <div className="pt-[0.2vw]">
             <span className="text-[0.78vw] font-semibold text-gray-500">Customization Options</span>
           </div>
 
           {/* Form Customization Accordion Card */}
-          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="bg-white rounded-[0.8vw] border border-gray-200 shadow-[0_0.15vw_0.5vw_rgba(0,0,0,0.06)] overflow-hidden">
             {/* Accordion Header */}
             <button
               type="button"
-              onClick={() => setIsCustomizeFieldsOpen(!isCustomizeFieldsOpen)}
+              onClick={() => toggleAccordion('fields')}
               className="w-full flex items-center justify-between p-[0.9vw] bg-white hover:bg-gray-50/50 transition-colors"
             >
               <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Form Customization</span>
@@ -1090,7 +1132,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
             {isCustomizeFieldsOpen && (
               <div className="p-[0.9vw] pt-[0.4vw] border-t border-gray-100 space-y-[0.9vw]">
                 {/* Use Quick Form Templates Row */}
-                <div className="rounded-[0.5vw] border border-gray-100 bg-gray-50/50 overflow-hidden">
+                <div className="rounded-[0.55vw] border border-[#E05638]/30 bg-gradient-to-r from-orange-50/60 via-amber-50/30 to-orange-50/40 p-[0.1vw] shadow-xs hover:shadow-sm transition-all">
                   <button
                     type="button"
                     onClick={() => {
@@ -1098,16 +1140,20 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                       setModalSelectedTemplate(currentTemplate);
                       setIsTemplateModalOpen(true);
                     }}
-                    className="w-full flex items-center justify-between p-[0.6vw] hover:bg-gray-100/70 transition-colors"
+                    className="w-full flex items-center justify-between p-[0.65vw] rounded-[0.45vw] bg-white hover:bg-orange-50/40 transition-all group"
                   >
-                    <div className="flex items-center gap-[0.5vw]">
-                      <Icon icon="fluent:form-48-regular" className="w-[1.1vw] h-[1.1vw] text-[#E05638]" />
-                      <span className="text-[0.72vw] font-medium text-gray-800">Use Quick Form Templates</span>
+                    <div className="flex items-center gap-[0.55vw]">
+                      <div className="w-[1.6vw] h-[1.6vw] rounded-[0.4vw] bg-orange-100/70 flex items-center justify-center shrink-0">
+                        <Icon icon="fluent:form-48-regular" className="w-[1.05vw] h-[1.05vw] text-[#E05638]" />
+                      </div>
+                      <span className="text-[0.74vw] font-semibold text-gray-900 group-hover:text-[#E05638] transition-colors">
+                        Use Quick Form Templates
+                      </span>
                     </div>
-                    <div className="w-[1.3vw] h-[1.3vw] rounded-full bg-black flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                    <div className="w-[1.4vw] h-[1.4vw] rounded-full bg-[#E05638] flex items-center justify-center shadow-xs group-hover:bg-[#d04a2d] group-hover:scale-105 transition-all">
                       <Icon
                         icon="lucide:arrow-right"
-                        className="w-[0.75vw] h-[0.75vw] text-white"
+                        className="w-[0.8vw] h-[0.8vw] text-white"
                       />
                     </div>
                   </button>
@@ -1121,8 +1167,8 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                       type="button"
                       onClick={() => updateAppearance('layoutColumns', '1')}
                       className={`px-[0.7vw] py-[0.22vw] rounded-[0.3vw] text-[0.65vw] font-medium transition-all ${(settings.appearance?.layoutColumns || '1') === '1'
-                          ? 'bg-[#E05638] text-white shadow-xs'
-                          : 'text-gray-600 hover:text-gray-900'
+                        ? 'bg-[#E05638] text-white shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
                         }`}
                     >
                       1 column
@@ -1131,8 +1177,8 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                       type="button"
                       onClick={() => updateAppearance('layoutColumns', '2')}
                       className={`px-[0.7vw] py-[0.22vw] rounded-[0.3vw] text-[0.65vw] font-medium transition-all ${settings.appearance?.layoutColumns === '2'
-                          ? 'bg-[#E05638] text-white shadow-xs'
-                          : 'text-gray-600 hover:text-gray-900'
+                        ? 'bg-[#E05638] text-white shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
                         }`}
                     >
                       2 Column
@@ -1699,11 +1745,11 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
           </div>
 
           {/* Form Style Customization Accordion Card */}
-          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="bg-white rounded-[0.8vw] border border-gray-200 shadow-[0_0.15vw_0.5vw_rgba(0,0,0,0.06)] overflow-hidden">
             {/* Accordion Header */}
             <button
               type="button"
-              onClick={() => setIsColorOpen(!isColorOpen)}
+              onClick={() => toggleAccordion('style')}
               className="w-full flex items-center justify-between p-[0.9vw] bg-white hover:bg-gray-50/50 transition-colors"
             >
               <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Form Style Customization</span>
@@ -1781,11 +1827,11 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
           </div>
 
           {/* Email Configuration Accordion Card */}
-          <div className="bg-white rounded-[0.8vw] border border-gray-200/90 shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="bg-white rounded-[0.8vw] border border-gray-200 shadow-[0_0.15vw_0.5vw_rgba(0,0,0,0.06)] overflow-hidden">
             {/* Accordion Header */}
             <button
               type="button"
-              onClick={() => setIsEmailOpen(!isEmailOpen)}
+              onClick={() => toggleAccordion('email')}
               className="w-full flex items-center justify-between p-[0.9vw] bg-white hover:bg-gray-50/50 transition-colors"
             >
               <span className="text-[0.82vw] font-semibold text-gray-800 leading-tight">Email Configuration</span>
@@ -2032,7 +2078,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
             {/* Modal Body: Two Columns (Left Grid 4x2, Right Preview) */}
             <div className="flex flex-1 min-h-0 p-[1.3vw] gap-[1.3vw] overflow-y-auto">
               {/* Left Column: 8 Templates Grid (4 columns x 2 rows) */}
-              <div className="flex-1 grid grid-cols-4 gap-[0.8vw] content-start">
+              <div className="flex-1 grid grid-cols-4 gap-[0.8vw] content-stretch">
                 {quickTemplates.map((template) => {
                   const currentSelected = modalSelectedTemplate || quickTemplates[0];
                   const isSelected = currentSelected.id === template.id;
@@ -2041,21 +2087,20 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                     <div
                       key={template.id}
                       onClick={() => setModalSelectedTemplate(template)}
-                      className="flex flex-col items-center cursor-pointer group"
+                      className="flex flex-col items-center cursor-pointer group h-full"
                     >
                       {/* Form Card Box */}
                       <div
-                        className={`w-full flex flex-col justify-between rounded-[0.7vw] p-[0.6vw] transition-all bg-white border ${
-                          isSelected
-                            ? 'border-[#E05638] shadow-[0_0.2vw_0.8vw_rgba(224,86,56,0.18)] ring-2 ring-[#E05638]'
-                            : 'border-gray-200 hover:border-gray-300 shadow-[0_0.1vw_0.3vw_rgba(0,0,0,0.03)]'
-                        }`}
+                        className={`w-full flex-1 flex flex-col justify-between rounded-[0.7vw] p-[0.6vw] transition-all bg-white border ${isSelected
+                          ? 'border-[#E05638] shadow-[0_0.2vw_0.8vw_rgba(224,86,56,0.18)] ring-2 ring-[#E05638]'
+                          : 'border-gray-200 hover:border-gray-300 shadow-[0_0.1vw_0.3vw_rgba(0,0,0,0.03)]'
+                          }`}
                       >
                         {/* Mini Form Card in Code */}
-                        <div className="w-full rounded-[0.5vw] p-[0.6vw] min-h-[10.5vw] bg-[#FAFBFC] border border-gray-100 flex flex-col justify-between select-none pointer-events-none">
-                          <div>
+                        <div className="w-full flex-1 rounded-[0.5vw] p-[0.7vw] min-h-[13vw] bg-[#FAFBFC] border border-gray-100 flex flex-col justify-between select-none pointer-events-none">
+                          <div className="flex-1 flex flex-col">
                             {/* Mini Header */}
-                            <div className="flex justify-between items-start mb-[0.35vw]">
+                            <div className="flex justify-between items-start mb-[0.45vw]">
                               <div className="truncate pr-[0.2vw]">
                                 <div className="text-[0.56vw] font-bold text-gray-900 leading-tight truncate">
                                   {template.config.formTitle}
@@ -2068,7 +2113,7 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                             </div>
 
                             {/* Mini Form Fields */}
-                            <div className="space-y-[0.3vw]">
+                            <div className="space-y-[0.4vw] my-auto py-[0.2vw]">
                               {template.config.fields.slice(0, 3).map((fld, idx) => (
                                 <div key={idx}>
                                   {fld.type === 'rating' ? (
@@ -2093,17 +2138,17 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                                       </div>
                                     </div>
                                   ) : fld.type === 'feedback' ? (
-                                    <div className="h-[1.1vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] py-[0.15vw] flex items-center justify-between shadow-2xs">
+                                    <div className="h-[1.4vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] py-[0.15vw] flex items-center justify-between shadow-2xs">
                                       <span className="text-[0.4vw] text-gray-400 truncate">{fld.label}</span>
                                       <Icon icon="lucide:message-square" className="w-[0.48vw] h-[0.48vw] text-gray-300 shrink-0" />
                                     </div>
                                   ) : fld.type === 'dropdown' ? (
-                                    <div className="h-[0.95vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] flex items-center justify-between shadow-2xs">
+                                    <div className="h-[1.2vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] flex items-center justify-between shadow-2xs">
                                       <span className="text-[0.4vw] text-gray-400 truncate">{fld.label}</span>
                                       <Icon icon="lucide:chevron-down" className="w-[0.48vw] h-[0.48vw] text-gray-400 shrink-0" />
                                     </div>
                                   ) : (
-                                    <div className="h-[0.95vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] flex items-center gap-[0.25vw] shadow-2xs">
+                                    <div className="h-[1.2vw] border border-gray-200 rounded-[0.25vw] bg-white px-[0.3vw] flex items-center gap-[0.25vw] shadow-2xs">
                                       <Icon
                                         icon={fld.type === 'email' ? 'lucide:mail' : fld.type === 'phone' ? 'lucide:phone' : fld.type === 'company' ? 'lucide:building-2' : 'lucide:user'}
                                         className="w-[0.48vw] h-[0.48vw] text-gray-400 shrink-0"
@@ -2122,16 +2167,15 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                           </div>
 
                           {/* Mini Submit Button */}
-                          <div className="w-full py-[0.28vw] bg-[#0275D8] text-white rounded-[0.22vw] text-[0.44vw] font-bold text-center uppercase tracking-wider mt-[0.35vw] shadow-2xs">
+                          <div className="w-full py-[0.32vw] bg-[#0275D8] text-white rounded-[0.25vw] text-[0.46vw] font-bold text-center uppercase tracking-wider mt-[0.5vw] shadow-2xs">
                             {template.config.buttonText}
                           </div>
                         </div>
                       </div>
 
                       {/* Name below the box */}
-                      <span className={`text-[0.72vw] font-semibold text-center leading-tight mt-[0.45vw] transition-colors ${
-                        isSelected ? 'text-[#E05638]' : 'text-gray-700 group-hover:text-gray-900'
-                      }`}>
+                      <span className={`text-[0.72vw] font-semibold text-center leading-tight mt-[0.45vw] transition-colors ${isSelected ? 'text-[#E05638]' : 'text-gray-700 group-hover:text-gray-900'
+                        }`}>
                         {template.name}
                       </span>
                     </div>
@@ -2147,13 +2191,13 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                 </div>
 
                 {/* Mild Gray Background Container */}
-                <div className="bg-[#F8F9FB] border border-gray-200/90 rounded-[0.9vw] p-[0.9vw] flex-1 flex flex-col justify-center">
+                <div className="bg-[#F8F9FB] border border-gray-200/90 rounded-[0.9vw] p-[0.9vw] flex-1 flex flex-col h-full">
                   {/* Inner Form Preview Card */}
                   {(() => {
                     const activeTpl = modalSelectedTemplate || quickTemplates[0];
                     return (
-                      <div className="bg-white border border-gray-200 rounded-[0.7vw] p-[1.1vw] shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.05)] flex flex-col justify-between max-h-[100%] overflow-y-auto">
-                        <div className="space-y-[0.7vw]">
+                      <div className="bg-white border border-gray-200 rounded-[0.7vw] p-[1.1vw] shadow-[0_0.2vw_0.8vw_rgba(0,0,0,0.05)] flex flex-col justify-between flex-1 min-h-[360px] overflow-y-auto">
+                        <div className="flex-1 flex flex-col justify-between">
                           <div className="flex justify-between items-start">
                             <div className="space-y-[0.15vw]">
                               <h3 className="text-[0.88vw] font-bold text-gray-900 leading-tight">
@@ -2167,11 +2211,11 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                           </div>
 
                           {/* Fields List - Dynamically adapt to each field type */}
-                          <div className="space-y-[0.5vw] pt-[0.2vw]">
+                          <div className="space-y-[0.8vw] my-auto py-[0.8vw]">
                             {(activeTpl.config.fields || []).map((fld) => {
                               if (fld.type === 'rating') {
                                 return (
-                                  <div key={fld.id} className="space-y-[0.2vw]">
+                                  <div key={fld.id} className="space-y-[0.3vw]">
                                     <label className="text-[0.62vw] font-medium text-gray-700 block">
                                       {fld.label}
                                     </label>
@@ -2190,11 +2234,11 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
 
                               if (fld.type === 'checkbox') {
                                 return (
-                                  <div key={fld.id} className="space-y-[0.25vw]">
+                                  <div key={fld.id} className="space-y-[0.3vw]">
                                     <label className="text-[0.62vw] font-medium text-gray-700 block">
                                       {fld.label}
                                     </label>
-                                    <div className="space-y-[0.3vw] bg-gray-50/60 p-[0.4vw] rounded-[0.4vw] border border-gray-100">
+                                    <div className="space-y-[0.35vw] bg-gray-50/60 p-[0.45vw] rounded-[0.4vw] border border-gray-100">
                                       {(fld.options || []).map((opt, i) => (
                                         <label key={i} className="flex items-center gap-[0.4vw] cursor-pointer">
                                           <input
@@ -2212,11 +2256,11 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
 
                               if (fld.type === 'dropdown') {
                                 return (
-                                  <div key={fld.id} className="space-y-[0.2vw]">
+                                  <div key={fld.id} className="space-y-[0.3vw]">
                                     <label className="text-[0.62vw] font-medium text-gray-700 block">
                                       {fld.label}
                                     </label>
-                                    <div className="flex items-center justify-between border border-gray-200 rounded-[0.4vw] px-[0.5vw] py-[0.38vw] bg-white">
+                                    <div className="flex items-center justify-between border border-gray-200 rounded-[0.4vw] px-[0.6vw] py-[0.55vw] bg-white">
                                       <span className="text-[0.62vw] text-gray-400 select-none truncate">
                                         {fld.placeholder || 'Select an option'}
                                       </span>
@@ -2228,11 +2272,11 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
 
                               if (fld.type === 'feedback') {
                                 return (
-                                  <div key={fld.id} className="space-y-[0.2vw]">
+                                  <div key={fld.id} className="space-y-[0.3vw]">
                                     <label className="text-[0.62vw] font-medium text-gray-700 block">
                                       {fld.label}
                                     </label>
-                                    <div className="border border-gray-200 rounded-[0.4vw] px-[0.5vw] py-[0.38vw] bg-white h-[2.5vw] flex items-start gap-[0.4vw]">
+                                    <div className="border border-gray-200 rounded-[0.4vw] px-[0.6vw] py-[0.5vw] bg-white h-[3.8vw] min-h-[55px] flex items-start gap-[0.4vw]">
                                       <Icon icon="lucide:message-square" className="w-[0.75vw] h-[0.75vw] text-gray-400 shrink-0 mt-[0.1vw]" />
                                       <span className="text-[0.62vw] text-gray-400 select-none">
                                         {fld.placeholder || 'Enter your message...'}
@@ -2248,11 +2292,11 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                               else if (fld.type === 'company') iconName = 'lucide:building-2';
 
                               return (
-                                <div key={fld.id} className="space-y-[0.2vw]">
+                                <div key={fld.id} className="space-y-[0.3vw]">
                                   <label className="text-[0.62vw] font-medium text-gray-700 block">
                                     {fld.label}
                                   </label>
-                                  <div className="flex items-center gap-[0.4vw] border border-gray-200 rounded-[0.4vw] px-[0.5vw] py-[0.38vw] bg-white">
+                                  <div className="flex items-center gap-[0.4vw] border border-gray-200 rounded-[0.4vw] px-[0.6vw] py-[0.52vw] bg-white">
                                     <Icon icon={iconName} className="w-[0.75vw] h-[0.75vw] text-gray-400 shrink-0" />
                                     <span className="text-[0.62vw] text-gray-400 select-none truncate">
                                       {fld.placeholder}
@@ -2265,10 +2309,10 @@ const LeadForm = ({ onBack, settings, onUpdate, pages = [], folderName, bookName
                         </div>
 
                         {/* Submit Button */}
-                        <div className="pt-[1vw] mt-auto">
+                        <div className="pt-[1.2vw] mt-auto">
                           <button
                             type="button"
-                            className="w-full py-[0.45vw] bg-[#0275D8] hover:bg-[#0269C2] text-white rounded-[0.4vw] text-[0.68vw] font-semibold uppercase tracking-wider transition-colors shadow-xs"
+                            className="w-full py-[0.55vw] bg-[#0275D8] hover:bg-[#0269C2] text-white rounded-[0.4vw] text-[0.7vw] font-semibold uppercase tracking-wider transition-colors shadow-xs"
                           >
                             {activeTpl.config.buttonText}
                           </button>
@@ -2367,7 +2411,7 @@ const EmailCustomizationModal = ({ settings, onClose, onSave }) => {
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/45 backdrop-blur-[2px] p-[1vw] animate-in fade-in duration-200">
-      <div 
+      <div
         className="bg-white w-[90vw] max-w-[580px] rounded-[0.8vw] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -2395,11 +2439,10 @@ const EmailCustomizationModal = ({ settings, onClose, onSave }) => {
           <button
             type="button"
             onClick={() => setActiveTab('admin')}
-            className={`flex items-center gap-[0.4vw] px-[0.9vw] py-[0.55vw] text-[0.72vw] font-semibold border-b-2 transition-all ${
-              activeTab === 'admin'
-                ? 'border-indigo-600 text-indigo-700 bg-white rounded-t-[0.4vw]'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
+            className={`flex items-center gap-[0.4vw] px-[0.9vw] py-[0.55vw] text-[0.72vw] font-semibold border-b-2 transition-all ${activeTab === 'admin'
+              ? 'border-indigo-600 text-indigo-700 bg-white rounded-t-[0.4vw]'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
           >
             <Icon icon="lucide:inbox" className="w-[0.85vw] h-[0.85vw]" />
             Lead Alert (Admin Email)
@@ -2407,11 +2450,10 @@ const EmailCustomizationModal = ({ settings, onClose, onSave }) => {
           <button
             type="button"
             onClick={() => setActiveTab('viewer')}
-            className={`flex items-center gap-[0.4vw] px-[0.9vw] py-[0.55vw] text-[0.72vw] font-semibold border-b-2 transition-all ${
-              activeTab === 'viewer'
-                ? 'border-indigo-600 text-indigo-700 bg-white rounded-t-[0.4vw]'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
+            className={`flex items-center gap-[0.4vw] px-[0.9vw] py-[0.55vw] text-[0.72vw] font-semibold border-b-2 transition-all ${activeTab === 'viewer'
+              ? 'border-indigo-600 text-indigo-700 bg-white rounded-t-[0.4vw]'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
           >
             <Icon icon="lucide:check-circle-2" className="w-[0.85vw] h-[0.85vw]" />
             Viewer Confirmation Email
