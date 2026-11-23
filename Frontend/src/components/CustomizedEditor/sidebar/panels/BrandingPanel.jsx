@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
-import { Trash2, ChevronDown, ChevronsLeft } from "lucide-react";
+import { Trash2, ChevronDown, ChevronsLeft, Upload } from "lucide-react";
 import axios from "axios";
 import PremiumDropdown from "../../components/PremiumDropdown";
 import AlertModal from "../../../AlertModal";
@@ -343,6 +343,7 @@ const Branding = ({
       onUpdateWatermark({
         ...watermarkSettings,
         src: uploadedUrl,
+        name: file?.name || "Watermark.png",
         opacity: watermarkSettings?.opacity ?? 64,
         position: watermarkSettings?.position || "Bottom Right",
         adjustments: watermarkSettings?.adjustments ?? {
@@ -362,6 +363,7 @@ const Branding = ({
       onUpdateWatermark({
         ...watermarkSettings,
         src: event.target.result,
+        name: file?.name || "Watermark.png",
         opacity: watermarkSettings?.opacity ?? 64,
         position: watermarkSettings?.position || "Bottom Right",
         adjustments: watermarkSettings?.adjustments ?? {
@@ -827,7 +829,7 @@ const Branding = ({
           <div className="mb-[0.5vw]">
             <div className="flex items-center gap-[0.5vw] mt-[1.5vw]">
               <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">
-                Add Watermark
+                Watermark
               </span>
               <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
               {watermarkSettings?.src && (
@@ -840,11 +842,92 @@ const Branding = ({
               )}
             </div>
           </div>
-          {watermarkSettings?.src ? (
-            <div className="flex flex-col gap-[0.5vw]">
+
+          {/* Select Image Type Dropdown */}
+          <div className="flex items-center justify-between mb-[0.8vw] px-[0.2vw]">
+            <span className="text-[0.8vw] font-medium text-gray-700">
+              Select the Image type :
+            </span>
+            <select
+              value={watermarkSettings?.type || "Fit"}
+              onChange={(e) =>
+                onUpdateWatermark({
+                  ...watermarkSettings,
+                  type: e.target.value,
+                })
+              }
+              className="px-[0.8vw] py-[0.35vw] bg-white border border-gray-300 rounded-[0.4vw] text-[0.78vw] text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer"
+            >
+              <option value="Fit">Fit</option>
+              <option value="Fill">Fill</option>
+              <option value="Stretch">Stretch</option>
+            </select>
+          </div>
+
+          {/* Drag & Drop or Upload Box */}
+          <div className="flex flex-col gap-[0.75vw] mb-[0.8vw]">
+            <div
+              onClick={() => setReplaceTarget("watermark")}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith("image/")) {
+                  handleWatermarkReplace(file);
+                }
+              }}
+              className="w-full h-[6.8vw] border-2 border-dashed border-gray-300 rounded-[0.75vw] bg-white p-[0.8vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#ff5722] hover:bg-orange-50/20 group shadow-sm"
+            >
+              <div className="flex items-center gap-[0.3vw] text-[0.75vw]">
+                <span className="text-gray-500 font-medium">Drag & Drop or</span>
+                <span className="text-[#ff5722] font-semibold hover:underline">Upload</span>
+              </div>
+              <div className="my-[0.35vw] text-gray-400 group-hover:text-[#ff5722] transition-colors">
+                <Upload size="1.2vw" />
+              </div>
+              <span className="text-[0.65vw] text-gray-400 font-medium">
+                Supported File Format : JPG, PNG
+              </span>
+            </div>
+          </div>
+
+          {/* Add URL */}
+          <div className="flex flex-col gap-[0.35vw] mb-[1.2vw]">
+            <span className="text-[0.75vw] font-semibold text-gray-700">
+              Add URL :
+            </span>
+            <input
+              type="text"
+              value={watermarkSettings?.url || ""}
+              onChange={(e) =>
+                onUpdateWatermark({
+                  ...watermarkSettings,
+                  url: e.target.value,
+                })
+              }
+              placeholder="https://"
+              className="w-full px-[0.8vw] py-[0.45vw] bg-white border border-gray-300 rounded-[0.4vw] text-[0.75vw] focus:ring-[0.0625vw] focus:ring-blue-500 focus:outline-none text-gray-700 shadow-sm"
+            >
+            </input>
+          </div>
+
+          {/* Remove or Replace Watermark Section */}
+          {watermarkSettings?.src && (
+            <div className="mb-[1.2vw]">
+              <div className="flex items-center gap-[0.5vw] mb-[0.75vw]">
+                <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap">
+                  Remove or Replace Watermark
+                </span>
+                <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
+              </div>
+
               <div className="flex items-center gap-[1vw]">
-                {/* Thumbnail */}
-                <div className="relative w-[8.5vw] h-[6vw] rounded-[0.4vw] overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200">
+                {/* Thumbnail Preview */}
+                <div className="relative w-[8.5vw] h-[5.5vw] rounded-[0.4vw] overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center border border-gray-200">
                   <img
                     src={watermarkSettings.src}
                     alt="Watermark Thumbnail"
@@ -867,63 +950,46 @@ const Branding = ({
                 </div>
 
                 {/* Info & Actions */}
-                <div className="flex flex-col flex-1 gap-[0.4vw] py-[0.2vw]">
+                <div className="flex flex-col flex-1 gap-[0.35vw] py-[0.2vw]">
                   <div className="flex flex-col gap-[0.1vw]">
-                    <span className="text-[0.9vw] font-medium text-gray-700 truncate w-[10vw]">
-                      Watermark
+                    <span className="text-[0.85vw] font-medium text-gray-800 truncate w-[10vw]">
+                      {watermarkSettings?.name || "Watermark.png"}
                     </span>
-                    <span className="text-[0.75vw] text-gray-400">
+                    <span className="text-[0.72vw] text-gray-400">
                       {watermarkResolution && watermarkFileSize
                         ? `${watermarkResolution} • ${watermarkFileSize}`
                         : watermarkFileSize ||
                           watermarkResolution ||
-                          "Loading size..."}
+                          "1920 X 1080 • 24MB"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-[0.5vw]">
+                  <div className="flex items-center gap-[0.5vw] mt-[0.2vw]">
                     <button
                       onClick={() => setReplaceTarget("watermark")}
-                      className="px-[0.75vw] py-[0.4vw] bg-[#f3f4f6] hover:bg-[#e5e7eb] text-gray-700 text-[0.75vw] font-semibold rounded-[0.4vw] border border-gray-200 cursor-pointer transition-colors"
+                      className="px-[0.75vw] py-[0.35vw] bg-white hover:bg-gray-50 text-gray-700 text-[0.72vw] font-semibold rounded-[0.4vw] border border-gray-300 cursor-pointer transition-colors shadow-sm"
                     >
-                      Replace image
+                      Replace Image
                     </button>
                     <button
                       onClick={() => setDeleteTarget("watermark")}
-                      className="p-[0.45vw] bg-[#f3f4f6] hover:bg-[#fee2e2] text-gray-500 hover:text-red-500 rounded-[0.4vw] border border-gray-200 cursor-pointer transition-colors"
+                      className="p-[0.4vw] bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-[0.4vw] border border-gray-300 cursor-pointer transition-colors shadow-sm"
+                      title="Delete Watermark"
                     >
-                      <Trash2 size="0.95vw" />
+                      <Trash2 size="0.9vw" />
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-[0.75vw] mb-[1vw]">
-              {/* Drag & Drop Box */}
-              <div
-                onClick={() => setReplaceTarget("watermark")}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const file = e.dataTransfer.files[0];
-                  if (file && file.type.startsWith("image/")) {
-                    handleWatermarkReplace(file);
-                  }
-                }}
-                className="w-full h-[7vw] border-2 border-dashed border-gray-400 rounded-[0.75vw] bg-white p-[0.9vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#4c5add] hover:bg-gray-50/50 group shadow-sm"
-              >
-                <div className="flex items-center">
-                  <span className="text-gray-500 text-[0.8vw] font-semibold">
-                    + Add Watermark
-                  </span>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Add Watermark On Pages Header */}
+          <div className="flex items-center gap-[0.5vw] mt-[1vw] mb-[0.75vw]">
+            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap">
+              Add Watermark On Pages
+            </span>
+            <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
+          </div>
           <input
             type="file"
             ref={watermarkFileInputRef}
@@ -2391,6 +2457,7 @@ const Branding = ({
             size="small"
             titleText="Add Image"
             buttonText="Add Image"
+            hideImportViaUrl={true}
             onClose={() => setReplaceTarget(null)}
             onReplace={(file) => {
               if (replaceTarget === "logo") {
