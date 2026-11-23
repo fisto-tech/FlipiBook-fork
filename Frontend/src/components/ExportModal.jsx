@@ -607,7 +607,8 @@ const ExportModal = ({
   currentPageIndex = 0,
   activePages = EMPTY_ACTIVE_PAGES_ARRAY,
   isFromMyFlipbooks = false,
-  isAbsolutePosition = false
+  isAbsolutePosition = false,
+  autoDownloadPDF = false
 }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('flipbook');
@@ -2064,11 +2065,23 @@ const ExportModal = ({
    *  - N pages (non-PDF) -> ZIP
    *  - PDF (any count)   -> single multi-page PDF
    */
-  const handleDownload = async () => {
+  const handleDownload = async (forcedPagesList = null) => {
     if (isDownloading) return;
 
+    const activeFormat = autoDownloadPDF ? 'PDF' : format;
+
     let indices = [];
-    if (exportType === 'selected') {
+    if (forcedPagesList && Array.isArray(forcedPagesList) && forcedPagesList.length > 0) {
+      indices = forcedPagesList;
+    } else if (autoDownloadPDF || exportType === 'entire') {
+      const allCount = modalPages.length || pages.length || (currentBook?.pages?.length) || 0;
+      const currentList = Array.from(selectedPages).filter((n) => n >= 1 && n <= allCount);
+      if (currentList.length > 0) {
+        indices = currentList.map((n) => n - 1).sort((a, b) => a - b);
+      } else {
+        indices = Array.from({ length: allCount }, (_, i) => i);
+      }
+    } else if (exportType === 'selected') {
       const currentList = Array.from(selectedPages).filter((n) => n >= 1 && n <= modalPages.length);
       if (currentList.length > 0) {
         indices = currentList.map((n) => n - 1).sort((a, b) => a - b);
@@ -2080,11 +2093,14 @@ const ExportModal = ({
         .map((n) => n - 1)
         .filter((i) => i >= 0 && i < modalPages.length)
         .sort((a, b) => a - b);
+      if (indices.length === 0 && modalPages.length > 0) {
+        indices = Array.from({ length: modalPages.length }, (_, i) => i);
+      }
     }
 
     if (indices.length === 0) { alert('No pages selected for export.'); return; }
 
-    const { mime, ext } = formatInfo[format] || formatInfo.PNG;
+    const { mime, ext } = formatInfo[activeFormat] || formatInfo.PNG;
     const maxPx = qualityToPx[quality] || 1024;
     const bookName = (currentBook?.flipbookName || currentBook?.title || 'flipbook')
       .replace(/[^a-z0-9_-]/gi, '_');
@@ -2094,7 +2110,7 @@ const ExportModal = ({
 
       // Check if cover image should be included
       let coverCanvas = null;
-      if (includeCover && resolvedCoverPicture) {
+      if (!autoDownloadPDF && includeCover && resolvedCoverPicture) {
         try {
           coverCanvas = await getCoverCanvas(maxPx);
         } catch (cErr) {
@@ -2104,7 +2120,7 @@ const ExportModal = ({
 
       // Check if poster image should be included
       let posterCanvas = null;
-      if (includePoster) {
+      if (!autoDownloadPDF && includePoster) {
         try {
           posterCanvas = await getPosterCanvas(maxPx);
         } catch (pErr) {
@@ -2114,7 +2130,7 @@ const ExportModal = ({
 
       const hasExtraItems = Boolean(coverCanvas || posterCanvas);
 
-      if (format === 'PDF') {
+      if (activeFormat === 'PDF') {
         // ── TRUE VECTOR PDF EXPORT FOR ADOBE ILLUSTRATOR ──────────
         // 1. Prepare each page's SVG:
         //    - Inline referenced images to Base64
@@ -2414,9 +2430,44 @@ const ExportModal = ({
     }
   };
 
+  // Handle auto direct download when autoDownloadPDF is enabled
+  const autoDownloadTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && autoDownloadPDF && modalPages.length > 0 && !isLoadingPages && !isDownloading && !autoDownloadTriggeredRef.current) {
+      autoDownloadTriggeredRef.current = true;
+      setFormat('PDF');
+      setExportType('entire');
+      const allIndices = Array.from({ length: modalPages.length }, (_, i) => i);
+      setSelectedPages(new Set(Array.from({ length: modalPages.length }, (_, i) => i + 1)));
+      setIncludeCover(false);
+      setIncludePoster(false);
+      
+      const timer = setTimeout(() => {
+        handleDownload(allIndices).finally(() => {
+          if (onClose) onClose();
+        });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+    if (!isOpen) {
+      autoDownloadTriggeredRef.current = false;
+    }
+  }, [isOpen, autoDownloadPDF, modalPages.length, isLoadingPages, isDownloading]);
+
   return (
     <>
-      <div className={`${isAbsolutePosition ? 'absolute' : 'fixed'} inset-0 z-[5000] flex items-center justify-center p-[2vw]`}>
+      {autoDownloadPDF && isOpen && (
+        <div className={`${isAbsolutePosition ? 'absolute' : 'fixed'} inset-0 z-[6000] flex items-center justify-center p-[2vw] pointer-events-none`}>
+          <div className="bg-black/85 backdrop-blur-md px-[1.6vw] py-[0.9vw] rounded-full shadow-2xl flex items-center gap-[0.8vw] border border-white/10 animate-in fade-in zoom-in-95 duration-200">
+            <Loader className="w-[1.2vw] h-[1.2vw] text-white animate-spin" />
+            <span className="text-[0.85vw] font-semibold text-white tracking-wide">
+              {isDownloading ? 'Generating & Downloading PDF...' : 'Preparing PDF...'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className={`${isAbsolutePosition ? 'absolute' : 'fixed'} inset-0 z-[5000] flex items-center justify-center p-[2vw] ${autoDownloadPDF ? 'opacity-0 pointer-events-none' : ''}`}>
         {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"

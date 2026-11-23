@@ -887,6 +887,7 @@ const CustomizedEditor = () => {
             bookAppearanceSettings={bookAppearanceSettings}
             menuBarSettings={menuBarSettings}
             leadFormSettings={leadFormSettings}
+            onUpdateLeadForm={setLeadFormSettings}
             profileSettings={profileSettings}
             otherSetupSettings={otherSetupSettings}
             onUpdateOtherSetup={setOtherSetupSettings}

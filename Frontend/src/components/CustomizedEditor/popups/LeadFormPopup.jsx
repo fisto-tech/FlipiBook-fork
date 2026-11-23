@@ -283,6 +283,7 @@ const LeadFormPopup = ({
         const btnFillColor = hexToRgba(leadFormSettings.appearance?.btnFill || '#3E4491', leadFormSettings.appearance?.btnFillOpacity ?? 100);
         const btnTextColor = hexToRgba(leadFormSettings.appearance?.btnText || '#ffffff', leadFormSettings.appearance?.btnTextOpacity ?? 100);
         const btnStrokeColor = hexToRgba(leadFormSettings.appearance?.btnStroke && leadFormSettings.appearance?.btnStroke !== '#' ? leadFormSettings.appearance.btnStroke : '#', leadFormSettings.appearance?.btnStrokeOpacity ?? 100);
+        const inputBgColor = hexToRgba(leadFormSettings.appearance?.inputBg || '#ffffff', leadFormSettings.appearance?.inputBgOpacity ?? 100);
 
         return (
             <div className="absolute inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
@@ -461,9 +462,9 @@ const LeadFormPopup = ({
                                                                 placeholder={field.placeholder || 'Enter your Feedback'}
                                                                 value={formValues[fieldKey] || ''}
                                                                 onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                                                className={`w-full bg-white border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} rounded-lg p-3 text-[12px] font-medium focus:outline-none transition-all resize-none shadow-sm h-20`}
+                                                                className={`w-full border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} rounded-lg p-3 text-[12px] font-medium focus:outline-none transition-all resize-none shadow-sm h-20`}
                                                                 style={{
-                                                                    borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
+                                                                    backgroundColor: inputBgColor, borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
                                                                     color: textFillColor,
                                                                     fontFamily: 'inherit'
                                                                 }}
@@ -527,9 +528,9 @@ const LeadFormPopup = ({
                                                                 <select
                                                                     value={formValues[fieldKey] || ''}
                                                                     onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                                                    className={`w-full bg-white border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} rounded-lg py-2.5 px-3 text-[12px] font-medium focus:outline-none transition-all shadow-sm appearance-none`}
+                                                                    className={`w-full border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} rounded-lg py-2.5 px-3 text-[12px] font-medium focus:outline-none transition-all shadow-sm appearance-none`}
                                                                     style={{
-                                                                        borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
+                                                                        backgroundColor: inputBgColor, borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
                                                                         color: formValues[fieldKey] ? textFillColor : 'inherit',
                                                                         fontFamily: 'inherit'
                                                                     }}
@@ -580,7 +581,7 @@ const LeadFormPopup = ({
                                                                                     }
                                                                                     handleInputChange(fieldKey, newValues);
                                                                                 }}
-                                                                                className={`w-4 h-4 text-[#3E4491] bg-white border ${hasError ? '!border-red-500' : 'border-gray-300'} rounded focus:ring-[#3E4491]`}
+                                                                                className={`w-4 h-4 text-[#3E4491] border ${hasError ? '!border-red-500' : 'border-gray-300'} rounded focus:ring-[#3E4491]`}
                                                                             />
                                                                             <span 
                                                                                 className="text-[12px] font-medium whitespace-nowrap" 
@@ -621,7 +622,7 @@ const LeadFormPopup = ({
                                                                             value={opt}
                                                                             checked={formValues[fieldKey] === opt}
                                                                             onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                                                            className={`w-4 h-4 text-blue-600 bg-white border ${hasError ? '!border-red-500' : 'border-gray-300'} focus:ring-blue-500`}
+                                                                            className={`w-4 h-4 text-blue-600 border ${hasError ? '!border-red-500' : 'border-gray-300'} focus:ring-blue-500`}
                                                                         />
                                                                         <span 
                                                                             className="text-[12px] font-medium" 
@@ -951,9 +952,9 @@ const LeadFormPopup = ({
                                                                 placeholder={field.placeholder || `Enter your ${field.label || field.type}`}
                                                                 value={formValues[fieldKey] || ''}
                                                                 onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                                                className={`w-full bg-white border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} rounded-lg py-2.5 pl-9 pr-3 text-[12px] font-medium focus:outline-none transition-all shadow-sm`}
+                                                                className={`w-full border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} rounded-lg py-2.5 pl-9 pr-3 text-[12px] font-medium focus:outline-none transition-all shadow-sm`}
                                                                 style={{
-                                                                    borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
+                                                                    backgroundColor: inputBgColor, borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
                                                                     color: textFillColor,
                                                                     fontFamily: 'inherit'
                                                                 }}
@@ -1010,6 +1011,7 @@ const LeadFormPopup = ({
     const bgFillColor = hexToRgba(leadFormSettings.appearance?.bgFill || '#ffffff', leadFormSettings.appearance?.bgFillOpacity ?? 100);
     const bgStrokeColor = hexToRgba(leadFormSettings.appearance?.bgStroke && leadFormSettings.appearance?.bgStroke !== '#' ? leadFormSettings.appearance.bgStroke : '#F3F4F6', leadFormSettings.appearance?.bgStrokeOpacity ?? 100);
     const textFillColor = hexToRgba(leadFormSettings.appearance?.textFill || '#111827', leadFormSettings.appearance?.textFillOpacity ?? 100);
+    const inputBgColor = hexToRgba(leadFormSettings.appearance?.inputBg || '#ffffff', leadFormSettings.appearance?.inputBgOpacity ?? 100);
     const textStrokeColor = hexToRgba(leadFormSettings.appearance?.textStroke && leadFormSettings.appearance?.textStroke !== '#' ? leadFormSettings.appearance.textStroke : '#', leadFormSettings.appearance?.textStrokeOpacity ?? 100);
     const btnFillColor = hexToRgba(leadFormSettings.appearance?.btnFill || '#3E4491', leadFormSettings.appearance?.btnFillOpacity ?? 100);
     const btnTextColor = hexToRgba(leadFormSettings.appearance?.btnText || '#ffffff', leadFormSettings.appearance?.btnTextOpacity ?? 100);
@@ -1194,9 +1196,9 @@ const LeadFormPopup = ({
                                                                 placeholder={field.placeholder || 'Enter your Feedback'}
                                                                 value={formValues[fieldKey] || ''}
                                                                 onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                                                className={`w-full bg-white border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} ${isTablet ? 'rounded-[0.4vw] p-[0.8vw] text-[0.5vw] h-[6vw]' : 'rounded-[0.6vw] p-[1vw] text-[0.75vw] h-[8vw]'} font-medium focus:outline-none transition-all resize-none shadow-sm`}
+                                                                className={`w-full border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} ${isTablet ? 'rounded-[0.4vw] p-[0.8vw] text-[0.5vw] h-[6vw]' : 'rounded-[0.6vw] p-[1vw] text-[0.75vw] h-[8vw]'} font-medium focus:outline-none transition-all resize-none shadow-sm`}
                                                                 style={{
-                                                                    borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
+                                                                    backgroundColor: inputBgColor, borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
                                                                     color: textFillColor,
                                                                     fontFamily: 'inherit'
                                                                 }}
@@ -1207,9 +1209,9 @@ const LeadFormPopup = ({
                                                                 <select
                                                                     value={formValues[fieldKey] || ''}
                                                                     onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                                                    className={`w-full bg-white border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} ${isTablet ? 'rounded-[0.4vw] py-[0.5vw] px-[0.8vw] text-[0.5vw]' : 'rounded-[0.6vw] py-[0.5vw] px-[0.9vw] text-[0.75vw]'} font-medium focus:outline-none transition-all shadow-sm appearance-none`}
+                                                                    className={`w-full border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} ${isTablet ? 'rounded-[0.4vw] py-[0.5vw] px-[0.8vw] text-[0.5vw]' : 'rounded-[0.6vw] py-[0.5vw] px-[0.9vw] text-[0.75vw]'} font-medium focus:outline-none transition-all shadow-sm appearance-none`}
                                                                     style={{
-                                                                        borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
+                                                                        backgroundColor: inputBgColor, borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
                                                                         color: formValues[fieldKey] ? textFillColor : 'inherit',
                                                                         fontFamily: 'inherit'
                                                                     }}
@@ -1272,7 +1274,7 @@ const LeadFormPopup = ({
                                                                                     }
                                                                                     handleInputChange(fieldKey, newValues);
                                                                                 }}
-                                                                                className={`${isTablet ? 'w-[0.8vw] h-[0.8vw]' : 'w-[1vw] h-[1vw]'} text-[#3E4491] bg-white border ${hasError ? '!border-red-500' : 'border-gray-300'} rounded focus:ring-[#3E4491]`}
+                                                                                className={`${isTablet ? 'w-[0.8vw] h-[0.8vw]' : 'w-[1vw] h-[1vw]'} text-[#3E4491] border ${hasError ? '!border-red-500' : 'border-gray-300'} rounded focus:ring-[#3E4491]`}
                                                                             />
                                                                             <span
                                                                                 className={`${isTablet ? 'text-[0.6vw]' : 'text-[0.75vw]'} font-medium whitespace-nowrap`}
@@ -1298,7 +1300,7 @@ const LeadFormPopup = ({
                                                                             value={opt}
                                                                             checked={formValues[fieldKey] === opt}
                                                                             onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                                                            className={`${isTablet ? 'w-[0.8vw] h-[0.8vw]' : 'w-[1vw] h-[1vw]'} text-[#3E4491] bg-white border ${hasError ? '!border-red-500' : 'border-gray-300'} focus:ring-[#3E4491]`}
+                                                                            className={`${isTablet ? 'w-[0.8vw] h-[0.8vw]' : 'w-[1vw] h-[1vw]'} text-[#3E4491] border ${hasError ? '!border-red-500' : 'border-gray-300'} focus:ring-[#3E4491]`}
                                                                         />
                                                                         <span
                                                                             className={`${isTablet ? 'text-[0.6vw]' : 'text-[0.75vw]'} font-medium`}
@@ -1573,9 +1575,9 @@ const LeadFormPopup = ({
                                                                     placeholder={field.placeholder || `Enter your ${field.label || field.type}`}
                                                                     value={formValues[fieldKey] || ''}
                                                                     onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                                                    className={`w-full bg-white border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} ${isTablet ? 'rounded-[0.4vw] py-[0.5vw] pl-[2.5vw] pr-[0.8vw] text-[0.5vw]' : 'rounded-[0.6vw] py-[0.5vw] pl-[3.5vw] pr-[0.9vw] text-[0.75vw]'} font-medium focus:outline-none transition-all shadow-sm`}
+                                                                    className={`w-full border ${hasError ? '!border-red-500 ring-2 ring-red-100' : ''} ${isTablet ? 'rounded-[0.4vw] py-[0.5vw] pl-[2.5vw] pr-[0.8vw] text-[0.5vw]' : 'rounded-[0.6vw] py-[0.5vw] pl-[3.5vw] pr-[0.9vw] text-[0.75vw]'} font-medium focus:outline-none transition-all shadow-sm`}
                                                                     style={{
-                                                                        borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
+                                                                        backgroundColor: inputBgColor, borderColor: hasError ? '#EF4444' : (bgStrokeColor !== 'transparent' && bgStrokeColor !== '#' ? bgStrokeColor : '#D1D5DB'),
                                                                         color: textFillColor,
                                                                         fontFamily: 'inherit'
                                                                     }}
