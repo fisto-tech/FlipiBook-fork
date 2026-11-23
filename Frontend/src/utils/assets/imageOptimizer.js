@@ -21,8 +21,28 @@ import { startInFlightActivity, endInFlightActivity } from '../storage/saveLockM
  * @param {number} [minBytes=307200] - 300KB threshold
  * @returns {boolean}
  */
-export function shouldOptimizeImage(input, minBytes = 300 * 1024) {
-  // Preserve full original image resolution and quality in the editor so zooming does not lose sharpness
+export function shouldOptimizeImage(input, minBytes = 3 * 1024 * 1024) {
+  if (!input) return false;
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/storage/') || trimmed.startsWith('blob:') || trimmed.startsWith('../assets/')) {
+      return false; // Already hosted or memory-managed blob
+    }
+    if (trimmed.startsWith('data:image/svg+xml') || trimmed.startsWith('data:image/gif')) {
+      return false; // Vector or animated
+    }
+    if (trimmed.startsWith('data:image/')) {
+      return trimmed.length > (minBytes * 1.33); // Heavy base64 string (> 3MB)
+    }
+    return false;
+  }
+  if (input instanceof Blob || (typeof File !== 'undefined' && input instanceof File)) {
+    const type = input.type || '';
+    if (type.includes('svg') || type.includes('gif') || type.startsWith('video/')) {
+      return false;
+    }
+    return input.size > minBytes;
+  }
   return false;
 }
 
@@ -31,18 +51,18 @@ export function shouldOptimizeImage(input, minBytes = 300 * 1024) {
  * 
  * @param {File|Blob|string} fileOrDataUrl - The raw input file, blob, or base64 dataUrl.
  * @param {Object} [options]
- * @param {number} [options.maxDimension=2048] - Max width or height in pixels.
- * @param {number} [options.quality=0.82] - WebP / JPEG compression quality (0.0 to 1.0).
+ * @param {number} [options.maxDimension=3840] - 4K UHD max width/height in pixels.
+ * @param {number} [options.quality=0.94] - Visually lossless quality (0.0 to 1.0).
  * @param {string} [options.preferredFormat='image/webp'] - Target format ('image/webp' or 'image/jpeg').
- * @param {number} [options.minBytes=307200] - Skip if under this byte size (default 300KB).
+ * @param {number} [options.minBytes=3145728] - Skip if under this byte size (default 3MB).
  * @returns {Promise<{ file: File, dataUrl: string, width: number, height: number, originalSize: number, compressedSize: number, isBypassed?: boolean }>}
  */
 export async function optimizeImageForWeb(fileOrDataUrl, options = {}) {
   const {
-    maxDimension = 2048,
-    quality = 0.82,
+    maxDimension = 3840,
+    quality = 0.94,
     preferredFormat = 'image/webp',
-    minBytes = 300 * 1024,
+    minBytes = 3 * 1024 * 1024,
   } = options;
 
   if (!fileOrDataUrl) {

@@ -368,16 +368,33 @@ const ShapeProperties = ({
     setIsCompressingShapeImage(true);
 
     try {
-      // Load pristine original image without lossy compression so zooming retains 100% sharpness
-      const finalDataUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (event) => resolve(event.target.result);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(file);
-      });
+      let finalDataUrl = null;
+      let compBytes = file.size;
+
+      // Smart Gate: If raw image is very heavy (> 3MB), optimize off-thread to 4K UHD @ 0.94 quality
+      // so 10+ images won't hang the canvas, while keeping crisp detail at high zoom.
+      if (shouldOptimizeImage(file)) {
+        try {
+          const opt = await optimizeImageForWeb(file, { maxDimension: 3840, quality: 0.94 });
+          if (opt?.dataUrl) {
+            finalDataUrl = opt.dataUrl;
+            compBytes = opt.compressedSize || compBytes;
+          }
+        } catch (optErr) {
+          console.warn('[ShapeProperties] Optimization fallback:', optErr);
+        }
+      }
+
+      if (!finalDataUrl) {
+        finalDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve(event.target.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+      }
 
       if (finalDataUrl) {
-        const compBytes = file.size;
         const sizeStr = compBytes > 1024 * 1024
           ? `${(compBytes / (1024 * 1024)).toFixed(1)}MB`
           : `${Math.round(compBytes / 1024)}KB`;

@@ -781,7 +781,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
 
       if (shouldOptimizeImage(file)) {
         try {
-          const opt = await optimizeImageForWeb(file, { maxDimension: 1200, quality: 0.82 });
+          const opt = await optimizeImageForWeb(file, { maxDimension: 3840, quality: 0.94 });
           if (opt?.file || opt?.blob) {
             finalBlobUrl = createManagedBlobUrl(opt.file || opt.blob, 'framing_slot');
             imgWidth = opt.width;
@@ -1281,6 +1281,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
 
         imageNode.setAttribute('href', dataUrl);
         imageNode.setAttribute('xlink:href', dataUrl);
+        imageNode.setAttribute('style', 'image-rendering: auto; image-rendering: smooth;');
 
         const curOpacity = shapeEl.getAttribute('data-slot-opacity') || selectedElement.getAttribute('data-slot-opacity');
         if (curOpacity !== null && curOpacity !== undefined && curOpacity !== '') {

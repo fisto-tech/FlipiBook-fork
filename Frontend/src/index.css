@@ -2,8 +2,8 @@
 
 /* High-fidelity SVG image rendering for crisp canvas zoom */
 svg image, svg pattern image {
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: high-quality;
+  image-rendering: auto;
+  image-rendering: smooth;
 }
 
 @layer base {

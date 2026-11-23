@@ -101,7 +101,7 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
 
         if (mediaType === 'image' && shouldOptimizeImage(newFile)) {
           try {
-            const opt = await optimizeImageForWeb(newFile, { maxDimension: 2048, quality: 0.82 });
+            const opt = await optimizeImageForWeb(newFile, { maxDimension: 3840, quality: 0.94 });
             if (opt?.file) {
               newFile = opt.file;
               tempUrl = opt.dataUrl || createManagedBlobUrl(newFile, 'replace_modal');
@@ -504,7 +504,7 @@ const ReplaceMediaModal = ({ show, onClose, onReplace, mediaType = 'image', titl
                   let newUrl = createManagedBlobUrl(newFile, 'replace_modal');
                   if (mediaType === 'image' && shouldOptimizeImage(newFile)) {
                     try {
-                      const opt = await optimizeImageForWeb(newFile, { maxDimension: 2048, quality: 0.82 });
+                      const opt = await optimizeImageForWeb(newFile, { maxDimension: 3840, quality: 0.94 });
                       if (opt?.file) {
                         newFile = opt.file;
                         newUrl = opt.dataUrl || createManagedBlobUrl(newFile, 'replace_modal');

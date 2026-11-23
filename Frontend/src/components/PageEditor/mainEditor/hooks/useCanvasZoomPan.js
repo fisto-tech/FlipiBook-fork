@@ -82,7 +82,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -96,7 +96,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -229,7 +229,7 @@ export const useCanvasZoomPan = ({
           currentZoomRef.current = nextZoom;
           currentPanRef.current = nextPan;
           if (zoomContainerRef.current) {
-            zoomContainerRef.current.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0px) scale(${nextZoom / 100})`;
+            zoomContainerRef.current.style.transform = `translate(${clampedX}px, ${clampedY}px) scale(${nextZoom / 100})`;
           }
           window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextPan }));
 
@@ -328,7 +328,7 @@ export const useCanvasZoomPan = ({
 
           if (zoomContainerRef.current) {
             zoomContainerRef.current.style.transition = 'none';
-            zoomContainerRef.current.style.transform = `translate3d(${stepX}px, ${stepY}px, 0px) scale(${scale})`;
+            zoomContainerRef.current.style.transform = `translate(${stepX}px, ${stepY}px) scale(${scale})`;
           }
           window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextP }));
 
