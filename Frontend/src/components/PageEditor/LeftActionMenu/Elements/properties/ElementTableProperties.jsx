@@ -25,7 +25,11 @@ import {
   Underline,
   Strikethrough,
   Combine,
-  Split
+  Split,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { TableMatrix } from '../helpers/TableMatrix';
@@ -988,6 +992,13 @@ const ElementTableProperties = ({
     if (!selectedKeys || selectedKeys.size === 0 || !wrapper) return;
 
     const highlightColor = '#EA543A';
+    // Thin selection stroke, constant ON SCREEN (~1.25px) whatever the canvas zoom / table scale:
+    // convert screen px into the wrapper's own units (the table is scaled up inside the canvas)
+    const wrapperScreenScale = (() => {
+      const wr = wrapper.getBoundingClientRect();
+      return (wr.width > 0 && wrapper.offsetWidth > 0) ? wr.width / wrapper.offsetWidth : 1;
+    })();
+    const highlightStroke = Math.max(0.2, 1.25 / (wrapperScreenScale || 1));
     const selectedCells = [];
     const entries = [];
 
@@ -1019,31 +1030,17 @@ const ElementTableProperties = ({
     const bWidth = parseFloat(el?.getAttribute('data-border-width') || borderWidth || '1') || 1;
 
     // Helper to calculate exact local coordinates of a cell relative to wrapper
+    // Measured from real on-screen rects (scaled back to the wrapper's own units). Summing
+    // offsetLeft/offsetTop through offsetParents is unreliable inside an SVG foreignObject and with
+    // border-collapse tables in Chrome — it put the highlight about one border-width up/left of the cell.
     const getCellLocalRect = (cell) => {
-      if (cell && wrapper) {
-        let l = 0;
-        let t = 0;
-        let curr = cell;
-        while (curr && curr !== wrapper && curr !== document.body && curr !== document.documentElement) {
-          l += curr.offsetLeft || 0;
-          t += curr.offsetTop || 0;
-          if (curr.offsetParent === wrapper) {
-            break;
-          }
-          curr = curr.offsetParent;
-        }
-        const w = cell.offsetWidth || cell.clientWidth || 0;
-        const h = cell.offsetHeight || cell.clientHeight || 0;
-        if (w > 0 && h > 0) {
-          return { left: l, top: t, right: l + w, bottom: t + h, width: w, height: h };
-        }
-      }
       const wrapperRect = wrapper.getBoundingClientRect();
       const cRect = cell.getBoundingClientRect();
       const sX = (wrapperRect.width > 0 && wrapper.offsetWidth > 0) ? (wrapperRect.width / wrapper.offsetWidth) : 1;
       const sY = (wrapperRect.height > 0 && wrapper.offsetHeight > 0) ? (wrapperRect.height / wrapper.offsetHeight) : sX;
-      const l = (cRect.left - wrapperRect.left) / sX;
-      const t = (cRect.top - wrapperRect.top) / sY;
+      // absolute children are positioned from the wrapper's padding box → skip its own border
+      const l = (cRect.left - wrapperRect.left) / sX - (wrapper.clientLeft || 0);
+      const t = (cRect.top - wrapperRect.top) / sY - (wrapper.clientTop || 0);
       const w = cRect.width / sX;
       const h = cRect.height / sY;
       return { left: l, top: t, right: l + w, bottom: t + h, width: w, height: h };
@@ -1067,19 +1064,18 @@ const ElementTableProperties = ({
       overlay.className = 'table-cell-selection-overlay';
       overlay.setAttribute(
         'style',
-        `position:absolute;left:${minLeft}px;top:${minTop}px;width:${Math.max(1, maxRight - minLeft)}px;height:${Math.max(1, maxBottom - minTop)}px;border:${bWidth}px solid ${highlightColor};box-sizing:border-box;pointer-events:none;z-index:9999;border-radius:0px;`
+        `position:absolute;left:${minLeft}px;top:${minTop}px;width:${Math.max(1, maxRight - minLeft)}px;height:${Math.max(1, maxBottom - minTop)}px;border:${highlightStroke}px solid ${highlightColor};box-sizing:border-box;pointer-events:none;z-index:9999;border-radius:0px;`
       );
       wrapper.appendChild(overlay);
     } else {
       // Disjoint multi-cell selection: create an individual overlay box for each selected cell
       selectedCells.forEach(cell => {
-        const cellBWidth = parseFloat(cell.getAttribute('data-cell-border-width') || bWidth) || bWidth;
         const rect = getCellLocalRect(cell);
         const overlay = document.createElement('div');
         overlay.className = 'table-cell-selection-overlay';
         overlay.setAttribute(
           'style',
-          `position:absolute;left:${rect.left}px;top:${rect.top}px;width:${Math.max(1, rect.width)}px;height:${Math.max(1, rect.height)}px;border:${cellBWidth}px solid ${highlightColor};box-sizing:border-box;pointer-events:none;z-index:9999;border-radius:0px;`
+          `position:absolute;left:${rect.left}px;top:${rect.top}px;width:${Math.max(1, rect.width)}px;height:${Math.max(1, rect.height)}px;border:${highlightStroke}px solid ${highlightColor};box-sizing:border-box;pointer-events:none;z-index:9999;border-radius:0px;`
         );
         wrapper.appendChild(overlay);
       });
@@ -2153,130 +2149,289 @@ const ElementTableProperties = ({
     syncChanges(el);
   }, [backgroundColor, themeColor, themeOpacity, borderColor, borderOpacity, borderWidth, borderStyle, getTargetElement, getTargetCells, initTableResizers, syncChanges]);
 
-  // Structure manipulation: Add / Remove Row
-  const handleAddRow = () => {
-    const el = getTargetElement();
-    if (!el) return;
-    const table = el.querySelector('table');
-    const tbody = table?.querySelector('tbody') || table;
-    if (!tbody) return;
+  // ── Structure engine (merge-aware, selection-aware) ─────────────────────────────────────────
+  // Rows / columns are inserted next to the selected cell(s) (or at the end with nothing selected),
+  // delete removes the selected rows / columns (or the last one), merged cells grow / shrink instead
+  // of breaking, column widths are kept, and the cell highlight is redrawn on the same cells.
+  const makeTableCell = () => {
+    const td = document.createElement('td');
+    td.style.border = `${borderWidth}px ${borderStyle} ${hexToRgba(borderColor, borderOpacity)}`;
+    td.style.padding = `${paddingY}px ${paddingX}px`;
+    td.style.backgroundColor = hexToRgba(themeColor, themeOpacity);
+    td.style.color = cellColor;
+    td.style.textAlign = textAlign;
+    td.style.verticalAlign = verticalAlign;
+    td.style.boxSizing = 'border-box';
+    td.style.wordBreak = 'break-word';
+    td.style.userSelect = 'none';
+    td.style.cursor = 'default';
+    td.style.outline = 'none';
+    return td;
+  };
 
-    const currentTrs = tbody.querySelectorAll('tr');
-    const newRowCount = currentTrs.length + 1;
-    const currentCols = currentTrs[0]?.children?.length || colsCount;
+  // Logical grid: grid[r][c] -> the cell covering that slot (merged cells cover several slots)
+  const buildTableGrid = (table) => {
+    const trs = Array.from(table.querySelectorAll('tr'));
+    const grid = trs.map(() => []);
+    trs.forEach((tr, r) => {
+      let c = 0;
+      Array.from(tr.children).forEach((td) => {
+        const tag = td.tagName.toLowerCase();
+        if (tag !== 'td' && tag !== 'th') return;
+        while (grid[r][c] !== undefined) c++;
+        const cs = parseInt(td.getAttribute('colspan') || '1', 10);
+        const rs = parseInt(td.getAttribute('rowspan') || '1', 10);
+        for (let dr = 0; dr < rs; dr++) {
+          for (let dc = 0; dc < cs; dc++) {
+            if (!grid[r + dr]) grid[r + dr] = [];
+            grid[r + dr][c + dc] = td;
+          }
+        }
+        td.__gr = r; td.__gc = c; td.__rs = rs; td.__cs = cs;
+        c += cs;
+      });
+    });
+    const totalCols = grid.reduce((m, row) => Math.max(m, row.length), 0);
+    return { trs, grid, totalCols };
+  };
+
+  // Bounds of the selected cells in grid slots (merged cells count with their full span)
+  const getSelectionBounds = (table) => {
+    const keys = selectedCellKeysRef.current;
+    if (!keys || keys.size === 0) return null;
+    let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
+    keys.forEach((k) => {
+      const [r, c] = k.split('_').map(Number);
+      if (Number.isNaN(r) || Number.isNaN(c)) return;
+      const cell = table.querySelector(`td[data-row="${r}"][data-col="${c}"], th[data-row="${r}"][data-col="${c}"]`);
+      const rs = cell ? parseInt(cell.getAttribute('rowspan') || '1', 10) : 1;
+      const cs = cell ? parseInt(cell.getAttribute('colspan') || '1', 10) : 1;
+      minR = Math.min(minR, r); maxR = Math.max(maxR, r + rs - 1);
+      minC = Math.min(minC, c); maxC = Math.max(maxC, c + cs - 1);
+    });
+    return Number.isFinite(minR) ? { minR, maxR, minC, maxC } : null;
+  };
+
+  const readColWidths = (table, totalCols) => {
+    const cols = Array.from(table.querySelectorAll('colgroup col'));
+    if (cols.length === totalCols) {
+      return cols.map((col) => parseFloat(col.style.width) || (100 / totalCols));
+    }
+    return Array.from({ length: totalCols }, () => 100 / totalCols);
+  };
+
+  const writeColWidths = (table, widths) => {
+    const sum = widths.reduce((a, b) => a + b, 0) || 1;
+    let colgroup = table.querySelector('colgroup');
+    if (!colgroup) {
+      colgroup = document.createElement('colgroup');
+      table.insertBefore(colgroup, table.firstChild);
+    }
+    colgroup.innerHTML = '';
+    widths.forEach((w) => {
+      const col = document.createElement('col');
+      col.style.width = `${((w / sum) * 100).toFixed(3)}%`;
+      colgroup.appendChild(col);
+    });
+  };
+
+  // Re-index cells, keep colgroup / counts in sync, re-select and redraw the highlight
+  const finishStructureChange = (el, table, pickKeys) => {
+    const trs = Array.from(table.querySelectorAll('tr'));
+    const rowHeightPct = (100 / Math.max(1, trs.length)).toFixed(3);
+    trs.forEach((tr) => { tr.style.height = `${rowHeightPct}%`; tr.style.boxSizing = 'border-box'; });
+
+    attachCellListeners(el); // re-writes data-row / data-col from the new layout
+    const { totalCols } = ensureColGroup(table);
+
+    setRowsCount(trs.length);
+    setColsCount(totalCols);
+    el.setAttribute('data-rows', String(trs.length));
+    el.setAttribute('data-cols', String(totalCols));
+
+    let nextKeys = typeof pickKeys === 'function' ? pickKeys() : null;
+    if (nextKeys) {
+      // keep only keys that point at a real cell after the change
+      nextKeys = new Set([...nextKeys].filter((k) => {
+        const [r, c] = k.split('_');
+        return !!table.querySelector(`td[data-row="${r}"][data-col="${c}"], th[data-row="${r}"][data-col="${c}"]`);
+      }));
+      selectedCellKeysRef.current = nextKeys;
+      setSelectedCellKeys(new Set(nextKeys));
+      if (nextKeys.size === 1) {
+        const [r, c] = [...nextKeys][0].split('_').map(Number);
+        lastAnchorRef.current = { r, c };
+        const td = table.querySelector(`td[data-row="${r}"][data-col="${c}"], th[data-row="${r}"][data-col="${c}"]`);
+        setSelectedCellText(td?.textContent || '');
+      }
+    }
+    applyBorderHighlight(table, selectedCellKeysRef.current || new Set());
+    requestAnimationFrame(() => applyBorderHighlightRef.current?.(table, selectedCellKeysRef.current || new Set()));
+    initTableResizers(table);
+    syncChanges(el);
+    setStructureVersion((v) => v + 1);
+    window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: el.id } }));
+  };
+
+  const shiftKeys = (axis, from) => () => {
+    const keys = selectedCellKeysRef.current;
+    if (!keys || keys.size === 0) return null;
+    return new Set([...keys].map((k) => {
+      const [r, c] = k.split('_').map(Number);
+      if (axis === 'r') return `${r >= from ? r + 1 : r}_${c}`;
+      return `${r}_${c >= from ? c + 1 : c}`;
+    }));
+  };
+
+  // Insert a row above / below the selection (end of table when nothing is selected)
+  const insertRow = (where = 'below') => {
+    const el = getTargetElement();
+    const table = el?.querySelector('table');
+    if (!table) return;
+    const { trs, grid, totalCols } = buildTableGrid(table);
+    if (trs.length === 0) return;
+    const b = getSelectionBounds(table);
+    const at = b ? (where === 'above' ? b.minR : b.maxR + 1) : trs.length;
 
     const newTr = document.createElement('tr');
     newTr.style.boxSizing = 'border-box';
-    const colWidthPct = (100 / currentCols).toFixed(3);
-
-    for (let c = 0; c < currentCols; c++) {
-      const newTd = document.createElement('td');
-      newTd.style.width = `${colWidthPct}%`;
-      newTd.style.border = `${borderWidth}px ${borderStyle} ${hexToRgba(borderColor, borderOpacity)}`;
-      newTd.style.padding = `${paddingY}px ${paddingX}px`;
-      newTd.style.backgroundColor = hexToRgba(themeColor, themeOpacity);
-      newTd.style.color = cellColor;
-      newTd.style.textAlign = textAlign;
-      newTd.style.verticalAlign = verticalAlign;
-      newTd.style.boxSizing = 'border-box';
-      newTd.style.userSelect = 'none';
-      newTd.style.cursor = 'default';
-      newTr.appendChild(newTd);
+    const grown = new Set();
+    for (let c = 0; c < totalCols; c++) {
+      const above = at > 0 ? grid[at - 1]?.[c] : null;
+      const below = grid[at]?.[c];
+      if (above && above === below) {
+        // a merged cell spans across the new row: stretch it instead of adding a cell
+        if (!grown.has(above)) { above.setAttribute('rowspan', String(above.__rs + 1)); grown.add(above); }
+        continue;
+      }
+      newTr.appendChild(makeTableCell());
     }
-    tbody.appendChild(newTr);
+    if (at >= trs.length) trs[trs.length - 1].parentNode.appendChild(newTr);
+    else trs[at].parentNode.insertBefore(newTr, trs[at]);
 
-    const rowHeightPct = (100 / newRowCount).toFixed(3);
-    tbody.querySelectorAll('tr').forEach(tr => {
-      tr.style.height = `${rowHeightPct}%`;
-    });
-
-    setRowsCount(newRowCount);
-    el.setAttribute('data-rows', String(newRowCount));
-    attachCellListeners(el);
-    syncChanges(el);
+    finishStructureChange(el, table, where === 'above' ? shiftKeys('r', at) : () => selectedCellKeysRef.current);
   };
 
-  const handleDeleteRow = () => {
+  // Insert a column left / right of the selection (end of table when nothing is selected)
+  const insertColumn = (where = 'right') => {
     const el = getTargetElement();
-    if (!el) return;
-    const table = el.querySelector('table');
-    const tbody = table?.querySelector('tbody') || table;
-    if (!tbody) return;
+    const table = el?.querySelector('table');
+    if (!table) return;
+    const { trs, grid, totalCols } = buildTableGrid(table);
+    if (trs.length === 0) return;
+    const b = getSelectionBounds(table);
+    const at = b ? (where === 'left' ? b.minC : b.maxC + 1) : totalCols;
 
-    const currentTrs = tbody.querySelectorAll('tr');
-    if (currentTrs.length <= 1) return;
-
-    currentTrs[currentTrs.length - 1].remove();
-    const newRowCount = currentTrs.length - 1;
-    const rowHeightPct = (100 / newRowCount).toFixed(3);
-    tbody.querySelectorAll('tr').forEach(tr => {
-      tr.style.height = `${rowHeightPct}%`;
+    const widths = readColWidths(table, totalCols);
+    const grown = new Set();
+    trs.forEach((tr, r) => {
+      const left = at > 0 ? grid[r]?.[at - 1] : null;
+      const right = grid[r]?.[at];
+      if (left && left === right) {
+        if (!grown.has(left)) { left.setAttribute('colspan', String(left.__cs + 1)); grown.add(left); }
+        return;
+      }
+      const td = makeTableCell();
+      // before the first cell that STARTS in this row at/after the insertion column
+      const ref = Array.from(tr.children).find((x) => x.__gr === r && x.__gc >= at);
+      if (ref) tr.insertBefore(td, ref); else tr.appendChild(td);
     });
+    const neighbour = widths[Math.min(Math.max(at - 1, 0), widths.length - 1)] || (100 / totalCols);
+    widths.splice(at, 0, neighbour);
+    writeColWidths(table, widths);
 
-    setRowsCount(newRowCount);
-    el.setAttribute('data-rows', String(newRowCount));
-    syncChanges(el);
+    finishStructureChange(el, table, where === 'left' ? shiftKeys('c', at) : () => selectedCellKeysRef.current);
   };
 
-  // Structure manipulation: Add / Remove Column
-  const handleAddColumn = () => {
+  // Delete the selected rows (last row when nothing is selected)
+  const deleteRows = () => {
     const el = getTargetElement();
-    if (!el) return;
-    const table = el.querySelector('table');
-    const trs = table?.querySelectorAll('tr');
-    if (!trs || trs.length === 0) return;
+    const table = el?.querySelector('table');
+    if (!table) return;
+    const { trs, grid, totalCols } = buildTableGrid(table);
+    const b = getSelectionBounds(table);
+    const minR = b ? b.minR : trs.length - 1;
+    const maxR = b ? b.maxR : trs.length - 1;
+    if (trs.length - (maxR - minR + 1) < 1) return; // keep at least one row
 
-    const newColCount = (trs[0].children?.length || colsCount) + 1;
-    const colWidthPct = (100 / newColCount).toFixed(3);
+    const handled = new Set();
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = 0; c < totalCols; c++) {
+        const cell = grid[r]?.[c];
+        if (!cell || handled.has(cell)) continue;
+        handled.add(cell);
+        const start = cell.__gr;
+        const end = start + cell.__rs - 1;
+        const overlap = Math.min(end, maxR) - Math.max(start, minR) + 1;
+        const newRs = cell.__rs - overlap;
+        if (newRs <= 0) { cell.remove(); continue; }
+        if (newRs === 1) cell.removeAttribute('rowspan'); else cell.setAttribute('rowspan', String(newRs));
+        if (start >= minR) {
+          // its home row is going away: move it down into the first remaining row
+          const destTr = trs[maxR + 1];
+          if (destTr) {
+            const ref = Array.from(destTr.children).find((x) => x.__gr === maxR + 1 && x.__gc > cell.__gc);
+            if (ref) destTr.insertBefore(cell, ref); else destTr.appendChild(cell);
+          }
+        }
+      }
+    }
+    for (let r = maxR; r >= minR; r--) trs[r]?.remove();
 
-    trs.forEach((tr, rIdx) => {
-      const newTd = document.createElement('td');
-      newTd.style.width = `${colWidthPct}%`;
-      newTd.style.border = `${borderWidth}px ${borderStyle} ${hexToRgba(borderColor, borderOpacity)}`;
-      newTd.style.padding = `${paddingY}px ${paddingX}px`;
-      newTd.style.backgroundColor = hexToRgba(themeColor, themeOpacity);
-      newTd.style.color = cellColor;
-      newTd.style.textAlign = textAlign;
-      newTd.style.verticalAlign = verticalAlign;
-      newTd.style.boxSizing = 'border-box';
-      newTd.style.userSelect = 'none';
-      newTd.style.cursor = 'default';
-      tr.appendChild(newTd);
-
-      Array.from(tr.children).forEach(cell => {
-        cell.style.width = `${colWidthPct}%`;
-      });
+    const keepC = b ? b.minC : 0;
+    finishStructureChange(el, table, () => {
+      if (!b) return selectedCellKeysRef.current;
+      const rows = table.querySelectorAll('tr').length;
+      const r = Math.min(minR, rows - 1);
+      const { grid: g } = buildTableGrid(table);
+      const cell = g[r]?.[Math.min(keepC, (g[r]?.length || 1) - 1)];
+      return cell ? new Set([`${cell.__gr}_${cell.__gc}`]) : new Set();
     });
-
-    setColsCount(newColCount);
-    el.setAttribute('data-cols', String(newColCount));
-    attachCellListeners(el);
-    syncChanges(el);
   };
 
-  const handleDeleteColumn = () => {
+  // Delete the selected columns (last column when nothing is selected)
+  const deleteColumns = () => {
     const el = getTargetElement();
-    if (!el) return;
-    const table = el.querySelector('table');
-    const trs = table?.querySelectorAll('tr');
-    if (!trs || trs.length === 0 || trs[0].children.length <= 1) return;
+    const table = el?.querySelector('table');
+    if (!table) return;
+    const { trs, grid, totalCols } = buildTableGrid(table);
+    const b = getSelectionBounds(table);
+    const minC = b ? b.minC : totalCols - 1;
+    const maxC = b ? b.maxC : totalCols - 1;
+    if (totalCols - (maxC - minC + 1) < 1) return; // keep at least one column
 
-    const newColCount = trs[0].children.length - 1;
-    const colWidthPct = (100 / newColCount).toFixed(3);
-
-    trs.forEach(tr => {
-      const lastCell = tr.children[tr.children.length - 1];
-      if (lastCell) lastCell.remove();
-
-      Array.from(tr.children).forEach(cell => {
-        cell.style.width = `${colWidthPct}%`;
-      });
+    const widths = readColWidths(table, totalCols);
+    const handled = new Set();
+    trs.forEach((_, r) => {
+      for (let c = minC; c <= maxC; c++) {
+        const cell = grid[r]?.[c];
+        if (!cell || handled.has(cell)) continue;
+        handled.add(cell);
+        const start = cell.__gc;
+        const end = start + cell.__cs - 1;
+        const overlap = Math.min(end, maxC) - Math.max(start, minC) + 1;
+        const newCs = cell.__cs - overlap;
+        if (newCs <= 0) { cell.remove(); continue; }
+        if (newCs === 1) cell.removeAttribute('colspan'); else cell.setAttribute('colspan', String(newCs));
+      }
     });
+    widths.splice(minC, maxC - minC + 1);
+    writeColWidths(table, widths);
 
-    setColsCount(newColCount);
-    el.setAttribute('data-cols', String(newColCount));
-    syncChanges(el);
+    const keepR = b ? b.minR : 0;
+    finishStructureChange(el, table, () => {
+      if (!b) return selectedCellKeysRef.current;
+      const { grid: g, totalCols: tc } = buildTableGrid(table);
+      const cell = g[Math.min(keepR, g.length - 1)]?.[Math.min(minC, tc - 1)];
+      return cell ? new Set([`${cell.__gr}_${cell.__gc}`]) : new Set();
+    });
   };
+
+  // Rows / Cols +/- buttons
+  const handleAddRow = () => insertRow('below');
+  const handleDeleteRow = () => deleteRows();
+  const handleAddColumn = () => insertColumn('right');
+  const handleDeleteColumn = () => deleteColumns();
 
   // Merge selected rectangular range of cells
   const handleMergeCells = useCallback(() => {
@@ -2924,8 +3079,85 @@ const ElementTableProperties = ({
   const isGlobalMode = tableEditMode === 'global' && (!selectedCellKeys || selectedCellKeys.size === 0);
   const isStrokeDisabled = !isGlobalMode;
 
+  // ── Floating cell toolbar (badge above the table while cells are selected) ──
+  // Screen-space (fixed) so it keeps one size at any zoom; follows the table through pan / zoom / resize.
+  const [cellToolbarPos, setCellToolbarPos] = useState(null);
+  const hasCellSelection = selectedCellKeys && selectedCellKeys.size > 0;
+  useEffect(() => {
+    if (!hasCellSelection) { setCellToolbarPos(null); return undefined; }
+    let raf = 0;
+    let last = '';
+    const tick = () => {
+      const el = getTargetElement();
+      const table = el?.querySelector('table');
+      const dragging = document.body.classList.contains('dragging-active') || el?.getAttribute('data-dragging') === 'true';
+      if (table && !dragging) {
+        const r = table.getBoundingClientRect();
+        const visible = r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+        const top = Math.max(8, r.top - 46);
+        const left = r.left + r.width / 2;
+        const key = visible ? `${Math.round(left)}|${Math.round(top)}` : 'hidden';
+        if (key !== last) {
+          last = key;
+          setCellToolbarPos(visible ? { top, left } : null);
+        }
+      } else if (last !== 'hidden') {
+        last = 'hidden';
+        setCellToolbarPos(null);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [hasCellSelection, getTargetElement]);
+
+  const cellToolbar = hasCellSelection && cellToolbarPos && typeof document !== 'undefined' ? createPortal(
+    <div
+      className="fixed z-[9999] -translate-x-1/2 flex items-center gap-[2px] px-[4px] py-[3px] rounded-[8px] bg-white border border-gray-200 shadow-[0_6px_20px_rgba(0,0,0,0.12)] select-none font-sans"
+      style={{ top: cellToolbarPos.top, left: cellToolbarPos.left }}
+      // keep the cell selection: never let these clicks reach canvas / click-outside handlers
+      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {[
+        { key: 'ra', title: 'Insert row above', Icon: ArrowUp, label: 'Row', run: () => insertRow('above') },
+        { key: 'rb', title: 'Insert row below', Icon: ArrowDown, label: 'Row', run: () => insertRow('below') },
+        { key: 'cl', title: 'Insert column left', Icon: ArrowLeft, label: 'Col', run: () => insertColumn('left') },
+        { key: 'cr', title: 'Insert column right', Icon: ArrowRight, label: 'Col', run: () => insertColumn('right') },
+        { key: 'sep1' },
+        { key: 'dr', title: rowsCount <= 1 ? 'A table needs at least one row' : 'Delete selected row(s)', Icon: Trash2, label: 'Row', run: deleteRows, danger: true, disabled: rowsCount <= 1 },
+        { key: 'dc', title: colsCount <= 1 ? 'A table needs at least one column' : 'Delete selected column(s)', Icon: Trash2, label: 'Col', run: deleteColumns, danger: true, disabled: colsCount <= 1 },
+        { key: 'sep2' },
+        { key: 'mg', title: selectedCellKeys.size >= 2 ? 'Merge selected cells' : 'Select 2+ cells to merge', Icon: Combine, label: 'Merge', run: handleMergeCells, disabled: selectedCellKeys.size < 2 },
+        { key: 'um', title: canUnmerge ? 'Unmerge cells' : 'No merged cell selected', Icon: Split, label: 'Unmerge', run: handleUnmergeCells, disabled: !canUnmerge },
+      ].map((b) => b.Icon ? (
+        <button
+          key={b.key}
+          type="button"
+          title={b.title}
+          disabled={b.disabled}
+          onClick={(e) => { e.stopPropagation(); if (!b.disabled) b.run(); }}
+          className={`flex items-center gap-[3px] h-[26px] px-[7px] rounded-[6px] text-[11px] font-medium whitespace-nowrap transition-colors ${
+            b.disabled
+              ? 'text-gray-300 cursor-not-allowed'
+              : b.danger
+                ? 'text-red-600 hover:bg-red-50 cursor-pointer'
+                : 'text-gray-700 hover:bg-gray-100 cursor-pointer'
+          }`}
+        >
+          <b.Icon size={13} />
+          <span>{b.label}</span>
+        </button>
+      ) : (
+        <div key={b.key} className="w-px h-[18px] bg-gray-200 mx-[2px]" />
+      ))}
+    </div>,
+    document.body
+  ) : null;
+
   return (
     <div className="relative flex flex-col gap-[1.5vw] w-full max-w-[25vw] pb-[2vw] font-sans select-none">
+      {cellToolbar}
 
       {/* ===================== HEADER ===================== */}
       <div className="flex items-center gap-[0.8vw]">
@@ -3008,7 +3240,7 @@ const ElementTableProperties = ({
                 type="button"
                 onClick={handleDeleteRow}
                 className="w-[1.4vw] h-[1.4vw] flex items-center justify-center bg-gray-100 rounded-[0.35vw] hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                title="Remove Row"
+                title={selectedCellKeys.size > 0 ? "Delete selected row(s)" : "Remove last row"}
               >
                 <Minus size="0.7vw" />
               </button>
@@ -3016,7 +3248,7 @@ const ElementTableProperties = ({
                 type="button"
                 onClick={handleAddRow}
                 className="w-[1.4vw] h-[1.4vw] flex items-center justify-center bg-gray-100 rounded-[0.35vw] hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                title="Add Row"
+                title={selectedCellKeys.size > 0 ? "Add row below selected cell" : "Add row at the end"}
               >
                 <Plus size="0.7vw" />
               </button>
@@ -3031,7 +3263,7 @@ const ElementTableProperties = ({
                 type="button"
                 onClick={handleDeleteColumn}
                 className="w-[1.4vw] h-[1.4vw] flex items-center justify-center bg-gray-100 rounded-[0.35vw] hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                title="Remove Column"
+                title={selectedCellKeys.size > 0 ? "Delete selected column(s)" : "Remove last column"}
               >
                 <Minus size="0.7vw" />
               </button>
@@ -3039,13 +3271,72 @@ const ElementTableProperties = ({
                 type="button"
                 onClick={handleAddColumn}
                 className="w-[1.4vw] h-[1.4vw] flex items-center justify-center bg-gray-100 rounded-[0.35vw] hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
-                title="Add Column"
+                title={selectedCellKeys.size > 0 ? "Add column right of selected cell" : "Add column at the end"}
               >
                 <Plus size="0.7vw" />
               </button>
             </div>
           </div>
         </div>
+
+        {/* Insert next to the selected cell */}
+        {selectedCellKeys.size > 0 && (
+          <div className="flex items-center gap-[0.4vw]">
+            <span className="text-[0.72vw] font-medium text-gray-500 whitespace-nowrap mr-[0.1vw]">Insert</span>
+            {[
+              { key: 'above', label: 'Above', Icon: ArrowUp, run: () => insertRow('above'), title: 'Insert row above' },
+              { key: 'below', label: 'Below', Icon: ArrowDown, run: () => insertRow('below'), title: 'Insert row below' },
+              { key: 'left', label: 'Left', Icon: ArrowLeft, run: () => insertColumn('left'), title: 'Insert column left' },
+              { key: 'right', label: 'Right', Icon: ArrowRight, run: () => insertColumn('right'), title: 'Insert column right' },
+            ].map(({ key, label, Icon, run, title }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={run}
+                title={title}
+                className="flex-1 flex items-center justify-center gap-[0.25vw] h-[1.9vw] rounded-[0.4vw] border border-gray-300 bg-white text-[0.7vw] font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-colors cursor-pointer shadow-2xs"
+              >
+                <Icon size="0.75vw" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Delete the selected row(s) / column(s) — any position, not just the last one */}
+        {selectedCellKeys.size > 0 && (
+          <div className="flex items-center gap-[0.4vw]">
+            <span className="text-[0.72vw] font-medium text-gray-500 whitespace-nowrap mr-[0.1vw]">Delete</span>
+            <button
+              type="button"
+              onClick={deleteRows}
+              disabled={rowsCount <= 1}
+              title={rowsCount <= 1 ? 'A table needs at least one row' : 'Delete the selected row(s)'}
+              className={`flex-1 flex items-center justify-center gap-[0.3vw] h-[1.9vw] rounded-[0.4vw] border text-[0.7vw] font-medium transition-colors shadow-2xs ${
+                rowsCount <= 1
+                  ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-white border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 cursor-pointer'
+              }`}
+            >
+              <Trash2 size="0.75vw" />
+              <span>Row</span>
+            </button>
+            <button
+              type="button"
+              onClick={deleteColumns}
+              disabled={colsCount <= 1}
+              title={colsCount <= 1 ? 'A table needs at least one column' : 'Delete the selected column(s)'}
+              className={`flex-1 flex items-center justify-center gap-[0.3vw] h-[1.9vw] rounded-[0.4vw] border text-[0.7vw] font-medium transition-colors shadow-2xs ${
+                colsCount <= 1
+                  ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-white border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 cursor-pointer'
+              }`}
+            >
+              <Trash2 size="0.75vw" />
+              <span>Column</span>
+            </button>
+          </div>
+        )}
 
         {/* Merge & Unmerge Options */}
         <div className="grid grid-cols-2 gap-[0.6vw] pt-[0.2vw]">
