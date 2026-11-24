@@ -761,34 +761,64 @@ export default function ConverterWorkspace({
                     const title = parts ? parts[1].replace(' Quality', '').replace(' Compression', '') : lvl;
                     const detail = parts ? parts[2].replace('Quality', '').replace('Compression', '').trim() : '';
 
-                    return (
-                      <button
-                        key={lvl}
-                        type="button"
-                        onClick={() => setCompressionSetting(lvl)}
-                        className={`px-3 lg:px-[0.8vw] py-2 lg:py-[0.55vw] rounded-xl lg:rounded-[0.7vw] border text-left cursor-pointer transition-all relative flex flex-col justify-between ${
-                          isSelected
-                            ? 'border-[#ea543a] bg-orange-50/40 text-slate-900 shadow-2xs ring-1 ring-[#ea543a]/25'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50 text-slate-600'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className={`text-xs lg:text-[0.78vw] ${isSelected ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}>
-                            {title}
-                          </span>
-                          <div
-                            className={`w-3.5 h-3.5 lg:w-[0.9vw] lg:h-[0.9vw] rounded-full flex items-center justify-center transition-colors shrink-0 ${
-                              isSelected ? 'bg-[#ea543a] text-white' : 'border border-slate-300'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-2.5 h-2.5 lg:w-[0.6vw] lg:h-[0.6vw] stroke-[3]" />}
-                          </div>
-                        </div>
+                    // 3D Model specific concise tooltips with high-contrast text
+                    const threeDTooltips = {
+                      'Original (Lossless)': {
+                        desc: 'Keeps 100% original quality intact. You may notice little or no size change.'
+                      },
+                      'Lossless (Optimized)': {
+                        desc: 'Removes duplicate buffers and unused data without any visual quality loss.'
+                      },
+                      'Texture Only (70%)': {
+                        desc: 'Compacts embedded textures to 70% quality while keeping 3D mesh geometry untouched.'
+                      },
+                      'Draco + Meshopt (High)': {
+                        desc: 'Compresses mesh vertices and textures for maximum size reduction on web.'
+                      }
+                    };
 
-                        <span className={`text-[11px] lg:text-[0.68vw] font-mono leading-tight mt-1 lg:mt-[0.25vw] ${isSelected ? 'text-[#ea543a] font-medium' : 'text-slate-400'}`}>
-                          {detail}
-                        </span>
-                      </button>
+                    const tooltipInfo = mediaConfig.id === 'threed' ? threeDTooltips[lvl] : null;
+
+                    return (
+                      <div key={lvl} className="relative group/tip flex">
+                        <button
+                          type="button"
+                          onClick={() => setCompressionSetting(lvl)}
+                          className={`w-full px-3 lg:px-[0.8vw] py-2 lg:py-[0.55vw] rounded-xl lg:rounded-[0.7vw] border text-left cursor-pointer transition-all relative flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-[#ea543a] bg-orange-50/40 text-slate-900 shadow-2xs ring-1 ring-[#ea543a]/25'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50 text-slate-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className={`text-xs lg:text-[0.78vw] ${isSelected ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}>
+                              {title}
+                            </span>
+                            <div
+                              className={`w-3.5 h-3.5 lg:w-[0.9vw] lg:h-[0.9vw] rounded-full flex items-center justify-center transition-colors shrink-0 ${
+                                isSelected ? 'bg-[#ea543a] text-white' : 'border border-slate-300'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-2.5 h-2.5 lg:w-[0.6vw] lg:h-[0.6vw] stroke-[3]" />}
+                            </div>
+                          </div>
+
+                          <span className={`text-[11px] lg:text-[0.68vw] font-mono leading-tight mt-1 lg:mt-[0.25vw] ${isSelected ? 'text-[#ea543a] font-medium' : 'text-slate-400'}`}>
+                            {detail}
+                          </span>
+                        </button>
+
+                        {/* Custom High-Contrast Floating Tooltip (Only for 3D buttons) */}
+                        {tooltipInfo && (
+                          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 sm:w-56 lg:w-[13vw] px-2.5 py-2 lg:px-[0.6vw] lg:py-[0.45vw] bg-gray-900 text-white rounded-lg lg:rounded-[0.4vw] shadow-2xl border border-gray-700 opacity-0 group-hover/tip:opacity-100 transition-all duration-150 z-50 transform group-hover/tip:translate-y-0 translate-y-1">
+                            <p className="text-white text-xs lg:text-[0.72vw] font-normal leading-relaxed text-center">
+                              {tooltipInfo.desc}
+                            </p>
+                            {/* Arrow Pointer */}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-900" />
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

@@ -73,7 +73,7 @@ const MEDIA_CONVERTERS = [
     accentBg: 'bg-[#1e232d]',
     accentHover: 'hover:bg-[#ea543a]',
     defaultOutput: 'GLB',
-    compressionLevels: ['Original (Lossless)', 'Lossless (Optimized)', 'Texture Only (70%)', 'Draco + Meshopt (High)'],
+    compressionLevels: ['Original (Lossless)', 'Lossless (Optimized)', 'Draco + Meshopt (High)', 'Texture Only (70%)'],
     maxSize: MAX_FILE_SIZES.threed
   }
 ];

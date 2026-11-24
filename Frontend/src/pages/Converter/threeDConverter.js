@@ -666,8 +666,9 @@ const export3DModel = async (scene, targetFormat, compressionPreset, onProgress)
       // 3. Texture Compression: Applied for "Texture Only" and "Draco + Meshopt"
       // (Leaves textures 100% untouched for "Lossless")
       if (isTextureOnly || isMeshOpt) {
-        const targetDim = isTextureOnly ? 1024 : 1024;
-        const quality = isTextureOnly ? 0.70 : 0.78;
+        // High (Draco + Meshopt) applies higher texture compression (65% / 1024px) than Texture Only (70% / 1024px)
+        const targetDim = isMeshOpt ? 1024 : 1024;
+        const quality = isMeshOpt ? 0.65 : 0.70;
 
         const textures = doc.getRoot().listTextures();
         for (const tex of textures) {
