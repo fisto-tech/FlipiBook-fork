@@ -372,17 +372,6 @@ export default function ConverterWorkspace({
               </button>
             </>
           )}
-
-          {convertedResult && (
-            <button
-              type="button"
-              onClick={handleDownloadFile}
-              className="px-2.5 sm:px-4 lg:px-[0.9vw] py-1 sm:py-1.5 lg:py-[0.35vw] rounded-xl lg:rounded-[0.5vw] bg-[#ea543a] hover:bg-[#d8482f] text-white text-xs lg:text-[0.72vw] font-medium flex items-center gap-1 sm:gap-1.5 lg:gap-[0.4vw] transition-all cursor-pointer shadow-sm hover:shadow active:scale-98"
-            >
-              <Download className="w-3.5 h-3.5 lg:w-[0.8vw] lg:h-[0.8vw]" />
-              <span>Download</span>
-            </button>
-          )}
         </div>
       </header>
 
@@ -652,17 +641,6 @@ export default function ConverterWorkspace({
                 </>
               )}
             </div>
-
-            {isConvertedReady && (
-              <button
-                type="button"
-                onClick={handleDownloadFile}
-                className="text-slate-700 hover:text-[#ea543a] font-medium flex items-center gap-1 transition-colors cursor-pointer text-xs lg:text-[0.75vw]"
-              >
-                <Download className="w-3.5 h-3.5 lg:w-[0.9vw] lg:h-[0.9vw]" />
-                <span>Save Result</span>
-              </button>
-            )}
           </div>
 
         </div>
@@ -848,7 +826,7 @@ export default function ConverterWorkspace({
             )}
 
             {/* 4. Action Button with Right Arrow */}
-            <div className="pt-1 sm:pt-2 lg:pt-[0.4vw]">
+            <div className="pt-1 sm:pt-2 lg:pt-[0.4vw] flex flex-col gap-2 lg:gap-[0.5vw]">
               <button
                 type="button"
                 onClick={handleStartConversion}
@@ -867,6 +845,18 @@ export default function ConverterWorkspace({
                   </>
                 )}
               </button>
+
+              {/* Download Button below Convert File */}
+              {isConvertedReady && (
+                <button
+                  type="button"
+                  onClick={handleDownloadFile}
+                  className="w-full py-2.5 sm:py-2.5 lg:py-[0.65vw] px-4 lg:px-[1vw] rounded-xl lg:rounded-[0.7vw] bg-[#ea543a] hover:bg-[#d8482f] text-white font-medium text-xs sm:text-sm lg:text-[0.8vw] shadow-sm hover:shadow transition-all cursor-pointer flex items-center justify-center gap-2 lg:gap-[0.5vw] active:scale-98 animate-in fade-in slide-in-from-top-1 duration-200"
+                >
+                  <Download className="w-4 h-4 lg:w-[1vw] lg:h-[1vw] text-white" />
+                  <span>Download {convertedResult?.targetFormat || 'File'}</span>
+                </button>
+              )}
             </div>
 
             {/* Progress Status Bar */}
