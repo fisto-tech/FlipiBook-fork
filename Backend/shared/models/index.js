@@ -12,6 +12,8 @@ module.exports = {
   InteractionThreedModel: require('./InteractionThreedModel'),
   ThreedModel: require('./ThreedModel'),
   RefreshToken: require('./RefreshToken'),
-  Lead: require('./Lead')
+  Lead: require('./Lead'),
+  AdminUser: require('./AdminUser'),
+  AdminRole: require('./AdminRole')
 };
 

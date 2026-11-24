@@ -9,6 +9,7 @@ import TemplateManagementPage from './pages/TemplateManagement/TemplateManagemen
 import ManagementPage from './pages/Management/ManagementPage';
 import RoleAccessPage from './pages/Management/RoleAccess/RoleAccessPage';
 import ManagementUserPage from './pages/Management/UserManagement/ManagementUserPage';
+import ThreeDAssetsPage from './pages/ThreeDAssetsPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 
 function ProtectedLayout() {
@@ -34,6 +35,7 @@ function ProtectedLayout() {
           <Route path="/management" element={<ManagementPage />} />
           <Route path="/management/role-access" element={<RoleAccessPage />} />
           <Route path="/management/users" element={<ManagementUserPage />} />
+          <Route path="/3d-editor-assets" element={<ThreeDAssetsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

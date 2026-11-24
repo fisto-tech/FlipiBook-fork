@@ -1,5 +1,5 @@
-const Flipbook = require('../../../../shared/models/Flipbook');
-const backupService = require('../../../../shared/backupService');
+const Flipbook = require('../../../../../shared/models/Flipbook');
+const backupService = require('../../../../../shared/backupService');
 const { recordAdminLog } = require('../middlewares/adminAuthMiddleware');
 
 /**

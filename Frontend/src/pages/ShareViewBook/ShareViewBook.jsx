@@ -511,18 +511,6 @@ const ShareViewBook = () => {
                     // Images load naturally as pages are viewed — no preloading block needed
                 }
 
-                // Sync URL path to match actual access mode (e.g. /share=public/ vs /share=private/)
-                const rawAccMode = String(processedData?.Visibility?.access || processedData?.share?.access || 'public').toLowerCase();
-                let targetPrefix = 'share=public';
-                if (rawAccMode.includes('private')) targetPrefix = 'share=private';
-                else if (rawAccMode.includes('password')) targetPrefix = 'share=password';
-                else if (rawAccMode.includes('invite')) targetPrefix = 'share=invite';
-
-                const expectedPath = `/${targetPrefix}/${shareId}`;
-                if (location.pathname !== expectedPath) {
-                    navigate(`${expectedPath}${location.search}`, { replace: true });
-                }
-
                 // Only update state if the component is still mounted
                 setBookData(processedData);
                 setReviewsList(processedData.bookRating || []);
@@ -584,20 +572,6 @@ const ShareViewBook = () => {
 
                 const status = err.response?.status;
                 const errData = err.response?.data || {};
-
-                // Auto-sync URL path if visibility mode changed on backend
-                const errAccMode = String(errData.accessMode || (errData.isPrivate ? 'private' : errData.isPasswordProtected ? 'password' : errData.isInviteOnly ? 'invite' : '')).toLowerCase();
-                if (errAccMode) {
-                    let targetPrefix = 'share=public';
-                    if (errAccMode.includes('private')) targetPrefix = 'share=private';
-                    else if (errAccMode.includes('password')) targetPrefix = 'share=password';
-                    else if (errAccMode.includes('invite')) targetPrefix = 'share=invite';
-
-                    const expectedPath = `/${targetPrefix}/${shareId}`;
-                    if (location.pathname !== expectedPath) {
-                        navigate(`${expectedPath}${location.search}`, { replace: true });
-                    }
-                }
 
                 // Retry on network errors or 5xx server errors â€” keep loading=true
                 const isRetryable = !err.response || status >= 500;

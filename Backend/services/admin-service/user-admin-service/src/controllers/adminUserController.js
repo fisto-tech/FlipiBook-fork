@@ -1,7 +1,7 @@
-const User = require('../../../../shared/models/User');
-const Profile = require('../../../../shared/models/Profile');
-const Flipbook = require('../../../../shared/models/Flipbook');
-const backupService = require('../../../../shared/backupService');
+const User = require('../../../../../shared/models/User');
+const Profile = require('../../../../../shared/models/Profile');
+const Flipbook = require('../../../../../shared/models/Flipbook');
+const backupService = require('../../../../../shared/backupService');
 const { recordAdminLog } = require('../middlewares/adminAuthMiddleware');
 
 /**
@@ -19,7 +19,10 @@ const listUsers = async (req, res) => {
       sort = 'newest'
     } = req.query;
 
-    const filter = {};
+    const filter = {
+      role: { $nin: ['admin', 'superadmin', 'Super Admin'] },
+      userID: { $nin: ['Admin', 'admin'], $not: /^FLIP_AD/i }
+    };
 
     if (role && role !== 'all') {
       filter.role = role;

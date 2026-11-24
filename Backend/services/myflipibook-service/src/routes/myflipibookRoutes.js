@@ -10,6 +10,7 @@ router.get('/get', optionalAuth, bookController.getBook);
 router.post('/publish', optionalAuth, bookController.publishBook);
 router.get('/get-gallery-assets', optionalAuth, bookController.getGalleryAssets);
 router.post('/use-gallery-asset', optionalAuth, bookController.useGalleryAsset);
+router.post('/translate-text', optionalAuth, bookController.translateTextSnippet);
 
 // All other flipbook & folder routes require authentication
 router.use(authenticateUser);
@@ -39,5 +40,10 @@ router.post('/save-pages-batch', bookController.savePagesBatch);
 router.post('/rename-page', bookController.renamePage);
 router.post('/delete-page', bookController.deletePage);
 router.post('/update-settings', bookController.updateSettings);
+
+// --- Book Translation & Cloning ---
+router.post('/translate-clone', bookController.translateCloneBook);
+router.get('/translation-status/:jobId', bookController.getTranslationStatus);
+router.post('/translate-text', bookController.translateTextSnippet);
 
 module.exports = router;

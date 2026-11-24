@@ -17,6 +17,7 @@ import {
   Settings,
   CloudOff,
   Bell,
+  Languages,
 } from "lucide-react";
 import { Icon } from "@iconify/react";
 import ProfileModal from "../Settings/ProfileModal";
@@ -27,6 +28,7 @@ import NotificationDrawer from "../Notification/NotificationDrawer";
 import { useAuth, useActiveBook, useUIModals } from "../../store/hooks";
 import { queryClient } from "../../queryClient";
 import { useConfirm } from "../../context/ConfirmationContext";
+import { useTranslation } from "../../context/TranslationContext";
 
 const EditorNavbar = ({
   onExport: onExportProp,
@@ -59,6 +61,7 @@ const EditorNavbar = ({
   } = useActiveBook();
 
   const { openModal, setModalOpen } = useUIModals();
+  const { openTranslateModal } = useTranslation();
 
   const currentBook = currentBookProp ?? currentBookRedux;
   const hasUnsavedChanges = hasUnsavedChangesProp ?? hasUnsavedChangesRedux;
@@ -534,6 +537,25 @@ const EditorNavbar = ({
                 <div className="w-0 h-0 border-x-[0.3vw] border-x-transparent border-b-[0.3vw] border-b-gray-900/90" />
                 <div className="bg-gray-900/90 text-white text-[0.65vw] font-medium px-[0.5vw] py-[0.25vw] rounded-[0.3vw] shadow-md backdrop-blur-xs">
                   Preview Book
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Translate Button - Hidden on 3D Editor */}
+          {!isThreedEditor && (
+            <div className="relative group/tooltip flex items-center ml-[0.2vw]">
+              <button
+                onClick={() => currentBook && openTranslateModal(currentBook)}
+                className="flex items-center gap-[0.4vw] px-[0.9vw] py-[0.5vw] bg-white border border-[#D9D9D9] hover:border-[#ea543a] rounded-[2vw] text-gray-700 hover:text-[#ea543a] transition-colors flex-shrink-0 cursor-pointer"
+              >
+                <Languages className="w-[1.1vw] h-[1.1vw] text-[#ea543a]" />
+                <span className="font-medium text-[0.85vw]">Translate</span>
+              </button>
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-[0.4vw] hidden group-hover/tooltip:flex flex-col items-center pointer-events-none z-50 whitespace-nowrap">
+                <div className="w-0 h-0 border-x-[0.3vw] border-x-transparent border-b-[0.3vw] border-b-gray-900/90" />
+                <div className="bg-gray-900/90 text-white text-[0.65vw] font-medium px-[0.5vw] py-[0.25vw] rounded-[0.3vw] shadow-md backdrop-blur-xs">
+                  Translate to Indian Language
                 </div>
               </div>
             </div>

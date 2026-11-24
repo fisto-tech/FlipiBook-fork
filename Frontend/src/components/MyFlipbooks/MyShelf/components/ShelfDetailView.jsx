@@ -1443,9 +1443,8 @@ const ShelfDetailView = ({
                     <button
                       onClick={() => {
                         const targetShareId = book.shareId || book.v_id;
-                        const rawAcc = String(book.access || 'public').toLowerCase();
                         if (targetShareId) {
-                          window.open(`/share=${rawAcc}/${targetShareId}`, '_blank');
+                          window.open(`/share/${targetShareId}`, '_blank');
                         }
                         setOpenMenuId(null);
                       }}
@@ -1525,9 +1524,8 @@ const ShelfDetailView = ({
                   <button
                     onClick={() => {
                       const targetShareId = book.shareId || book.v_id;
-                      const rawAcc = String(book.access || 'public').toLowerCase();
                       if (targetShareId) {
-                        window.open(`/share=${rawAcc}/${targetShareId}`, '_blank');
+                        window.open(`/share/${targetShareId}`, '_blank');
                       }
                     }}
                     className="absolute bottom-0 right-0 bg-gray-900 hover:bg-[#FF5733] text-white w-[1.8vw] h-[1.8vw] rounded-full flex items-center justify-center transition-colors shadow-2xs active:scale-95 cursor-pointer"

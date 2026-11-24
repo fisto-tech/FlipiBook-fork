@@ -2,8 +2,11 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const User = require("../../../../shared/models/User");
+const AdminUser = require("../../../../shared/models/AdminUser");
+const AdminRole = require("../../../../shared/models/AdminRole");
 const RefreshToken = require("../../../../shared/models/RefreshToken");
 const LoginLog = require("../models/loginLog");
+const AdminLoginLog = require("../models/AdminLoginLog");
 const SignupOtp = require("../models/signupOtp");
 const {
   generateToken,
@@ -710,36 +713,56 @@ const login = async (req, res) => {
       (cleanIdentifier === 'admin' || cleanIdentifier === 'super admin' || cleanIdentifier === 'admin@flipibook.com') &&
       password === 'Admin@123';
 
-    // Find user by either emailId or userID (case-insensitive for userID)
-    let user = await User.findOne({
-      $or: [
-        { emailId: cleanIdentifier },
-        { userID: identifier },
-        { userID: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
-      ]
-    });
-
-    if (!user && isSuperAdminCredential) {
-      // Auto-provision Super Admin in database if not existing
-      try {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash('Admin@123', salt);
-        user = await User.create({
-          name: 'Super Administrator',
-          emailId: 'admin@flipibook.com',
-          userID: 'Admin',
-          password: hashedPassword,
-          role: 'admin'
-        });
-      } catch (adminCreateErr) {
-        // In case of duplicate key or race condition, fetch the user
-        user = await User.findOne({
-          $or: [{ emailId: 'admin@flipibook.com' }, { userID: 'Admin' }]
-        });
-      }
+    // 1. First check if this user is an Admin / Staff user in AdminUser collection
+    let adminStaff = null;
+    try {
+      adminStaff = await AdminUser.findOne({
+        $or: [
+          { email: cleanIdentifier },
+          { userId: identifier },
+          { userId: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        ],
+        isDeleted: { $ne: true }
+      }).select('+password');
+    } catch (adminLookupErr) {
+      console.warn("[AdminUser Lookup Warning]:", adminLookupErr.message);
     }
 
-    if (!user) {
+    // Find standard client user by either emailId or userID (only if not authenticating as an admin staff member)
+    let user = null;
+    if (!adminStaff) {
+      user = await User.findOne({
+        $or: [
+          { emailId: cleanIdentifier },
+          { userID: identifier },
+          { userID: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        ]
+      });
+    }
+
+    if (!user && isSuperAdminCredential) {
+      // In-memory Super Admin object (do not persist into client users collection)
+      user = {
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Super Administrator',
+        emailId: 'admin@flipibook.com',
+        userID: 'Admin',
+        role: 'admin',
+        isAdmin: true
+      };
+    } else if (adminStaff && !user) {
+      // In-memory representation for admin staff session (do not persist to client users collection)
+      user = {
+        _id: adminStaff._id,
+        name: adminStaff.name,
+        emailId: adminStaff.email,
+        userID: adminStaff.userId,
+        role: adminStaff.designation || 'admin',
+        isAdmin: true
+      };
+    }
+
+    if (!user && !adminStaff) {
       return res.status(404).json({
         success: false,
         code: "USER_NOT_FOUND",
@@ -747,8 +770,33 @@ const login = async (req, res) => {
       });
     }
 
+    // If AdminStaff exists and there's a User record, ensure user has admin role privileges
+    if (adminStaff && user && typeof user.save === 'function') {
+      if (user.role !== 'admin' || !user.isAdmin) {
+        user.role = 'admin';
+        user.isAdmin = true;
+        await user.save().catch(() => {});
+      }
+    }
+
     // Compare password (allow direct match if isSuperAdminCredential)
-    if (!user.password && !isSuperAdminCredential) {
+    // If user has adminStaff profile, check adminStaff password before complaining about Google Sign-In
+    let isMatch = false;
+    if (isSuperAdminCredential) {
+      isMatch = password === 'Admin@123';
+    } else if (adminStaff && adminStaff.password) {
+      // Check adminStaff's bcrypt password or rawPassword fallback
+      isMatch = await adminStaff.comparePassword(password).catch(() => false);
+      if (!isMatch && adminStaff.rawPassword && adminStaff.rawPassword === password) {
+        isMatch = true;
+      }
+    }
+
+    if (!isMatch && user && user.password) {
+      isMatch = await bcrypt.compare(password, user.password);
+    }
+
+    if (!isMatch && (!user || !user.password) && !adminStaff) {
       return res.status(400).json({
         success: false,
         code: "GOOGLE_ACCOUNT",
@@ -768,32 +816,53 @@ const login = async (req, res) => {
     const sessionObjectId = new mongoose.Types.ObjectId();
     const sessionId = sessionObjectId.toString();
 
-    const isMatch = isSuperAdminCredential
-      ? (password === 'Admin@123')
-      : (await bcrypt.compare(password, user.password));
-
     if (!isMatch) {
       // Record failed login attempt in audit history
       try {
-        await LoginLog.create({
-          userId: user.userID || `FLIPI${user._id.toString().slice(-4).toUpperCase()}`,
-          userObjectId: user._id,
-          emailId: user.emailId,
-          sessionId: new mongoose.Types.ObjectId().toString(),
-          deviceId: clientDeviceId,
-          ipAddress,
-          userAgent,
-          browser,
-          operatingSystem,
-          deviceType,
-          location,
-          loginTime: new Date(),
-          lastActiveAt: new Date(),
-          status: "EXPIRED",
-          isRevoked: true,
-          eventType: "FAILED_LOGIN",
-          loginMethod: "EMAIL_PASSWORD",
-        });
+        if (isSuperAdminCredential || (user.role && user.role.toLowerCase() === 'admin')) {
+          await AdminLoginLog.create({
+            adminId: user.userID || 'Admin',
+            emailOrUserId: identifier,
+            name: user.name || 'Super Administrator',
+            designation: 'Admin',
+            roleId: 'R_ID01',
+            status: 'FAILED',
+            failureReason: 'Invalid credentials',
+            ipAddress,
+            userAgent,
+            device: {
+              browser: browser || '',
+              os: operatingSystem || '',
+              type: deviceType || 'Desktop'
+            },
+            location: {
+              country: location?.country || '',
+              region: location?.region || '',
+              city: location?.city || ''
+            },
+            sessionId: new mongoose.Types.ObjectId().toString()
+          });
+        } else {
+          await LoginLog.create({
+            userId: user.userID || `FLIPI${user._id.toString().slice(-4).toUpperCase()}`,
+            userObjectId: user._id,
+            emailId: user.emailId,
+            sessionId: new mongoose.Types.ObjectId().toString(),
+            deviceId: clientDeviceId,
+            ipAddress,
+            userAgent,
+            browser,
+            operatingSystem,
+            deviceType,
+            location,
+            loginTime: new Date(),
+            lastActiveAt: new Date(),
+            status: "EXPIRED",
+            isRevoked: true,
+            eventType: "FAILED_LOGIN",
+            loginMethod: "EMAIL_PASSWORD",
+          });
+        }
       } catch (failedLogErr) {
         console.warn("[Failed Login Log Warning]:", failedLogErr.message);
       }
@@ -849,26 +918,50 @@ const login = async (req, res) => {
 
     let loginLog = null;
     try {
-      loginLog = await LoginLog.create({
-        _id: sessionObjectId,
-        userId: user.userID || `FLIPI${user._id.toString().slice(-4).toUpperCase()}`,
-        userObjectId: user._id,
-        emailId: user.emailId,
-        sessionId,
-        deviceId: clientDeviceId,
-        ipAddress,
-        userAgent,
-        browser,
-        operatingSystem,
-        deviceType,
-        location,
-        loginTime: new Date(),
-        lastActiveAt: new Date(),
-        status: "ACTIVE",
-        isRevoked: false,
-        eventType,
-        loginMethod: "EMAIL_PASSWORD",
-      });
+      if (isSuperAdminCredential || (user.role && user.role.toLowerCase() === 'admin')) {
+        loginLog = await AdminLoginLog.create({
+          adminId: user.userID || 'Admin',
+          emailOrUserId: user.emailId || identifier,
+          name: user.name || 'Super Administrator',
+          designation: 'Admin',
+          roleId: 'R_ID01',
+          status: 'SUCCESS',
+          ipAddress,
+          userAgent,
+          device: {
+            browser: browser || '',
+            os: operatingSystem || '',
+            type: deviceType || 'Desktop'
+          },
+          location: {
+            country: location?.country || '',
+            region: location?.region || '',
+            city: location?.city || ''
+          },
+          sessionId
+        });
+      } else {
+        loginLog = await LoginLog.create({
+          _id: sessionObjectId,
+          userId: user.userID || `FLIPI${user._id.toString().slice(-4).toUpperCase()}`,
+          userObjectId: user._id,
+          emailId: user.emailId,
+          sessionId,
+          deviceId: clientDeviceId,
+          ipAddress,
+          userAgent,
+          browser,
+          operatingSystem,
+          deviceType,
+          location,
+          loginTime: new Date(),
+          lastActiveAt: new Date(),
+          status: "ACTIVE",
+          isRevoked: false,
+          eventType,
+          loginMethod: "EMAIL_PASSWORD",
+        });
+      }
     } catch (logErr) {
       console.error("[Login Log Error]:", logErr.message);
     }
@@ -908,6 +1001,27 @@ const login = async (req, res) => {
       console.warn("[Workspace Creation Warning on Login]:", wsErr.message);
     }
 
+    // Retrieve effective permissions for this admin staff user
+    let userPermissions = [];
+    if (adminStaff) {
+      if (adminStaff.permissions && adminStaff.permissions.length > 0) {
+        userPermissions = adminStaff.permissions;
+      } else if (adminStaff.designation) {
+        try {
+          const matchedRole = await AdminRole.findOne({
+            $or: [
+              { designation: adminStaff.designation },
+              { roleName: adminStaff.designation },
+              { roleId: adminStaff.roleId }
+            ]
+          }).lean();
+          if (matchedRole?.permissions) {
+            userPermissions = matchedRole.permissions;
+          }
+        } catch (_) {}
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: "Login successful",
@@ -917,6 +1031,13 @@ const login = async (req, res) => {
         picture: user.picture,
         emailId: user.emailId,
         email: user.emailId,
+        userID: user.userID,
+        userId: user.userID,
+        role: isSuperAdminCredential || user.userID === 'Admin' ? 'Super Admin' : (adminStaff?.designation || 'Staff'),
+        designation: adminStaff?.designation || (user.userID === 'Admin' ? 'Admin' : 'Staff'),
+        roleId: adminStaff?.roleId || 'R_ID01',
+        permissions: userPermissions,
+        isAdmin: true
       },
     });
   } catch (error) {
