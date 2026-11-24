@@ -250,6 +250,9 @@ export const initAnimationRunner = function(doc) {
                           }
                       }
                   } catch(e) {}
+                  if (!baseTransform || baseTransform === 'none') {
+                      baseTransform = transformAttr;
+                  }
               }
           }
           el.__originalTransform = (!baseTransform || baseTransform === 'none') ? '' : baseTransform;
@@ -403,6 +406,10 @@ export const initAnimationRunner = function(doc) {
                 if (!el.__clickBound) {
                     el.__clickBound = true;
                     el.style.cursor = 'pointer';
+                    el.querySelectorAll('[data-icon-hit="true"], [data-icon-paint="true"]').forEach(c => {
+                        c.style.cursor = 'pointer';
+                        c.style.pointerEvents = 'auto';
+                    });
                     el.addEventListener('click', (e) => {
                         if (el.getAttribute('data-animation-trigger') !== 'On Page' || el.getAttribute('data-animation-action') !== 'Click') return;
                         if (el.__currentAnimation && el.__currentAnimation.playState === 'running') return;
@@ -420,6 +427,9 @@ export const initAnimationRunner = function(doc) {
             } else if (action === 'Hover') {
                 if (!el.__hoverBound) {
                     el.__hoverBound = true;
+                    el.querySelectorAll('[data-icon-hit="true"], [data-icon-paint="true"]').forEach(c => {
+                        c.style.pointerEvents = 'auto';
+                    });
                     el.addEventListener('mouseenter', () => {
                         if (el.getAttribute('data-animation-trigger') !== 'On Page' || el.getAttribute('data-animation-action') !== 'Hover') return;
                         if (el.__currentAnimation && el.__currentAnimation.playState === 'running') return;

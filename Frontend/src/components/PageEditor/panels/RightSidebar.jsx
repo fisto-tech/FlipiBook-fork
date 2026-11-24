@@ -1616,7 +1616,8 @@ const RightSidebar = ({
               setSelectedLayerId={setSelectedLayerId}
               selectedElement={(() => {
                 if (!selectedLayerId) return null;
-                const container = document.querySelector(`.page-svg-container [id="${selectedLayerId}"]`);
+                const safeId = (window.CSS && CSS.escape) ? CSS.escape(selectedLayerId) : selectedLayerId;
+                const container = document.querySelector(`.page-svg-container [id="${safeId}"]`);
                 const el = container || document.getElementById(selectedLayerId) || null;
                 if (!el) return null;
                 const name = el.getAttribute('data-name') || '';
