@@ -668,6 +668,7 @@ const MainEditor = ({
     setMultiSelectedIds,
     pages,
     drawOverlayHighlight,
+    drawMultiSelectionHighlight,
     setActiveMainTool,
     setSelectedShapeTool,
     selectedShapeTool

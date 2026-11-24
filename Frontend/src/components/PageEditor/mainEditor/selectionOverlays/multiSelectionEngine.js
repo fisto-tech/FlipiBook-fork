@@ -106,7 +106,8 @@ export const createMultiSelectionEngine = ({
           const name = handleNames[i];
           const isSide = ['n', 'e', 's', 'w'].includes(name);
           const handleId = `resize-handle-${dummyId}-${name}`;
-          let handle = htmlOverlay.querySelector(`[id="${handleId}"]`);
+          const safeHandleId = (window.CSS && CSS.escape) ? CSS.escape(handleId) : handleId;
+          let handle = htmlOverlay.querySelector(`[id="${safeHandleId}"]`) || document.getElementById(handleId);
           if (!handle) {
             handle = document.createElement('div');
             handle.id = handleId;
@@ -141,9 +142,10 @@ export const createMultiSelectionEngine = ({
               handle.style.height = '8.5px';
             }
           }
-          const posX = p.x.toFixed(2);
-          const posY = p.y.toFixed(2);
-          handle.style.transform = `translate3d(${posX}px, ${posY}px, 0) scale(${(1 / zoomScale).toFixed(3)}) translate(-50%, -50%)`;
+          const posX = Number.isFinite(p?.x) ? p.x.toFixed(2) : '0';
+          const posY = Number.isFinite(p?.y) ? p.y.toFixed(2) : '0';
+          const safeScale = (zoomScale && Number.isFinite(zoomScale) && zoomScale > 0) ? (1 / zoomScale).toFixed(3) : '1';
+          handle.style.transform = `translate3d(${posX}px, ${posY}px, 0) scale(${safeScale}) translate(-50%, -50%)`;
 
           const cursorMap = { nw: 'nwse-resize', ne: 'nesw-resize', se: 'nwse-resize', sw: 'nesw-resize', n: 'ns-resize', e: 'ew-resize', s: 'ns-resize', w: 'ew-resize' };
           handle.style.cursor = cursorMap[name] || 'pointer';
@@ -386,7 +388,8 @@ export const createMultiSelectionEngine = ({
             const name = handleNames[i];
             const isSide = ['n', 'e', 's', 'w'].includes(name);
             const handleId = `resize-handle-${dummyId}-${name}`;
-            let handle = htmlOverlay.querySelector(`[id="${handleId}"]`);
+            const safeHandleId = (window.CSS && CSS.escape) ? CSS.escape(handleId) : handleId;
+            let handle = htmlOverlay.querySelector(`[id="${safeHandleId}"]`) || document.getElementById(handleId);
             if (!handle) {
               handle = document.createElement('div');
               handle.id = handleId;
@@ -421,7 +424,11 @@ export const createMultiSelectionEngine = ({
                 handle.style.height = '8.5px';
               }
             }
-            handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${commonRotation.toFixed(1)}deg) scale(${(1 / zoomScale).toFixed(3)}) translate(-50%, -50%)`;
+            const posX = Number.isFinite(p?.x) ? p.x.toFixed(2) : '0';
+            const posY = Number.isFinite(p?.y) ? p.y.toFixed(2) : '0';
+            const safeRot = Number.isFinite(commonRotation) ? commonRotation.toFixed(1) : '0';
+            const safeScale = (zoomScale && Number.isFinite(zoomScale) && zoomScale > 0) ? (1 / zoomScale).toFixed(3) : '1';
+            handle.style.transform = `translate3d(${posX}px, ${posY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
 
             if (!isSide) {
               handle.onpointerenter = () => {

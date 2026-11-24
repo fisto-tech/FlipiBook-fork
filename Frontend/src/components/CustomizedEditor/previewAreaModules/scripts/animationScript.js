@@ -229,6 +229,9 @@ export const getAnimationScript = (pageNumber) => `  <script>
                     }
                   }
                 } catch(e) {}
+                if (!baseT || baseT === 'none') {
+                  baseT = tAttr;
+                }
               }
             }
             el.__originalTransform = (!baseT || baseT === 'none') ? '' : baseT;
@@ -325,6 +328,10 @@ export const getAnimationScript = (pageNumber) => `  <script>
           } else if (action === 'Click' && !el.__clickBound) {
             el.__clickBound = true;
             el.style.cursor = 'pointer'; el.style.pointerEvents = 'auto';
+            el.querySelectorAll('[data-icon-hit="true"], [data-icon-paint="true"]').forEach(c => {
+              c.style.cursor = 'pointer';
+              c.style.pointerEvents = 'auto';
+            });
             el.addEventListener('click', function(ev) {
               ev.stopPropagation();
               if (el.__currentAnimation && el.__currentAnimation.playState === 'running') return;
@@ -333,6 +340,9 @@ export const getAnimationScript = (pageNumber) => `  <script>
           } else if (action === 'Hover' && !el.__hoverBound) {
             el.__hoverBound = true;
             el.style.pointerEvents = 'auto';
+            el.querySelectorAll('[data-icon-hit="true"], [data-icon-paint="true"]').forEach(c => {
+              c.style.pointerEvents = 'auto';
+            });
             el.addEventListener('mouseenter', function() {
               if (el.__currentAnimation && el.__currentAnimation.playState === 'running') return;
               runAnim(el, el.getAttribute('data-animation-interact-type'), Object.assign({}, s, { everyVisit: true }));
