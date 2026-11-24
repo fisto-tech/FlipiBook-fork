@@ -750,9 +750,10 @@ const Grid5Layout = ({
                                     setPageInputValue(String(currentPage + 1));
                                 }
                             }}
-                            className={`${isTablet ? 'text-[0.65vw] mx-[0.3vw] px-[0.15vw] py-[0.1vw]' : 'text-[0.78vw] mx-[0.4vw] px-[0.2vw] py-[0.15vw]'} font-bold rounded-[0.25vw] outline-none text-center transition-colors shadow-inner`}
+                            className={`${isTablet ? 'text-[0.65vw] mx-[0.3vw] px-[0.15vw] py-[0.1vw]' : 'text-[0.78vw] mx-[0.4vw] px-[0.2vw] py-[0.15vw]'} font-bold rounded-[0.25vw] outline-none text-center transition-colors shadow-inner box-border`}
                             style={{
-                                width: `${String(pages.length).length + 1.2}ch`,
+                                width: `${Math.max(String(pageInputValue || '').length, String(pages.length || 0).length) + 1.6}ch`,
+                                minWidth: '3.2ch',
                                 color: currentPage === 0 ? getLayoutColor('toolbar-bg', '#555555') : getLayoutColorRgba('toolbar-text-main', '255, 255, 255', 1),
                                 backgroundColor: currentPage === 0 ? getLayoutColorAlpha('toolbar-bg', '87, 92, 156', 0.1) : getLayoutColorAlpha('toolbar-text-main', '255, 255, 255', 0.2),
                                 border: `1px solid ${currentPage === 0 ? getLayoutColorAlpha('toolbar-bg', '87, 92, 156', 0.2) : getLayoutColorAlpha('toolbar-text-main', '255, 255, 255', 0.3)}`

@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
 import FlipbookPreview from '../components/PageEditor/modals/FlipbookPreview';
+import PreloaderOverlay from '../components/CustomizedEditor/components/PreloaderOverlay';
+import { createDefaultPreloaderSettings } from '../components/CustomizedEditor/utils/defaultSettings';
 import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
 import { getFromDB, CUSTOMIZED_EDITOR_KEY, getCustomizedEditorKey } from '../utils/storage/dbUtils';
@@ -230,8 +232,11 @@ const PreviewPage = () => {
 
   if (isLoading || !data) {
     return (
-      <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-[#5551FF]" />
+      <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#22252A' }}>
+        <PreloaderOverlay
+          isLoading={true}
+          preloaderSettings={createDefaultPreloaderSettings()}
+        />
       </div>
     );
   }

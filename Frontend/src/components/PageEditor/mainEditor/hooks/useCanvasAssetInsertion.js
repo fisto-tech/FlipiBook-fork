@@ -1,4 +1,7 @@
 import { useEffect, useCallback } from 'react';
+import { createTableElementNode } from '../../LeftActionMenu/Elements/utils/tableElementUtils';
+import { fitTableToContent } from '../../LeftActionMenu/Elements/properties/ElementTableProperties';
+import { escapeTableCell } from '../../utils/clipboardTable';
 import axios from 'axios';
 import { useAuth } from '../../../../context/AuthContext';
 import { getSupabaseBaseUrl, resolveUploadsPath } from '../../../../utils/assets/assetUtils';
@@ -130,10 +133,10 @@ export const useCanvasAssetInsertion = ({
           }
           if (!uploadFile) return;
 
-          // Smart optimization gate: shrink heavy images (> 300KB) off-thread to WebP
+          // Smart optimization gate: shrink heavy images (> 3MB) off-thread to 4K WebP
           if (dataType === 'image' && shouldOptimizeImage(uploadFile)) {
             try {
-              const opt = await optimizeImageForWeb(uploadFile, { maxDimension: 2048, quality: 0.82 });
+              const opt = await optimizeImageForWeb(uploadFile, { maxDimension: 3840, quality: 0.94 });
               if (opt?.file) {
                 uploadFile = opt.file;
                 if (opt.dataUrl && imgNode) {
@@ -1079,6 +1082,101 @@ export const useCanvasAssetInsertion = ({
       }
     });
   }, [pages]);
+
+  // Paste spreadsheet cells (Excel / Sheets) onto the page with no table selected → new table element
+  useEffect(() => {
+    const handlePasteTable = (e) => {
+      const rows = e.detail?.rows;
+      if (!Array.isArray(rows) || !rows.length) return;
+      const pageIdx = typeof e.detail?.pageIndex === 'number' ? e.detail.pageIndex : activePageIndex;
+      const container = document.querySelector(`.page-svg-container[data-page-index="${pageIdx}"]`);
+      const canvasContent = container?.querySelector('[id^="canvas-content-"]');
+      const svg = canvasContent ? canvasContent.querySelector('svg') : container?.querySelector('svg:not([id^="highlight-overlay-"])');
+      if (!svg) return;
+
+      const nRows = rows.length;
+      const nCols = Math.max(...rows.map((r) => r.length), 1);
+      const data = rows.map((r) => {
+        const out = r.map((v) => escapeTableCell(v));
+        while (out.length < nCols) out.push('');
+        return out;
+      });
+
+      // centre of the page (viewBox units); start narrow-ish — the content fit widens it if needed
+      const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+      const pageW = vb.length === 4 && vb[2] > 0 ? vb[2] : (baseWidth || 210);
+      const pageH = vb.length === 4 && vb[3] > 0 ? vb[3] : (baseHeight || 297);
+      const width = Math.min(pageW * 0.9, Math.max(120, nCols * 24));
+      const height = Math.min(pageH * 0.9, Math.max(40, nRows * 9));
+      const node = createTableElementNode({
+        rows: nRows,
+        cols: nCols,
+        sampleHeaders: [],
+        sampleData: data,
+        width,
+        height,
+        name: 'Pasted Table'
+      }, (vb[0] || 0) + pageW / 2, (vb[1] || 0) + pageH / 2);
+      if (!node) return;
+      node.setAttribute('data-name', 'Table');
+
+      // content-based column weights (longest text / longest word), like the Excel import
+      const weights = Array.from({ length: nCols }, (_, c) => {
+        let longest = 1;
+        let longestWord = 1;
+        rows.forEach((r) => {
+          const t = String(r[c] || '').trim();
+          longest = Math.max(longest, Math.min(t.length, 40));
+          t.split(/\s+/).forEach((w) => { longestWord = Math.max(longestWord, Math.min(w.length, 24)); });
+        });
+        return Math.round((Math.max(longestWord, Math.min(longest, 28) * 0.6) + 2) * 100) / 100;
+      });
+      node.setAttribute('data-auto-height', 'true');
+      node.setAttribute('data-col-weights', JSON.stringify(weights));
+
+      // same target group as the Elements panel insert: the page frame group
+      const isFrameGroup = (n) => n?.tagName?.toLowerCase() === 'g' &&
+        (n.getAttribute('data-type') === 'frame' || /^Page\s*\d+$/i.test(n.getAttribute('data-name') || ''));
+      let pageGroup = Array.from(svg.children || []).find(isFrameGroup);
+      if (!pageGroup) {
+        const overlayParent = svg.querySelector('[data-name="Overlay"]')?.parentElement;
+        pageGroup = overlayParent || svg;
+      }
+      pageGroup.appendChild(node);
+
+      // fit columns / box to the rendered content, keep it centred on the page
+      try {
+        fitTableToContent(node);
+        const fo = node.querySelector('foreignObject');
+        const fw = parseFloat(fo?.getAttribute('width')) || width;
+        const fh = parseFloat(fo?.getAttribute('height')) || height;
+        const nx = Math.round((vb[0] || 0) + (pageW - fw) / 2);
+        const ny = Math.round((vb[1] || 0) + Math.max(0, (pageH - fh) / 2));
+        node.setAttribute('transform', `translate(${nx}, ${ny})`);
+      } catch (err) {
+        console.warn('[paste-table] fit failed', err);
+      }
+
+      const id = node.getAttribute('id');
+      if (typeof saveModifiedPageHtml === 'function') saveModifiedPageHtml(pageIdx, svg);
+      else if (typeof updatePageHtml === 'function') updatePageHtml(pageIdx, svg.outerHTML);
+      if (typeof setActiveMainTool === 'function') setActiveMainTool('select');
+      if (typeof setSelectedLayerId === 'function') setSelectedLayerId(id);
+      if (selectedLayerIdRef) selectedLayerIdRef.current = id;
+      if (typeof setMultiSelectedIds === 'function') setMultiSelectedIds(new Set([id]));
+      if (multiSelectedIdsRef) multiSelectedIdsRef.current = new Set([id]);
+      if (pageGroup !== svg && pageGroup.id) {
+        if (typeof setCurrentFrameId === 'function') setCurrentFrameId(pageGroup.id);
+        if (currentFrameIdRef) currentFrameIdRef.current = pageGroup.id;
+      }
+      requestAnimationFrame(() => {
+        const live = document.getElementById(id);
+        if (live && typeof drawOverlayHighlight === 'function') drawOverlayHighlight(live, 'selected');
+      });
+    };
+    window.addEventListener('paste-table-to-editor', handlePasteTable);
+    return () => window.removeEventListener('paste-table-to-editor', handlePasteTable);
+  }, [activePageIndex, baseWidth, baseHeight, saveModifiedPageHtml, updatePageHtml, setActiveMainTool, setSelectedLayerId, selectedLayerIdRef, setMultiSelectedIds, multiSelectedIdsRef, setCurrentFrameId, currentFrameIdRef, drawOverlayHighlight]);
 
   return {
     insertImageIntoPage

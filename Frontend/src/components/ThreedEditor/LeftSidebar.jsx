@@ -31,27 +31,28 @@ export default function LeftSidebar({
   const [tempName, setTempName] = useState(modelName);
   const [expandedModelIds, setExpandedModelIds] = useState({ default: true });
   
-  // Sidebar Width & Minimize State
-  const [sidebarWidth, setSidebarWidth] = useState(340);
+  // Sidebar Width & Minimize State (using vw scaling)
+  const [sidebarWidthVw, setSidebarWidthVw] = useState(19.5);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef({ startX: 0, startWidth: 340 });
+  const dragRef = useRef({ startX: 0, startWidthVw: 19.5 });
 
   const startResize = useCallback((e) => {
     e.preventDefault();
     setIsDragging(true);
     dragRef.current = {
       startX: e.clientX,
-      startWidth: sidebarWidth
+      startWidthVw: sidebarWidthVw
     };
-  }, [sidebarWidth]);
+  }, [sidebarWidthVw]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging) return;
-      const deltaX = e.clientX - dragRef.current.startX;
-      const newWidth = Math.min(Math.max(dragRef.current.startWidth + deltaX, 260), 650);
-      setSidebarWidth(newWidth);
+      const windowWidth = window.innerWidth || 1920;
+      const deltaVw = ((e.clientX - dragRef.current.startX) / windowWidth) * 100;
+      const newWidthVw = Math.min(Math.max(dragRef.current.startWidthVw + deltaVw, 14), 36);
+      setSidebarWidthVw(newWidthVw);
     };
 
     const handleMouseUp = () => {
@@ -158,33 +159,33 @@ export default function LeftSidebar({
   // Minimized Compact Rail View
   if (isMinimized) {
     return (
-      <aside className="w-[52px] h-full bg-white flex flex-col items-center py-3 px-1.5 select-none shrink-0 border-r border-gray-200 transition-all duration-200 shadow-2xs relative z-20">
+      <aside className="w-[3.2vw] min-w-[48px] h-full bg-white flex flex-col items-center py-[0.75vw] px-[0.4vw] select-none shrink-0 border-r border-gray-200 transition-all duration-200 shadow-2xs relative z-20">
         {/* Expand / Maximize Button */}
         <button
           type="button"
           onClick={() => setIsMinimized(false)}
-          className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-[#ea543a] text-gray-600 hover:text-white transition-all cursor-pointer shadow-2xs mb-4"
+          className="w-[2.2vw] h-[2.2vw] min-w-[32px] min-h-[32px] flex items-center justify-center rounded-[0.5vw] bg-gray-100 hover:bg-[#ea543a] text-gray-600 hover:text-white transition-all cursor-pointer shadow-2xs mb-[0.8vw]"
           title="Expand sidebar"
         >
-          <Icon icon="solar:double-alt-arrow-right-linear" className="w-5 h-5" />
+          <Icon icon="solar:double-alt-arrow-right-linear" className="w-[1.2vw] h-[1.2vw]" />
         </button>
 
         {/* Minimized Quick Navigation Icons */}
-        <div className="flex flex-col items-center gap-3 w-full">
+        <div className="flex flex-col items-center gap-[0.6vw] w-full">
           <button
             type="button"
             onClick={() => {
               setIsMinimized(false);
               onSelectTab && onSelectTab("model");
             }}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+            className={`w-[2.2vw] h-[2.2vw] min-w-[32px] min-h-[32px] flex items-center justify-center rounded-[0.5vw] transition-colors cursor-pointer ${
               activeTab === "model"
                 ? "bg-[#ea543a] text-white shadow-2xs"
                 : "text-gray-600 hover:bg-gray-100"
             }`}
             title="3D Model & Layers"
           >
-            <Icon icon="f7:cube" className="w-5 h-5" />
+            <Icon icon="f7:cube" className="w-[1.2vw] h-[1.2vw]" />
           </button>
 
           <button
@@ -193,14 +194,14 @@ export default function LeftSidebar({
               setIsMinimized(false);
               onSelectTab && onSelectTab("lighting");
             }}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+            className={`w-[2.2vw] h-[2.2vw] min-w-[32px] min-h-[32px] flex items-center justify-center rounded-[0.5vw] transition-colors cursor-pointer ${
               activeTab === "lighting"
                 ? "bg-[#ea543a] text-white shadow-2xs"
                 : "text-gray-600 hover:bg-gray-100"
             }`}
             title="Lighting"
           >
-            <Icon icon="ant-design:sun-outlined" className="w-5 h-5" />
+            <Icon icon="ant-design:sun-outlined" className="w-[1.2vw] h-[1.2vw]" />
           </button>
 
           <button
@@ -209,14 +210,14 @@ export default function LeftSidebar({
               setIsMinimized(false);
               onSelectTab && onSelectTab("camera");
             }}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+            className={`w-[2.2vw] h-[2.2vw] min-w-[32px] min-h-[32px] flex items-center justify-center rounded-[0.5vw] transition-colors cursor-pointer ${
               activeTab === "camera"
                 ? "bg-[#ea543a] text-white shadow-2xs"
                 : "text-gray-600 hover:bg-gray-100"
             }`}
             title="Camera"
           >
-            <Icon icon="ant-design:camera-outlined" className="w-5 h-5" />
+            <Icon icon="ant-design:camera-outlined" className="w-[1.2vw] h-[1.2vw]" />
           </button>
         </div>
       </aside>
@@ -225,7 +226,7 @@ export default function LeftSidebar({
 
   return (
     <aside
-      style={{ width: `${sidebarWidth}px` }}
+      style={{ width: `${sidebarWidthVw}vw` }}
       className="h-full bg-white flex flex-col p-[0.75vw] select-none shrink-0 border-r border-gray-200 relative group/sidebar transition-[width] duration-75"
     >
       {/* ── 1. TOP HEADER CARD (File Name + Size + Edit Pencil + Minimize Button) ── */}
@@ -298,13 +299,18 @@ export default function LeftSidebar({
         <button
           type="button"
           onClick={() => onSelectTab && onSelectTab("model")}
-          className={`w-full flex items-center gap-[0.65vw] px-[0.85vw] py-[0.6vw] rounded-[0.55vw] text-left transition-all duration-200 cursor-pointer shrink-0 ${
+          className={`w-full flex items-center gap-[0.65vw] px-[0.85vw] py-[0.6vw] rounded-[0.55vw] text-left transition-all duration-200 cursor-pointer shrink-0 border ${
             activeTab === "model"
-              ? "bg-[#ea543a] text-white font-medium shadow-xs"
-              : "text-gray-800 hover:bg-gray-100 font-normal"
+              ? "bg-[#ea543a] border-[#ea543a] text-white font-semibold shadow-sm"
+              : "bg-[#edf1f7] border-[#d5dbe5] text-slate-800 hover:bg-[#e2e8f0] hover:border-[#cbd5e1] hover:text-slate-900 shadow-xs font-semibold active:scale-[0.99]"
           }`}
         >
-          <Icon icon="f7:cube" className="w-[1.15vw] h-[1.15vw] min-w-[16px] min-h-[16px] shrink-0" />
+          <Icon 
+            icon="f7:cube" 
+            className={`w-[1.15vw] h-[1.15vw] min-w-[16px] min-h-[16px] shrink-0 transition-colors ${
+              activeTab === "model" ? "text-white" : "text-slate-700"
+            }`} 
+          />
           <span className="text-[0.82vw]">3D Model</span>
         </button>
 
@@ -341,20 +347,20 @@ export default function LeftSidebar({
                       [item.id]: prev[item.id] === undefined ? false : !prev[item.id],
                     }));
                   }}
-                  className={`w-full group flex items-center justify-between px-[0.7vw] py-[0.48vw] rounded-[0.5vw] text-left transition-all duration-150 cursor-pointer ${
+                  className={`w-full group flex items-center justify-between px-[0.7vw] py-[0.48vw] rounded-[0.5vw] text-left transition-all duration-150 cursor-pointer shadow-xs ${
                     isModelActive
-                      ? "bg-[#fdeee9] text-[#ea543a] font-medium border border-[#ea543a]/35 shadow-2xs"
-                      : "text-gray-700 hover:bg-gray-100/90 hover:text-gray-950 font-normal border border-gray-200/60 bg-white"
+                      ? "bg-[#fdeee9] text-[#ea543a] font-medium border-[1.5px] border-[#ea543a]"
+                      : "text-gray-800 hover:bg-gray-50 hover:text-gray-950 font-normal border-[1.5px] border-[#333333]/30 hover:border-[#333333]/60 bg-white"
                   }`}
                 >
                   <div className="flex items-center gap-[0.55vw] min-w-0 flex-1">
                     <Icon
                       icon="f7:cube"
-                      className={`w-[1vw] h-[1vw] min-w-[14px] min-h-[1vw] shrink-0 ${
+                      className={`w-[1.1vw] h-[1.1vw] min-w-[16px] min-h-[16px] shrink-0 ${
                         isModelActive ? "text-[#ea543a]" : "text-gray-500"
                       }`}
                     />
-                    <span className="text-[0.78vw] truncate">{displayName}</span>
+                    <span className="text-[0.85vw] font-medium truncate">{displayName}</span>
                   </div>
 
                   {/* Action Buttons: Delete on hover/selected + Chevron Toggle */}
@@ -451,20 +457,22 @@ export default function LeftSidebar({
       <div className="h-[1px] bg-gray-100 my-[0.5vw] w-full shrink-0"></div>
 
       {/* ── 3. SECTION: LIGHTING & CAMERA ── */}
-      <nav className="flex flex-col gap-[0.3vw] shrink-0">
+      <nav className="flex flex-col gap-[0.45vw] shrink-0">
         {/* Lighting Tab */}
         <button
           type="button"
           onClick={() => onSelectTab && onSelectTab("lighting")}
-          className={`w-full flex items-center gap-[0.65vw] px-[0.85vw] py-[0.55vw] rounded-[0.55vw] text-left transition-all duration-200 cursor-pointer ${
+          className={`w-full flex items-center gap-[0.65vw] px-[0.85vw] py-[0.55vw] rounded-[0.55vw] text-left transition-all duration-200 cursor-pointer border ${
             activeTab === "lighting"
-              ? "bg-[#ea543a] text-white font-semibold shadow-xs"
-              : "text-gray-800 hover:bg-gray-100 font-normal"
+              ? "bg-[#ea543a] border-[#ea543a] text-white font-semibold shadow-sm"
+              : "bg-[#edf1f7] border-[#d5dbe5] text-slate-800 hover:bg-[#e2e8f0] hover:border-[#cbd5e1] hover:text-slate-900 shadow-xs font-semibold active:scale-[0.99]"
           }`}
         >
           <Icon
             icon="ant-design:sun-outlined"
-            className="w-[1.15vw] h-[1.15vw] min-w-[16px] min-h-[16px] shrink-0"
+            className={`w-[1.15vw] h-[1.15vw] min-w-[16px] min-h-[16px] shrink-0 transition-colors ${
+              activeTab === "lighting" ? "text-white" : "text-slate-700"
+            }`}
           />
           <span className="text-[0.82vw]">Lighting</span>
         </button>
@@ -473,15 +481,17 @@ export default function LeftSidebar({
         <button
           type="button"
           onClick={() => onSelectTab && onSelectTab("camera")}
-          className={`w-full flex items-center gap-[0.65vw] px-[0.85vw] py-[0.55vw] rounded-[0.55vw] text-left transition-all duration-200 cursor-pointer ${
+          className={`w-full flex items-center gap-[0.65vw] px-[0.85vw] py-[0.55vw] rounded-[0.55vw] text-left transition-all duration-200 cursor-pointer border ${
             activeTab === "camera"
-              ? "bg-[#ea543a] text-white font-semibold shadow-xs"
-              : "text-gray-800 hover:bg-gray-100 font-normal"
+              ? "bg-[#ea543a] border-[#ea543a] text-white font-semibold shadow-sm"
+              : "bg-[#edf1f7] border-[#d5dbe5] text-slate-800 hover:bg-[#e2e8f0] hover:border-[#cbd5e1] hover:text-slate-900 shadow-xs font-semibold active:scale-[0.99]"
           }`}
         >
           <Icon
             icon="ant-design:camera-outlined"
-            className="w-[1.15vw] h-[1.15vw] min-w-[16px] min-h-[16px] shrink-0"
+            className={`w-[1.15vw] h-[1.15vw] min-w-[16px] min-h-[16px] shrink-0 transition-colors ${
+              activeTab === "camera" ? "text-white" : "text-slate-700"
+            }`}
           />
           <span className="text-[0.82vw]">Camera</span>
         </button>

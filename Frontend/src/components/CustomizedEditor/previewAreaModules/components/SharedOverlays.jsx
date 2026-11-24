@@ -39,6 +39,8 @@ const SharedOverlays = ({
   setShowSharePopup,
   showExportPopup,
   setShowExportPopup,
+  isAutoDownloadPDF = false,
+  setIsAutoDownloadPDF,
   showProfilePopup,
   setShowProfilePopup,
   creatorProfileData,
@@ -288,11 +290,15 @@ const SharedOverlays = ({
             {showExportPopup && (
                 <ExportModal
                     isOpen={showExportPopup}
-                    onClose={() => setShowExportPopup(false)}
+                    onClose={() => {
+                        setShowExportPopup(false);
+                        if (setIsAutoDownloadPDF) setIsAutoDownloadPDF(false);
+                    }}
                     currentBook={currentBook}
                     pages={pages}
                     currentPageIndex={currentPage - 1}
                     isAbsolutePosition={true}
+                    autoDownloadPDF={isAutoDownloadPDF}
                 />
             )}
 
@@ -351,7 +357,7 @@ const SharedOverlays = ({
       {(() => {
         const isLeadFormEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
         const enquiryBtn = leadFormSettings?.enquiryButton;
-        const isEnquiryBtnEnabled = enquiryBtn?.enabled !== false;
+        const isEnquiryBtnEnabled = enquiryBtn?.enabled === true || enquiryBtn?.enabled === 'true';
 
         if (!isLeadFormEnabled || !isEnquiryBtnEnabled) return null;
 

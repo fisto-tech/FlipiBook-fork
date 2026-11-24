@@ -1,0 +1,19 @@
+{
+  "name": "FlipiBook - Interactive 3D Digital Catalogues",
+  "short_name": "FlipiBook",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#ea543a",
+  "description": "Turn static PDFs into interactive 3D digital catalogues, digital magazines, brochures, and flipbooks with realistic page-turning animations.",
+  "categories": ["productivity", "utilities", "design"],
+  "icons": [
+    {
+      "src": "/Login/relicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

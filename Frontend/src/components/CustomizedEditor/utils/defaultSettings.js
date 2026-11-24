@@ -46,28 +46,33 @@ export const createDefaultPreloaderSettings = (currentBook, locationState) => {
     enabled: true,
     isCustom: false,
     displayOption: 'preloader-only', // 'preloader-only' | 'logo-only' | 'both'
-    text: 'Preparing Flipibook',
+    text: 'Preparing Flipbook...',
     layout: 'spinner',
     logoAnimation: 'bounce',
-    spinnerColor: '#3B3C8A',
-    bgColor: '#D6E0F4',
-    textColor: '#1E293B',
+    spinnerColor: '#E04752',
+    bgColor: '#22252A',
+    textColor: '#ffffff',
     showPercentage: false,
+    logo: '',
   };
-  if (p && typeof p === 'object' && Object.keys(p).length > 0) {
+  if (p && typeof p === 'object' && Object.keys(p).length > 0 && p.isCustom) {
     const rawText = p.text;
-    const resolvedText = (!rawText || rawText === 'Loading Modal Please Wait....') ? 'Preparing Flipibook' : rawText;
+    const resolvedText = (!rawText || rawText === 'Loading Modal Please Wait....') ? 'Preparing Flipbook...' : rawText;
     const resolvedDisplayOption = p.displayOption || (p.layout === 'logo-only' ? 'logo-only' : (p.logo ? 'both' : 'preloader-only'));
-    const isCustom = p.isCustom !== undefined ? p.isCustom : (!!p.logo || !!p.displayOption || p.layout === 'logo-only' || (p.text && p.text !== 'Preparing Flipibook'));
+    const resolvedBgColor = (!p.bgColor || p.bgColor === '#D6E0F4') ? '#22252A' : p.bgColor;
+    const resolvedSpinnerColor = (!p.spinnerColor || p.spinnerColor === '#3B3C8A') ? '#E04752' : p.spinnerColor;
     return {
       ...defaults,
       ...p,
-      isCustom,
+      isCustom: true,
       displayOption: resolvedDisplayOption,
       enabled: p.enabled !== undefined ? p.enabled : true,
       text: resolvedText,
       layout: p.layout === 'logo-only' ? 'spinner' : (p.layout || 'spinner'),
       logoAnimation: p.logoAnimation || 'bounce',
+      bgColor: resolvedBgColor,
+      textColor: p.textColor || '#ffffff',
+      spinnerColor: resolvedSpinnerColor,
     };
   }
   return defaults;
@@ -250,41 +255,101 @@ export const createDefaultOtherSetupSettings = () => ({
   },
 });
 
-export const createDefaultLeadFormSettings = () => ({
-  enabled: false,
-  leadText: 'Share your information to get personalized updates.',
-  fields: [
-    { id: '1', type: 'name', placeholder: 'Enter your Name' },
-    { id: '2', type: 'email', placeholder: 'Enter your Gmail' },
-    { id: '3', type: 'feedback', placeholder: 'Enter your Feedback' }
-  ],
-  appearance: {
-    timing: 'after-pages',
-    afterPages: 4,
-    allowSkip: true,
-    fontStyle: 'Poppins',
-    textFill: '#3E4491',
-    textStroke: '',
-    bgFill: '#ffffffff',
-    bgStroke: '',
-    btnFill: '#3E4491',
-    btnStroke: '',
-    btnText: 'white'
-  },
-  enquiryButton: {
-    enabled: true,
-    showText: true,
-    text: 'Enquiry Now',
-    icon: 'lucide:message-square',
-    bgFill: '#E05638',
-    bgOpacity: 100,
-    textColor: '#FFFFFF',
-    textOpacity: 100,
-    iconColor: '#FFFFFF',
-    iconOpacity: 100,
-    position: 'bottom-right'
+export const createDefaultLeadFormSettings = (currentBook, locationState) => {
+  const loaded = currentBook?.Customized_Settings?.leadForm || 
+                 currentBook?.settings?.leadForm || 
+                 currentBook?.settings?.leadform || 
+                 locationState?.leadForm || 
+                 locationState?.leadform;
+
+  if (loaded) {
+    return {
+      enabled: Boolean(loaded.enabled),
+      leadText: loaded.leadText || 'Share your information to get personalized updates.',
+      formTitle: loaded.formTitle || 'Get in Touch',
+      buttonText: loaded.buttonText || 'SUBMIT',
+      selectedTemplateId: loaded.selectedTemplateId || 'contact-form',
+      fields: Array.isArray(loaded.fields) ? loaded.fields : [
+        { id: '1', type: 'name', placeholder: 'Enter your Name' },
+        { id: '2', type: 'email', placeholder: 'Enter your Gmail' },
+        { id: '3', type: 'feedback', placeholder: 'Enter your Feedback' }
+      ],
+      appearance: {
+        enabled: loaded.appearance?.enabled !== undefined ? Boolean(loaded.appearance.enabled) : false,
+        timing: loaded.appearance?.timing || 'after-pages',
+        afterPages: loaded.appearance?.afterPages || 1,
+        afterSeconds: loaded.appearance?.afterSeconds || 30,
+        allowSkip: loaded.appearance?.allowSkip !== undefined ? Boolean(loaded.appearance.allowSkip) : true,
+        skipBehavior: loaded.appearance?.skipBehavior || 'never',
+        fontStyle: loaded.appearance?.fontStyle || 'Poppins',
+        textFill: loaded.appearance?.textFill || '#3E4491',
+        textStroke: loaded.appearance?.textStroke || '',
+        bgFill: loaded.appearance?.bgFill || '#ffffffff',
+        bgStroke: loaded.appearance?.bgStroke || '',
+        btnFill: loaded.appearance?.btnFill || '#3E4491',
+        btnStroke: loaded.appearance?.btnStroke || '',
+        btnText: loaded.appearance?.btnText || 'white'
+      },
+      enquiryButton: {
+        enabled: loaded.enquiryButton?.enabled !== undefined ? Boolean(loaded.enquiryButton.enabled) : false,
+        showText: loaded.enquiryButton?.showText !== undefined ? Boolean(loaded.enquiryButton.showText) : true,
+        text: loaded.enquiryButton?.text || 'Enquiry Now',
+        icon: loaded.enquiryButton?.icon || 'lucide:message-square',
+        bgFill: loaded.enquiryButton?.bgFill || '#E05638',
+        bgOpacity: loaded.enquiryButton?.bgOpacity ?? 100,
+        textColor: loaded.enquiryButton?.textColor || '#FFFFFF',
+        textOpacity: loaded.enquiryButton?.textOpacity ?? 100,
+        iconColor: loaded.enquiryButton?.iconColor || '#FFFFFF',
+        iconOpacity: loaded.enquiryButton?.iconOpacity ?? 100,
+        position: loaded.enquiryButton?.position || 'bottom-right'
+      },
+      leadNotification: loaded.leadNotification || {}
+    };
   }
-});
+
+  return {
+    enabled: false,
+    leadText: 'Share your information to get personalized updates.',
+    formTitle: 'Get in Touch',
+    buttonText: 'SUBMIT',
+    selectedTemplateId: 'contact-form',
+    fields: [
+      { id: '1', type: 'name', placeholder: 'Enter your Name' },
+      { id: '2', type: 'email', placeholder: 'Enter your Gmail' },
+      { id: '3', type: 'feedback', placeholder: 'Enter your Feedback' }
+    ],
+    appearance: {
+      enabled: false,
+      timing: 'after-pages',
+      afterPages: 1,
+      afterSeconds: 30,
+      allowSkip: true,
+      skipBehavior: 'never',
+      fontStyle: 'Poppins',
+      textFill: '#3E4491',
+      textStroke: '',
+      bgFill: '#ffffffff',
+      bgStroke: '',
+      btnFill: '#3E4491',
+      btnStroke: '',
+      btnText: 'white'
+    },
+    enquiryButton: {
+      enabled: false,
+      showText: true,
+      text: 'Enquiry Now',
+      icon: 'lucide:message-square',
+      bgFill: '#E05638',
+      bgOpacity: 100,
+      textColor: '#FFFFFF',
+      textOpacity: 100,
+      iconColor: '#FFFFFF',
+      iconOpacity: 100,
+      position: 'bottom-right'
+    },
+    leadNotification: {}
+  };
+};
 
 export const createDefaultVisibilitySettings = () => ({
   type: 'Public',
