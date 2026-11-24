@@ -40,4 +40,8 @@ router.post('/rename-page', bookController.renamePage);
 router.post('/delete-page', bookController.deletePage);
 router.post('/update-settings', bookController.updateSettings);
 
+// --- Book Translation & Cloning ---
+router.post('/translate-clone', bookController.translateCloneBook);
+router.get('/translation-status/:jobId', bookController.getTranslationStatus);
+
 module.exports = router;

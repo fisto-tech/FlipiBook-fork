@@ -2351,7 +2351,8 @@ export const useCanvasPointerEvents = ({
       selectedLayerIdRef.current = id;
     }
 
-    const targetEl = id ? document.getElementById(id) : null;
+    const safeTargetId = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+    const targetEl = id ? (document.getElementById(id) || document.querySelector(`.page-svg-container [id="${safeTargetId}"]`)) : null;
     const isRoot = isPageRootElement(targetEl, targetEl?.closest?.('svg') || null);
 
     const newSet = (id && !isRoot) ? new Set([id]) : new Set();
@@ -2429,6 +2430,10 @@ export const useCanvasPointerEvents = ({
           }
         });
       });
+      if (targetEl && !isRoot && typeof drawOverlayHighlight === 'function') {
+        const highlightType = targetEl.getAttribute('data-child-selected') === 'true' ? 'child-selected' : 'selected';
+        drawOverlayHighlight(targetEl, highlightType);
+      }
     } else {
       clearOverlayType('selected');
       clearOverlayType('child-selected');

@@ -1066,9 +1066,26 @@ export const useInteractEngine = ({
         }
       });
 
+    const handleGlobalPointerUp = (e) => {
+      if (!e || e.buttons === 0) {
+        if (document.body.classList.contains('dragging-active')) {
+          document.body.classList.remove('dragging-active');
+        }
+        document.querySelectorAll('[data-dragging="true"]').forEach(el => {
+          el.removeAttribute('data-dragging');
+        });
+      }
+    };
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('mouseup', handleGlobalPointerUp);
+
     return () => {
       interactable.unset();
       clearSmartGuides();
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('mouseup', handleGlobalPointerUp);
       document.body.classList.remove('dragging-active');
     };
   }, [zoom, activePageIndex]); // No longer depends on frequently changing callbacks

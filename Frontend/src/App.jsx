@@ -18,6 +18,7 @@ import LaunchLockGate from "./features/comingSoon/LaunchLockGate";
 import ScrollToTop from "./components/ScrollToTop";
 import SEOManager from "./components/common/SEOManager";
 import { DocumentUploadProvider } from "./context/DocumentUploadContext";
+import { TranslationProvider } from "./context/TranslationContext";
 
 function AuthRouteRedirect({ mode = "signin" }) {
   const { openAuthModal } = useAuth();
@@ -106,6 +107,7 @@ export default function App() {
           <ConfirmationProvider>
             <Router>
               <DocumentUploadProvider>
+                <TranslationProvider>
                 <SEOManager />
                 <ScrollToTop />
                 <AuthModal />
@@ -744,6 +746,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
                 </LaunchLockGate>
+                </TranslationProvider>
           </DocumentUploadProvider>
           </Router>
           </ConfirmationProvider>

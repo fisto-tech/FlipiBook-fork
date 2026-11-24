@@ -32,6 +32,7 @@ export const useCanvasContextMenuAndBadges = ({
   setMultiSelectedIds,
   pages = [],
   drawOverlayHighlight,
+  drawMultiSelectionHighlight,
   setActiveMainTool,
   setSelectedShapeTool,
   selectedShapeTool
@@ -185,14 +186,19 @@ export const useCanvasContextMenuAndBadges = ({
 
     const timer = setTimeout(() => {
       if (selectedLayerId) {
-        const el = document.getElementById(selectedLayerId);
+        const safeId = (window.CSS && CSS.escape) ? CSS.escape(selectedLayerId) : selectedLayerId;
+        const el = document.getElementById(selectedLayerId) || document.querySelector(`.page-svg-container [id="${safeId}"]`);
         if (el && typeof drawOverlayHighlight === 'function') {
           drawOverlayHighlight(el, 'selected');
         }
       }
       if (multiSelectedIds && multiSelectedIds.size > 1) {
+        if (typeof drawMultiSelectionHighlight === 'function') {
+          drawMultiSelectionHighlight(multiSelectedIds, 'selected');
+        }
         multiSelectedIds.forEach(id => {
-          const el = document.getElementById(id);
+          const safeId = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+          const el = document.getElementById(id) || document.querySelector(`.page-svg-container [id="${safeId}"]`);
           if (el && typeof drawOverlayHighlight === 'function') {
             drawOverlayHighlight(el, 'multi-child-selected');
           }
@@ -201,7 +207,7 @@ export const useCanvasContextMenuAndBadges = ({
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [pages, selectedLayerId, multiSelectedIds, drawOverlayHighlight]);
+  }, [pages, selectedLayerId, multiSelectedIds, drawOverlayHighlight, drawMultiSelectionHighlight]);
 
   // Listen for interaction badge icon update events
   useEffect(() => {

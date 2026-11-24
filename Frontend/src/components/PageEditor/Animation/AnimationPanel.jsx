@@ -1512,6 +1512,9 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
                 }
               }
             } catch { }
+            if (!baseTransform || baseTransform === 'none') {
+              baseTransform = transformAttr;
+            }
           }
         }
         target.__originalTransform = (!baseTransform || baseTransform === 'none') ? '' : baseTransform;
@@ -1750,11 +1753,16 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
     const id = idStr || el?.id || '';
     const name = el?.getAttribute?.('data-name') || '';
     const dataType = el?.getAttribute?.('data-type') || '';
+    if (dataType && ['icon', 'shape', 'button', 'text', 'image', 'video', 'audio', 'qrcode', 'table', 'table-frame', 'embed', 'embed-frame', 'map', 'slideshow', 'hotspot', 'decorator', 'group'].includes(dataType)) {
+      return false;
+    }
     if (dataType === 'frame') return true;
     if (el?.tagName?.toLowerCase() === 'svg') return true;
     if (/^(page|slide)\s*\d+/i.test(name) || name === 'Overlay') return true;
     if (/^(page|slide)-/i.test(id) || id === 'Overlay') return true;
-    if (el?.parentElement?.tagName?.toLowerCase() === 'svg' && el?.tagName?.toLowerCase() === 'g') return true;
+    if (el?.parentElement?.tagName?.toLowerCase() === 'svg' && el?.tagName?.toLowerCase() === 'g') {
+      return !dataType && !id.startsWith('icon-') && !id.startsWith('shape-') && !id.startsWith('text-') && !id.startsWith('image-');
+    }
     return false;
   };
 
