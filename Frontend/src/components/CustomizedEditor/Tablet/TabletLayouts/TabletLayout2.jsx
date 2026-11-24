@@ -97,9 +97,16 @@ const TabletLayout2 = ({ children, bookRef, currentPage, pages, offset = 0, onPa
 
     const radialConfig = useMemo(() => {
         if (!spreads || spreads.length === 0) return { displaySpreads: [], angleStep: 26 };
-        const displaySpreads = [...spreads];
-        const compactStep = 26;
-        const angleStep = Math.min(compactStep, 360 / displaySpreads.length);
+        let displaySpreads = [...spreads];
+        if (spreads.length > 0 && spreads.length < 14) {
+            const repeatTimes = Math.ceil(14 / spreads.length);
+            const repeated = [];
+            for (let r = 0; r < repeatTimes; r++) {
+                repeated.push(...spreads);
+            }
+            displaySpreads = repeated;
+        }
+        const angleStep = 360 / displaySpreads.length;
         return { displaySpreads, angleStep };
     }, [spreads]);
     

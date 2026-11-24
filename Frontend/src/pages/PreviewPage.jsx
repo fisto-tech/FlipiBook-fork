@@ -196,10 +196,20 @@ const PreviewPage = () => {
               if (cachedCust.leadForm && (cachedCust.leadForm.enabled !== undefined || cachedCust.leadForm.fields)) {
                 leadFormObj = { ...leadFormObj, ...cachedCust.leadForm };
               }
+              if (cachedCust.Branding?.preloaderSettings) {
+                brandingObj.preloaderSettings = cachedCust.Branding.preloaderSettings;
+              }
             }
           } catch (cErr) {
             console.warn('[PreviewPage] Could not read IndexedDB cache:', cErr);
           }
+
+          const preloaderSettings =
+            brandingObj?.preloaderSettings ||
+            processedData.Customized_Settings?.Branding?.preloaderSettings ||
+            processedData.settings?.Branding?.preloaderSettings ||
+            processedData.settings?.preloaderSettings ||
+            processedData.settings?.preloader;
 
           const mergedSettings = {
             ...(processedData.meta || {}),
@@ -211,7 +221,9 @@ const PreviewPage = () => {
             BookAppearance: appearanceObj,
             otherSetup: otherSetupObj,
             leadForm: leadFormObj,
-            leadform: leadFormObj
+            leadform: leadFormObj,
+            preloader: preloaderSettings,
+            preloaderSettings: preloaderSettings
           };
 
           setData({
@@ -232,12 +244,7 @@ const PreviewPage = () => {
 
   if (isLoading || !data) {
     return (
-      <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#22252A' }}>
-        <PreloaderOverlay
-          isLoading={true}
-          preloaderSettings={createDefaultPreloaderSettings()}
-        />
-      </div>
+      <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#22252A' }} />
     );
   }
 
@@ -332,6 +339,7 @@ const PreviewPage = () => {
         baseUrl={data.projectBaseUrl || ''}
         v_id={data.v_id}
         shareId={data.Customized_Settings?.Visibility?.shareId || data.Visibility?.shareId || (new URLSearchParams(location.search).get('shareId'))}
+        isPublishedPreview={true}
         isLoadingParent={false}
         currentBook={data}
       />

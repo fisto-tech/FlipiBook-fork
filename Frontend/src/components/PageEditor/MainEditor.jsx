@@ -39,10 +39,10 @@ import { useCanvasContextMenuAndBadges } from './mainEditor/hooks/useCanvasConte
 import { useCanvasPointerEvents } from './mainEditor/hooks/useCanvasPointerEvents';
 import { CanvasViewport } from './mainEditor/components/CanvasViewport';
 import { FloatingToolbars } from './mainEditor/components/FloatingToolbars';
+import { executeInlineTranslation } from './utils/inlineTranslationHelper';
 import {
   LeftActionMenu,
   AddElementsModal,
-  StylesModal,
   IconsModal
 } from './LeftActionMenu';
 import { getTopLevelFrames, hitTest as hitTestExt, isPageRootElement } from './mainEditor/utils/frameHierarchyUtils';
@@ -151,7 +151,6 @@ const MainEditor = ({
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null); // Track which page's menu is open
   const [isElementsModalOpen, setIsElementsModalOpen] = useState(false);
-  const [isStylesModalOpen, setIsStylesModalOpen] = useState(false);
   const [isIconsModalOpen, setIsIconsModalOpen] = useState(false);
 
 
@@ -169,7 +168,6 @@ const MainEditor = ({
   useEffect(() => {
     if (isConvertedFlipbook) {
       setIsElementsModalOpen(false);
-      setIsStylesModalOpen(false);
       setIsIconsModalOpen(false);
       if (!pdfDefaultsSetRef.current) {
         if (setActiveTopTool) setActiveTopTool('interaction');
@@ -268,7 +266,6 @@ const MainEditor = ({
     activeTopToolRef.current = activeTopTool;
     if (activeTopTool === 'interaction' || activeTopTool === 'animation') {
       setIsElementsModalOpen(false);
-      setIsStylesModalOpen(false);
       setIsIconsModalOpen(false);
       if (marqueeOverlayRef1.current) {
         marqueeOverlayRef1.current.style.display = 'none';
@@ -643,6 +640,33 @@ const MainEditor = ({
     return () => window.removeEventListener('editor-canva-color-changed', onCanvaColorChange);
   }, []);
 
+  // ── Inline Text Translation Event Listener ──
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__selectedLayerId = selectedLayerId;
+    }
+  }, [selectedLayerId]);
+
+  useEffect(() => {
+    const handleTriggerInlineTranslate = async (e) => {
+      const { targetLang = 'tam_Taml', layerId = null } = e?.detail || {};
+      await executeInlineTranslation({
+        targetLang,
+        layerId: layerId || selectedLayerId,
+        activePageIndex,
+        saveModifiedPageHtml,
+        onComplete: (translatedText) => {
+          console.log('[MainEditor] Text translated successfully:', translatedText?.slice(0, 30));
+        },
+        onError: (err) => {
+          console.warn('[MainEditor] Text translation warning:', err);
+        }
+      });
+    };
+    window.addEventListener('trigger-inline-translate', handleTriggerInlineTranslate);
+    return () => window.removeEventListener('trigger-inline-translate', handleTriggerInlineTranslate);
+  }, [activePageIndex, selectedLayerId, saveModifiedPageHtml]);
+
   const computedCanvaBackground = useMemo(() => {
     if (isPopupEditor) return 'transparent';
     if (!canvaColor) return '#E6E7E7';
@@ -672,6 +696,7 @@ const MainEditor = ({
     setMultiSelectedIds,
     pages,
     drawOverlayHighlight,
+    drawMultiSelectionHighlight,
     setActiveMainTool,
     setSelectedShapeTool,
     selectedShapeTool
@@ -1155,6 +1180,16 @@ const getDraggableElement = (target, canvasRoot) => {
         titleGroup.id = `title-${Date.now()}`;
       }
       return titleGroup;
+    }
+
+    // Icons are single compound elements (hit-box + icon paths); always select the whole icon group,
+    // never its transparent hit-box rect (styling that rect draws a box around the icon)
+    const iconGroup = current && typeof current.closest === 'function' ? current.closest('g[data-type="icon"]') : null;
+    if (iconGroup) {
+      if (!iconGroup.id) {
+        iconGroup.id = `icon-${Date.now()}`;
+      }
+      return iconGroup;
     }
 
     // Decorator elements are single compound elements; always drag/select the whole decorator group
@@ -1752,6 +1787,10 @@ const getDraggableElement = (target, canvasRoot) => {
             }
           }}
           onMouseMove={(e) => {
+            // The page container (CanvasViewport) already handled moves over the page. Re-running
+            // here would resolve the wrong <svg> (first one in this div, e.g. a LeftActionMenu icon)
+            // and wipe the hover box that was just drawn.
+            if (e.target?.closest?.('[id^="canvas-content-"]')) return;
             if (handleSvgMouseMove) {
               handleSvgMouseMove(activePageIndex, e);
             }
@@ -1806,22 +1845,13 @@ const getDraggableElement = (target, canvasRoot) => {
               baseHeight={baseHeight}
               isElementsModalOpen={isElementsModalOpen}
               onToggleElementsModal={() => {
-                setIsStylesModalOpen(false);
                 setIsIconsModalOpen(false);
                 setIsElementsModalOpen(prev => !prev);
               }}
               onCloseElementsModal={() => setIsElementsModalOpen(false)}
-              isStylesModalOpen={isStylesModalOpen}
-              onToggleStylesModal={() => {
-                setIsElementsModalOpen(false);
-                setIsIconsModalOpen(false);
-                setIsStylesModalOpen(prev => !prev);
-              }}
-              onCloseStylesModal={() => setIsStylesModalOpen(false)}
               isIconsModalOpen={isIconsModalOpen}
               onToggleIconsModal={() => {
                 setIsElementsModalOpen(false);
-                setIsStylesModalOpen(false);
                 setIsIconsModalOpen(prev => !prev);
               }}
               onCloseIconsModal={() => setIsIconsModalOpen(false)}
@@ -1847,18 +1877,6 @@ const getDraggableElement = (target, canvasRoot) => {
               setActiveMainTool={setActiveMainTool}
               baseWidth={baseWidth}
               baseHeight={baseHeight}
-              dragConstraintsRef={editorContainerRef}
-            />
-          )}
-
-          {/* Draggable Styles Modal */}
-          {!isPdfMode && (
-            <StylesModal
-              isOpen={isStylesModalOpen}
-              onClose={() => setIsStylesModalOpen(false)}
-              isRulerEnabled={localRulerEnabled}
-              activePageIndex={activePageIndex}
-              saveModifiedPageHtml={saveModifiedPageHtml}
               dragConstraintsRef={editorContainerRef}
             />
           )}

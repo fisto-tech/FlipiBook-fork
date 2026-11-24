@@ -32,6 +32,7 @@ import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { normalizeForeignObjectNamespaces } from '../LeftActionMenu/Elements/utils/tableElementUtils';
 
+import { readIconPaint } from '../utils/iconPaint';
 const RightSidebar = ({
   isDoublePage,
   setIsDoublePage,
@@ -589,6 +590,16 @@ const RightSidebar = ({
           }
           if (parseFloat(strokeWidthStr) === 0 || isNaN(parseFloat(strokeWidthStr)) || strokeStyle === 'transparent' || strokeStyle === 'rgba(0, 0, 0, 0)') {
             strokeStyle = 'none';
+          }
+        }
+
+        // Icons: paint lives on the inner icon group/paths, not the outer <g> — read it from there
+        if (el.getAttribute('data-type') === 'icon' && el.tagName.toLowerCase() === 'g') {
+          const paint = readIconPaint(el);
+          if (paint) {
+            strokeStyle = paint.stroke;
+            fillStyle = paint.fill;
+            strokeWidthStr = paint.strokeWidth;
           }
         }
 
@@ -1605,7 +1616,8 @@ const RightSidebar = ({
               setSelectedLayerId={setSelectedLayerId}
               selectedElement={(() => {
                 if (!selectedLayerId) return null;
-                const container = document.querySelector(`.page-svg-container [id="${selectedLayerId}"]`);
+                const safeId = (window.CSS && CSS.escape) ? CSS.escape(selectedLayerId) : selectedLayerId;
+                const container = document.querySelector(`.page-svg-container [id="${safeId}"]`);
                 const el = container || document.getElementById(selectedLayerId) || null;
                 if (!el) return null;
                 const name = el.getAttribute('data-name') || '';

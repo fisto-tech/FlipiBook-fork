@@ -9,6 +9,7 @@ import { applySvgGradientOrSolid } from '../LeftActionMenu/Elements/utils/shapeM
 import { normalizeForeignObjectNamespaces } from '../LeftActionMenu/Elements/utils/tableElementUtils';
 import { safeSerializeSvg } from '../utils/editorUtils';
 
+import { applyIconPaint, neutralizeIconHitBox } from '../utils/iconPaint';
 export const useElementAttributeSync = ({ setPages, saveToHistory }) => {
     const updateElementAttribute = (pageIndex, elementId, attribute, value) => {
     saveToHistory();
@@ -80,6 +81,7 @@ export const useElementAttributeSync = ({ setPages, saveToHistory }) => {
               element.removeAttribute(attr);
             }
             if (attr === 'stroke-width') element.setAttribute('stroke', 'none');
+            applyIconPaint(element, attr, 'none');
             if (['stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit'].includes(attr) && element.tagName.toLowerCase() === 'g') {
               element.querySelectorAll('path, polygon, rect, circle, ellipse, line, polyline').forEach(c => c.removeAttribute(attr));
             }
@@ -142,29 +144,8 @@ export const useElementAttributeSync = ({ setPages, saveToHistory }) => {
                 }
               }
 
-              if ((attr === 'fill' || attr === 'stroke' || attr === 'stroke-width' || attr === 'stroke-dasharray') && element.getAttribute('data-type') === 'icon') {
-                const children = element.querySelectorAll('*');
-                children.forEach(c => {
-                  const tag = c.tagName.toLowerCase();
-                  if (['path', 'rect', 'circle', 'polygon', 'ellipse', 'line', 'polyline'].includes(tag)) {
-                    if (tag === 'rect' && !c.hasAttribute('fill')) {
-                      c.setAttribute('fill', 'none');
-                    }
-                    if (attr === 'fill' && c.hasAttribute('fill') && c.getAttribute('fill') !== 'none') {
-                      c.setAttribute('fill', val);
-                    }
-                    if (attr === 'stroke' && c.hasAttribute('stroke') && c.getAttribute('stroke') !== 'none') {
-                      c.setAttribute('stroke', val);
-                    }
-                    if (attr === 'stroke-width' && c.hasAttribute('stroke') && c.getAttribute('stroke') !== 'none') {
-                      c.setAttribute('stroke-width', val);
-                    }
-                    if (attr === 'stroke-dasharray' && c.hasAttribute('stroke') && c.getAttribute('stroke') !== 'none') {
-                      c.setAttribute('stroke-dasharray', val);
-                    }
-                  }
-                });
-              }
+              // Icons: paint the icon itself, never the transparent hit-box
+              applyIconPaint(element, attr, val);
             }
             if (attr === 'stroke-width' && val !== '0' && (element.getAttribute('stroke') === 'none' || !element.getAttribute('stroke'))) {
               const existingStroke = element.getAttribute('data-stroke-color');
@@ -461,7 +442,11 @@ export const useElementAttributeSync = ({ setPages, saveToHistory }) => {
             syncGradient(doc, element, 'stroke');
           }
 
-          if (element.tagName.toLowerCase() === 'g') {
+          // Icons keep their own child paint (applyIconPaint) — stripping children here would remove the
+          // hit-box's stroke="none", letting it inherit the stroke and draw a box around the icon.
+          const isIconWrapper = element.getAttribute('data-type') === 'icon';
+          if (isIconWrapper) neutralizeIconHitBox(element);
+          if (element.tagName.toLowerCase() === 'g' && !isIconWrapper) {
             const children = element.querySelectorAll('path, rect, circle, ellipse, polyline, polygon');
             children.forEach(child => {
               const childFill = child.getAttribute('fill') || '';

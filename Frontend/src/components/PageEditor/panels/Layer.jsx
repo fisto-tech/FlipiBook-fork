@@ -9,7 +9,7 @@ import {
   Video, ImagePlay, Music, QrCode, MousePointerClick,
   MapPin, SlidersHorizontal, Table2, Sparkles,
   ChevronRight, ChevronDown, Eye, EyeOff, Lock, Unlock,
-  Scissors, Clipboard, ArrowUpRight
+  Scissors, Clipboard, ArrowUpRight, Shapes
 } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import axios from 'axios';
@@ -21,7 +21,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useConfirm } from '../../../context/ConfirmationContext';
 import CustomScrollbar from '../../CustomScrollbar';
 import { MaskIcon, FlattenIcon } from '../mainEditor/components/editorIcons';
-import { getCachedRaster, getOrRasterizePage } from '../../../utils/customizedEditor/pageRasterCache';
+import { getCachedPageThumbnail, renderPageThumbnail } from '../utils/pageThumbnailRenderer';
+import { TRANSLATE_LANGUAGES } from '../utils/inlineTranslationHelper';
 
 // Memoized isolated vector SVG preview container with CSS containment
 const MemoizedPagePreview = React.memo(({ pageId, pageHtml, isHidden }) => {
@@ -79,31 +80,34 @@ const MemoizedPagePreview = React.memo(({ pageId, pageHtml, isHidden }) => {
          prevProps.isHidden === nextProps.isHidden;
 });
 
-const PageThumbnail = ({ page, index, activePageIndex }) => {
+const PageThumbnail = ({ page }) => {
+  const html = page?.html || '';
+  // Exact thumbnail (same renderer as Export), keyed by page content so edits refresh it
+  const [thumbUrl, setThumbUrl] = useState(() => getCachedPageThumbnail(html));
   const [imgError, setImgError] = useState(false);
-  const pageKey = page?.id || `page_${index}`;
-  const [rasterUrl, setRasterUrl] = useState(() => getCachedRaster(pageKey));
 
   useEffect(() => {
-    if (!page?.html) return;
-    const key = page?.id || `page_${index}`;
-    const cached = getCachedRaster(key);
+    if (!html) return undefined;
+    const cached = getCachedPageThumbnail(html);
     if (cached) {
-      setRasterUrl(cached);
-      return;
+      setThumbUrl(cached);
+      setImgError(false);
+      return undefined;
     }
+    let alive = true;
+    // Debounce while the page is being edited; keep showing the previous thumbnail meanwhile
+    const timer = setTimeout(() => {
+      renderPageThumbnail(html).then((url) => {
+        if (alive && url) {
+          setThumbUrl(url);
+          setImgError(false);
+        }
+      });
+    }, 350);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [html]);
 
-    let isSubscribed = true;
-    getOrRasterizePage(key, page.html, 300, 424).then(url => {
-      if (isSubscribed && url) {
-        setRasterUrl(url);
-      }
-    }).catch(() => {});
-
-    return () => { isSubscribed = false; };
-  }, [page?.id, page?.html, index]);
-
-  if (!page || !page.html) {
+  if (!page || !html) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400 gap-1 select-none">
         <div className="w-4 h-4 border-2 border-[#EC5137] border-t-transparent rounded-full animate-spin" />
@@ -112,46 +116,23 @@ const PageThumbnail = ({ page, index, activePageIndex }) => {
     );
   }
 
-  // 1. Prioritize lightweight GPU raster snapshot (drops 10,000+ DOM nodes from sidebar)
-  if (rasterUrl && !imgError) {
+  if (thumbUrl && !imgError) {
     return (
       <img
-        src={rasterUrl}
-        alt={page.name || `Page ${index + 1}`}
+        src={thumbUrl}
+        alt={page.name || 'Page'}
         className="w-full h-full object-contain pointer-events-none select-none"
-        loading="lazy"
         decoding="async"
         onError={() => setImgError(true)}
       />
     );
   }
 
-  // 2. Direct PDF Image match
-  const hasVectorData = page.html.includes('<path') || page.html.includes('<polygon') || page.html.includes('<polyline');
-  if (!hasVectorData && !imgError) {
-    const pdfImgMatch = page.html.match(/<image[^>]+(?:href|xlink:href)=["']([^"']+)["'][^>]*data-name=["']PDF Background["']/i) ||
-                        page.html.match(/<g\b[^>]*data-name=["']PDF Background["'][^>]*>[\s\S]*?<image[^>]+(?:href|xlink:href)=["']([^"']+)["']/i);
-    const pdfImgUrl = pdfImgMatch ? pdfImgMatch[1] : null;
-
-    if (pdfImgUrl) {
-      return (
-        <img
-          src={pdfImgUrl}
-          alt={page.name || `Page ${index + 1}`}
-          className="w-full h-full object-contain pointer-events-none select-none"
-          loading="lazy"
-          decoding="async"
-          onError={() => setImgError(true)}
-        />
-      );
-    }
-  }
-
-  // 3. Transient vector preview while raster generates
+  // Live vector preview until the first thumbnail is ready
   return (
     <MemoizedPagePreview
       pageId={page.id}
-      pageHtml={page.html}
+      pageHtml={html}
       isHidden={page.isHidden}
     />
   );
@@ -372,6 +353,11 @@ const LayerItem = ({
     const isGif = typeLower === 'gif' || nameLower.includes('gif') || layer['data-type'] === 'gif' || layer['data-is-gif-group'] === 'true';
     if (isGif) {
       return <ImagePlay size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+    }
+
+    // Icon elements (single layer)
+    if (typeLower === 'icon' || layer['data-type'] === 'icon') {
+      return <Shapes size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 3. Check Image & Image Frame
@@ -1198,6 +1184,64 @@ const Layer = ({
                       </button>
                     )}
 
+                    {/* Translate Option if text selection exists */}
+                    {(() => {
+                      const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+                      const hasDomSelection = (sel && !sel.isCollapsed && sel.toString().trim().length > 0) ||
+                        (window.__lastTextSelection && window.__lastTextSelection.text && (Date.now() - window.__lastTextSelection.timestamp < 120000));
+                      if (!hasDomSelection) return null;
+
+                      return (
+                        <div className="relative group/translate-root">
+                          <button
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                                detail: { targetLang: 'tam_Taml', pageIndex: activePageIndex }
+                              }));
+                              setActiveLayerMenu(null);
+                            }}
+                            className="w-full flex items-center justify-between px-[0.6vw] py-[0.4vw] text-[0.75vw] font-medium text-gray-700 hover:bg-gray-50 rounded-[0.4vw] text-left cursor-pointer group-hover/translate-root:bg-gray-50"
+                          >
+                            <div className="flex items-center gap-[0.6vw]">
+                              <Icon icon="bi:translate" className="w-[0.9vw] h-[0.9vw] text-indigo-600" />
+                              <span>Translate Selection</span>
+                            </div>
+                            <Icon icon="mdi:chevron-right" className="w-[0.8vw] h-[0.8vw] text-gray-400" />
+                          </button>
+
+                          <div
+                            onMouseDown={(e) => e.preventDefault()}
+                            className="absolute left-full top-0 ml-[0.3vw] w-[11.5vw] bg-white rounded-[0.5vw] shadow-[0_10px_30px_rgba(0,0,0,0.15)] border border-gray-100 p-[0.3vw] hidden group-hover/translate-root:flex flex-col gap-[0.1vw] z-[10000] max-h-[32vh] overflow-y-auto"
+                          >
+                            <div className="px-[0.4vw] py-[0.2vw] border-b border-gray-100 text-[0.65vw] font-bold text-gray-500">
+                              Translate to:
+                            </div>
+                            {TRANSLATE_LANGUAGES.map((lang) => (
+                              <button
+                                key={lang.code}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                                    detail: { targetLang: lang.code, pageIndex: activePageIndex }
+                                  }));
+                                  setActiveLayerMenu(null);
+                                }}
+                                className={`flex items-center justify-between px-[0.5vw] py-[0.35vw] text-[0.7vw] font-medium rounded-[0.3vw] text-left cursor-pointer transition-colors ${
+                                  lang.code === 'tam_Taml'
+                                    ? 'bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                <span>{lang.name}</span>
+                                <span className="text-[0.65vw] text-gray-400">{lang.native}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {isPageBackground && (
                       <>
                         <div className="h-px bg-gray-100 my-[0.2vw]"></div>
@@ -1274,6 +1318,75 @@ const Layer = ({
                       </button>
                     </>
                   )}
+
+                  {/* Translate Option */}
+                  {(() => {
+                    const doc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
+                    const el = doc.getElementById(activeLayerMenu?.layerId);
+                    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+                    const hasDomSelection = (sel && !sel.isCollapsed && sel.toString().trim().length > 0) ||
+                      (window.__lastTextSelection && window.__lastTextSelection.text && (Date.now() - window.__lastTextSelection.timestamp < 120000));
+                    const isTextElement = el && (
+                      el.tagName?.toLowerCase() === 'foreignobject' ||
+                      el.tagName?.toLowerCase() === 'text' ||
+                      el.getAttribute?.('data-type') === 'text' ||
+                      el.querySelector?.('foreignObject') !== null ||
+                      el.querySelector?.('text') !== null
+                    );
+                    if (!hasDomSelection && !isTextElement) return null;
+
+                    return (
+                      <div className="relative group/translate">
+                        <button
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                              detail: { targetLang: 'tam_Taml', layerId: activeLayerMenu?.layerId, pageIndex: activePageIndex }
+                            }));
+                            setActiveLayerMenu(null);
+                          }}
+                          className="w-full flex items-center justify-between px-[0.6vw] py-[0.4vw] text-[0.75vw] font-medium text-gray-700 hover:bg-gray-50 rounded-[0.4vw] text-left cursor-pointer group-hover/translate:bg-gray-50"
+                        >
+                          <div className="flex items-center gap-[0.6vw]">
+                            <Icon icon="bi:translate" className="w-[0.9vw] h-[0.9vw] text-indigo-600" />
+                            <span>Translate</span>
+                          </div>
+                          <Icon icon="mdi:chevron-right" className="w-[0.8vw] h-[0.8vw] text-gray-400" />
+                        </button>
+
+                        {/* Hover Flyout for Languages */}
+                        <div
+                          onMouseDown={(e) => e.preventDefault()}
+                          className="absolute left-full top-0 ml-[0.3vw] w-[11.5vw] bg-white rounded-[0.5vw] shadow-[0_10px_30px_rgba(0,0,0,0.15)] border border-gray-100 p-[0.3vw] hidden group-hover/translate:flex flex-col gap-[0.1vw] z-[10000] max-h-[32vh] overflow-y-auto"
+                        >
+                          <div className="px-[0.4vw] py-[0.2vw] border-b border-gray-100 text-[0.65vw] font-bold text-gray-500">
+                            Translate to:
+                          </div>
+                          {TRANSLATE_LANGUAGES.map((lang) => (
+                            <button
+                              key={lang.code}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                                  detail: { targetLang: lang.code, layerId: activeLayerMenu?.layerId, pageIndex: activePageIndex }
+                                }));
+                                setActiveLayerMenu(null);
+                              }}
+                              className={`flex items-center justify-between px-[0.5vw] py-[0.35vw] text-[0.7vw] font-medium rounded-[0.3vw] text-left cursor-pointer transition-colors ${
+                                lang.code === 'tam_Taml'
+                                  ? 'bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100'
+                                  : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <span>{lang.name}</span>
+                              <span className="text-[0.65vw] text-gray-400">{lang.native}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
                   
                   <button
                     onClick={() => {

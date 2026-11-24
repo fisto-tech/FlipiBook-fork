@@ -169,7 +169,7 @@ export const useCanvasZoomPan = ({
     const el = editorContainerRef.current;
     if (!el) return;
     const handleWheel = (e) => {
-      if (e.target.closest('.editor-ss-overlay, input, textarea, select, .flipbook-text-scrollbar, [contenteditable="true"], [data-scrollable="true"]')) return;
+      if (e.target.closest('.editor-ss-overlay, input, textarea, select, .flipbook-text-scrollbar, [contenteditable="true"], [data-scrollable="true"], [data-modal], [data-modal="true"], .custom-scrollbar, [role="dialog"], .overflow-y-auto, .overflow-auto, .modal-scroll-container')) return;
       if (window.__isAdjustingShapeImage) return;
 
       if (e.ctrlKey || e.metaKey || e.altKey) {

@@ -145,6 +145,7 @@ const Color = ({
   isTable = false,
   hideAlignment = false,
   hideLineCorner = false,
+  hideDash = false,
   disableStroke = false,
   sizingMode = 'auto-width',
   isScrollable = false,
@@ -1099,6 +1100,7 @@ const Color = ({
               </div>
             </div>
 
+            {!hideDash && (<>
             {/* Row 3: Line style & Dash Property */}
             <div className="flex items-center gap-[1vw]">
               {/* Line style */}
@@ -1176,7 +1178,7 @@ const Color = ({
                 );
               })()}
             </div>
-
+            </>)}
             {/* Row 4: Line Corner */}
             {!isTable && !hideLineCorner && (
               <div className="flex items-center gap-[1vw]">
@@ -1437,6 +1439,7 @@ const Color = ({
                     </div>
                   </div>
 
+                  {!hideDash && (<>
                   {/* Row 3: Line style and Dash Property */}
                   {!isText && (
                   <div className="flex items-center gap-[1vw]">
@@ -1523,7 +1526,7 @@ const Color = ({
                     </div>
                   </div>
                   )}
-
+                  </>)}
                   {/* Row 4: Line Corner */}
                   {!isText && (
                   <div className="flex items-center gap-[1vw]">
@@ -1791,6 +1794,7 @@ const Color = ({
                   </div>
                 </div>
 
+                {!hideDash && (<>
                 {/* Row 3: Line style and Dash Property */}
                 {!isText && (
                 <div className="flex items-center gap-[1vw]">
@@ -1877,7 +1881,7 @@ const Color = ({
                   </div>
                 </div>
                 )}
-
+                </>)}
                 {/* Row 4: Line Corner */}
                 {!isText && (
                 <div className="flex items-center gap-[1vw]">
