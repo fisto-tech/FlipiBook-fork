@@ -19,6 +19,7 @@ import {
   Send,
   Trash2
 } from 'lucide-react';
+import BookThumbnail from '../../../../components/BookThumbnail';
 
 export default function FlipbooksTab({
   flipbooks = [],
@@ -139,36 +140,63 @@ export default function FlipbooksTab({
 
   // Merge backend flipbooks if provided, else use defaults
   const books = (flipbooks && flipbooks.length > 0)
-    ? flipbooks.map((fb, idx) => ({
-        id: fb.bookID || fb._id || `FB-BK-00${idx + 1}`,
-        title: fb.title || fb.name || 'Product Catalogue 2026',
-        createdAt: fb.createdAt
-          ? new Date(fb.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · 10:45 AM'
-          : '12 Oct 2026 · 10:45 AM',
-        createdDate: fb.createdAt
+    ? flipbooks.map((fb, idx) => {
+        const bookTitle = fb.flipbookName || fb.title || fb.name || 'Product Catalogue 2026';
+        const bookId = fb._id || fb.bookID || fb.book_v_id || fb.v_id || `FB-BK-00${idx + 1}`;
+        const isPub = fb.isPublished !== undefined ? fb.isPublished : (fb.status ? fb.status.toLowerCase() === 'published' : true);
+        const vis = fb.visibility ? (fb.visibility.charAt(0).toUpperCase() + fb.visibility.slice(1)) : 'Public';
+        
+        // Resolve cover image or first page thumbnail if available
+        let coverImg = null;
+        if (fb.coverPicture?.url) {
+          coverImg = fb.coverPicture.url;
+        } else if (fb.thumbnail) {
+          coverImg = fb.thumbnail;
+        }
+
+        const dateFormatted = fb.createdAt
+          ? new Date(fb.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · ' + new Date(fb.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+          : '12 Oct 2026 · 10:45 AM';
+
+        const createdDateOnly = fb.createdAt
           ? new Date(fb.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-          : '12 OCT 2026',
-        lastUpdated: fb.updatedAt
+          : '12 OCT 2026';
+
+        const lastUpdatedDateOnly = fb.updatedAt
           ? new Date(fb.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-          : '27 OCT 2026',
-        visibility: fb.visibility || 'Public',
-        status: fb.status || 'Published',
-        reportsCount: fb.reportsCount !== undefined ? fb.reportsCount : (idx === 2 ? 1 : 0),
-        rating: fb.rating || 4.0,
-        category: fb.category || 'Product Catalogue',
-        language: fb.language || 'English',
-        totalPages: fb.pages?.length || fb.totalPages || 12,
-        description: fb.description || 'User Management-la Reports count mattum show pannunga. Actual complaints ellame separate Reported Flipbooks module-la manage pannunga',
-        stats: {
-          totalViews: fb.views ? `${fb.views}` : '1.24K',
-          rating: fb.rating || 4.0,
-          reviews: fb.reviewsCount || 264,
-          uniqueReaders: fb.uniqueReaders || '1000',
-          avgReadingTime: fb.avgReadingTime || '16 Mins',
-          downloads: fb.downloads || '800'
-        },
-        coverImage: fb.coverImage || fb.thumbnailUrl || null
-      }))
+          : createdDateOnly;
+
+        return {
+          id: String(bookId),
+          title: bookTitle,
+          flipbookName: bookTitle,
+          v_id: fb.book_v_id || fb.v_id || String(bookId),
+          userID: fb.userID || user?.userID,
+          bookType: fb.bookType || 'plain',
+          createdAt: dateFormatted,
+          createdDate: createdDateOnly,
+          lastUpdated: lastUpdatedDateOnly,
+          visibility: vis,
+          status: isPub ? 'Published' : 'Draft',
+          reportsCount: fb.reportsCount !== undefined ? fb.reportsCount : 0,
+          rating: fb.averageRating || fb.rating || 4.0,
+          category: fb.category || fb.bookType?.toUpperCase() || 'Product Catalogue',
+          language: fb.language || 'English',
+          totalPages: fb.pages?.length || fb.totalPages || 0,
+          description: fb.description || `${bookTitle} created with ${fb.pages?.length || 0} pages.`,
+          stats: {
+            totalViews: fb.viewsCount !== undefined ? `${fb.viewsCount}` : (fb.views ? `${fb.views}` : '0'),
+            rating: fb.averageRating || fb.rating || 4.0,
+            reviews: fb.totalRatings || fb.reviewsCount || 0,
+            uniqueReaders: fb.viewers?.length ? `${fb.viewers.length}` : (fb.uniqueReaders || '0'),
+            avgReadingTime: fb.avgReadingTime || '16 Mins',
+            downloads: fb.downloads || '0'
+          },
+          coverImage: coverImg,
+          coverPicture: fb.coverPicture,
+          thumbnail: fb.thumbnail
+        };
+      })
     : defaultBooks;
 
   const currentBook = books.find((b) => b.id === selectedBookId) || books[0];
@@ -204,17 +232,11 @@ export default function FlipbooksTab({
         {/* Flipbook Header Showcase Card */}
         <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.4vw] shadow-xs flex items-center gap-[1.5vw]">
           <div className="w-[8.5vw] h-[5.8vw] rounded-[0.5vw] overflow-hidden shrink-0 shadow-xs border border-gray-200 bg-gray-50 flex items-center justify-center">
-            {currentBook.coverImage ? (
-              <img
-                src={currentBook.coverImage}
-                alt={currentBook.title}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-[0.85vw] font-medium text-gray-400 select-none">
-                Image
-              </span>
-            )}
+            <BookThumbnail
+              book={currentBook}
+              className="w-full h-full"
+              fallbackClassName="text-[0.8vw] font-medium text-gray-400 select-none"
+            />
           </div>
 
           <div className="space-y-[0.35vw]">
@@ -243,11 +265,11 @@ export default function FlipbooksTab({
 
         {/* 01 Book Information Section */}
         <div className="space-y-[0.6vw]">
-          <div className="flex items-center gap-[0.45vw]">
-            <span className="w-[1.2vw] h-[1.2vw] rounded-full border border-[#f87171] text-[#ef4444] text-[0.7vw] font-semibold flex items-center justify-center">
+          <div className="flex items-center gap-[0.5vw]">
+            <span className="w-[1.4vw] h-[1.4vw] rounded-full border border-[#f87171] text-[#ef4444] text-[0.8vw] font-semibold flex items-center justify-center">
               01
             </span>
-            <h3 className="text-[0.9vw] font-semibold text-[#ef4444]">Book Information</h3>
+            <h3 className="text-[1.1vw] font-semibold text-[#ef4444]">Book Information</h3>
           </div>
 
           <div className="bg-white rounded-[0.75vw] border border-gray-100 shadow-xs overflow-hidden">
@@ -265,7 +287,7 @@ export default function FlipbooksTab({
                 </tr>
                 <tr>
                   <td className="py-[0.65vw] px-[1.2vw] text-gray-900 font-semibold">Book ID</td>
-                  <td className="py-[0.65vw] px-[1.2vw] text-gray-600">FB-BK-001</td>
+                  <td className="py-[0.65vw] px-[1.2vw] text-gray-600">{currentBook.id}</td>
                 </tr>
                 <tr>
                   <td className="py-[0.65vw] px-[1.2vw] text-gray-900 font-semibold align-top">Description</td>
@@ -312,11 +334,11 @@ export default function FlipbooksTab({
 
         {/* 02 Reports / Analytics Section */}
         <div className="space-y-[0.6vw]">
-          <div className="flex items-center gap-[0.45vw]">
-            <span className="w-[1.2vw] h-[1.2vw] rounded-full border border-[#f87171] text-[#ef4444] text-[0.7vw] font-semibold flex items-center justify-center">
+          <div className="flex items-center gap-[0.5vw]">
+            <span className="w-[1.4vw] h-[1.4vw] rounded-full border border-[#f87171] text-[#ef4444] text-[0.8vw] font-semibold flex items-center justify-center">
               02
             </span>
-            <h3 className="text-[0.9vw] font-semibold text-[#ef4444]">Reports / Analytics</h3>
+            <h3 className="text-[1.1vw] font-semibold text-[#ef4444]">Reports / Analytics</h3>
           </div>
 
           <div className="bg-white rounded-[0.75vw] border border-gray-100 shadow-xs overflow-hidden">
@@ -361,11 +383,11 @@ export default function FlipbooksTab({
 
         {/* 03 Activity History Section */}
         <div className="space-y-[0.8vw]">
-          <div className="flex items-center gap-[0.45vw]">
-            <span className="w-[1.2vw] h-[1.2vw] rounded-full border border-[#f87171] text-[#ef4444] text-[0.7vw] font-semibold flex items-center justify-center">
+          <div className="flex items-center gap-[0.5vw]">
+            <span className="w-[1.4vw] h-[1.4vw] rounded-full border border-[#f87171] text-[#ef4444] text-[0.8vw] font-semibold flex items-center justify-center">
               03
             </span>
-            <h3 className="text-[0.9vw] font-semibold text-[#ef4444]">Activity History</h3>
+            <h3 className="text-[1.1vw] font-semibold text-[#ef4444]">Activity History</h3>
           </div>
 
           <div className="bg-white rounded-[0.75vw] border border-gray-100 shadow-xs p-[1.2vw] space-y-[1.2vw]">
@@ -539,7 +561,7 @@ export default function FlipbooksTab({
         {/* Flipbook Actions Bottom Section */}
         <div className="space-y-[0.6vw] pt-[0.6vw]">
           <div>
-            <h3 className="text-[0.9vw] font-semibold text-[#ef4444]">Flipbook Actions</h3>
+            <h3 className="text-[1.1vw] font-semibold text-[#ef4444]">Flipbook Actions</h3>
             <p className="text-[0.7vw] text-gray-400">Manage and control this user's flipbook.</p>
           </div>
 
@@ -591,13 +613,13 @@ export default function FlipbooksTab({
 
           <div className="flex items-center gap-[0.6vw]">
             <span className="inline-flex items-center text-[0.8vw] font-semibold text-[#16a34a] bg-[#dcfce7] px-[0.9vw] py-[0.35vw] rounded-[0.4vw]">
-              Published : 24
+              Published : {books.filter(b => b.status === 'Published').length}
             </span>
             <span className="inline-flex items-center text-[0.8vw] font-semibold text-[#eab308] bg-[#fef9c3] px-[0.9vw] py-[0.35vw] rounded-[0.4vw]">
-              Draft : 24
+              Draft : {books.filter(b => b.status === 'Draft').length}
             </span>
             <span className="inline-flex items-center text-[0.8vw] font-semibold text-[#ef4444] bg-[#fee2e2] px-[0.9vw] py-[0.35vw] rounded-[0.4vw]">
-              Total Books : 24
+              Total Books : {books.length}
             </span>
           </div>
         </div>
@@ -655,28 +677,23 @@ export default function FlipbooksTab({
           .map((book) => (
             <div
               key={book.id}
-              className="bg-white rounded-[0.75vw] border border-gray-100/90 p-[0.9vw] shadow-xs flex items-center justify-between hover:shadow-sm transition"
+              onClick={() => setSelectedBookId(book.id)}
+              className="bg-white rounded-[0.75vw] border border-gray-100/90 p-[0.9vw] shadow-xs flex items-center justify-between hover:shadow-sm hover:border-gray-200 transition cursor-pointer group"
             >
               {/* Left Side: Thumbnail & Book Meta */}
               <div className="flex items-center gap-[1.2vw]">
                 {/* Book Thumbnail */}
                 <div className="w-[5.2vw] h-[3.8vw] rounded-[0.4vw] overflow-hidden shrink-0 shadow-xs border border-gray-200 bg-gray-50 flex items-center justify-center">
-                  {book.coverImage ? (
-                    <img
-                      src={book.coverImage}
-                      alt={book.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-[0.75vw] font-medium text-gray-400 select-none">
-                      Image
-                    </span>
-                  )}
+                  <BookThumbnail
+                    book={book}
+                    className="w-full h-full"
+                    fallbackClassName="text-[0.7vw] font-medium text-gray-400 select-none"
+                  />
                 </div>
 
                 {/* Book Title & Badges */}
                 <div className="space-y-[0.3vw]">
-                  <h4 className="text-[0.9vw] font-semibold text-gray-900 leading-tight">
+                  <h4 className="text-[0.9vw] font-semibold text-gray-900 leading-tight group-hover:text-[#ef4444] transition">
                     {book.title}
                   </h4>
                   <p className="text-[0.7vw] text-gray-400">
@@ -708,15 +725,12 @@ export default function FlipbooksTab({
               </div>
 
               {/* Right Side: View More */}
-              <button
-                onClick={() => setSelectedBookId(book.id)}
-                className="flex flex-col items-center justify-center text-gray-400 hover:text-[#ef4444] transition p-[0.4vw] group cursor-pointer"
-              >
+              <div className="flex flex-col items-center justify-center text-gray-400 group-hover:text-[#ef4444] transition p-[0.4vw]">
                 <ChevronRight size="1.2vw" className="text-gray-400 group-hover:text-[#ef4444] transition" />
                 <span className="text-[0.7vw] text-gray-400 group-hover:text-[#ef4444] transition mt-[0.1vw]">
                   View More
                 </span>
-              </button>
+              </div>
             </div>
           ))}
       </div>

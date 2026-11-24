@@ -829,7 +829,6 @@ const AccountOverview = ({
               type="button"
               onClick={() => {
                 localStorage.removeItem('user');
-                localStorage.removeItem('user_profile');
                 localStorage.removeItem('last_active_folder');
                 localStorage.removeItem('hide_upgrade_card');
                 sessionStorage.removeItem('hide_upgrade_card');

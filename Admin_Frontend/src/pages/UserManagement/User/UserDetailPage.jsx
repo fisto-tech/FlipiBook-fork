@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { getUserDetails, getUsers } from '../../../services/adminApi';
 import { useAdmin } from '../../../context/AdminContext';
+import AdminHeaderActions from '../../../components/AdminHeaderActions';
 
 // Import Tab Components
 import OverviewTab from './Overview/OverviewTab';
@@ -92,23 +93,53 @@ export default function UserDetailPage() {
   const plan = userData?.plan || 'Pro Plan';
   const status = userData?.status || 'Active';
 
+  // Resolve user picture URL
+  const rawPicture = userData?.picture || userData?.avatar || userData?.profilePic || profileData?.picture || null;
+  const avatarSrc = rawPicture && rawPicture !== 'color_only' && rawPicture !== 'null'
+    ? (rawPicture.startsWith('http://') || rawPicture.startsWith('https://') || rawPicture.startsWith('blob:') || rawPicture.startsWith('data:')
+      ? rawPicture
+      : (rawPicture.startsWith('/uploads') ? rawPicture.replace(/^\/?uploads\//, '/storage/') : (rawPicture.startsWith('/storage') || rawPicture.startsWith('storage/') ? (rawPicture.startsWith('/') ? rawPicture : `/${rawPicture}`) : `/storage/${rawPicture}`)))
+    : null;
+
+  // Initial letter for fallback avatar (like main app)
+  const initialLetter = (name || displayName || email || 'U').trim().charAt(0).toUpperCase();
+
+  const getAvatarColor = (identifier, customColor) => {
+    if (customColor && customColor !== '#E8D4C8' && customColor !== '#ffffff' && customColor !== 'transparent') {
+      return customColor;
+    }
+    const defaultColors = ['#4c5add', '#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777', '#0891b2', '#8a4419', '#597810'];
+    if (!identifier) return defaultColors[0];
+    let hash = 0;
+    for (let i = 0; i < identifier.length; i++) {
+      hash = identifier.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return defaultColors[Math.abs(hash) % defaultColors.length];
+  };
+
+  const avatarBgColor = getAvatarColor(name || email || userIdDisplay, userData?.avatarBgColor || profileData?.avatarBgColor);
+
   return (
     <div className="space-y-[1.2vw] max-w-[98%] mx-auto pb-[2.5vw] font-sans">
-      {/* Top Back Navigation Bar */}
-      <div className="flex items-center gap-[0.7vw] pt-[0.2vw]">
-        <button
-          onClick={() => navigate('/users')}
-          className="inline-flex items-center gap-[0.45vw] text-[0.8vw] font-semibold text-gray-700 hover:text-gray-900 bg-white border border-gray-200/90 px-[0.7vw] py-[0.35vw] rounded-[0.4vw] shadow-xs transition cursor-pointer"
-        >
-          <ArrowLeft size="0.9vw" className="text-gray-600" />
-          <span>Back to User Management</span>
-        </button>
+      {/* Top Back Navigation Bar & Right Profile Actions */}
+      <div className="flex items-center justify-between pt-[0.2vw]">
+        <div className="flex items-center gap-[0.7vw]">
+          <button
+            onClick={() => navigate('/users')}
+            className="inline-flex items-center gap-[0.45vw] text-[0.8vw] font-semibold text-gray-700 hover:text-gray-900 bg-white border border-gray-200/90 px-[0.7vw] py-[0.35vw] rounded-[0.4vw] shadow-xs transition cursor-pointer"
+          >
+            <ArrowLeft size="0.9vw" className="text-gray-600" />
+            <span>Back to User Management</span>
+          </button>
 
-        <span className="text-gray-300 text-[0.8vw]">|</span>
+          <span className="text-gray-300 text-[0.8vw]">|</span>
 
-        <span className="text-[0.8vw] font-semibold text-gray-600">
-          {userIdDisplay} - {name}
-        </span>
+          <span className="text-[0.8vw] font-semibold text-gray-600">
+            {userIdDisplay} - {name}
+          </span>
+        </div>
+
+        <AdminHeaderActions />
       </div>
 
       {loading ? (
@@ -119,23 +150,34 @@ export default function UserDetailPage() {
       ) : (
         <>
           {/* User Header Profile Card */}
-          <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.2vw] shadow-xs flex items-center justify-between">
-            <div className="flex items-center gap-[1.2vw]">
+          <div className="bg-[#f8f8f8] rounded-[0.85vw] border border-gray-100/90 px-[1.2vw] py-[0.7vw] shadow-xs flex items-center justify-between">
+            <div className="flex items-start gap-[1.2vw]">
               {/* Profile Avatar */}
-              <div className="w-[3.6vw] h-[3.6vw] rounded-full bg-[#f97316] flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
-                {userData?.avatar || userData?.profilePic ? (
+              <div
+                className="w-[3.6vw] h-[3.6vw] rounded-full flex items-center justify-center shrink-0 overflow-hidden shadow-xs mt-[0.1vw]"
+                style={{ backgroundColor: avatarSrc ? 'transparent' : avatarBgColor }}
+              >
+                {avatarSrc ? (
                   <img
-                    src={userData.avatar || userData.profilePic}
+                    src={avatarSrc}
                     alt={name}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        e.currentTarget.nextElementSibling.style.display = 'flex';
+                      }
+                    }}
                   />
-                ) : (
-                  <div className="w-full h-full bg-[#f97316] flex items-center justify-center text-white">
-                    <svg viewBox="0 0 64 64" fill="currentColor" className="w-[80%] h-[80%]">
-                      <path d="M32 6a14 14 0 0 0-14 14c0 6.6 4.6 12.2 10.8 13.6-9.8 3.4-16.8 12.8-16.8 23.9 0 .8.7 1.5 1.5 1.5h37c.8 0 1.5-.7 1.5-1.5 0-11.1-7-20.5-16.8-23.9A14 14 0 0 0 32 6zm-7 14a7 7 0 1 1 14 0 7 7 0 0 1-14 0z" />
-                    </svg>
-                  </div>
-                )}
+                ) : null}
+                <div
+                  className={`w-full h-full flex items-center justify-center text-white ${avatarSrc ? 'hidden' : 'flex'}`}
+                  style={{ backgroundColor: avatarBgColor }}
+                >
+                  <span className="text-white text-[1.5vw] font-bold select-none">
+                    {initialLetter}
+                  </span>
+                </div>
               </div>
 
               {/* User Identity Details */}
@@ -160,7 +202,7 @@ export default function UserDetailPage() {
             </div>
 
             {/* Quick Meta Stats / Status on Right */}
-            <div className="flex items-center gap-[2.4vw]">
+            <div className="flex items-start gap-[2.4vw] pt-[0.2vw]">
               <div className="text-left">
                 <span className="text-[0.7vw] text-gray-400 block font-semibold">Acc Type</span>
                 <span className="text-[0.8vw] font-semibold text-gray-900">{accType}</span>
@@ -196,10 +238,10 @@ export default function UserDetailPage() {
 
           {/* Navigation Pill Capsule (matching UserManagement filter style) */}
           <div className="flex items-center pt-[0.2vw]">
-            <div className="inline-flex items-center bg-[#FAFAFA] rounded-full p-[0.25vw] shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] border border-gray-200/40">
+            <div className="inline-flex items-center bg-[#FAFAFA] rounded-full p-[0.25vw] border border-gray-200/60">
               {tabs.map((tab) => {
                 const isSelected = activeTab === tab.name;
-                
+
                 // If this is Flipbooks and a specific book is selected, render nested breadcrumb pill: Flipbooks > FB-BK-001
                 if (tab.name === 'Flipbooks' && isSelected && selectedFlipbookId) {
                   return (
@@ -214,7 +256,7 @@ export default function UserDetailPage() {
                         Flipbooks
                       </button>
                       <ChevronRight size="0.75vw" className="text-[#ec5137] stroke-[2.5]" />
-                      <span className="bg-[#ec5137] text-white px-[0.6vw] py-[0.2vw] rounded-full text-[0.7vw] font-semibold shadow-xs">
+                      <span className="bg-[#ec5137] text-white px-[0.6vw] py-[0.2vw] rounded-full text-[0.7vw] font-semibold">
                         {selectedFlipbookId}
                       </span>
                     </div>
@@ -230,11 +272,10 @@ export default function UserDetailPage() {
                         setSelectedFlipbookId(null);
                       }
                     }}
-                    className={`px-[1.2vw] py-[0.4vw] rounded-full text-[0.8vw] font-semibold transition duration-150 cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#ec5137] text-white shadow-xs font-semibold'
-                        : 'text-[#8c95a0] hover:text-[#374151]'
-                    }`}
+                    className={`px-[1.2vw] py-[0.4vw] rounded-full text-[0.8vw] font-semibold transition duration-150 cursor-pointer ${isSelected
+                      ? 'bg-[#ec5137] text-white font-semibold'
+                      : 'text-[#8c95a0] hover:text-[#374151]'
+                      }`}
                   >
                     {tab.label}
                   </button>

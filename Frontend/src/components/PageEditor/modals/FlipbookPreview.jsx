@@ -48,7 +48,6 @@ const parseInitialSettings = (inputSettings, v_id, isPublishedPreview) => {
   let cachedLogo = null;
   let cachedWatermark = null;
   let cachedProfile = null;
-  let cachedPreloader = null;
   let cachedAppearance = null;
 
   // Only check local cache for non-published editor preview
@@ -65,7 +64,6 @@ const parseInitialSettings = (inputSettings, v_id, isPublishedPreview) => {
         cachedLogo = parsed.logo || parsed.logoSettings || parsed.Branding?.logoSettings;
         cachedWatermark = parsed.watermark || parsed.watermarkSettings || parsed.Branding?.watermarkSettings;
         cachedProfile = parsed.profile || parsed.profileSettings || parsed.Branding?.profileSettings;
-        cachedPreloader = parsed.preloader || parsed.preloaderSettings || parsed.Branding?.preloaderSettings;
       }
     } catch (e) { }
   }
@@ -79,7 +77,8 @@ const parseInitialSettings = (inputSettings, v_id, isPublishedPreview) => {
     ...(inputSettings || {}),
     logo: inputSettings?.logo || inputSettings?.logoSettings || bObj.logoSettings || cachedLogo,
     watermark: inputSettings?.watermark || inputSettings?.watermarkSettings || bObj.watermarkSettings || cachedWatermark,
-    preloader: inputSettings?.preloader || inputSettings?.preloaderSettings || bObj.preloaderSettings || bObj.preloader || inputSettings?.Customized_Settings?.Branding?.preloaderSettings || cachedPreloader || null,
+    preloader: inputSettings?.preloader || inputSettings?.preloaderSettings || bObj.preloaderSettings || bObj.preloader || inputSettings?.Customized_Settings?.Branding?.preloaderSettings || null,
+    preloaderSettings: inputSettings?.preloader || inputSettings?.preloaderSettings || bObj.preloaderSettings || bObj.preloader || inputSettings?.Customized_Settings?.Branding?.preloaderSettings || null,
     profile: inputSettings?.profile || inputSettings?.profileSettings || bObj.profileSettings || cachedProfile,
     appearance: appObj,
     bookAppearanceSettings: appObj,
@@ -615,6 +614,7 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
         v_id={v_id}
         shareId={effectiveShareId}
         onBookReady={handleBookReady}
+        preloaderSettings={localSettings?.preloader || localSettings?.preloaderSettings || settings?.preloader || settings?.preloaderSettings || settings?.Branding?.preloaderSettings}
       />
 
       {/* Draggable Device Settings - Tablet/Mobile: outside device frame */}
@@ -720,17 +720,26 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
       {/* 3D viewer rendering is handled natively by PreviewArea */}
 
       {(() => {
-        const preloader = localSettings?.preloader || localSettings?.preloaderSettings || settings?.preloader || settings?.preloaderSettings || settings?.Branding?.preloaderSettings || {
-          enabled: true,
-          isCustom: false,
-          text: 'Preparing Flipbook...',
-          bgColor: '#22252A',
-          textColor: '#ffffff',
-          spinnerColor: '#E04752',
-          showPercentage: false,
-          layout: 'spinner',
-          logoAnimation: 'bounce'
-        };
+        const preloader =
+          localSettings?.preloader ||
+          localSettings?.preloaderSettings ||
+          settings?.preloader ||
+          settings?.preloaderSettings ||
+          settings?.Branding?.preloaderSettings ||
+          currentBook?.Customized_Settings?.Branding?.preloaderSettings ||
+          currentBook?.settings?.Branding?.preloaderSettings ||
+          currentBook?.settings?.preloader ||
+          {
+            enabled: true,
+            isCustom: false,
+            text: 'Preparing Flipibook',
+            bgColor: '#22252A',
+            textColor: '#ffffff',
+            spinnerColor: '#E04752',
+            showPercentage: false,
+            layout: 'spinner',
+            logoAnimation: 'fade'
+          };
 
         return (
           <PreloaderOverlay

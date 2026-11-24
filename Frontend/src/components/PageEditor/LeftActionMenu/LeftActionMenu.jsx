@@ -10,10 +10,6 @@ export const TempletsIcon = ({ className = "w-[1.1vw] h-[1.1vw]" }) => (
   <Icon icon="lucide:layout-template" className={className} />
 );
 
-export const StylesIcon = ({ className = "w-[1.1vw] h-[1.1vw]" }) => (
-  <Icon icon="lucide:palette" className={className} />
-);
-
 export const IconsMenuIcon = ({ className = "w-[1.1vw] h-[1.1vw]" }) => (
   <Icon icon="lucide:shapes" className={className} />
 );
@@ -28,9 +24,6 @@ export const LeftActionMenu = ({
   isElementsModalOpen = false,
   onToggleElementsModal,
   onCloseElementsModal,
-  isStylesModalOpen = false,
-  onToggleStylesModal,
-  onCloseStylesModal,
   isIconsModalOpen = false,
   onToggleIconsModal,
   onCloseIconsModal,
@@ -64,27 +57,18 @@ export const LeftActionMenu = ({
   // Handle menu item click
   const handleItemClick = (menuKey) => {
     if (menuKey === 'elements') {
-      if (onCloseStylesModal) onCloseStylesModal();
       if (onCloseIconsModal) onCloseIconsModal();
       if (onToggleElementsModal) onToggleElementsModal();
       return;
     }
     if (menuKey === 'templets') {
       if (onCloseElementsModal) onCloseElementsModal();
-      if (onCloseStylesModal) onCloseStylesModal();
       if (onCloseIconsModal) onCloseIconsModal();
       if (onOpenTemplateModal) onOpenTemplateModal(activePageIndex);
       return;
     }
-    if (menuKey === 'styles') {
-      if (onCloseElementsModal) onCloseElementsModal();
-      if (onCloseIconsModal) onCloseIconsModal();
-      if (onToggleStylesModal) onToggleStylesModal();
-      return;
-    }
     if (menuKey === 'icons') {
       if (onCloseElementsModal) onCloseElementsModal();
-      if (onCloseStylesModal) onCloseStylesModal();
       if (onToggleIconsModal) onToggleIconsModal();
       return;
     }
@@ -125,21 +109,7 @@ export const LeftActionMenu = ({
           <span className="text-[0.54vw] leading-none mt-[0.25vw] font-medium tracking-tight transition-colors text-gray-600 group-hover:text-white">Templets</span>
         </button>
 
-        {/* 3. Styles */}
-        <button
-          onClick={() => handleItemClick('styles')}
-          title="Styles & Themes"
-          className={`flex flex-col items-center justify-center w-full aspect-square p-[0.2vw] rounded-[0.42vw] transition-all cursor-pointer group ${
-            isStylesModalOpen
-              ? 'bg-black text-white shadow-xs'
-              : 'text-[#9EA1A7] hover:bg-black hover:text-white'
-          }`}
-        >
-          <StylesIcon className={`w-[1.05vw] h-[1.05vw] transition-colors ${isStylesModalOpen ? 'text-white' : 'text-[#9EA1A7] group-hover:text-white'}`} />
-          <span className={`text-[0.54vw] leading-none mt-[0.25vw] font-medium tracking-tight transition-colors ${isStylesModalOpen ? 'text-white' : 'text-gray-600 group-hover:text-white'}`}>Styles</span>
-        </button>
-
-        {/* 4. Icons */}
+        {/* 3. Icons */}
         <button
           onClick={() => handleItemClick('icons')}
           title="Icons"

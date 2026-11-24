@@ -49,6 +49,7 @@ import {
 } from "./PageEditorModule";
 import { normalizeForeignObjectNamespaces, healTableElementNode } from "./LeftActionMenu/Elements/utils/tableElementUtils";
 
+import { neutralizeIconHitBox } from './utils/iconPaint';
 export { parseLayersFromSVG };
 
 const VIRTUAL_FOLDERS = new Set([
@@ -191,6 +192,15 @@ const PageEditor = () => {
         const rootId =
           pagesRef.current[activePageIndexRef.current]?.layers?.[0]?.id;
         return rootId || prev;
+      }
+      // Icons are one element: if any inner part (hit-box rect, paint group, path) gets selected,
+      // select the whole icon instead — styling the inner hit-box draws a box around the icon.
+      if (typeof next === "string" && typeof document !== "undefined") {
+        try {
+          const el = document.getElementById(next);
+          const icon = el?.closest?.('g[data-type="icon"]');
+          if (icon && icon !== el && icon.id) return icon.id;
+        } catch { /* ignore */ }
       }
       return next;
     });
@@ -1564,6 +1574,8 @@ const PageEditor = () => {
                     rootFrame.style.removeProperty('-webkit-clip-path');
                   }
                 }
+                // Heal icons whose transparent hit-box picked up a stroke/fill from older edits
+                doc.querySelectorAll('g[data-type="icon"]').forEach((icon) => neutralizeIconHitBox(icon));
                 const allEls = doc.querySelectorAll("*");
                 allEls.forEach((el) => {
                   const hasDropShadow =

@@ -205,20 +205,20 @@ export default function PaymentsTab({ user }) {
 
       {/* Payment Transactions Table */}
       <div className="bg-white rounded-[0.85vw] border border-gray-100 shadow-xs overflow-hidden">
-        <table className="w-full text-left text-[0.8vw]">
+        <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/40 text-[0.8vw] font-semibold text-gray-900">
-              <th className="py-[0.85vw] px-[1.2vw]">Transaction ID</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Payment For</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Date</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Method</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Status</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Invoice No</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Invoice</th>
-              <th className="py-[0.85vw] px-[1.2vw] text-center">Action</th>
+            <tr className="bg-[#f8f8f8] text-[0.8vw] font-semibold text-[#111827] border-b border-[#f0f0f0]">
+              <th className="py-[0.95vw] px-[1.4vw] font-semibold">Transaction ID</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Payment For</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Date</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Method</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold text-center">Status</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Invoice No</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Invoice</th>
+              <th className="py-[0.95vw] px-[1.4vw] font-semibold text-center">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 text-gray-700">
+          <tbody className="divide-y divide-[#f5f5f5] text-[0.8vw] font-normal">
             {transactions
               .filter(
                 (txn) =>
@@ -228,38 +228,60 @@ export default function PaymentsTab({ user }) {
                   txn.method.toLowerCase().includes(searchQuery.toLowerCase())
               )
               .map((txn) => (
-                <tr key={txn.id} className="hover:bg-gray-50/50 transition">
-                  <td className="py-[0.95vw] px-[1.2vw] font-semibold text-gray-700">
+                <tr key={txn.id} className="group hover:bg-[#fafafa] transition-colors duration-150">
+                  <td className="py-[0.95vw] px-[1.4vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {txn.id}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] font-semibold text-gray-900">
+                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {txn.paymentFor}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] text-gray-600">
+                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {txn.date}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] text-gray-600 font-semibold">
+                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {txn.method}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw]">
-                    {renderStatusBadge(txn.status)}
+                  <td className="py-[0.95vw] px-[1.1vw] text-center">
+                    {txn.status === 'Success' ? (
+                      <span className="inline-block px-[1.1vw] py-[0.35vw] rounded-full text-[0.7vw] font-medium bg-[#ebf7ee] text-[#34a853]">
+                        Success
+                      </span>
+                    ) : txn.status === 'Pending' ? (
+                      <span className="inline-block px-[1.1vw] py-[0.35vw] rounded-full text-[0.7vw] font-medium bg-[#fef3e6] text-[#f58e1e]">
+                        Pending
+                      </span>
+                    ) : (
+                      <span className="inline-block px-[1.1vw] py-[0.35vw] rounded-full text-[0.7vw] font-medium bg-[#fee2e2] text-[#ef4444]">
+                        {txn.status}
+                      </span>
+                    )}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] text-gray-600">
+                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {txn.invoiceNo}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw]">
-                    <button className="inline-flex items-center gap-[0.3vw] text-[#dc2626] hover:underline font-semibold cursor-pointer">
-                      <FileText size="0.75vw" className="text-red-500" />
+                  <td className="py-[0.95vw] px-[1.1vw]">
+                    <button className="inline-flex items-center gap-[0.3vw] text-[#ec5137] hover:underline font-medium cursor-pointer">
+                      <FileText size="0.75vw" className="text-[#ec5137]" />
                       <span className="text-[0.7vw]">Download PDF</span>
                     </button>
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] text-center">
+                  <td className="py-[0.95vw] px-[1.4vw] text-center">
                     <button
                       onClick={() => setSelectedTxn(txn)}
-                      className="inline-flex items-center justify-center gap-[0.2vw] text-[0.7vw] font-semibold text-[#ef4444] bg-[#fff5f5] hover:bg-[#fee2e2] px-[0.75vw] py-[0.3vw] rounded-[0.35vw] transition cursor-pointer"
+                      className="inline-flex items-center gap-[0.35vw] px-[1vw] py-[0.38vw] rounded-[0.55vw] bg-[#feeeeb] text-[#ec5137] hover:bg-[#fedbd5] transition text-[0.7vw] font-medium cursor-pointer"
                     >
                       <span>View</span>
-                      <ArrowUpRight size="0.75vw" />
+                      <svg
+                        className="w-[0.78vw] h-[0.78vw] text-[#ec5137] stroke-[2.2]"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="7" y1="17" x2="17" y2="7" />
+                        <polyline points="7 7 17 7 17 17" />
+                      </svg>
                     </button>
                   </td>
                 </tr>
