@@ -94,9 +94,8 @@ const FlipbookCard = ({ v_id, shareId, access, rawBook, authorPicture, authorBgC
 
     const handleOpenBook = () => {
         const targetShareId = shareId || v_id;
-        const rawAcc = String(access).toLowerCase();
         if (targetShareId) {
-            window.open(`/share=${rawAcc}/${targetShareId}`, '_blank');
+            window.open(`/share/${targetShareId}`, '_blank');
         }
     };
 

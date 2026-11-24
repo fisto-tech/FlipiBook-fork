@@ -22,6 +22,7 @@ import { useConfirm } from '../../../context/ConfirmationContext';
 import CustomScrollbar from '../../CustomScrollbar';
 import { MaskIcon, FlattenIcon } from '../mainEditor/components/editorIcons';
 import { getCachedPageThumbnail, renderPageThumbnail } from '../utils/pageThumbnailRenderer';
+import { TRANSLATE_LANGUAGES } from '../utils/inlineTranslationHelper';
 
 // Memoized isolated vector SVG preview container with CSS containment
 const MemoizedPagePreview = React.memo(({ pageId, pageHtml, isHidden }) => {
@@ -1183,6 +1184,64 @@ const Layer = ({
                       </button>
                     )}
 
+                    {/* Translate Option if text selection exists */}
+                    {(() => {
+                      const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+                      const hasDomSelection = (sel && !sel.isCollapsed && sel.toString().trim().length > 0) ||
+                        (window.__lastTextSelection && window.__lastTextSelection.text && (Date.now() - window.__lastTextSelection.timestamp < 120000));
+                      if (!hasDomSelection) return null;
+
+                      return (
+                        <div className="relative group/translate-root">
+                          <button
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                                detail: { targetLang: 'tam_Taml', pageIndex: activePageIndex }
+                              }));
+                              setActiveLayerMenu(null);
+                            }}
+                            className="w-full flex items-center justify-between px-[0.6vw] py-[0.4vw] text-[0.75vw] font-medium text-gray-700 hover:bg-gray-50 rounded-[0.4vw] text-left cursor-pointer group-hover/translate-root:bg-gray-50"
+                          >
+                            <div className="flex items-center gap-[0.6vw]">
+                              <Icon icon="bi:translate" className="w-[0.9vw] h-[0.9vw] text-indigo-600" />
+                              <span>Translate Selection</span>
+                            </div>
+                            <Icon icon="mdi:chevron-right" className="w-[0.8vw] h-[0.8vw] text-gray-400" />
+                          </button>
+
+                          <div
+                            onMouseDown={(e) => e.preventDefault()}
+                            className="absolute left-full top-0 ml-[0.3vw] w-[11.5vw] bg-white rounded-[0.5vw] shadow-[0_10px_30px_rgba(0,0,0,0.15)] border border-gray-100 p-[0.3vw] hidden group-hover/translate-root:flex flex-col gap-[0.1vw] z-[10000] max-h-[32vh] overflow-y-auto"
+                          >
+                            <div className="px-[0.4vw] py-[0.2vw] border-b border-gray-100 text-[0.65vw] font-bold text-gray-500">
+                              Translate to:
+                            </div>
+                            {TRANSLATE_LANGUAGES.map((lang) => (
+                              <button
+                                key={lang.code}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                                    detail: { targetLang: lang.code, pageIndex: activePageIndex }
+                                  }));
+                                  setActiveLayerMenu(null);
+                                }}
+                                className={`flex items-center justify-between px-[0.5vw] py-[0.35vw] text-[0.7vw] font-medium rounded-[0.3vw] text-left cursor-pointer transition-colors ${
+                                  lang.code === 'tam_Taml'
+                                    ? 'bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                <span>{lang.name}</span>
+                                <span className="text-[0.65vw] text-gray-400">{lang.native}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {isPageBackground && (
                       <>
                         <div className="h-px bg-gray-100 my-[0.2vw]"></div>
@@ -1259,6 +1318,75 @@ const Layer = ({
                       </button>
                     </>
                   )}
+
+                  {/* Translate Option */}
+                  {(() => {
+                    const doc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
+                    const el = doc.getElementById(activeLayerMenu?.layerId);
+                    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+                    const hasDomSelection = (sel && !sel.isCollapsed && sel.toString().trim().length > 0) ||
+                      (window.__lastTextSelection && window.__lastTextSelection.text && (Date.now() - window.__lastTextSelection.timestamp < 120000));
+                    const isTextElement = el && (
+                      el.tagName?.toLowerCase() === 'foreignobject' ||
+                      el.tagName?.toLowerCase() === 'text' ||
+                      el.getAttribute?.('data-type') === 'text' ||
+                      el.querySelector?.('foreignObject') !== null ||
+                      el.querySelector?.('text') !== null
+                    );
+                    if (!hasDomSelection && !isTextElement) return null;
+
+                    return (
+                      <div className="relative group/translate">
+                        <button
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                              detail: { targetLang: 'tam_Taml', layerId: activeLayerMenu?.layerId, pageIndex: activePageIndex }
+                            }));
+                            setActiveLayerMenu(null);
+                          }}
+                          className="w-full flex items-center justify-between px-[0.6vw] py-[0.4vw] text-[0.75vw] font-medium text-gray-700 hover:bg-gray-50 rounded-[0.4vw] text-left cursor-pointer group-hover/translate:bg-gray-50"
+                        >
+                          <div className="flex items-center gap-[0.6vw]">
+                            <Icon icon="bi:translate" className="w-[0.9vw] h-[0.9vw] text-indigo-600" />
+                            <span>Translate</span>
+                          </div>
+                          <Icon icon="mdi:chevron-right" className="w-[0.8vw] h-[0.8vw] text-gray-400" />
+                        </button>
+
+                        {/* Hover Flyout for Languages */}
+                        <div
+                          onMouseDown={(e) => e.preventDefault()}
+                          className="absolute left-full top-0 ml-[0.3vw] w-[11.5vw] bg-white rounded-[0.5vw] shadow-[0_10px_30px_rgba(0,0,0,0.15)] border border-gray-100 p-[0.3vw] hidden group-hover/translate:flex flex-col gap-[0.1vw] z-[10000] max-h-[32vh] overflow-y-auto"
+                        >
+                          <div className="px-[0.4vw] py-[0.2vw] border-b border-gray-100 text-[0.65vw] font-bold text-gray-500">
+                            Translate to:
+                          </div>
+                          {TRANSLATE_LANGUAGES.map((lang) => (
+                            <button
+                              key={lang.code}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                                  detail: { targetLang: lang.code, layerId: activeLayerMenu?.layerId, pageIndex: activePageIndex }
+                                }));
+                                setActiveLayerMenu(null);
+                              }}
+                              className={`flex items-center justify-between px-[0.5vw] py-[0.35vw] text-[0.7vw] font-medium rounded-[0.3vw] text-left cursor-pointer transition-colors ${
+                                lang.code === 'tam_Taml'
+                                  ? 'bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100'
+                                  : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <span>{lang.name}</span>
+                              <span className="text-[0.65vw] text-gray-400">{lang.native}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
                   
                   <button
                     onClick={() => {

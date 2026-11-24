@@ -329,9 +329,8 @@ const CreatorFlipbookCard = ({ book, creator, onOpenBook, isFavorited: propIsFav
             onOpenBook(book);
         } else {
             const targetShareId = (book.shareId && book.shareId !== book.v_id ? book.shareId : null) || book.Customized_Settings?.Visibility?.shareId || book.Visibility?.shareId || book.shareId || book.v_id;
-            const rawAcc = String(book.access || 'public').toLowerCase();
             if (targetShareId) {
-                window.open(`/share=${rawAcc}/${targetShareId}`, '_blank');
+                window.open(`/share/${targetShareId}`, '_blank');
             }
         }
     };
@@ -339,8 +338,7 @@ const CreatorFlipbookCard = ({ book, creator, onOpenBook, isFavorited: propIsFav
     const handleShare = (e) => {
         e?.stopPropagation();
         const targetShareId = (book.shareId && book.shareId !== book.v_id ? book.shareId : null) || book.Customized_Settings?.Visibility?.shareId || book.Visibility?.shareId || book.shareId || book.v_id;
-        const rawAcc = String(book.access || 'public').toLowerCase();
-        const shareUrl = `${window.location.origin}/share=${rawAcc}/${targetShareId}`;
+        const shareUrl = `${window.location.origin}/share/${targetShareId}`;
         if (navigator.share) {
             navigator.share({ title: bookTitle, url: shareUrl }).catch(() => {});
         } else {
@@ -882,9 +880,8 @@ export default function CreatorProfileModal({
 
     const handleOpenBook = (book) => {
         const targetShareId = (book.shareId && book.shareId !== book.v_id ? book.shareId : null) || book.Customized_Settings?.Visibility?.shareId || book.Visibility?.shareId || book.shareId;
-        const rawAcc = String(book.access || 'public').toLowerCase();
         if (targetShareId) {
-            window.open(`/share=${rawAcc}/${targetShareId}`, '_blank');
+            window.open(`/share/${targetShareId}`, '_blank');
         }
     };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Undo2, Redo2, RotateCcw, Plus, Minus } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { MaskIcon, FlattenIcon } from '../mainEditor/components/editorIcons';
+import { TRANSLATE_LANGUAGES } from '../utils/inlineTranslationHelper';
 
 const TopToolbar = ({ 
   zoom, 
@@ -17,6 +18,22 @@ const TopToolbar = ({
   selectedLayerId,
   hideTools = false
 }) => {
+  const [showTranslateMenu, setShowTranslateMenu] = useState(false);
+  const translateMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (translateMenuRef.current && !translateMenuRef.current.contains(e.target)) {
+        setShowTranslateMenu(false);
+      }
+    };
+    if (showTranslateMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showTranslateMenu]);
   return (
     <div 
       className="bg-[#FFFFFF] border-b border-[#EEEEEE] flex items-center justify-between px-[1.5vw] flex-shrink-0 select-none"
@@ -170,6 +187,68 @@ const TopToolbar = ({
           </div>
         </div>
       )}
+
+      {/* Center-Right Tool: Inline Text Translation */}
+      <div className="relative flex items-center">
+        <div className="flex items-center bg-[#F3F4F6] p-[0.3vw] rounded-[0.6vw]">
+          <button
+            onMouseDown={(e) => {
+              // Crucial: prevent blur on mousedown so active text selection is preserved!
+              e.preventDefault();
+            }}
+            onClick={() => setShowTranslateMenu(!showTranslateMenu)}
+            title="Translate selected word, sentence, or text layer"
+            className={`flex items-center gap-[0.4vw] px-[0.6vw] py-[0.35vw] rounded-[0.4vw] cursor-pointer transition-all ${
+              showTranslateMenu ? 'bg-white shadow-sm text-indigo-600' : 'hover:bg-white text-[#374151] hover:text-indigo-600'
+            }`}
+          >
+            <Icon icon="bi:translate" width="1vw" height="1vw" className="text-indigo-600" />
+            <span className="text-[0.72vw] font-semibold">Translate</span>
+            <Icon icon="mdi:chevron-down" width="0.8vw" height="0.8vw" className={`transition-transform duration-150 ${showTranslateMenu ? 'rotate-180 text-indigo-600' : 'text-gray-400'}`} />
+          </button>
+        </div>
+
+        {/* Translation Language Dropdown */}
+        {showTranslateMenu && (
+          <div
+            ref={translateMenuRef}
+            onMouseDown={(e) => e.preventDefault()}
+            className="absolute left-1/2 -translate-x-1/2 top-full mt-[0.5vw] w-[13.5vw] bg-white rounded-[0.6vw] shadow-[0_12px_36px_rgba(0,0,0,0.16)] border border-gray-100 p-[0.4vw] z-[9999] flex flex-col gap-[0.2vw]"
+          >
+            <div className="px-[0.5vw] py-[0.3vw] border-b border-gray-100 flex items-center justify-between">
+              <span className="text-[0.7vw] font-bold text-gray-800">Translate Text</span>
+              <span className="text-[0.6vw] font-medium text-indigo-600 bg-indigo-50 px-[0.4vw] py-[0.1vh] rounded-[0.3vw]">Indic AI</span>
+            </div>
+            <div className="max-h-[34vh] overflow-y-auto flex flex-col gap-[0.1vw] py-[0.2vw]">
+              {TRANSLATE_LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('trigger-inline-translate', {
+                      detail: { targetLang: lang.code, layerId: selectedLayerId }
+                    }));
+                    setShowTranslateMenu(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-[0.6vw] py-[0.4vw] text-[0.72vw] font-medium rounded-[0.4vw] transition-colors cursor-pointer text-left ${
+                    lang.code === 'tam_Taml'
+                      ? 'bg-indigo-50/60 text-indigo-700 hover:bg-indigo-100'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-black'
+                  }`}
+                >
+                  <div className="flex items-center gap-[0.4vw]">
+                    {lang.code === 'tam_Taml' && (
+                      <span className="w-[0.4vw] h-[0.4vw] rounded-full bg-indigo-600"></span>
+                    )}
+                    <span>{lang.name}</span>
+                  </div>
+                  <span className="text-[0.65vw] text-gray-400 font-normal">{lang.native}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Right Section: Zoom & Extra */}
       <div className="flex items-center gap-[1vw]">

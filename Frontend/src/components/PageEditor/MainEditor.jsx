@@ -39,6 +39,7 @@ import { useCanvasContextMenuAndBadges } from './mainEditor/hooks/useCanvasConte
 import { useCanvasPointerEvents } from './mainEditor/hooks/useCanvasPointerEvents';
 import { CanvasViewport } from './mainEditor/components/CanvasViewport';
 import { FloatingToolbars } from './mainEditor/components/FloatingToolbars';
+import { executeInlineTranslation } from './utils/inlineTranslationHelper';
 import {
   LeftActionMenu,
   AddElementsModal,
@@ -638,6 +639,33 @@ const MainEditor = ({
     window.addEventListener('editor-canva-color-changed', onCanvaColorChange);
     return () => window.removeEventListener('editor-canva-color-changed', onCanvaColorChange);
   }, []);
+
+  // ── Inline Text Translation Event Listener ──
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__selectedLayerId = selectedLayerId;
+    }
+  }, [selectedLayerId]);
+
+  useEffect(() => {
+    const handleTriggerInlineTranslate = async (e) => {
+      const { targetLang = 'tam_Taml', layerId = null } = e?.detail || {};
+      await executeInlineTranslation({
+        targetLang,
+        layerId: layerId || selectedLayerId,
+        activePageIndex,
+        saveModifiedPageHtml,
+        onComplete: (translatedText) => {
+          console.log('[MainEditor] Text translated successfully:', translatedText?.slice(0, 30));
+        },
+        onError: (err) => {
+          console.warn('[MainEditor] Text translation warning:', err);
+        }
+      });
+    };
+    window.addEventListener('trigger-inline-translate', handleTriggerInlineTranslate);
+    return () => window.removeEventListener('trigger-inline-translate', handleTriggerInlineTranslate);
+  }, [activePageIndex, selectedLayerId, saveModifiedPageHtml]);
 
   const computedCanvaBackground = useMemo(() => {
     if (isPopupEditor) return 'transparent';
