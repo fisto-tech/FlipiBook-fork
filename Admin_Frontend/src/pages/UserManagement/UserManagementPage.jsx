@@ -38,7 +38,12 @@ export default function UserManagementPage() {
         sort: sortBy === 'Oldest First' ? 'oldest' : sortBy === 'Name (A-Z)' ? 'name' : 'newest'
       });
 
-      const fetchedUsers = res.users || [];
+      const fetchedUsers = (res.users || []).filter(
+        (u) =>
+          !['admin', 'superadmin', 'super admin'].includes((u.role || '').toLowerCase()) &&
+          (u.userID || '').toLowerCase() !== 'admin' &&
+          !String(u.userID || '').toUpperCase().startsWith('FLIP_AD')
+      );
       setUsers(fetchedUsers);
 
       const total = res.total || (fetchedUsers.length ? fetchedUsers.length : 248);

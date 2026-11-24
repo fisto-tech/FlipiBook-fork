@@ -6,7 +6,7 @@ const crypto = require('crypto');
 // Resolve the root storage directory
 const storageRoot = process.env.STORAGE_PATH
   ? path.resolve(process.env.STORAGE_PATH)
-  : path.resolve(__dirname, '../../../../storage');
+  : path.resolve(__dirname, '../../../../../storage');
 
 const assetsStorageRoot = path.join(storageRoot, '3d_assets');
 
