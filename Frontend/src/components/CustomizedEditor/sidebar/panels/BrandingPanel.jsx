@@ -30,6 +30,7 @@ const Branding = ({
   const { user } = useAuth();
   const fileInputRef = useRef(null);
   const watermarkFileInputRef = useRef(null);
+  const platformWatermarkFileInputRef = useRef(null);
   const [pickerPos, setPickerPos] = useState({ x: 0, y: 0 });
   const [showPreloaderBgColorPicker, setShowPreloaderBgColorPicker] =
     useState(false);
@@ -59,14 +60,14 @@ const Branding = ({
     );
     setTempPreloaderSettings({
       enabled: true,
-      isCustom: preloaderSettings?.isCustom === true,
+      isCustom: true,
       displayOption: existingOption,
-      text: preloaderSettings?.text || "Preparing Flipbook...",
-      layout: preloaderSettings?.layout || "spinner",
-      logoAnimation: preloaderSettings?.logoAnimation || "bounce",
-      spinnerColor: (!preloaderSettings?.spinnerColor || preloaderSettings.spinnerColor === "#3B3C8A") ? "#E04752" : preloaderSettings.spinnerColor,
-      bgColor: (!preloaderSettings?.bgColor || preloaderSettings.bgColor === "#D6E0F4") ? "#22252A" : preloaderSettings.bgColor,
-      textColor: preloaderSettings?.textColor || "#ffffff",
+      text: "Preparing Flipibook",
+      layout: "spinner",
+      logoAnimation: "bounce",
+      spinnerColor: "#3B3C8A",
+      bgColor: "#D6E0F4",
+      textColor: "#1E293B",
       showPercentage: false,
       ...(preloaderSettings || {}),
     });
@@ -136,6 +137,8 @@ const Branding = ({
   const [logoFileSize, setLogoFileSize] = useState("");
   const [watermarkResolution, setWatermarkResolution] = useState("");
   const [watermarkFileSize, setWatermarkFileSize] = useState("");
+  const [platformWatermarkResolution, setPlatformWatermarkResolution] = useState("");
+  const [platformWatermarkFileSize, setPlatformWatermarkFileSize] = useState("");
 
   const formatBytes = (bytes, decimals = 1) => {
     if (!+bytes) return "0 Bytes";
@@ -232,6 +235,51 @@ const Branding = ({
     }
   }, [watermarkSettings?.src]);
 
+  const platformWatermark = watermarkSettings?.platformWatermark;
+
+  useEffect(() => {
+    if (!platformWatermark?.src) {
+      setPlatformWatermarkResolution("");
+      setPlatformWatermarkFileSize("");
+      return;
+    }
+    const img = new Image();
+    img.src = platformWatermark.src;
+    img.onload = () => {
+      setPlatformWatermarkResolution(`${img.naturalWidth} X ${img.naturalHeight}`);
+    };
+
+    if (platformWatermark.src.startsWith("data:")) {
+      const base64str = platformWatermark.src.split(",")[1];
+      if (base64str) {
+        const bytes = Math.round(base64str.length * (3 / 4));
+        setPlatformWatermarkFileSize(formatBytes(bytes, 1));
+      }
+    } else if (platformWatermark.src.startsWith("blob:")) {
+      fetch(platformWatermark.src)
+        .then((res) => res.blob())
+        .then((blob) => setPlatformWatermarkFileSize(formatBytes(blob.size, 1)))
+        .catch(() => setPlatformWatermarkFileSize("Unknown Size"));
+    } else {
+      fetch(platformWatermark.src, { method: "HEAD" })
+        .then((res) => {
+          if (res.ok) {
+            const contentLength = res.headers.get("content-length");
+            if (contentLength) {
+              setPlatformWatermarkFileSize(formatBytes(parseInt(contentLength, 10), 1));
+            } else {
+              setPlatformWatermarkFileSize("Unknown Size");
+            }
+          } else {
+            setPlatformWatermarkFileSize("Unknown Size");
+          }
+        })
+        .catch(() => {
+          setPlatformWatermarkFileSize("Unknown Size");
+        });
+    }
+  }, [platformWatermark?.src]);
+
   const uploadCustomizedAsset = async (file, assetType) => {
     try {
       if (file) {
@@ -255,6 +303,8 @@ const Branding = ({
           formData.append("oldSrc", logoSettings.src);
         } else if (assetType === "watermark" && watermarkSettings?.src) {
           formData.append("oldSrc", watermarkSettings.src);
+        } else if (assetType === "platformWatermark" && watermarkSettings?.platformWatermark?.src) {
+          formData.append("oldSrc", watermarkSettings.platformWatermark.src);
         }
 
         const res = await axios.post(
@@ -336,6 +386,37 @@ const Branding = ({
     reader.readAsDataURL(file);
   };
 
+  const handlePlatformWatermarkReplace = async (file) => {
+    if (!file) return;
+    const uploadedUrl = await uploadCustomizedAsset(file, "platformWatermark");
+    const fileName = file?.name || "Image Name.jpg";
+    if (uploadedUrl) {
+      onUpdateWatermark({
+        ...watermarkSettings,
+        platformWatermark: {
+          ...(watermarkSettings?.platformWatermark || {}),
+          src: uploadedUrl,
+          name: fileName,
+          opacity: watermarkSettings?.platformWatermark?.opacity ?? 100,
+        },
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      onUpdateWatermark({
+        ...watermarkSettings,
+        platformWatermark: {
+          ...(watermarkSettings?.platformWatermark || {}),
+          src: event.target.result,
+          name: fileName,
+          opacity: watermarkSettings?.platformWatermark?.opacity ?? 100,
+        },
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleWatermarkReplace = async (file) => {
     if (!file) return;
     const uploadedUrl = await uploadCustomizedAsset(file, "watermark");
@@ -343,7 +424,6 @@ const Branding = ({
       onUpdateWatermark({
         ...watermarkSettings,
         src: uploadedUrl,
-        name: file?.name || "Watermark.png",
         opacity: watermarkSettings?.opacity ?? 64,
         position: watermarkSettings?.position || "Bottom Right",
         adjustments: watermarkSettings?.adjustments ?? {
@@ -363,7 +443,6 @@ const Branding = ({
       onUpdateWatermark({
         ...watermarkSettings,
         src: event.target.result,
-        name: file?.name || "Watermark.png",
         opacity: watermarkSettings?.opacity ?? 64,
         position: watermarkSettings?.position || "Bottom Right",
         adjustments: watermarkSettings?.adjustments ?? {
@@ -429,7 +508,12 @@ const Branding = ({
 
   const deleteBrandingAsset = async (assetType) => {
     const isLogo = assetType === "logo";
-    const targetSettings = isLogo ? logoSettings : watermarkSettings;
+    const isPlatform = assetType === "platformWatermark";
+    const targetSettings = isLogo
+      ? logoSettings
+      : isPlatform
+      ? watermarkSettings?.platformWatermark
+      : watermarkSettings;
     const targetSrc = targetSettings?.src;
 
     if (targetSrc) {
@@ -474,8 +558,22 @@ const Branding = ({
       });
       if (fileInputRef.current) fileInputRef.current.value = "";
       setDeleteTarget(null);
+    } else if (isPlatform) {
+      onUpdateWatermark({
+        ...watermarkSettings,
+        platformWatermark: {
+          src: "",
+          url: "",
+          opacity: 100,
+          name: "",
+        },
+      });
+      if (platformWatermarkFileInputRef.current)
+        platformWatermarkFileInputRef.current.value = "";
+      setDeleteTarget(null);
     } else {
       onUpdateWatermark({
+        ...watermarkSettings,
         src: "",
         type: "Fit",
         opacity: 64,
@@ -503,6 +601,10 @@ const Branding = ({
 
   const removeWatermark = () => {
     deleteBrandingAsset("watermark");
+  };
+
+  const removePlatformWatermark = () => {
+    deleteBrandingAsset("platformWatermark");
   };
 
   const handleAdjustmentChange = (key, value) => {
@@ -808,13 +910,18 @@ const Branding = ({
                     handleFileChange({ target: { files: [file] } });
                   }
                 }}
-                className="w-full h-[7vw] border-2 border-dashed border-gray-400 rounded-[0.75vw] bg-white p-[0.9vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#4c5add] hover:bg-gray-50/50 group shadow-sm"
+                className="w-full h-[6.8vw] border-2 border-dashed border-gray-300 rounded-[0.75vw] bg-white p-[0.8vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#ff5722] hover:bg-orange-50/20 group shadow-sm"
               >
-                <div className="flex items-center">
-                  <span className="text-gray-500 text-[0.8vw] font-semibold">
-                    + Add Logo
-                  </span>
+                <div className="flex items-center gap-[0.3vw] text-[0.75vw]">
+                  <span className="text-gray-500 font-medium">Drag & Drop or</span>
+                  <span className="text-[#ff5722] font-semibold hover:underline">Upload</span>
                 </div>
+                <div className="my-[0.35vw] text-gray-400 group-hover:text-[#ff5722] transition-colors">
+                  <Upload size="1.2vw" />
+                </div>
+                <span className="text-[0.65vw] text-gray-400 font-medium">
+                  Supported File Format : JPG, PNG
+                </span>
               </div>
             </div>
           )}
@@ -825,11 +932,151 @@ const Branding = ({
             className="hidden"
             accept="image/*"
           />
-          {/* Add Watermark Section */}
+
+          {/* Platform Watermark Section */}
           <div className="mb-[0.5vw]">
             <div className="flex items-center gap-[0.5vw] mt-[1.5vw]">
               <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">
-                Watermark
+                Platform Watermark
+              </span>
+              <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
+            </div>
+          </div>
+
+          {platformWatermark?.src ? (
+            <div className="flex flex-col gap-[0.75vw] mb-[0.8vw]">
+              <div className="flex items-center gap-[1vw]">
+                {/* Thumbnail */}
+                <div className="relative w-[8.5vw] h-[6vw] rounded-[0.4vw] overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200">
+                  <img
+                    src={platformWatermark.src}
+                    alt="Platform Watermark Thumbnail"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                {/* Info & Actions */}
+                <div className="flex flex-col flex-1 gap-[0.4vw] py-[0.2vw]">
+                  <div className="flex flex-col gap-[0.1vw]">
+                    <span className="text-[0.9vw] font-medium text-gray-700 truncate w-[10vw]">
+                      {platformWatermark.name || "Image Name .jpg"}
+                    </span>
+                    <span className="text-[0.75vw] text-gray-400">
+                      {platformWatermarkResolution && platformWatermarkFileSize
+                        ? `${platformWatermarkResolution} • ${platformWatermarkFileSize}`
+                        : platformWatermarkFileSize ||
+                          platformWatermarkResolution ||
+                          "1920 X 1080 • 24MB"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-[0.5vw]">
+                    <button
+                      onClick={() => setReplaceTarget("platformWatermark")}
+                      className="px-[0.75vw] py-[0.4vw] bg-[#f3f4f6] hover:bg-[#e5e7eb] text-gray-700 text-[0.75vw] font-semibold rounded-[0.4vw] border border-gray-200 cursor-pointer transition-colors"
+                    >
+                      Replace Image
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget("platformWatermark")}
+                      className="p-[0.45vw] bg-[#f3f4f6] hover:bg-[#fee2e2] text-gray-500 hover:text-red-500 rounded-[0.4vw] border border-gray-200 cursor-pointer transition-colors"
+                      title="Delete Platform Watermark"
+                    >
+                      <Trash2 size="0.95vw" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Opacity Slider */}
+              <div className="flex flex-col gap-[0.4vw] pt-[0.2vw]">
+                <style>{`
+                  .custom-range-slider-orange { -webkit-appearance: none; width: 100%; background: transparent; position: relative; }
+                  .custom-range-slider-orange::before { content: ""; position: absolute; top: -0.75vw; bottom: -0.75vw; left: 0; right: 0; cursor: pointer; z-index: 1; }
+                  .custom-range-slider-orange::-webkit-slider-runnable-track { height: 0.15vw; border-radius: 0.1vw; background: inherit; }
+                  .custom-range-slider-orange::-webkit-slider-thumb { -webkit-appearance: none; height: 1vw; width: 1vw; border-radius: 50%; background: #FF5722; cursor: pointer; position: relative; z-index: 2; margin-top: -0.42vw; box-shadow: 0 0.1vw 0.3vw rgba(255,87,34,0.3); }
+                  .custom-range-slider-orange::-moz-range-track { height: 0.15vw; border-radius: 0.1vw; background: inherit; }
+                  .custom-range-slider-orange::-moz-range-thumb { height: 1vw; width: 1vw; border-radius: 50%; background: #FF5722; cursor: pointer; border: none; }
+                `}</style>
+                <div className="flex items-center gap-[0.5vw]">
+                  <span className="text-[0.85vw] text-gray-800">
+                    Opacity :
+                  </span>
+                  <div className="px-[0.2vw] py-[0.1vw] bg-white border border-gray-100 rounded-[0.2vw] text-[0.8vw] font-medium text-gray-800 shadow-sm min-w-[2.5vw] text-center">
+                    {platformWatermark?.opacity ?? 100}%
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={platformWatermark?.opacity ?? 100}
+                  onChange={(e) => {
+                    const newOpacity = parseInt(e.target.value, 10);
+                    onUpdateWatermark({
+                      ...watermarkSettings,
+                      platformWatermark: {
+                        ...(watermarkSettings?.platformWatermark || {}),
+                        opacity: isNaN(newOpacity) ? 100 : newOpacity,
+                      },
+                    });
+                  }}
+                  className="w-full cursor-pointer custom-range-slider-orange mt-[0.2vw]"
+                  style={{
+                    backgroundImage: `linear-gradient(to right, #FF5722 0%, #FF5722 ${platformWatermark?.opacity ?? 100}%, #E2E8F0 ${platformWatermark?.opacity ?? 100}%, #E2E8F0 100%)`,
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[0.75vw] mb-[1vw]">
+              {/* Drag & Drop Box */}
+              <div
+                onClick={() => setReplaceTarget("platformWatermark")}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type.startsWith("image/")) {
+                    handlePlatformWatermarkReplace(file);
+                  }
+                }}
+                className="w-full h-[6.8vw] border-2 border-dashed border-gray-300 rounded-[0.75vw] bg-white p-[0.8vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#ff5722] hover:bg-orange-50/20 group shadow-sm"
+              >
+                <div className="flex items-center gap-[0.3vw] text-[0.75vw]">
+                  <span className="text-gray-500 font-medium">Drag & Drop or</span>
+                  <span className="text-[#ff5722] font-semibold hover:underline">Upload</span>
+                </div>
+                <div className="my-[0.35vw] text-gray-400 group-hover:text-[#ff5722] transition-colors">
+                  <Upload size="1.2vw" />
+                </div>
+                <span className="text-[0.65vw] text-gray-400 font-medium">
+                  Supported File Format : JPG, PNG
+                </span>
+              </div>
+            </div>
+          )}
+          <input
+            type="file"
+            ref={platformWatermarkFileInputRef}
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                handlePlatformWatermarkReplace(file);
+              }
+            }}
+            className="hidden"
+            accept="image/*"
+          />
+
+          {/* Page Watermark Section */}
+          <div className="mb-[0.5vw]">
+            <div className="flex items-center gap-[0.5vw] mt-[1.5vw]">
+              <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">
+                Page Watermark
               </span>
               <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
               {watermarkSettings?.src && (
@@ -842,92 +1089,11 @@ const Branding = ({
               )}
             </div>
           </div>
-
-          {/* Select Image Type Dropdown */}
-          <div className="flex items-center justify-between mb-[0.8vw] px-[0.2vw]">
-            <span className="text-[0.8vw] font-medium text-gray-700">
-              Select the Image type :
-            </span>
-            <select
-              value={watermarkSettings?.type || "Fit"}
-              onChange={(e) =>
-                onUpdateWatermark({
-                  ...watermarkSettings,
-                  type: e.target.value,
-                })
-              }
-              className="px-[0.8vw] py-[0.35vw] bg-white border border-gray-300 rounded-[0.4vw] text-[0.78vw] text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer"
-            >
-              <option value="Fit">Fit</option>
-              <option value="Fill">Fill</option>
-              <option value="Stretch">Stretch</option>
-            </select>
-          </div>
-
-          {/* Drag & Drop or Upload Box */}
-          <div className="flex flex-col gap-[0.75vw] mb-[0.8vw]">
-            <div
-              onClick={() => setReplaceTarget("watermark")}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const file = e.dataTransfer.files[0];
-                if (file && file.type.startsWith("image/")) {
-                  handleWatermarkReplace(file);
-                }
-              }}
-              className="w-full h-[6.8vw] border-2 border-dashed border-gray-300 rounded-[0.75vw] bg-white p-[0.8vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#ff5722] hover:bg-orange-50/20 group shadow-sm"
-            >
-              <div className="flex items-center gap-[0.3vw] text-[0.75vw]">
-                <span className="text-gray-500 font-medium">Drag & Drop or</span>
-                <span className="text-[#ff5722] font-semibold hover:underline">Upload</span>
-              </div>
-              <div className="my-[0.35vw] text-gray-400 group-hover:text-[#ff5722] transition-colors">
-                <Upload size="1.2vw" />
-              </div>
-              <span className="text-[0.65vw] text-gray-400 font-medium">
-                Supported File Format : JPG, PNG
-              </span>
-            </div>
-          </div>
-
-          {/* Add URL */}
-          <div className="flex flex-col gap-[0.35vw] mb-[1.2vw]">
-            <span className="text-[0.75vw] font-semibold text-gray-700">
-              Add URL :
-            </span>
-            <input
-              type="text"
-              value={watermarkSettings?.url || ""}
-              onChange={(e) =>
-                onUpdateWatermark({
-                  ...watermarkSettings,
-                  url: e.target.value,
-                })
-              }
-              placeholder="https://"
-              className="w-full px-[0.8vw] py-[0.45vw] bg-white border border-gray-300 rounded-[0.4vw] text-[0.75vw] focus:ring-[0.0625vw] focus:ring-blue-500 focus:outline-none text-gray-700 shadow-sm"
-            >
-            </input>
-          </div>
-
-          {/* Remove or Replace Watermark Section */}
-          {watermarkSettings?.src && (
-            <div className="mb-[1.2vw]">
-              <div className="flex items-center gap-[0.5vw] mb-[0.75vw]">
-                <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap">
-                  Remove or Replace Watermark
-                </span>
-                <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
-              </div>
-
+          {watermarkSettings?.src ? (
+            <div className="flex flex-col gap-[0.5vw]">
               <div className="flex items-center gap-[1vw]">
-                {/* Thumbnail Preview */}
-                <div className="relative w-[8.5vw] h-[5.5vw] rounded-[0.4vw] overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center border border-gray-200">
+                {/* Thumbnail */}
+                <div className="relative w-[8.5vw] h-[6vw] rounded-[0.4vw] overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200">
                   <img
                     src={watermarkSettings.src}
                     alt="Watermark Thumbnail"
@@ -950,46 +1116,68 @@ const Branding = ({
                 </div>
 
                 {/* Info & Actions */}
-                <div className="flex flex-col flex-1 gap-[0.35vw] py-[0.2vw]">
+                <div className="flex flex-col flex-1 gap-[0.4vw] py-[0.2vw]">
                   <div className="flex flex-col gap-[0.1vw]">
-                    <span className="text-[0.85vw] font-medium text-gray-800 truncate w-[10vw]">
-                      {watermarkSettings?.name || "Watermark.png"}
+                    <span className="text-[0.9vw] font-medium text-gray-700 truncate w-[10vw]">
+                      Watermark
                     </span>
-                    <span className="text-[0.72vw] text-gray-400">
+                    <span className="text-[0.75vw] text-gray-400">
                       {watermarkResolution && watermarkFileSize
                         ? `${watermarkResolution} • ${watermarkFileSize}`
                         : watermarkFileSize ||
                           watermarkResolution ||
-                          "1920 X 1080 • 24MB"}
+                          "Loading size..."}
                     </span>
                   </div>
-                  <div className="flex items-center gap-[0.5vw] mt-[0.2vw]">
+                  <div className="flex items-center gap-[0.5vw]">
                     <button
                       onClick={() => setReplaceTarget("watermark")}
-                      className="px-[0.75vw] py-[0.35vw] bg-white hover:bg-gray-50 text-gray-700 text-[0.72vw] font-semibold rounded-[0.4vw] border border-gray-300 cursor-pointer transition-colors shadow-sm"
+                      className="px-[0.75vw] py-[0.4vw] bg-[#f3f4f6] hover:bg-[#e5e7eb] text-gray-700 text-[0.75vw] font-semibold rounded-[0.4vw] border border-gray-200 cursor-pointer transition-colors"
                     >
-                      Replace Image
+                      Replace image
                     </button>
                     <button
                       onClick={() => setDeleteTarget("watermark")}
-                      className="p-[0.4vw] bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-[0.4vw] border border-gray-300 cursor-pointer transition-colors shadow-sm"
-                      title="Delete Watermark"
+                      className="p-[0.45vw] bg-[#f3f4f6] hover:bg-[#fee2e2] text-gray-500 hover:text-red-500 rounded-[0.4vw] border border-gray-200 cursor-pointer transition-colors"
                     >
-                      <Trash2 size="0.9vw" />
+                      <Trash2 size="0.95vw" />
                     </button>
                   </div>
                 </div>
               </div>
             </div>
+          ) : (
+            <div className="flex flex-col gap-[0.75vw] mb-[1vw]">
+              {/* Drag & Drop Box */}
+              <div
+                onClick={() => setReplaceTarget("watermark")}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type.startsWith("image/")) {
+                    handleWatermarkReplace(file);
+                  }
+                }}
+                className="w-full h-[6.8vw] border-2 border-dashed border-gray-300 rounded-[0.75vw] bg-white p-[0.8vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#ff5722] hover:bg-orange-50/20 group shadow-sm"
+              >
+                <div className="flex items-center gap-[0.3vw] text-[0.75vw]">
+                  <span className="text-gray-500 font-medium">Drag & Drop or</span>
+                  <span className="text-[#ff5722] font-semibold hover:underline">Upload</span>
+                </div>
+                <div className="my-[0.35vw] text-gray-400 group-hover:text-[#ff5722] transition-colors">
+                  <Upload size="1.2vw" />
+                </div>
+                <span className="text-[0.65vw] text-gray-400 font-medium">
+                  Supported File Format : JPG, PNG
+                </span>
+              </div>
+            </div>
           )}
-
-          {/* Add Watermark On Pages Header */}
-          <div className="flex items-center gap-[0.5vw] mt-[1vw] mb-[0.75vw]">
-            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap">
-              Add Watermark On Pages
-            </span>
-            <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
-          </div>
           <input
             type="file"
             ref={watermarkFileInputRef}
@@ -1006,10 +1194,12 @@ const Branding = ({
           {watermarkSettings?.src && (
             <div className="flex gap-[2vw] pt-[1.5vw] pb-[1vw]">
               <style>{`
-              .custom-range-slider { -webkit-appearance: none; width: 100%; background: transparent; position: relative; }
-              .custom-range-slider::before { content: ""; position: absolute; top: -0.75vw; bottom: -0.75vw; left: 0; right: 0; cursor: pointer; z-index: 1; }
-              .custom-range-slider::-webkit-slider-runnable-track { height: 0.15vw; border-radius: 0.1vw; background: inherit; }
-              .custom-range-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 1vw; width: 1vw; border-radius: 50%; background: #4D47FF; cursor: pointer; position: relative; z-index: 2; margin-top: -0.4vw; }
+              .custom-range-slider-orange { -webkit-appearance: none; width: 100%; background: transparent; position: relative; }
+              .custom-range-slider-orange::before { content: ""; position: absolute; top: -0.75vw; bottom: -0.75vw; left: 0; right: 0; cursor: pointer; z-index: 1; }
+              .custom-range-slider-orange::-webkit-slider-runnable-track { height: 0.15vw; border-radius: 0.1vw; background: inherit; }
+              .custom-range-slider-orange::-webkit-slider-thumb { -webkit-appearance: none; height: 1vw; width: 1vw; border-radius: 50%; background: #FF5722; cursor: pointer; position: relative; z-index: 2; margin-top: -0.42vw; box-shadow: 0 0.1vw 0.3vw rgba(255,87,34,0.3); }
+              .custom-range-slider-orange::-moz-range-track { height: 0.15vw; border-radius: 0.1vw; background: inherit; }
+              .custom-range-slider-orange::-moz-range-thumb { height: 1vw; width: 1vw; border-radius: 50%; background: #FF5722; cursor: pointer; border: none; }
             `}</style>
 
               {/* Left Column: Sliders */}
@@ -1033,9 +1223,9 @@ const Branding = ({
                         scale: parseInt(e.target.value),
                       })
                     }
-                    className="w-full cursor-pointer custom-range-slider mt-[0.2vw]"
+                    className="w-full cursor-pointer custom-range-slider-orange mt-[0.2vw]"
                     style={{
-                      backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${(watermarkSettings?.scale ?? 100) / 2}%, #E2E8F0 ${(watermarkSettings?.scale ?? 100) / 2}%, #E2E8F0 100%)`,
+                      backgroundImage: `linear-gradient(to right, #FF5722 0%, #FF5722 ${(watermarkSettings?.scale ?? 100) / 2}%, #E2E8F0 ${(watermarkSettings?.scale ?? 100) / 2}%, #E2E8F0 100%)`,
                     }}
                   />
                 </div>
@@ -1061,9 +1251,9 @@ const Branding = ({
                         rotate: parseInt(e.target.value),
                       })
                     }
-                    className="w-full cursor-pointer custom-range-slider mt-[0.2vw]"
+                    className="w-full cursor-pointer custom-range-slider-orange mt-[0.2vw]"
                     style={{
-                      backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${(watermarkSettings?.rotate ?? 0) / 3.6}%, #E2E8F0 ${(watermarkSettings?.rotate ?? 0) / 3.6}%, #E2E8F0 100%)`,
+                      backgroundImage: `linear-gradient(to right, #FF5722 0%, #FF5722 ${(watermarkSettings?.rotate ?? 0) / 3.6}%, #E2E8F0 ${(watermarkSettings?.rotate ?? 0) / 3.6}%, #E2E8F0 100%)`,
                     }}
                   />
                 </div>
@@ -1089,9 +1279,9 @@ const Branding = ({
                         opacity: parseInt(e.target.value),
                       })
                     }
-                    className="w-full cursor-pointer custom-range-slider mt-[0.2vw]"
+                    className="w-full cursor-pointer custom-range-slider-orange mt-[0.2vw]"
                     style={{
-                      backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${watermarkSettings?.opacity ?? 100}%, #E2E8F0 ${watermarkSettings?.opacity ?? 100}%, #E2E8F0 100%)`,
+                      backgroundImage: `linear-gradient(to right, #FF5722 0%, #FF5722 ${watermarkSettings?.opacity ?? 100}%, #E2E8F0 ${watermarkSettings?.opacity ?? 100}%, #E2E8F0 100%)`,
                     }}
                   />
                 </div>
@@ -1186,11 +1376,50 @@ const Branding = ({
             </div>
           )}
           {/* Preloader Customization Section */}
-          <div className="flex items-center gap-[1vw] mb-[0.8vw] mt-[1.5vw]">
-            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.2vw]">
+          <div className="flex items-center gap-[1vw] mb-[0.5vw] mt-[1.5vw]">
+            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">
               Preloaded Customization
             </span>
             <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
+          </div>
+
+          {/* Don't show preparing flipibook preloader Toggle */}
+          <div className="flex items-center justify-between mb-[0.8vw] px-[0.2vw]">
+            <div className="flex flex-col pr-2">
+              <span className="text-[0.82vw] font-medium text-gray-800">
+                Don't show preparing flipibook preloader
+              </span>
+              <span className="text-[0.68vw] text-gray-500">
+                Disable preloader screen when viewing flipbook
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={preloaderSettings?.enabled === false}
+              onClick={() => {
+                const newEnabled = preloaderSettings?.enabled === false ? true : false;
+                const updated = {
+                  ...(preloaderSettings || {}),
+                  enabled: newEnabled,
+                };
+                onUpdatePreloader(updated);
+                setTempPreloaderSettings((prev) => ({ ...prev, enabled: newEnabled }));
+              }}
+              className={`w-[2.2vw] h-[1.2vw] rounded-full p-[0.1vw] transition-colors focus:outline-none cursor-pointer flex-shrink-0 ${
+                preloaderSettings?.enabled === false
+                  ? "bg-[#4A3AFF]"
+                  : "bg-gray-200 border border-gray-300"
+              }`}
+            >
+              <div
+                className={`w-[1vw] h-[1vw] rounded-full bg-white shadow-sm transition-transform ${
+                  preloaderSettings?.enabled === false
+                    ? "translate-x-[1vw]"
+                    : "translate-x-0"
+                }`}
+              />
+            </button>
           </div>
 
           {/* Interactive Preloader Preview Box */}
@@ -1198,10 +1427,19 @@ const Branding = ({
             const displayPreloader = showPreloaderModal
               ? { ...preloaderSettings, ...tempPreloaderSettings }
               : preloaderSettings || {};
-            const isCustom = displayPreloader?.isCustom === true;
-            const darkBg = "#22252A";
-            const whiteText = "#ffffff";
-            const defaultSpinner = "#E04752";
+            const isPreloaderDisabled = displayPreloader?.enabled === false;
+            const isCustom = displayPreloader?.isCustom === true || (
+              displayPreloader && (
+                !!displayPreloader.displayOption ||
+                !!displayPreloader.logo ||
+                displayPreloader.layout === "logo-only" ||
+                displayPreloader.layout === "bar" ||
+                displayPreloader.layout === "dots" ||
+                (displayPreloader.text && displayPreloader.text !== "Preparing Flipibook" && displayPreloader.text !== "Loading Modal Please Wait....") ||
+                (displayPreloader.bgColor && displayPreloader.bgColor !== "#D6E0F4") ||
+                (displayPreloader.spinnerColor && displayPreloader.spinnerColor !== "#3B3C8A")
+              )
+            );
 
             const displayOption = displayPreloader?.displayOption || (
               displayPreloader?.layout === "logo-only"
@@ -1215,23 +1453,15 @@ const Branding = ({
             const displayText =
               !displayPreloader?.text ||
               displayPreloader.text === "Loading Modal Please Wait...."
-                ? "Preparing Flipbook..."
+                ? "Preparing Flipibook"
                 : displayPreloader.text;
-
-            const cardBg = isCustom
-              ? ((!displayPreloader?.bgColor || displayPreloader.bgColor === "#D6E0F4") ? darkBg : displayPreloader.bgColor)
-              : darkBg;
-            const cardColor = isCustom ? (displayPreloader?.textColor || whiteText) : whiteText;
-            const spinnerColor = isCustom
-              ? ((!displayPreloader?.spinnerColor || displayPreloader.spinnerColor === "#3B3C8A") ? defaultSpinner : displayPreloader.spinnerColor)
-              : defaultSpinner;
 
             return (
               <div
                 className="relative w-full h-[9.2vw] min-h-[120px] rounded-[1vw] flex flex-col items-center justify-center shadow-md border border-white/10 group overflow-hidden flex-shrink-0"
                 style={{
-                  backgroundColor: cardBg,
-                  color: cardColor,
+                  backgroundColor: isCustom ? (displayPreloader?.bgColor || "#D6E0F4") : "#D6E0F4",
+                  color: isCustom ? (displayPreloader?.textColor || "#1E293B") : "#1E293B",
                 }}
               >
                 <style>{`
@@ -1266,32 +1496,41 @@ const Branding = ({
                 </button>
 
                 {/* Badge: Default vs Custom */}
-                <div className="absolute top-[0.7vw] left-[0.8vw] z-[20] flex items-center gap-1 px-[0.4vw] py-[0.1vw] rounded-full bg-black/25 text-[0.58vw] font-medium backdrop-blur-xs text-white">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isCustom ? "bg-indigo-400" : "bg-emerald-400"}`} />
-                  <span>{isCustom ? "Custom Preloader" : "Default"}</span>
+                <div className="absolute top-[0.7vw] left-[0.8vw] z-[20] flex items-center gap-1 px-[0.4vw] py-[0.1vw] rounded-full bg-black/15 text-[0.58vw] font-medium backdrop-blur-xs">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isCustom ? "bg-indigo-500" : "bg-emerald-500"}`} />
+                  <span>{isCustom ? "Custom Preloader" : "Default Preloader"}</span>
                 </div>
+
+                {/* Disabled Overlay Indicator */}
+                {isPreloaderDisabled && (
+                  <div className="absolute inset-0 z-[30] bg-gray-900/70 backdrop-blur-[2px] flex flex-col items-center justify-center gap-[0.2vw] text-white select-none pointer-events-none px-2">
+                    <Icon icon="lucide:eye-off" className="w-[1.2vw] h-[1.2vw] text-gray-300" />
+                    <span className="text-[0.72vw] font-semibold text-gray-100">Preloader Disabled</span>
+                    <span className="text-[0.58vw] text-gray-300">Will not show when opening book</span>
+                  </div>
+                )}
 
                 <div className="flex flex-col items-center gap-[0.45vw] px-[1vw] pt-2">
                   {!isCustom ? (
-                    /* DEFAULT PRELOADER DISPLAY (Matching Image 1: Dark theme with centered spinner & Preparing Flipbook...) */
+                    /* DEFAULT PRELOADER DISPLAY */
                     <div className="flex flex-col items-center justify-center gap-[0.4vw]">
                       <div className="relative flex items-center justify-center">
                         <div
                           className="w-[1.6vw] h-[1.6vw] border-[2.5px] border-t-transparent rounded-full animate-spin"
                           style={{
-                            borderColor: `${defaultSpinner} ${defaultSpinner} ${defaultSpinner} transparent`,
+                            borderColor: "#3B3C8A #3B3C8A #3B3C8A transparent",
                           }}
                         />
                       </div>
                       <p
-                        className="text-[0.72vw] font-medium text-center text-gray-200 tracking-wide truncate max-w-[15vw]"
+                        className="text-[0.72vw] font-semibold text-center truncate max-w-[15vw]"
                         style={{ fontFamily: "Poppins" }}
                       >
-                        Preparing Flipbook...
+                        Preparing Flipibook
                       </p>
                     </div>
                   ) : (
-                    /* CUSTOM PRELOADER DISPLAY */
+                    /* CUSTOM PRELOADER DISPLAY (Based on 3 options) */
                     <>
                       {/* OPTION 1: Logo Only */}
                       {displayOption === "logo-only" ? (
@@ -1306,7 +1545,7 @@ const Branding = ({
                             </div>
                           ) : (
                             <div style={animStyle}>
-                              <div className="w-[2.4vw] h-[2.4vw] rounded-[0.4vw] bg-white/10 flex items-center justify-center border border-white/10">
+                              <div className="w-[2.4vw] h-[2.4vw] rounded-[0.4vw] bg-black/10 flex items-center justify-center border border-black/10">
                                 <span className="text-[1.2vw]">📖</span>
                               </div>
                             </div>
@@ -1337,7 +1576,8 @@ const Branding = ({
                                   className="h-full rounded-full"
                                   style={{
                                     width: "45%",
-                                    backgroundColor: spinnerColor,
+                                    backgroundColor:
+                                      displayPreloader?.spinnerColor || "#3B3C8A",
                                   }}
                                 />
                               </div>
@@ -1350,19 +1590,22 @@ const Branding = ({
                               <div
                                 className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce [animation-delay:-0.3s]"
                                 style={{
-                                  backgroundColor: spinnerColor,
+                                  backgroundColor:
+                                    displayPreloader?.spinnerColor || "#3B3C8A",
                                 }}
                               />
                               <div
                                 className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce [animation-delay:-0.15s]"
                                 style={{
-                                  backgroundColor: spinnerColor,
+                                  backgroundColor:
+                                    displayPreloader?.spinnerColor || "#3B3C8A",
                                 }}
                               />
                               <div
                                 className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce"
                                 style={{
-                                  backgroundColor: spinnerColor,
+                                  backgroundColor:
+                                    displayPreloader?.spinnerColor || "#3B3C8A",
                                 }}
                               />
                               {displayPreloader?.showPercentage && (
@@ -1375,7 +1618,7 @@ const Branding = ({
                               <div
                                 className="w-[1.6vw] h-[1.6vw] border-[2.5px] border-t-transparent rounded-full animate-spin"
                                 style={{
-                                  borderColor: `${spinnerColor} ${spinnerColor} ${spinnerColor} transparent`,
+                                  borderColor: `${displayPreloader?.spinnerColor || "#3B3C8A"} ${displayPreloader?.spinnerColor || "#3B3C8A"} ${displayPreloader?.spinnerColor || "#3B3C8A"} transparent`,
                                 }}
                               />
                               {displayPreloader?.showPercentage && (
@@ -1389,7 +1632,7 @@ const Branding = ({
                       )}
 
                       <p
-                        className="text-[0.72vw] font-medium text-center truncate max-w-[15vw]"
+                        className="text-[0.72vw] font-semibold text-center truncate max-w-[15vw]"
                         style={{ fontFamily: displayPreloader?.font || "Poppins" }}
                       >
                         {displayText}
@@ -1439,6 +1682,42 @@ const Branding = ({
                       className="text-gray-500 hover:text-gray-800 focus:outline-none cursor-pointer"
                     >
                       <Icon icon="lucide:x" className="w-[1.2vw] h-[1.2vw]" />
+                    </button>
+                  </div>
+
+                  {/* Toggle: Don't show preparing flipibook preloader */}
+                  <div className="flex items-center justify-between p-[0.6vw] rounded-[0.5vw] bg-gray-50 border border-gray-200">
+                    <div className="flex flex-col pr-2">
+                      <span className="text-[0.82vw] font-medium text-gray-800">
+                        Don't show preparing flipibook preloader
+                      </span>
+                      <span className="text-[0.68vw] text-gray-500">
+                        Disable preloader screen completely
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={tempPreloaderSettings?.enabled === false}
+                      onClick={() => {
+                        setTempPreloaderSettings({
+                          ...tempPreloaderSettings,
+                          enabled: tempPreloaderSettings?.enabled === false ? true : false,
+                        });
+                      }}
+                      className={`w-[2.2vw] h-[1.2vw] rounded-full p-[0.1vw] transition-colors focus:outline-none cursor-pointer flex-shrink-0 ${
+                        tempPreloaderSettings?.enabled === false
+                          ? "bg-[#4A3AFF]"
+                          : "bg-gray-200 border border-gray-300"
+                      }`}
+                    >
+                      <div
+                        className={`w-[1vw] h-[1vw] rounded-full bg-white shadow-sm transition-transform ${
+                          tempPreloaderSettings?.enabled === false
+                            ? "translate-x-[1vw]"
+                            : "translate-x-0"
+                        }`}
+                      />
                     </button>
                   </div>
 
@@ -1495,20 +1774,13 @@ const Branding = ({
                     // RULE: when both are selected, no animation for logo (static)
                     const modalLogoAnim = currentOption === "both" ? "none" : (tempPreloaderSettings?.logoAnimation || "bounce");
                     const modalAnimStyle = getLogoAnimationStyle(modalLogoAnim);
-                    const modalBg = (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
-                      ? "#22252A"
-                      : tempPreloaderSettings.bgColor;
-                    const modalColor = tempPreloaderSettings?.textColor || "#ffffff";
-                    const modalSpinner = (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
-                      ? "#E04752"
-                      : tempPreloaderSettings.spinnerColor;
 
                     return (
                       <div
-                        className="relative w-full h-[6.5vw] min-h-[90px] rounded-[0.6vw] flex flex-col items-center justify-center border border-gray-700/30 overflow-hidden shadow-inner"
+                        className="relative w-full h-[6.5vw] min-h-[90px] rounded-[0.6vw] flex flex-col items-center justify-center border border-gray-200 overflow-hidden shadow-inner"
                         style={{
-                          backgroundColor: modalBg,
-                          color: modalColor,
+                          backgroundColor: tempPreloaderSettings?.bgColor || "#D6E0F4",
+                          color: tempPreloaderSettings?.textColor || "#1E293B",
                         }}
                       >
                         <div className="flex flex-col items-center gap-[0.3vw]">
@@ -1525,7 +1797,7 @@ const Branding = ({
                                 </div>
                               ) : (
                                 <div style={modalAnimStyle}>
-                                  <div className="w-[1.8vw] h-[1.8vw] rounded-[0.3vw] bg-white/10 flex items-center justify-center">
+                                  <div className="w-[1.8vw] h-[1.8vw] rounded-[0.3vw] bg-black/10 flex items-center justify-center">
                                     <span className="text-[1vw]">📖</span>
                                   </div>
                                 </div>
@@ -1554,7 +1826,8 @@ const Branding = ({
                                     className="h-full rounded-full"
                                     style={{
                                       width: "50%",
-                                      backgroundColor: modalSpinner,
+                                      backgroundColor:
+                                        tempPreloaderSettings?.spinnerColor || "#3B3C8A",
                                     }}
                                   />
                                 </div>
@@ -1563,19 +1836,22 @@ const Branding = ({
                                   <div
                                     className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce [animation-delay:-0.3s]"
                                     style={{
-                                      backgroundColor: modalSpinner,
+                                      backgroundColor:
+                                        tempPreloaderSettings?.spinnerColor || "#3B3C8A",
                                     }}
                                   />
                                   <div
                                     className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce [animation-delay:-0.15s]"
                                     style={{
-                                      backgroundColor: modalSpinner,
+                                      backgroundColor:
+                                        tempPreloaderSettings?.spinnerColor || "#3B3C8A",
                                     }}
                                   />
                                   <div
                                     className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce"
                                     style={{
-                                      backgroundColor: modalSpinner,
+                                      backgroundColor:
+                                        tempPreloaderSettings?.spinnerColor || "#3B3C8A",
                                     }}
                                   />
                                 </div>
@@ -1583,7 +1859,7 @@ const Branding = ({
                                 <div
                                   className="w-[1.2vw] h-[1.2vw] border-[2px] border-t-transparent rounded-full animate-spin"
                                   style={{
-                                    borderColor: `${modalSpinner} ${modalSpinner} ${modalSpinner} transparent`,
+                                    borderColor: `${tempPreloaderSettings?.spinnerColor || "#3B3C8A"} ${tempPreloaderSettings?.spinnerColor || "#3B3C8A"} ${tempPreloaderSettings?.spinnerColor || "#3B3C8A"} transparent`,
                                   }}
                                 />
                               )}
@@ -1591,12 +1867,12 @@ const Branding = ({
                           )}
 
                           <p
-                            className="text-[0.68vw] font-medium text-center truncate max-w-[12vw] text-gray-200"
+                            className="text-[0.68vw] font-semibold text-center truncate max-w-[12vw]"
                             style={{ fontFamily: tempPreloaderSettings?.font || "Poppins" }}
                           >
                             {!tempPreloaderSettings?.text ||
                             tempPreloaderSettings.text === "Loading Modal Please Wait...."
-                              ? "Preparing Flipbook..."
+                              ? "Preparing Flipibook"
                               : tempPreloaderSettings.text}
                           </p>
                         </div>
@@ -1941,7 +2217,7 @@ const Branding = ({
                         className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
                         style={{
                           backgroundColor:
-                            tempPreloaderSettings?.textColor || "#ffffff",
+                            tempPreloaderSettings?.textColor || "#1E293B",
                         }}
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -1959,7 +2235,7 @@ const Branding = ({
                         <input
                           type="text"
                           value={(
-                            tempPreloaderSettings?.textColor || "#ffffff"
+                            tempPreloaderSettings?.textColor || "#1E293B"
                           ).toUpperCase()}
                           onChange={(e) => {
                             let val = e.target.value;
@@ -1986,9 +2262,7 @@ const Branding = ({
                         className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
                         style={{
                           backgroundColor:
-                            (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
-                              ? "#22252A"
-                              : tempPreloaderSettings.bgColor,
+                            tempPreloaderSettings?.bgColor || "#D6E0F4",
                         }}
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -2006,9 +2280,7 @@ const Branding = ({
                         <input
                           type="text"
                           value={(
-                            (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
-                              ? "#22252A"
-                              : tempPreloaderSettings.bgColor
+                            tempPreloaderSettings?.bgColor || "#D6E0F4"
                           ).toUpperCase()}
                           onChange={(e) => {
                             let val = e.target.value;
@@ -2035,9 +2307,7 @@ const Branding = ({
                         className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
                         style={{
                           backgroundColor:
-                            (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
-                              ? "#E04752"
-                              : tempPreloaderSettings.spinnerColor,
+                            tempPreloaderSettings?.spinnerColor || "#3B3C8A",
                         }}
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -2055,9 +2325,7 @@ const Branding = ({
                         <input
                           type="text"
                           value={(
-                            (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
-                              ? "#E04752"
-                              : tempPreloaderSettings.spinnerColor
+                            tempPreloaderSettings?.spinnerColor || "#3B3C8A"
                           ).toUpperCase()}
                           onChange={(e) => {
                             let val = e.target.value;
@@ -2085,12 +2353,12 @@ const Branding = ({
                           enabled: true,
                           isCustom: false,
                           displayOption: "preloader-only",
-                          text: "Preparing Flipbook...",
+                          text: "Preparing Flipibook",
                           layout: "spinner",
                           logoAnimation: "bounce",
-                          spinnerColor: "#E04752",
-                          bgColor: "#22252A",
-                          textColor: "#ffffff",
+                          spinnerColor: "#3B3C8A",
+                          bgColor: "#D6E0F4",
+                          textColor: "#1E293B",
                           showPercentage: false,
                           logo: "",
                         };
@@ -2379,11 +2647,12 @@ const Branding = ({
             size="small"
             titleText="Add Image"
             buttonText="Add Image"
-            hideImportViaUrl={true}
             onClose={() => setReplaceTarget(null)}
             onReplace={(file) => {
               if (replaceTarget === "logo") {
                 handleLogoReplace(file);
+              } else if (replaceTarget === "platformWatermark") {
+                handlePlatformWatermarkReplace(file);
               } else if (replaceTarget === "watermark") {
                 handleWatermarkReplace(file);
               } else if (replaceTarget === "preloaderLogo") {
@@ -2399,6 +2668,7 @@ const Branding = ({
           onClose={() => setDeleteTarget(null)}
           onConfirm={() => {
             if (deleteTarget === "logo") removeLogo();
+            else if (deleteTarget === "platformWatermark") removePlatformWatermark();
             else if (deleteTarget === "watermark") removeWatermark();
           }}
           type="warning"

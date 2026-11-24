@@ -416,11 +416,11 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
       <div className="flex-1 overflow-y-auto px-[1vw] pb-[1vw] hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
 
 
-        {/* Navigation Section */}
-        <SectionHeader title="Navigation" />
+        {/* Navigation Controls Section */}
+        <SectionHeader title="Navigation Controls" />
         <div className="space-y-[0.325vw]">
           <MenuItem
-            label="Add Text to the Icons"
+            label="Show Icon Labels"
             enabled={otherSettings?.toolbar?.addTextBelowIcons ?? false}
             hasSettings={true}
             isExpanded={expandedSection === 'addTextToIcons'}
@@ -482,7 +482,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
             </AnimatePresence>
           </MenuItem>
           <MenuItem
-            label="Next / Previous Buttons"
+            label="Next / Preview Buttons"
             enabled={settings.navigation?.nextPrevButtons}
             onChange={(val) => updateSection('navigation', 'nextPrevButtons', val)}
           />
@@ -666,17 +666,83 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
             onChange={(val) => updateSection('navigation', 'pageThumbnails', val)}
           />
 
-          {/* Bookmark */}
           <MenuItem
-            label="Bookmark"
-            enabled={settings.navigation?.bookmark}
+            label="First / Last Page Buttons"
+            enabled={settings.navigation?.startEndNav ?? true}
+            onChange={(val) => updateSection('navigation', 'startEndNav', val)}
+          />
+        </div>
+
+        {/* Playback & Audio Section */}
+        <SectionHeader title="Playback & Audio" />
+        <div className="space-y-[0.325vw]">
+          <MenuItem
+            label="Auto Flip Features"
+            enabled={settings.media?.autoFlip}
             hasSettings={true}
-            isExpanded={expandedSection === 'bookmark'}
-            onToggleSettings={() => toggleSection('bookmark')}
-            onChange={(val) => updateSection('navigation', 'bookmark', val)}
+            isExpanded={expandedSection === 'autoFlip'}
+            onToggleSettings={() => toggleSection('autoFlip')}
+            onChange={(val) => updateSection('media', 'autoFlip', val)}
           >
             <AnimatePresence>
-              {expandedSection === 'bookmark' && (
+              {expandedSection === 'autoFlip' && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                  animate={{
+                    height: 'auto',
+                    opacity: 1,
+                    transitionEnd: { overflow: 'visible' }
+                  }}
+                  exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                  className="border-t border-gray-200 bg-gray-50/50 relative z-10 !overflow-visible"
+                >
+                  <div className="p-[1vw]">
+                    <div className="space-y-[0.85vw]">
+                      <SettingRow label="Auto Flip Duration">
+                        <Stepper
+                          value={settings.media?.autoFlipSettings?.duration || 5}
+                          onChange={(val) => updateNestedSetting('media', 'autoFlipSettings', 'duration', val)}
+                        />
+                      </SettingRow>
+                      <SettingRow label="Next Flip Countdown">
+                        <Switch
+                          enabled={settings.media?.autoFlipSettings?.countdown ?? false}
+                          onChange={(val) => updateNestedSetting('media', 'autoFlipSettings', 'countdown', val)}
+                          variant="secondary"
+                        />
+                      </SettingRow>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </MenuItem>
+          <MenuItem
+            label="Audio Controls"
+            enabled={settings?.media?.backgroundAudio ?? settings?.media?.audio ?? true}
+            hasSettings={true}
+            isExpanded={expandedSection === 'sound'}
+            onToggleSettings={() => toggleSection('sound')}
+            onChange={(val) => {
+              updateSection('media', 'backgroundAudio', val);
+              updateSection('media', 'audio', val);
+              // Master off also stops background music; master on does NOT force background music on
+              // (it is opt-in). If master is switched on while both sounds are off, bring back the
+              // flip sound so "Audio Features on" always means at least one sound is on.
+              if (onUpdateOther) {
+                onUpdateOther(prev => {
+                  const snd = prev?.sound || {};
+                  if (!val) return { ...prev, sound: { ...snd, bgSoundEnabled: false } };
+                  if (snd.flipSoundEnabled === false && snd.bgSoundEnabled !== true) {
+                    return { ...prev, sound: { ...snd, flipSoundEnabled: true } };
+                  }
+                  return prev;
+                });
+              }
+            }}
+          >
+            <AnimatePresence>
+              {expandedSection === 'sound' && (
                 <motion.div
                   initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
                   animate={{ 
@@ -688,28 +754,24 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
                   transition={{ duration: 0.3 }}
                   className="bg-gray-50/50 rounded-b-[0.8vw] relative z-10 !overflow-visible"
                 >
-                  <div className="px-[1.25vw] pb-[1vw] pt-0 border-t border-gray-50">
-                    <BookmarkStylesPopup
-                      settings={settings}
-                      onUpdate={onUpdate}
-                      pages={pages}
-                      onClose={() => toggleSection('bookmark')}
+                  <div className="border-t border-gray-50">
+                    <OtherSetup 
+                      inlineMode="sound" 
+                      settings={otherSettings} 
+                      onUpdate={onUpdateOther} 
+                      bookAppearanceSettings={bookAppearanceSettings}
+                      folderName={folderName} 
+                      bookName={bookName} 
                     />
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </MenuItem>
-
-          <MenuItem
-            label="Start / End Navigation"
-            enabled={settings.navigation?.startEndNav ?? true}
-            onChange={(val) => updateSection('navigation', 'startEndNav', val)}
-          />
         </div>
 
-        {/* Viewing Section */}
-        <SectionHeader title="Viewing" />
+        {/* Viewing Controls Section */}
+        <SectionHeader title="Viewing Controls" />
         <div className="space-y-[0.325vw]">
           <MenuItem
             label="Zoom In / Out Button"
@@ -762,8 +824,8 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
           />
         </div>
 
-        {/* Interaction Tools Section */}
-        <SectionHeader title="Interaction Tools" />
+        {/* Interactive Features Section */}
+        <SectionHeader title="Interactive Features" />
         <div className="space-y-[0.325vw]">
           {!isPdfProject && (
             <MenuItem
@@ -807,78 +869,18 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
               )}
             </AnimatePresence>
           </MenuItem>
-        </div>
 
-        {/* Media Controls Section */}
-        <SectionHeader title="Media Controls" />
-        <div className="space-y-[0.325vw]">
+          {/* Bookmark */}
           <MenuItem
-            label="Auto Flip Features"
-            enabled={settings.media?.autoFlip}
+            label="Bookmark"
+            enabled={settings.navigation?.bookmark}
             hasSettings={true}
-            isExpanded={expandedSection === 'autoFlip'}
-            onToggleSettings={() => toggleSection('autoFlip')}
-            onChange={(val) => updateSection('media', 'autoFlip', val)}
+            isExpanded={expandedSection === 'bookmark'}
+            onToggleSettings={() => toggleSection('bookmark')}
+            onChange={(val) => updateSection('navigation', 'bookmark', val)}
           >
             <AnimatePresence>
-              {expandedSection === 'autoFlip' && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
-                  animate={{
-                    height: 'auto',
-                    opacity: 1,
-                    transitionEnd: { overflow: 'visible' }
-                  }}
-                  exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
-                  className="border-t border-gray-200 bg-gray-50/50 relative z-10 !overflow-visible"
-                >
-                  <div className="p-[1vw]">
-                    <div className="space-y-[0.85vw]">
-                      <SettingRow label="Auto Flip Duration">
-                        <Stepper
-                          value={settings.media?.autoFlipSettings?.duration || 5}
-                          onChange={(val) => updateNestedSetting('media', 'autoFlipSettings', 'duration', val)}
-                        />
-                      </SettingRow>
-                      <SettingRow label="Next Flip Countdown">
-                        <Switch
-                          enabled={settings.media?.autoFlipSettings?.countdown ?? false}
-                          onChange={(val) => updateNestedSetting('media', 'autoFlipSettings', 'countdown', val)}
-                          variant="secondary"
-                        />
-                      </SettingRow>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </MenuItem>
-          <MenuItem
-            label="Audio Features"
-            enabled={settings?.media?.backgroundAudio ?? settings?.media?.audio ?? true}
-            hasSettings={true}
-            isExpanded={expandedSection === 'sound'}
-            onToggleSettings={() => toggleSection('sound')}
-            onChange={(val) => {
-              updateSection('media', 'backgroundAudio', val);
-              updateSection('media', 'audio', val);
-              // Master off also stops background music; master on does NOT force background music on
-              // (it is opt-in). If master is switched on while both sounds are off, bring back the
-              // flip sound so "Audio Features on" always means at least one sound is on.
-              if (onUpdateOther) {
-                onUpdateOther(prev => {
-                  const snd = prev?.sound || {};
-                  if (!val) return { ...prev, sound: { ...snd, bgSoundEnabled: false } };
-                  if (snd.flipSoundEnabled === false && snd.bgSoundEnabled !== true) {
-                    return { ...prev, sound: { ...snd, flipSoundEnabled: true } };
-                  }
-                  return prev;
-                });
-              }
-            }}
-          >
-            <AnimatePresence>
-              {expandedSection === 'sound' && (
+              {expandedSection === 'bookmark' && (
                 <motion.div
                   initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
                   animate={{ 
@@ -890,14 +892,12 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
                   transition={{ duration: 0.3 }}
                   className="bg-gray-50/50 rounded-b-[0.8vw] relative z-10 !overflow-visible"
                 >
-                  <div className="border-t border-gray-50">
-                    <OtherSetup 
-                      inlineMode="sound" 
-                      settings={otherSettings} 
-                      onUpdate={onUpdateOther} 
-                      bookAppearanceSettings={bookAppearanceSettings}
-                      folderName={folderName} 
-                      bookName={bookName} 
+                  <div className="px-[1.25vw] pb-[1vw] pt-0 border-t border-gray-50">
+                    <BookmarkStylesPopup
+                      settings={settings}
+                      onUpdate={onUpdate}
+                      pages={pages}
+                      onClose={() => toggleSection('bookmark')}
                     />
                   </div>
                 </motion.div>
@@ -906,8 +906,8 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
           </MenuItem>
         </div>
 
-        {/* Share & Export Section */}
-        <SectionHeader title="Share & Export" />
+        {/* Sharing & Download Section */}
+        <SectionHeader title="Sharing & Download" />
         <div className="space-y-[0.325vw]">
           <MenuItem
             label="Share"
@@ -919,21 +919,15 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, boo
             enabled={settings.shareExport?.download}
             onChange={(val) => updateSection('shareExport', 'download', val)}
           />
-
         </div>
 
-        {/* Branding & Profile Section */}
-        <SectionHeader title="Branding & Profile" />
+        {/* Branding Section */}
+        <SectionHeader title="Branding" />
         <div className="space-y-[0.325vw]">
           <MenuItem
             label="Logo"
             enabled={settings.brandingProfile?.logo}
             onChange={(val) => updateSection('brandingProfile', 'logo', val)}
-          />
-          <MenuItem
-            label="Profile"
-            enabled={settings.brandingProfile?.profile}
-            onChange={(val) => updateSection('brandingProfile', 'profile', val)}
           />
         </div>
       </div>
