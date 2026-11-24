@@ -122,17 +122,28 @@ export const createOverlayHighlightRenderer = ({
           // Keep the current element's overlay
           if (nid === keepPolyId || nid === keepPathId) continue;
 
+          // Overlay ids are "overlay-(poly|path)-<type>-<elementId>": match the element id exactly at
+          // the end. A substring match ("includes") also hit every element whose id merely CONTAINS
+          // this id (e.g. a page root "page-1" vs "page-1-text-3").
+          const belongsTo = (id) => nid.endsWith(`-${id}`);
+          // Hover outlines of OTHER elements are never selection leftovers. Purging them here wiped the
+          // canvas hover box in Edit mode, where the page root (an ancestor of everything) is selected
+          // and redrawn while you move over its children.
+          const nodeCls = node.getAttribute?.('class') || '';
+          const isHoverNode = nodeCls.includes('overlay-type-hover') || nodeCls.includes('overlay-type-child-hover');
+
           // Purge stale overlays for this element (step 1)
-          if (nid.includes(el.id)) {
+          if (belongsTo(el.id)) {
+            if (isHoverNode) { try { if (window.__fbeHoverDebug !== false) console.log('%c[hover]', 'color:#5255CA;font-weight:bold', 'removed hover box because the element got selected →', el.id); } catch { /* noop */ } }
             node.remove();
             continue;
           }
 
           // Purge descendant element overlays (step 3) â€” check if overlay belongs to any descendant
-          if (descendantIds.size > 0) {
+          if (descendantIds.size > 0 && !isHoverNode) {
             let isDescendant = false;
             for (const did of descendantIds) {
-              if (nid.includes(did)) { isDescendant = true; break; }
+              if (belongsTo(did)) { isDescendant = true; break; }
             }
             if (isDescendant) { node.remove(); continue; }
           }

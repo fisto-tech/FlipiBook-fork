@@ -20,6 +20,8 @@
  *    Signals to canvas pointer events to skip heavy raycasting and polygon calculations
  *    while an edit session is active.
  */
+import { invalidateVisualBBox } from '../mainEditor/utils/geometryUtils';
+
 
 export class EditCacheManager {
   constructor() {
@@ -261,6 +263,9 @@ export class EditCacheManager {
 
     if (shouldSyncOverlay && typeof onRedrawOverlay === 'function') {
       this.lastOverlaySync = performance.now();
+      // The box was just resized in this frame: drop any bbox measured earlier in the frame
+      invalidateVisualBBox(foTarget);
+      if (this.session.parentGroup) invalidateVisualBBox(this.session.parentGroup);
       this.syncOverlayHighlight(onRedrawOverlay);
     }
   }

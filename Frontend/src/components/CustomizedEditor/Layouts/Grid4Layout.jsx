@@ -1178,9 +1178,10 @@ const Grid4Layout = ({
                                         setPageInputValue(String(currentPage + 1));
                                     }
                                 }}
-                                className={`${!isBigBars ? 'text-[0.55vw] mx-[0.2vw] px-[0.1vw] py-[0.05vw]' : 'text-[0.65vw] mx-[0.3vw] px-[0.15vw] py-[0.05vw]'} font-medium rounded-[0.25vw] outline-none text-center transition-colors shadow-inner`}
+                                className={`${!isBigBars ? 'text-[0.55vw] mx-[0.2vw] px-[0.1vw] py-[0.05vw]' : 'text-[0.65vw] mx-[0.3vw] px-[0.15vw] py-[0.05vw]'} font-medium rounded-[0.25vw] outline-none text-center transition-colors shadow-inner box-border`}
                                 style={{
-                                    width: `${String(pages.length).length + 1.2}ch`,
+                                    width: `${Math.max(String(pageInputValue || '').length, String(pages.length || 0).length) + 1.6}ch`,
+                                    minWidth: '3.2ch',
                                     color: getLayoutColor('search-text-v1', '#555555'),
                                     backgroundColor: getLayoutColorAlpha('search-text-v1', '87, 92, 156', 0.1),
                                     border: `1px solid ${getLayoutColorAlpha('search-text-v1', '87, 92, 156', 0.2)}`

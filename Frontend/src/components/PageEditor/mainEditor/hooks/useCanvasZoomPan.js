@@ -82,7 +82,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -96,7 +96,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -169,7 +169,7 @@ export const useCanvasZoomPan = ({
     const el = editorContainerRef.current;
     if (!el) return;
     const handleWheel = (e) => {
-      if (e.target.closest('.editor-ss-overlay, input, textarea, select, .flipbook-text-scrollbar, [contenteditable="true"], [data-scrollable="true"]')) return;
+      if (e.target.closest('.editor-ss-overlay, input, textarea, select, .flipbook-text-scrollbar, [contenteditable="true"], [data-scrollable="true"], [data-modal], [data-modal="true"], .custom-scrollbar, [role="dialog"], .overflow-y-auto, .overflow-auto, .modal-scroll-container')) return;
       if (window.__isAdjustingShapeImage) return;
 
       if (e.ctrlKey || e.metaKey || e.altKey) {
@@ -229,7 +229,7 @@ export const useCanvasZoomPan = ({
           currentZoomRef.current = nextZoom;
           currentPanRef.current = nextPan;
           if (zoomContainerRef.current) {
-            zoomContainerRef.current.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0px) scale(${nextZoom / 100})`;
+            zoomContainerRef.current.style.transform = `translate(${clampedX}px, ${clampedY}px) scale(${nextZoom / 100})`;
           }
           window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextPan }));
 
@@ -245,6 +245,7 @@ export const useCanvasZoomPan = ({
           }
           wheelRafRef.current = requestAnimationFrame(step);
         };
+        if (zoomContainerRef.current) zoomContainerRef.current.style.willChange = 'transform';
         wheelRafRef.current = requestAnimationFrame(step);
       } else {
         // Standard Scroll:
@@ -303,6 +304,9 @@ export const useCanvasZoomPan = ({
 
         if (panRafRef.current) return; // animation already gliding smoothly
 
+        // GPU layer for the whole glide (CanvasViewport drops it ~150ms after the final pan commit)
+        containerEl.style.willChange = 'transform';
+
         const panStep = () => {
           if (!targetPanRef.current) {
             panRafRef.current = null;
@@ -328,15 +332,17 @@ export const useCanvasZoomPan = ({
 
           if (zoomContainerRef.current) {
             zoomContainerRef.current.style.transition = 'none';
-            zoomContainerRef.current.style.transform = `translate3d(${stepX}px, ${stepY}px, 0px) scale(${scale})`;
+            zoomContainerRef.current.style.transform = `translate(${stepX}px, ${stepY}px) scale(${scale})`;
           }
           window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextP }));
 
-          setPan(nextP);
-
+          // Commit React state only when the glide settles: a setPan every frame re-rendered the whole
+          // canvas (all page HTML) ~60×/s, which made scrolling stutter. The DOM transform above
+          // already moves the sheet each frame.
           if (doneX && doneY) {
             panRafRef.current = null;
             targetPanRef.current = null;
+            setPan(nextP);
             return;
           }
 
@@ -353,6 +359,8 @@ export const useCanvasZoomPan = ({
         cancelAnimationFrame(panRafRef.current);
         panRafRef.current = null;
         targetPanRef.current = null;
+        // Keep where the glide stopped (state is only committed at the end of a glide)
+        if (currentPanRef.current) setPan({ ...currentPanRef.current });
       }
     };
 

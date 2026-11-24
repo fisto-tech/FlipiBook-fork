@@ -5,58 +5,69 @@ export default function ProfileDetailsTab({ user, profile }) {
   const p = profile || {};
   const u = user || {};
 
-  // Form values with fallbacks matching the exact design
-  const fullName = p.fullName || p.name || u.name || 'Monkey D Luffy';
-  const displayName = p.displayName || u.displayName || 'Luffy';
-  const emailAddress = p.emailAddress || p.email || u.emailId || u.email || 'luffyonepiece@gmail.com';
-  const profileType = p.profileType || u.profileType || u.accountType || 'Company';
+  // Form values mapped dynamically from profile and user
+  const fullName = p.fullName || p.name || u.name || '-';
+  const displayName = p.displayName || u.displayName || u.name || '-';
+  const emailAddress = p.emailAddress || p.email || u.emailId || u.email || '-';
+  const profileType = p.profileType || p.accountType || u.profileType || u.accountType || 'Individual';
 
-  const companyName = p.companyName || 'Fist-O Tech';
-  const industryType = p.industryType || p.industry || 'Software Development';
-  const companySize = p.companySize || '100-120 People';
-  const businessEmail = p.businessEmail || 'fistotech@gmail.com';
-  const servicesList = Array.isArray(p.services) && p.services.length > 0
-    ? p.services
-    : ['100-120 People', '100-120 People', '100-120 People', '100-120 People', '100-120 People'];
-  const aboutBio = p.about || p.bio || "I'm going to be the King of the Pirates — that's my dream. I love adventure, freedom and good food. I believe in following my instincts and fighting for what I believe in.";
+  const companyName = p.companyName || '-';
+  const industryType = p.industryType || p.industry || '-';
+  const companySize = p.companySize || p.teamSize || u.companySize || u.teamSize || '-';
+  const businessEmail = p.businessEmail || p.companyEmail || '-';
+  
+  const rawServices = p.services || p.skills || u.services || [];
+  const servicesList = Array.isArray(rawServices) && rawServices.length > 0
+    ? rawServices
+    : (typeof rawServices === 'string' && rawServices.trim() ? [rawServices] : []);
+    
+  const aboutBio = p.about || p.bio || '-';
 
-  const contactNumber = p.contactNumber || p.phone || (p.mobile ? `${p.countryCode || '+91'} ${p.mobile}` : '+91 1234567890');
-  const alternateNumber = p.alternateNumber || '+91 1234567890';
-  const address = p.address || 'Fist-O Tech Private Limited, Near Central Bus Stand, Coimbatore';
-  const city = p.city || 'Coimbatore';
-  const state = p.state || 'Tamil Nadu';
+  const rawPhone = p.mobile || p.phone || p.contact1 || u.mobile || '';
+  const countryCode = p.countryCode || p.contact1CountryCode || '+91';
+  const contactNumber = rawPhone ? `${countryCode} ${rawPhone}` : (p.contactNumber || '-');
+  
+  const rawAltPhone = p.alternateNumber || p.contact2 || '';
+  const altCountryCode = p.contact2CountryCode || '+91';
+  const alternateNumber = rawAltPhone ? `${altCountryCode} ${rawAltPhone}` : '-';
+
+  // Construct full address from parts if full address string is not set
+  const addressParts = [p.address || p.address1, p.address2].filter(Boolean);
+  const address = addressParts.length > 0 ? addressParts.join(', ') : '-';
+  const city = p.city || '-';
+  const state = p.state || '-';
   const country = p.country || 'India';
-  const pinCode = p.pinCode || p.pincode || p.zipCode || '641012';
+  const pinCode = p.pinCode || p.pincode || p.zipCode || '-';
 
-  const website = p.website || 'https://www.fistotech.com';
-  const instagram = p.instagram || 'instagram.com/fistotech';
-  const linkedin = p.linkedin || 'linkedin.com/company/fistotech';
-  const facebook = p.facebook || 'facebook.com/fistotech';
-  const whatsapp = p.whatsapp || 'WhatsApp Business Link';
+  const website = p.website || p.socials?.website || '-';
+  const instagram = p.socials?.instagram || p.instagram || '-';
+  const linkedin = p.socials?.linkedin || p.linkedin || '-';
+  const facebook = p.socials?.facebook || p.facebook || '-';
+  const whatsapp = p.socials?.whatsapp || p.whatsapp || '-';
 
-  const visibility = p.visibility || {};
-  const showProfileInExplore = visibility.showProfileInExplore ?? true;
-  const showContactLocation = visibility.showContactLocation ?? true;
-  const showSocialMediaLinks = visibility.showSocialMediaLinks ?? true;
+  const visibility = p.visibilitySettings || p.visibility || {};
+  const showProfileInExplore = visibility.showInExplore ?? visibility.showProfileInExplore ?? true;
+  const showContactLocation = visibility.showContact ?? visibility.showContactLocation ?? true;
+  const showSocialMediaLinks = visibility.showSocial ?? visibility.showSocialMediaLinks ?? true;
 
   return (
-    <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[2vw] shadow-xs space-y-[2.2vw] font-sans">
+    <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[2vw] shadow-xs space-y-[1.8vw] font-sans">
       {/* Title & Subtitle */}
       <div>
-        <h2 className="text-[1.5vw] font-semibold text-gray-900 tracking-tight">Profile Details</h2>
-        <p className="text-[0.9vw] text-gray-400 mt-[0.2vw]">
+        <h2 className="text-[1.3vw] font-semibold text-gray-900 tracking-tight leading-none">Profile Details</h2>
+        <p className="text-[0.9vw] text-gray-400 mt-[0.35vw] leading-tight">
           User's personal and professional information.
         </p>
       </div>
 
       {/* 01 Personal Information */}
-      <div className="space-y-[1.2vw]">
+      <div className="space-y-[0.8vw]">
         <div className="flex items-center gap-[0.5vw]">
-          <span className="text-[1vw] font-semibold text-[#ec5137]">01</span>
-          <h3 className="text-[1vw] font-semibold text-[#ec5137]">Personal Information</h3>
+          <span className="text-[1.1vw] font-semibold text-[#ec5137]">01</span>
+          <h3 className="text-[1.1vw] font-semibold text-[#ec5137]">Personal Information</h3>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-[3vw] gap-y-[1.2vw]">
+        <div className="grid grid-cols-2 gap-x-[3vw] gap-y-[0.9vw]">
           <div>
             <span className="text-[0.8vw] text-gray-400 block font-semibold">Full Name</span>
             <span className="text-[0.9vw] font-semibold text-gray-900 block mt-[0.2vw]">{fullName}</span>
@@ -80,13 +91,13 @@ export default function ProfileDetailsTab({ user, profile }) {
       </div>
 
       {/* 02 Professional Information */}
-      <div className="space-y-[1.2vw]">
+      <div className="space-y-[0.8vw]">
         <div className="flex items-center gap-[0.5vw]">
-          <span className="text-[1vw] font-semibold text-[#ec5137]">02</span>
-          <h3 className="text-[1vw] font-semibold text-[#ec5137]">Professional Information</h3>
+          <span className="text-[1.1vw] font-semibold text-[#ec5137]">02</span>
+          <h3 className="text-[1.1vw] font-semibold text-[#ec5137]">Professional Information</h3>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-[3vw] gap-y-[1.2vw]">
+        <div className="grid grid-cols-2 gap-x-[3vw] gap-y-[0.9vw]">
           <div>
             <span className="text-[0.8vw] text-gray-400 block font-semibold">Company Name</span>
             <span className="text-[0.9vw] font-semibold text-gray-900 block mt-[0.2vw]">{companyName}</span>
@@ -109,22 +120,26 @@ export default function ProfileDetailsTab({ user, profile }) {
         </div>
 
         {/* Services / Expertise Badges */}
-        <div className="pt-[0.3vw]">
+        <div className="pt-[0.1vw]">
           <span className="text-[0.8vw] text-gray-400 block font-semibold mb-[0.45vw]">Services / Expertise</span>
-          <div className="flex flex-wrap items-center gap-[0.5vw]">
-            {servicesList.map((item, idx) => (
-              <span
-                key={idx}
-                className="px-[0.85vw] py-[0.3vw] rounded-full text-[0.8vw] font-semibold text-gray-700 bg-gray-50 border border-gray-200/80 shadow-2xs"
-              >
-                {item}
-              </span>
-            ))}
-          </div>
+          {servicesList.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-[0.5vw]">
+              {servicesList.map((item, idx) => (
+                <span
+                  key={idx}
+                  className="px-[0.85vw] py-[0.3vw] rounded-full text-[0.8vw] font-semibold text-gray-700 bg-gray-50 border border-gray-200/80 shadow-2xs"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="text-[0.9vw] font-semibold text-gray-500 block">-</span>
+          )}
         </div>
 
         {/* About / Bio */}
-        <div className="pt-[0.3vw]">
+        <div className="pt-[0.1vw]">
           <span className="text-[0.8vw] text-gray-400 block font-semibold mb-[0.3vw]">About / Bio</span>
           <p className="text-[0.9vw] text-gray-800 leading-relaxed font-semibold">
             {aboutBio}
@@ -133,13 +148,13 @@ export default function ProfileDetailsTab({ user, profile }) {
       </div>
 
       {/* 03 Contact & Location */}
-      <div className="space-y-[1.2vw]">
+      <div className="space-y-[0.8vw]">
         <div className="flex items-center gap-[0.5vw]">
-          <span className="text-[1vw] font-semibold text-[#ec5137]">03</span>
-          <h3 className="text-[1vw] font-semibold text-[#ec5137]">Contact & Location</h3>
+          <span className="text-[1.1vw] font-semibold text-[#ec5137]">03</span>
+          <h3 className="text-[1.1vw] font-semibold text-[#ec5137]">Contact & Location</h3>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-[3vw] gap-y-[1.2vw]">
+        <div className="grid grid-cols-2 gap-x-[3vw] gap-y-[0.9vw]">
           <div>
             <span className="text-[0.8vw] text-gray-400 block font-semibold">Contact Number</span>
             <span className="text-[0.9vw] font-semibold text-gray-900 block mt-[0.2vw]">{contactNumber}</span>
@@ -178,10 +193,10 @@ export default function ProfileDetailsTab({ user, profile }) {
       </div>
 
       {/* 04 Social Media & Links */}
-      <div className="space-y-[1.2vw]">
+      <div className="space-y-[0.8vw]">
         <div className="flex items-center gap-[0.5vw]">
-          <span className="text-[1vw] font-semibold text-[#ec5137]">04</span>
-          <h3 className="text-[1vw] font-semibold text-[#ec5137]">Social Media & Links</h3>
+          <span className="text-[1.1vw] font-semibold text-[#ec5137]">04</span>
+          <h3 className="text-[1.1vw] font-semibold text-[#ec5137]">Social Media & Links</h3>
         </div>
 
         <div className="space-y-[1vw]">
@@ -303,10 +318,10 @@ export default function ProfileDetailsTab({ user, profile }) {
       </div>
 
       {/* 05 Profile Visibility */}
-      <div className="space-y-[1.2vw] pt-[0.3vw]">
+      <div className="space-y-[0.8vw]">
         <div className="flex items-center gap-[0.5vw]">
-          <span className="text-[1vw] font-semibold text-[#ec5137]">05</span>
-          <h3 className="text-[1vw] font-semibold text-[#ec5137]">Profile Visibility</h3>
+          <span className="text-[1.1vw] font-semibold text-[#ec5137]">05</span>
+          <h3 className="text-[1.1vw] font-semibold text-[#ec5137]">Profile Visibility</h3>
         </div>
 
         <div className="space-y-[1vw]">

@@ -781,7 +781,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
 
       if (shouldOptimizeImage(file)) {
         try {
-          const opt = await optimizeImageForWeb(file, { maxDimension: 1200, quality: 0.82 });
+          const opt = await optimizeImageForWeb(file, { maxDimension: 3840, quality: 0.94 });
           if (opt?.file || opt?.blob) {
             finalBlobUrl = createManagedBlobUrl(opt.file || opt.blob, 'framing_slot');
             imgWidth = opt.width;
@@ -1281,6 +1281,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
 
         imageNode.setAttribute('href', dataUrl);
         imageNode.setAttribute('xlink:href', dataUrl);
+        imageNode.setAttribute('style', 'image-rendering: auto; image-rendering: smooth;');
 
         const curOpacity = shapeEl.getAttribute('data-slot-opacity') || selectedElement.getAttribute('data-slot-opacity');
         if (curOpacity !== null && curOpacity !== undefined && curOpacity !== '') {
@@ -1447,7 +1448,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
                           {meta.name}
                         </span>
                         <span className="text-[0.75vw] text-gray-500 font-medium truncate">
-                          {compressingSlots[slot.id] ? 'Optimizing image...' : meta.meta}
+                          {compressingSlots[slot.id] ? 'Loading image...' : meta.meta}
                         </span>
                       </>
                     ) : (
@@ -1456,7 +1457,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
                           Slot {idx + 1}
                         </span>
                         <span className="text-[0.72vw] text-gray-400 font-normal">
-                          {compressingSlots[slot.id] ? 'Optimizing image...' : 'No image uploaded'}
+                          {compressingSlots[slot.id] ? 'Loading image...' : 'No image uploaded'}
                         </span>
                       </>
                     )}

@@ -53,6 +53,20 @@ export function useElementInsertion({
       const el = item.insert(cx, cy, customSize);
       if (!el) return;
 
+      // Slideshow is authored at 320x200 — fit it to the current page (max 60% width / 50% height)
+      if (el.getAttribute('data-is-slideshow') === 'true' || el.getAttribute('data-type') === 'slideshow') {
+        const baseW = 320;
+        const baseH = 200;
+        const fit = Math.min(1, (bounds.width * 0.6) / baseW, (bounds.height * 0.5) / baseH);
+        if (fit < 1) {
+          // Scale the whole group (same as corner-resize) so text, arrows and dots shrink with it
+          const s = Math.round(fit * 1000) / 1000;
+          const tx = Math.round((cx - (baseW * s) / 2) * 10) / 10;
+          const ty = Math.round((cy - (baseH * s) / 2) * 10) / 10;
+          el.setAttribute('transform', `matrix(${s}, 0, 0, ${s}, ${tx}, ${ty})`);
+        }
+      }
+
       if (!el.getAttribute('id')) {
         el.setAttribute('id', uniqueId);
       }

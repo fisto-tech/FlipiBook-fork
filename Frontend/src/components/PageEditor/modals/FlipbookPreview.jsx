@@ -48,7 +48,6 @@ const parseInitialSettings = (inputSettings, v_id, isPublishedPreview) => {
   let cachedLogo = null;
   let cachedWatermark = null;
   let cachedProfile = null;
-  let cachedPreloader = null;
   let cachedAppearance = null;
 
   // Only check local cache for non-published editor preview
@@ -65,7 +64,6 @@ const parseInitialSettings = (inputSettings, v_id, isPublishedPreview) => {
         cachedLogo = parsed.logo || parsed.logoSettings || parsed.Branding?.logoSettings;
         cachedWatermark = parsed.watermark || parsed.watermarkSettings || parsed.Branding?.watermarkSettings;
         cachedProfile = parsed.profile || parsed.profileSettings || parsed.Branding?.profileSettings;
-        cachedPreloader = parsed.preloader || parsed.preloaderSettings || parsed.Branding?.preloaderSettings;
       }
     } catch (e) { }
   }
@@ -79,7 +77,8 @@ const parseInitialSettings = (inputSettings, v_id, isPublishedPreview) => {
     ...(inputSettings || {}),
     logo: inputSettings?.logo || inputSettings?.logoSettings || bObj.logoSettings || cachedLogo,
     watermark: inputSettings?.watermark || inputSettings?.watermarkSettings || bObj.watermarkSettings || cachedWatermark,
-    preloader: inputSettings?.preloader || inputSettings?.preloaderSettings || bObj.preloaderSettings || bObj.preloader || inputSettings?.Customized_Settings?.Branding?.preloaderSettings || cachedPreloader || null,
+    preloader: inputSettings?.preloader || inputSettings?.preloaderSettings || bObj.preloaderSettings || bObj.preloader || inputSettings?.Customized_Settings?.Branding?.preloaderSettings || null,
+    preloaderSettings: inputSettings?.preloader || inputSettings?.preloaderSettings || bObj.preloaderSettings || bObj.preloader || inputSettings?.Customized_Settings?.Branding?.preloaderSettings || null,
     profile: inputSettings?.profile || inputSettings?.profileSettings || bObj.profileSettings || cachedProfile,
     appearance: appObj,
     bookAppearanceSettings: appObj,
@@ -110,6 +109,11 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [bookIsReady, setBookIsReady] = useState(false);
+
+  const handleBookReady = useCallback(() => {
+    setBookIsReady(true);
+  }, []);
 
   useEffect(() => {
     if (settings && Object.keys(settings).length > 0) {
@@ -122,18 +126,20 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
     if (isLoading) {
       progressInterval = setInterval(() => {
         setLoadingProgress((prev) => {
-          if (prev >= 100) {
+          if (bookIsReady) {
             clearInterval(progressInterval);
-            setTimeout(() => setIsLoading(false), 200);
             return 100;
           }
-          const increment = prev < 80 ? 8 : (settingsLoaded ? 12 : 3);
-          return Math.min(prev + increment, 100);
+          if (prev >= 90) {
+            return 90;
+          }
+          const increment = prev < 70 ? 8 : (settingsLoaded ? 4 : 2);
+          return Math.min(prev + increment, 90);
         });
-      }, 40);
+      }, 50);
     }
     return () => clearInterval(progressInterval);
-  }, [isLoading, settingsLoaded]);
+  }, [isLoading, settingsLoaded, bookIsReady]);
 
   useEffect(() => {
     if ((Object.keys(localSettings).length > 0 || (pages && pages.length > 0)) && !isLoadingParent) {
@@ -141,21 +147,23 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
     }
   }, [localSettings, isLoadingParent, pages]);
 
+  // Once the book signals ready, finish progress to 100% and smoothly dismiss preloader
   useEffect(() => {
-    if (settingsLoaded && loadingProgress >= 90) {
+    if (bookIsReady && isLoading) {
+      setLoadingProgress(100);
       const timer = setTimeout(() => {
-        setLoadingProgress(100);
         setIsLoading(false);
-      }, 200);
+      }, 250);
       return () => clearTimeout(timer);
     }
-  }, [settingsLoaded, loadingProgress]);
+  }, [bookIsReady, isLoading]);
 
-  // Safety fallback: ensure preloader always hides cleanly once page is ready
+  // Safety fallback: ensure preloader always hides cleanly if book load times out (e.g. 6 seconds)
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
+      setLoadingProgress(100);
       setIsLoading(false);
-    }, 2000);
+    }, 6000);
     return () => clearTimeout(fallbackTimer);
   }, []);
   // 3D model states moved to PreviewArea
@@ -605,6 +613,8 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
         currentBook={currentBook || settings}
         v_id={v_id}
         shareId={effectiveShareId}
+        onBookReady={handleBookReady}
+        preloaderSettings={localSettings?.preloader || localSettings?.preloaderSettings || settings?.preloader || settings?.preloaderSettings || settings?.Branding?.preloaderSettings}
       />
 
       {/* Draggable Device Settings - Tablet/Mobile: outside device frame */}
@@ -710,17 +720,26 @@ const FlipbookPreview = ({ pages, pageName, bookName, onClose, isMobile: isMobil
       {/* 3D viewer rendering is handled natively by PreviewArea */}
 
       {(() => {
-        const preloader = localSettings?.preloader || localSettings?.preloaderSettings || settings?.preloader || settings?.preloaderSettings || settings?.Branding?.preloaderSettings || {
-          enabled: true,
-          isCustom: false,
-          text: 'Preparing Flipbook...',
-          bgColor: '#22252A',
-          textColor: '#ffffff',
-          spinnerColor: '#E04752',
-          showPercentage: false,
-          layout: 'spinner',
-          logoAnimation: 'bounce'
-        };
+        const preloader =
+          localSettings?.preloader ||
+          localSettings?.preloaderSettings ||
+          settings?.preloader ||
+          settings?.preloaderSettings ||
+          settings?.Branding?.preloaderSettings ||
+          currentBook?.Customized_Settings?.Branding?.preloaderSettings ||
+          currentBook?.settings?.Branding?.preloaderSettings ||
+          currentBook?.settings?.preloader ||
+          {
+            enabled: true,
+            isCustom: false,
+            text: 'Preparing Flipibook',
+            bgColor: '#22252A',
+            textColor: '#ffffff',
+            spinnerColor: '#E04752',
+            showPercentage: false,
+            layout: 'spinner',
+            logoAnimation: 'fade'
+          };
 
         return (
           <PreloaderOverlay

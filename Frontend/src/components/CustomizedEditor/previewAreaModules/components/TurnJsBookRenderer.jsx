@@ -41,6 +41,7 @@ const TurnJsBookRenderer = React.memo(({
     isTurnJs,
     physicalZoom,
     watermarkSettings,
+    onBookReady,
 }) => {
     const turnOnFlip = useCallback((evt) => {
         const logicalIndex = typeof evt === 'object' && evt !== null ? evt.data : evt;
@@ -118,6 +119,7 @@ const TurnJsBookRenderer = React.memo(({
                 singlePage={singlePage}
                 pageOpacity={pageOpacity}
                 useMouseEvents={settings?.navigation?.dragToTurn ?? true}
+                onBookReady={onBookReady}
             />
 
             {/* Bookmarks rendering */}<div

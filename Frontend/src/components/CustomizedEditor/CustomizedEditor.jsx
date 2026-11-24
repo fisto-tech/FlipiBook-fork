@@ -174,7 +174,7 @@ const CustomizedEditor = () => {
   const [layoutColors, setLayoutColors] = useState(() => createDefaultLayoutColors(currentBook, location.state));
   const [menuBarSettings, setMenuBarSettings] = useState(() => createDefaultMenuBarSettings());
   const [otherSetupSettings, setOtherSetupSettings] = useState(() => createDefaultOtherSetupSettings());
-  const [leadFormSettings, setLeadFormSettings] = useState(() => createDefaultLeadFormSettings());
+  const [leadFormSettings, setLeadFormSettings] = useState(() => createDefaultLeadFormSettings(currentBook, location.state));
   const [visibilitySettings, setVisibilitySettings] = useState(() => createDefaultVisibilitySettings());
   const [shareSettings, setShareSettings] = useState(() => createDefaultShareSettings());
 
@@ -887,6 +887,7 @@ const CustomizedEditor = () => {
             bookAppearanceSettings={bookAppearanceSettings}
             menuBarSettings={menuBarSettings}
             leadFormSettings={leadFormSettings}
+            onUpdateLeadForm={setLeadFormSettings}
             profileSettings={profileSettings}
             otherSetupSettings={otherSetupSettings}
             onUpdateOtherSetup={setOtherSetupSettings}

@@ -7,13 +7,13 @@
   --admin-sidebar-bg: #151c28;
   --admin-sidebar-hover: #1e2738;
   --admin-sidebar-active: #2c3749;
-  --admin-bg: #f8fafc;
+  --admin-bg: #ffffff;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #f8fafc;
+  background-color: #ffffff;
   color: #1f2937;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overflow-x: hidden;

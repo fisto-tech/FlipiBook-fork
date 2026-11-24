@@ -85,7 +85,6 @@ export const clearSession = () => {
     document.cookie =
       "flipibook_user=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
     localStorage.removeItem('user');
-    localStorage.removeItem('user_profile');
   } catch (err) {
     console.warn("Session clear error:", err);
   }

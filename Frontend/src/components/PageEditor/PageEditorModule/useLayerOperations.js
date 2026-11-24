@@ -196,7 +196,7 @@ export const useLayerOperations = ({
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(page.html, 'image/svg+xml');
-      const newLayers = JSON.parse(JSON.stringify(page.layers));
+      const newLayers = structuredClone(page.layers);
 
       const processList = (list) => {
         const toMove = list.filter(l => idList.includes(l.id));
@@ -231,7 +231,7 @@ export const useLayerOperations = ({
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(page.html, 'image/svg+xml');
-      const newLayers = JSON.parse(JSON.stringify(page.layers));
+      const newLayers = structuredClone(page.layers);
 
       const processList = (list) => {
         const toMove = list.filter(l => idList.includes(l.id)).reverse();
@@ -275,7 +275,7 @@ export const useLayerOperations = ({
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(page.html, 'image/svg+xml');
-      const newLayers = JSON.parse(JSON.stringify(page.layers));
+      const newLayers = structuredClone(page.layers);
 
       const processList = (list) => {
         // Iterate backwards to not mess up indices as we move things forward
@@ -309,7 +309,7 @@ export const useLayerOperations = ({
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(page.html, 'image/svg+xml');
-      const newLayers = JSON.parse(JSON.stringify(page.layers));
+      const newLayers = structuredClone(page.layers);
 
       const processList = (list) => {
         for (let i = 0; i < list.length; i++) {
@@ -346,7 +346,7 @@ export const useLayerOperations = ({
       const page = updated[pageIndex];
       if (!page || !page.html || !page.layers) return updated;
 
-      const newLayers = JSON.parse(JSON.stringify(page.layers));
+      const newLayers = structuredClone(page.layers);
 
       // 1. Find and remove source item
       let sourceItem = null;
@@ -444,7 +444,7 @@ export const useLayerOperations = ({
         }
       };
 
-      const newLayers = JSON.parse(JSON.stringify(targetPage.layers));
+      const newLayers = structuredClone(targetPage.layers);
       deleteFromLayers(newLayers);
 
       const newHtml = safeSerializeSvg(doc) || page.html;
@@ -557,7 +557,7 @@ export const useLayerOperations = ({
             extractDefs(svgSnippet);
 
             clipboardItems.push({
-              layer: JSON.parse(JSON.stringify(layer)),
+              layer: structuredClone(layer),
               svgSnippet: svgSnippet,
               defSnippets: defSnippets,
               originalParentId: parentId
@@ -606,7 +606,7 @@ export const useLayerOperations = ({
       const page = updated[pageIndex];
       if (!page) return updated;
 
-      let newLayers = JSON.parse(JSON.stringify(page.layers || []));
+      let newLayers = structuredClone(page.layers || []);
       const parser = new DOMParser();
       const doc = parser.parseFromString(page.html || '<svg xmlns="http://www.w3.org/2000/svg"></svg>', 'image/svg+xml');
       const svgRoot = doc.querySelector('svg');

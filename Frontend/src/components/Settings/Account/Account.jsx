@@ -119,14 +119,6 @@ const Account = () => {
     if (setAuthUser) {
       setAuthUser((prev) => ({ ...prev, hasPassword: true }));
     }
-    try {
-      const stored = localStorage.getItem('user_profile');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        parsed.hasPassword = true;
-        localStorage.setItem('user_profile', JSON.stringify(parsed));
-      }
-    } catch (e) {}
 
     setActiveView('overview');
     showToast('Password added successfully! You can now sign in with your email and password.');

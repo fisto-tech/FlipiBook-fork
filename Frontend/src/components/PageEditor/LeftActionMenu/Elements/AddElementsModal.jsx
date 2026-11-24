@@ -366,6 +366,7 @@ export const AddElementsModal = ({
             duration: isDraggingElement ? 0.28 : 0.24,
             ease: [0.16, 1, 0.3, 1],
           }}
+          data-modal="true"
           className="fixed z-[9999] bg-white rounded-[0.75vw] border border-gray-300 shadow-[0_12px_45px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden select-none"
           style={{
             width: '28.5vw',
@@ -379,6 +380,7 @@ export const AddElementsModal = ({
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
         >
           {/* 3vh Full-Width Sleek Gray Drag Bar */}
           <div
@@ -443,7 +445,11 @@ export const AddElementsModal = ({
             />
 
             {/* Right Elements Grid */}
-            <div className="flex-1 overflow-y-auto p-[0.6vw] flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden hover:[scrollbar-width:thin] hover:[&::-webkit-scrollbar]:block custom-scrollbar transition-all duration-200">
+            <div
+              data-scrollable="true"
+              onWheel={(e) => e.stopPropagation()}
+              className="flex-1 overflow-y-auto p-[0.6vw] flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden hover:[scrollbar-width:thin] hover:[&::-webkit-scrollbar]:block custom-scrollbar transition-all duration-200"
+            >
               {groupedBySubtopic ? (
                 <div className="flex flex-col gap-[2vh]">
                   {groupedBySubtopic.map(({ title, items }) => (

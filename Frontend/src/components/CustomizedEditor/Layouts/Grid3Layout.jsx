@@ -966,9 +966,10 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                                 setPageInputValue(String(currentPage + 1));
                                             }
                                         }}
-                                        className={`${!isBigBars ? (isTablet ? 'text-[0.5vw] mx-[0.2vw] px-[0.1vw] py-[0.05vw]' : 'text-[0.8vw] mx-[0.4vw] px-[0.2vw] py-[0.1vw]') : (isTablet ? 'text-[0.6vw] mx-[0.3vw] px-[0.15vw] py-[0.05vw]' : 'text-[0.65vw] mx-[0.4vw] px-[0.2vw] py-[0.1vw]')} font-bold rounded-[0.2vw] outline-none text-center transition-colors shadow-inner leading-none`}
+                                        className={`${!isBigBars ? (isTablet ? 'text-[0.5vw] mx-[0.2vw] px-[0.1vw] py-[0.05vw]' : 'text-[0.8vw] mx-[0.4vw] px-[0.2vw] py-[0.1vw]') : (isTablet ? 'text-[0.6vw] mx-[0.3vw] px-[0.15vw] py-[0.05vw]' : 'text-[0.65vw] mx-[0.4vw] px-[0.2vw] py-[0.1vw]')} font-bold rounded-[0.2vw] outline-none text-center transition-colors shadow-inner leading-none box-border`}
                                         style={{
-                                            width: `${String(pages.length).length + 1.2}ch`,
+                                            width: `${Math.max(String(pageInputValue || '').length, String(pages.length || 0).length) + 1.6}ch`,
+                                            minWidth: '3.2ch',
                                             color: getLayoutColor('search-text-v1', '#555555'),
                                             opacity: 'var(--search-text-v1-opacity, 1)',
                                             backgroundColor: getLayoutColorAlpha('search-text-v1', '87, 92, 156', 0.1),

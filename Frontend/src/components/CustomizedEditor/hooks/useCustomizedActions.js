@@ -152,6 +152,21 @@ export const useCustomizedActions = ({
       };
 
       await axios.post(`${backendUrl}/api/flipbook/update-settings`, payload);
+      try {
+        if (preloaderSettings) {
+          const pStr = JSON.stringify(preloaderSettings);
+          if (v_id) {
+            sessionStorage.setItem(`flipibook_preloader_${v_id}`, pStr);
+            localStorage.setItem(`flipibook_preloader_${v_id}`, pStr);
+            localStorage.setItem(`customized_editor_branding_${v_id}`, JSON.stringify({ preloader: preloaderSettings, preloaderSettings, Branding: { preloaderSettings } }));
+          }
+          const candidateShareId = visibilitySettings?.shareId || currentBook?.Customized_Settings?.Visibility?.shareId || shareSettings?.shareId;
+          if (candidateShareId) {
+            sessionStorage.setItem(`flipibook_preloader_${candidateShareId}`, pStr);
+            localStorage.setItem(`flipibook_preloader_${candidateShareId}`, pStr);
+          }
+        }
+      } catch (e) {}
       if (payload.share) setShareSettings(payload.share);
       if (triggerSaveSuccess) {
         triggerSaveSuccess({ name: validBookName, isManual: true });
@@ -274,7 +289,23 @@ export const useCustomizedActions = ({
       ? `/preview?shareId=${visibilityShareId}${v_id ? `&v_id=${v_id}` : ''}`
       : (v_id ? `/preview?v_id=${v_id}` : '/preview');
     
-    // 1. Open preview immediately in new tab for instant response
+    // 1. Synchronously cache preloader so preview page renders the exact preloader with zero delay
+    try {
+      if (preloaderSettings) {
+        const pStr = JSON.stringify(preloaderSettings);
+        if (v_id) {
+          sessionStorage.setItem(`flipibook_preloader_${v_id}`, pStr);
+          localStorage.setItem(`flipibook_preloader_${v_id}`, pStr);
+          localStorage.setItem(`customized_editor_branding_${v_id}`, JSON.stringify({ preloader: preloaderSettings, preloaderSettings, Branding: { preloaderSettings } }));
+        }
+        if (visibilityShareId) {
+          sessionStorage.setItem(`flipibook_preloader_${visibilityShareId}`, pStr);
+          localStorage.setItem(`flipibook_preloader_${visibilityShareId}`, pStr);
+        }
+      }
+    } catch (e) {}
+
+    // 2. Open preview immediately in new tab for instant response
     window.open(previewUrl, '_blank');
 
     // 2. Cache editor state to IndexedDB under 'customized_editor'

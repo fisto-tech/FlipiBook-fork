@@ -304,7 +304,7 @@ const TocItem = ({ item, index, isEditing, onUpdate, onDelete, activeTOCItem, se
 };
 
 
-const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pages = [], folderName, bookName, onTocSettingsClick }) => {
+const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, bookAppearanceSettings, pages = [], folderName, bookName, onTocSettingsClick }) => {
   const [expandedSection, setExpandedSection] = useState(null);
   const [activeTOCItem, setActiveTOCItem] = useState(null); // { type: 'head'|'sub', index, sIdx }
   
@@ -895,6 +895,7 @@ const MenuBar = ({ onBack, settings, onUpdate, otherSettings, onUpdateOther, pag
                       inlineMode="sound" 
                       settings={otherSettings} 
                       onUpdate={onUpdateOther} 
+                      bookAppearanceSettings={bookAppearanceSettings}
                       folderName={folderName} 
                       bookName={bookName} 
                     />

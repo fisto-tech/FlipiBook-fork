@@ -968,6 +968,17 @@ const ElementMapProperties = ({ selectedElement, onUpdate, updateElementAttribut
               key={type}
               type="button"
               onClick={() => {
+                if (type !== sourceType) {
+                  // Fresh input for the new source: drop what was typed in the previous tab
+                  // (the map on the canvas stays until a new location / URL / code is applied)
+                  if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                  suggestSeqRef.current += 1; // ignore any in-flight suggestion response
+                  setLocationInput('');
+                  setUrlInput('');
+                  setEmbedCode('');
+                  setSuggestions([]);
+                  setShowSuggestions(false);
+                }
                 setSourceType(type);
                 setErrorMessage('');
               }}
