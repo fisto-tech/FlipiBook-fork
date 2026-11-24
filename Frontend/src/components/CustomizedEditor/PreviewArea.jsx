@@ -2435,6 +2435,7 @@ const PreviewArea = React.memo(({
             notes={notes}
             isMobileLandscape={isMobileLandscape}
             leadFormSettings={leadFormSettings}
+            watermarkSettings={watermarkSettings}
             onOpenLeadForm={() => {
                 setLeadFormSubmitted(false);
                 setShowLeadForm(true);

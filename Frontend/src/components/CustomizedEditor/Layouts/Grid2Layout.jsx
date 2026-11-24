@@ -467,15 +467,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
     const handleRadialWheel = (e) => {
         e.stopPropagation();
         if (e.cancelable) e.preventDefault();
-        setRadialScroll(prev => {
-            const shift = e.deltaY > 0 ? 1 : -1;
-            if (spreads.length <= 7) {
-                const nextFocus = activeSpreadIdx + prev + shift;
-                if (nextFocus < 0) return -activeSpreadIdx;
-                if (nextFocus > spreads.length - 1) return spreads.length - 1 - activeSpreadIdx;
-            }
-            return prev + shift;
-        });
+        setRadialScroll(prev => prev + (e.deltaY > 0 ? 1 : -1));
     };
 
     // Detect if the current book is a PDF project
@@ -575,18 +567,21 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
     );
 
     // Radial Dial Configuration (Shared between dial and preview)
-    // Always use the exact set of spreads â€” no repetition.
-    // Use a fixed compact angle step (26Â°) so segments stay near each other
-    // regardless of how few pages the book has. For large books (many spreads),
-    // scale the step down so segments don't overlap.
     const radialConfig = useMemo(() => {
         if (!spreads || spreads.length === 0) return { displaySpreads: [], angleStep: 26 };
 
-        const displaySpreads = [...spreads];
-        // Fixed compact step: ~26° keeps segments visually touching.
-        // Always use fixed spacing so pages don't get crushed when there are many pages!
-        const compactStep = 26;
-        const angleStep = compactStep;
+        // For books with few spreads (e.g. <= 14), repeat them so the 360-degree circle is completely populated without empty gaps
+        let displaySpreads = [...spreads];
+        if (spreads.length > 0 && spreads.length < 14) {
+            const repeatTimes = Math.ceil(14 / spreads.length);
+            const repeated = [];
+            for (let r = 0; r < repeatTimes; r++) {
+                repeated.push(...spreads);
+            }
+            displaySpreads = repeated;
+        }
+
+        const angleStep = 360 / displaySpreads.length;
 
         return { displaySpreads, angleStep };
     }, [spreads]);
@@ -1218,10 +1213,6 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                             {/* Clipping/Masking container for the orbital track and pages */}
                             <div 
                                 className="absolute inset-0 pointer-events-none"
-                                style={{
-                                    clipPath: 'polygon(-20% -20%, 50% -20%, 50% 120%, -20% 120%)',
-                                    WebkitClipPath: 'polygon(-20% -20%, 50% -20%, 50% 120%, -20% 120%)'
-                                }}
                             >
                                 {/* 1. Transparent Orbit Track (Geometric Reference) */}
                                 <div className="absolute inset-0 flex items-center justify-center">

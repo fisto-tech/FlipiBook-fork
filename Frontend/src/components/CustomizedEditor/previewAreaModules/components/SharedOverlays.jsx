@@ -96,7 +96,8 @@ const SharedOverlays = ({
   currentBook,
   countdown,
   leadFormSettings,
-  onOpenLeadForm
+  onOpenLeadForm,
+  watermarkSettings
 }) => {
   return (
     <>
@@ -353,6 +354,82 @@ const SharedOverlays = ({
         </motion.div>
       )}
 
+      {/* Floating Canvas Watermark (Bottom Right) */}
+      {(() => {
+        if (!watermarkSettings?.src) return null;
+
+        const opacity = (watermarkSettings?.opacity ?? 64) / 100;
+        const scale = (watermarkSettings?.scale ?? 100) / 100;
+        const rotate = watermarkSettings?.rotate ?? 0;
+        const posX = watermarkSettings?.positionX ?? 0;
+        const posY = watermarkSettings?.positionY ?? 0;
+
+        const adj = watermarkSettings?.adjustments || {};
+        const exposure = adj.exposure || 0;
+        const contrast = adj.contrast || 0;
+        const saturation = adj.saturation || 0;
+        const temperature = adj.temperature || 0;
+        const tint = adj.tint || 0;
+        const highlights = (adj.highlights || 0) / 5;
+        const shadows = (adj.shadows || 0) / 5;
+        let filterStr = `brightness(${100 + exposure + highlights}%) contrast(${100 + contrast + shadows}%) saturate(${100 + saturation}%) `;
+        if (tint !== 0) filterStr += `hue-rotate(${tint}deg) `;
+        if (temperature > 0) filterStr += `sepia(${temperature / 2}%) `;
+        else if (temperature < 0) filterStr += `hue-rotate(180deg) sepia(${Math.abs(temperature) / 2}%) hue-rotate(-180deg) `;
+
+        const cd = watermarkSettings?.cropData;
+        const cropStyle = cd && cd.inset ? {
+          clipPath: cd.inset,
+          WebkitClipPath: cd.inset,
+          transform: `translate(${cd.offX}%, ${cd.offY}%) scale(${cd.scale})`,
+          transformOrigin: 'center center',
+        } : {};
+
+        // In layouts with bottom bars or page quick access, position safely above bottom bar
+        const bottomClass = isTablet ? 'bottom-[4.5vw]' : (isMobile ? 'bottom-16' : 'bottom-[4.5vw]');
+        const rightClass = isTablet ? 'right-[2vw]' : (isMobile ? 'right-4' : 'right-[2vw]');
+
+        const imgElement = (
+          <div
+            className={`absolute z-[90] pointer-events-auto transition-all ${bottomClass} ${rightClass} select-none flex flex-col items-end`}
+            style={{
+              opacity,
+              transform: `translate(${posX}px, ${posY}px)`,
+            }}
+          >
+            <span className="text-[0.62vw] text-gray-400 font-medium tracking-wide mb-[0.2vw] select-none">
+              Powered by
+            </span>
+            <img
+              src={watermarkSettings.src}
+              alt="Watermark"
+              className="max-w-[7.5vw] max-h-[3.5vw] object-contain transition-transform"
+              style={{
+                filter: filterStr,
+                transform: `scale(${scale}) rotate(${rotate}deg)`,
+                transformOrigin: 'bottom right',
+                ...cropStyle
+              }}
+            />
+          </div>
+        );
+
+        if (watermarkSettings?.url) {
+          return (
+            <a
+              href={watermarkSettings.url.startsWith('http') ? watermarkSettings.url : `https://${watermarkSettings.url}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cursor-pointer"
+            >
+              {imgElement}
+            </a>
+          );
+        }
+
+        return imgElement;
+      })()}
+
       {/* Floating Canvas Enquiry Button */}
       {(() => {
         const isLeadFormEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
@@ -362,11 +439,14 @@ const SharedOverlays = ({
         if (!isLeadFormEnabled || !isEnquiryBtnEnabled) return null;
 
         const pos = enquiryBtn?.position || 'bottom-right';
+        const isLayout6Or2BottomRight = (Number(activeLayout) === 6 || Number(activeLayout) === 2) && pos === 'bottom-right';
         const positionClasses = {
           'top-left': isTablet ? 'top-[4vw] left-[1.5vw]' : (isMobile ? 'top-14 left-4' : 'top-[4.5vw] left-[2vw]'),
           'top-right': isTablet ? 'top-[4vw] right-[1.5vw]' : (isMobile ? 'top-14 right-4' : 'top-[4.5vw] right-[2vw]'),
           'bottom-left': isTablet ? 'bottom-[4vw] left-[1.5vw]' : (isMobile ? 'bottom-16 left-4' : 'bottom-[4.5vw] left-[2vw]'),
-          'bottom-right': isTablet ? 'bottom-[4vw] right-[1.5vw]' : (isMobile ? 'bottom-16 right-4' : 'bottom-[4.5vw] right-[2vw]')
+          'bottom-right': isLayout6Or2BottomRight
+            ? (isTablet ? 'bottom-[8vw] right-[1.5vw]' : (isMobile ? 'bottom-24 right-4' : 'bottom-[8vw] right-[2vw]'))
+            : (isTablet ? 'bottom-[4vw] right-[1.5vw]' : (isMobile ? 'bottom-16 right-4' : 'bottom-[4.5vw] right-[2vw]'))
         }[pos] || (isTablet ? 'bottom-[4vw] right-[1.5vw]' : (isMobile ? 'bottom-16 right-4' : 'bottom-[4.5vw] right-[2vw]'));
 
         const bgFill = enquiryBtn?.bgFill && enquiryBtn.bgFill !== '#' ? enquiryBtn.bgFill : '#E05638';

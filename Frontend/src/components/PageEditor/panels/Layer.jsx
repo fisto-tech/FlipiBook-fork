@@ -9,7 +9,7 @@ import {
   Video, ImagePlay, Music, QrCode, MousePointerClick,
   MapPin, SlidersHorizontal, Table2, Sparkles,
   ChevronRight, ChevronDown, Eye, EyeOff, Lock, Unlock,
-  Scissors, Clipboard, ArrowUpRight
+  Scissors, Clipboard, ArrowUpRight, Shapes
 } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import axios from 'axios';
@@ -21,7 +21,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useConfirm } from '../../../context/ConfirmationContext';
 import CustomScrollbar from '../../CustomScrollbar';
 import { MaskIcon, FlattenIcon } from '../mainEditor/components/editorIcons';
-import { getCachedRaster, getOrRasterizePage } from '../../../utils/customizedEditor/pageRasterCache';
+import { getCachedPageThumbnail, renderPageThumbnail } from '../utils/pageThumbnailRenderer';
 
 // Memoized isolated vector SVG preview container with CSS containment
 const MemoizedPagePreview = React.memo(({ pageId, pageHtml, isHidden }) => {
@@ -79,31 +79,34 @@ const MemoizedPagePreview = React.memo(({ pageId, pageHtml, isHidden }) => {
          prevProps.isHidden === nextProps.isHidden;
 });
 
-const PageThumbnail = ({ page, index, activePageIndex }) => {
+const PageThumbnail = ({ page }) => {
+  const html = page?.html || '';
+  // Exact thumbnail (same renderer as Export), keyed by page content so edits refresh it
+  const [thumbUrl, setThumbUrl] = useState(() => getCachedPageThumbnail(html));
   const [imgError, setImgError] = useState(false);
-  const pageKey = page?.id || `page_${index}`;
-  const [rasterUrl, setRasterUrl] = useState(() => getCachedRaster(pageKey));
 
   useEffect(() => {
-    if (!page?.html) return;
-    const key = page?.id || `page_${index}`;
-    const cached = getCachedRaster(key);
+    if (!html) return undefined;
+    const cached = getCachedPageThumbnail(html);
     if (cached) {
-      setRasterUrl(cached);
-      return;
+      setThumbUrl(cached);
+      setImgError(false);
+      return undefined;
     }
+    let alive = true;
+    // Debounce while the page is being edited; keep showing the previous thumbnail meanwhile
+    const timer = setTimeout(() => {
+      renderPageThumbnail(html).then((url) => {
+        if (alive && url) {
+          setThumbUrl(url);
+          setImgError(false);
+        }
+      });
+    }, 350);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [html]);
 
-    let isSubscribed = true;
-    getOrRasterizePage(key, page.html, 300, 424).then(url => {
-      if (isSubscribed && url) {
-        setRasterUrl(url);
-      }
-    }).catch(() => {});
-
-    return () => { isSubscribed = false; };
-  }, [page?.id, page?.html, index]);
-
-  if (!page || !page.html) {
+  if (!page || !html) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400 gap-1 select-none">
         <div className="w-4 h-4 border-2 border-[#EC5137] border-t-transparent rounded-full animate-spin" />
@@ -112,46 +115,23 @@ const PageThumbnail = ({ page, index, activePageIndex }) => {
     );
   }
 
-  // 1. Prioritize lightweight GPU raster snapshot (drops 10,000+ DOM nodes from sidebar)
-  if (rasterUrl && !imgError) {
+  if (thumbUrl && !imgError) {
     return (
       <img
-        src={rasterUrl}
-        alt={page.name || `Page ${index + 1}`}
+        src={thumbUrl}
+        alt={page.name || 'Page'}
         className="w-full h-full object-contain pointer-events-none select-none"
-        loading="lazy"
         decoding="async"
         onError={() => setImgError(true)}
       />
     );
   }
 
-  // 2. Direct PDF Image match
-  const hasVectorData = page.html.includes('<path') || page.html.includes('<polygon') || page.html.includes('<polyline');
-  if (!hasVectorData && !imgError) {
-    const pdfImgMatch = page.html.match(/<image[^>]+(?:href|xlink:href)=["']([^"']+)["'][^>]*data-name=["']PDF Background["']/i) ||
-                        page.html.match(/<g\b[^>]*data-name=["']PDF Background["'][^>]*>[\s\S]*?<image[^>]+(?:href|xlink:href)=["']([^"']+)["']/i);
-    const pdfImgUrl = pdfImgMatch ? pdfImgMatch[1] : null;
-
-    if (pdfImgUrl) {
-      return (
-        <img
-          src={pdfImgUrl}
-          alt={page.name || `Page ${index + 1}`}
-          className="w-full h-full object-contain pointer-events-none select-none"
-          loading="lazy"
-          decoding="async"
-          onError={() => setImgError(true)}
-        />
-      );
-    }
-  }
-
-  // 3. Transient vector preview while raster generates
+  // Live vector preview until the first thumbnail is ready
   return (
     <MemoizedPagePreview
       pageId={page.id}
-      pageHtml={page.html}
+      pageHtml={html}
       isHidden={page.isHidden}
     />
   );
@@ -372,6 +352,11 @@ const LayerItem = ({
     const isGif = typeLower === 'gif' || nameLower.includes('gif') || layer['data-type'] === 'gif' || layer['data-is-gif-group'] === 'true';
     if (isGif) {
       return <ImagePlay size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
+    }
+
+    // Icon elements (single layer)
+    if (typeLower === 'icon' || layer['data-type'] === 'icon') {
+      return <Shapes size="0.85vw" className="text-gray-400 group-hover/layer:text-[#EC5137]" />;
     }
 
     // 3. Check Image & Image Frame

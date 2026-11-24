@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, Search, Shapes } from 'lucide-react';
 import { icons } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { SOCIAL_ICONS } from './socialIcons';
  
 // ─────────────────────────────────────────────────────────────
 // PRIORITY ICONS: shown first, in this exact order.
@@ -612,7 +613,17 @@ export const buildPriorityCatalog = (icons) => {
  
   const rest = allKeys.filter((k) => !used.has(k)).map((k) => toItem(k, null, 'All Icons'));
 
-  return { catalog: [...priority, ...rest], priorityCount: priority.length, unresolved };
+  // Social media / brand icons (not in Lucide) — shown first
+  const social = SOCIAL_ICONS.map((s) => ({
+    key: s.key,
+    name: s.name,
+    category: 'Social Media',
+    html: s.html,
+    viewBox: '0 0 24 24',
+    searchKey: `${s.key.toLowerCase()} ${s.name.toLowerCase()} social media brand logo`,
+  }));
+
+  return { catalog: [...social, ...priority, ...rest], priorityCount: social.length + priority.length, unresolved };
 
 };
  
@@ -651,6 +662,24 @@ const extractIconSvg = (key, IconComp) => {
   }
 };
  
+// Inline SVG preview for icons that carry their own markup (social / brand icons)
+const InlineSvgIcon = ({ html, viewBox = '0 0 24 24', className = '', strokeWidth = 1.8 }) => (
+  <svg
+    viewBox={viewBox}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    dangerouslySetInnerHTML={{ __html: html }}
+  />
+);
+
+const getIconSvgData = (item) => (item.html
+  ? { html: item.html, viewBox: item.viewBox || '0 0 24 24' }
+  : extractIconSvg(item.key, icons[item.key]));
+
 export const IconsModal = ({
   isOpen = false,
   onClose,
@@ -751,8 +780,7 @@ export const IconsModal = ({
  
   // Click to add icon to page center or select for target component
   const handleAddIcon = (item) => {
-    const IconComp = icons[item.key];
-    const svgData = extractIconSvg(item.key, IconComp);
+    const svgData = getIconSvgData(item);
  
     if (onSelect) {
       onSelect({
@@ -784,8 +812,7 @@ export const IconsModal = ({
     // Hide the modal while dragging onto the canvas (same as the Elements modal).
     // Deferred one tick so the browser has captured the drag image first.
     setTimeout(() => setIsDraggingIcon(true), 0);
-    const IconComp = icons[item.key];
-    const svgData = extractIconSvg(item.key, IconComp);
+    const svgData = getIconSvgData(item);
 
     let dragSize = 38;
     if (e.currentTarget) {
@@ -984,7 +1011,7 @@ export const IconsModal = ({
           <div className="grid grid-cols-5 gap-[0.45vw]">
             {displayedIcons.map((item) => {
               const IconComp = icons[item.key];
-              if (!IconComp) return null;
+              if (!IconComp && !item.html) return null;
  
               return (
                 <button
@@ -995,10 +1022,18 @@ export const IconsModal = ({
                   title={`Click to add or drag to place ${item.name}`}
                   className="flex flex-col items-center justify-center p-[0.4vw] rounded-[0.45vw] border border-gray-100 hover:border-gray-300 hover:shadow-xs bg-gray-50/50 hover:bg-white transition-all group cursor-grab active:cursor-grabbing aspect-square select-none"
                 >
-                  <IconComp
-                    className="w-[1.6vw] h-[1.6vw] min-w-[22px] min-h-[22px] text-gray-700 group-hover:text-black group-hover:scale-110 transition-transform pointer-events-none"
-                    strokeWidth={1.8}
-                  />
+                  {item.html ? (
+                    <InlineSvgIcon
+                      html={item.html}
+                      viewBox={item.viewBox}
+                      className="w-[1.6vw] h-[1.6vw] min-w-[22px] min-h-[22px] text-gray-700 group-hover:text-black group-hover:scale-110 transition-transform pointer-events-none"
+                    />
+                  ) : (
+                    <IconComp
+                      className="w-[1.6vw] h-[1.6vw] min-w-[22px] min-h-[22px] text-gray-700 group-hover:text-black group-hover:scale-110 transition-transform pointer-events-none"
+                      strokeWidth={1.8}
+                    />
+                  )}
                   <span className="text-[0.52vw] font-medium text-gray-500 group-hover:text-gray-900 mt-[0.3vh] truncate w-full text-center pointer-events-none leading-tight">
                     {item.name}
                   </span>

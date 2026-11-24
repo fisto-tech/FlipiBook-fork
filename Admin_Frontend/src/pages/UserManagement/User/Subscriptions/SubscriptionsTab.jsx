@@ -155,19 +155,19 @@ export default function SubscriptionsTab({ user }) {
 
       {/* Subscription Table */}
       <div className="bg-white rounded-[0.85vw] border border-gray-100 shadow-xs overflow-hidden">
-        <table className="w-full text-left text-[0.8vw]">
+        <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/40 text-[0.8vw] font-semibold text-gray-900">
-              <th className="py-[0.85vw] px-[1.2vw]">Plan</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Duration</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Start Date</th>
-              <th className="py-[0.85vw] px-[1.2vw]">End Date</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Amount</th>
-              <th className="py-[0.85vw] px-[1.2vw]">Status</th>
-              <th className="py-[0.85vw] px-[1.2vw] text-center">Action</th>
+            <tr className="bg-[#f8f8f8] text-[0.8vw] font-semibold text-[#111827] border-b border-[#f0f0f0]">
+              <th className="py-[0.95vw] px-[1.4vw] font-semibold">Plan</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Duration</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Start Date</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">End Date</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Amount</th>
+              <th className="py-[0.95vw] px-[1.1vw] font-semibold text-center">Status</th>
+              <th className="py-[0.95vw] px-[1.4vw] font-semibold text-center">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 text-gray-700">
+          <tbody className="divide-y divide-[#f5f5f5] text-[0.8vw] font-normal">
             {subscriptions
               .filter(
                 (s) =>
@@ -176,40 +176,50 @@ export default function SubscriptionsTab({ user }) {
                   s.id.toLowerCase().includes(searchQuery.toLowerCase())
               )
               .map((sub, index) => (
-                <tr key={sub.id || index} className="hover:bg-gray-50/50 transition">
-                  <td className="py-[0.95vw] px-[1.2vw] font-semibold text-gray-700">
+                <tr key={sub.id || index} className="group hover:bg-[#fafafa] transition-colors duration-150">
+                  <td className="py-[0.95vw] px-[1.4vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {sub.plan}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] font-semibold text-gray-900">
+                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {sub.duration}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] text-gray-600">
+                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {sub.startDate}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] text-gray-600">
+                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {sub.endDate}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] font-semibold text-gray-800">
+                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {sub.amount}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw]">
+                  <td className="py-[0.95vw] px-[1.1vw] text-center">
                     {sub.status === 'Active' ? (
-                      <span className="inline-flex items-center text-[0.7vw] font-semibold text-[#16a34a] bg-[#f0fdf4] px-[0.7vw] py-[0.2vw] rounded-full">
+                      <span className="inline-block px-[1.1vw] py-[0.35vw] rounded-full text-[0.7vw] font-medium bg-[#ebf7ee] text-[#34a853]">
                         Active
                       </span>
                     ) : (
-                      <span className="inline-flex items-center text-[0.7vw] font-semibold text-gray-600 bg-gray-100 px-[0.7vw] py-[0.2vw] rounded-full">
+                      <span className="inline-block px-[1.1vw] py-[0.35vw] rounded-full text-[0.7vw] font-medium bg-[#fef3e6] text-[#f58e1e]">
                         Expired
                       </span>
                     )}
                   </td>
-                  <td className="py-[0.95vw] px-[1.2vw] text-center">
+                  <td className="py-[0.95vw] px-[1.4vw] text-center">
                     <button
                       onClick={() => setSelectedSub(sub)}
-                      className="inline-flex items-center justify-center gap-[0.2vw] text-[0.7vw] font-semibold text-[#ef4444] bg-[#fff5f5] hover:bg-[#fee2e2] px-[0.75vw] py-[0.3vw] rounded-[0.35vw] transition cursor-pointer"
+                      className="inline-flex items-center gap-[0.35vw] px-[1vw] py-[0.38vw] rounded-[0.55vw] bg-[#feeeeb] text-[#ec5137] hover:bg-[#fedbd5] transition text-[0.7vw] font-medium cursor-pointer"
                     >
                       <span>View</span>
-                      <ArrowUpRight size="0.75vw" />
+                      <svg
+                        className="w-[0.78vw] h-[0.78vw] text-[#ec5137] stroke-[2.2]"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="7" y1="17" x2="17" y2="7" />
+                        <polyline points="7 7 17 7 17 17" />
+                      </svg>
                     </button>
                   </td>
                 </tr>
