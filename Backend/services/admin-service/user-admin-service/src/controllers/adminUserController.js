@@ -60,30 +60,47 @@ const listUsers = async (req, res) => {
       User.countDocuments(filter)
     ]);
 
-    // Attach profile and flipbook count for each user
+    // Attach profile and flipbook count for each user safely
     const usersWithCounts = await Promise.all(
       users.map(async (u) => {
-        const [profile, bookCount] = await Promise.all([
-          Profile.findOne({
-            $or: [
-              ...(u.userID ? [{ userID: u.userID }] : []),
-              ...(u.emailId ? [{ emailId: u.emailId }] : []),
-              ...(u.email ? [{ emailId: u.email }] : [])
-            ]
-          }).lean(),
-          Flipbook.countDocuments({
-            $or: [
-              { userId: u._id },
-              { userEmail: u.emailId },
-              { userID: u.userID }
-            ]
-          })
-        ]);
+        let profile = null;
+        let bookCount = 0;
+
+        try {
+          const profileOrConditions = [
+            ...(u.userID ? [{ userID: String(u.userID) }] : []),
+            ...(u.emailId ? [{ emailId: String(u.emailId).toLowerCase().trim() }] : []),
+            ...(u.email ? [{ emailId: String(u.email).toLowerCase().trim() }] : [])
+          ];
+
+          if (profileOrConditions.length > 0) {
+            profile = await Profile.findOne({ $or: profileOrConditions }).lean();
+          }
+        } catch (err) {
+          console.warn(`[AdminUserController] Could not fetch profile for user ${u._id}:`, err.message);
+        }
+
+        try {
+          const bookOrConditions = [
+            { userObjectID: u._id },
+            ...(u.userID ? [{ userID: String(u.userID) }] : []),
+            ...(u.emailId ? [{ userEmail: String(u.emailId) }] : [])
+          ];
+
+          bookCount = await Flipbook.countDocuments({ $or: bookOrConditions });
+        } catch (err) {
+          console.warn(`[AdminUserController] Could not count flipbooks for user ${u._id}:`, err.message);
+        }
+
+        const resolvedAccountType = profile?.accountType || profile?.profileType || u.accountType || u.profileType || 'Individual';
 
         return {
           ...u,
           displayName: profile?.displayName || u.displayName || u.name || 'User',
-          accountType: profile?.accountType || u.accountType || 'Individual',
+          accountType: resolvedAccountType,
+          profileType: resolvedAccountType,
+          picture: profile?.picture || u.picture || null,
+          avatarBgColor: profile?.avatarBgColor || u.avatarBgColor || '#E8D4C8',
           plan: u.plan || 'Free',
           status: u.status || 'Active',
           booksCount: bookCount,
@@ -112,36 +129,63 @@ const listUsers = async (req, res) => {
 const getUserDetails = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findById(id).select('-password').lean();
+    let user = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      user = await User.findById(id).select('-password').lean();
+    }
+
+    if (!user) {
+      user = await User.findOne({
+        $or: [
+          { userID: id },
+          { emailId: id.toLowerCase().trim() }
+        ]
+      }).select('-password').lean();
+    }
+
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const [flipbooks, profile] = await Promise.all([
-      Flipbook.find({
-        $or: [
-          { userId: user._id },
-          { userEmail: user.emailId },
-          { userID: user.userID }
-        ]
-      })
-        .sort({ createdAt: -1 })
-        .lean(),
-      Profile.findOne({
-        $or: [
-          ...(user.userID ? [{ userID: user.userID }] : []),
-          ...(user.emailId ? [{ emailId: user.emailId }] : []),
-          ...(user.email ? [{ emailId: user.email }] : [])
-        ]
-      }).lean()
-    ]);
+    let flipbooks = [];
+    let profile = null;
+
+    try {
+      const bookOrConditions = [
+        { userObjectID: user._id },
+        ...(user.userID ? [{ userID: String(user.userID) }] : []),
+        ...(user.emailId ? [{ userEmail: String(user.emailId) }] : [])
+      ];
+      flipbooks = await Flipbook.find({ $or: bookOrConditions }).sort({ createdAt: -1 }).lean();
+    } catch (err) {
+      console.warn(`[AdminUserController] Could not fetch flipbooks for user ${user._id}:`, err.message);
+    }
+
+    try {
+      const profileOrConditions = [
+        ...(user.userID ? [{ userID: String(user.userID) }] : []),
+        ...(user.emailId ? [{ emailId: String(user.emailId).toLowerCase().trim() }] : []),
+        ...(user.email ? [{ emailId: String(user.email).toLowerCase().trim() }] : [])
+      ];
+      if (profileOrConditions.length > 0) {
+        profile = await Profile.findOne({ $or: profileOrConditions }).lean();
+      }
+    } catch (err) {
+      console.warn(`[AdminUserController] Could not fetch profile for user ${user._id}:`, err.message);
+    }
+
+    const resolvedAccountType = profile?.accountType || profile?.profileType || user.accountType || user.profileType || 'Individual';
 
     res.json({
       success: true,
       user: {
         ...user,
         displayName: profile?.displayName || user.displayName || user.name || 'User',
-        accountType: profile?.accountType || user.accountType || 'Individual',
+        accountType: resolvedAccountType,
+        profileType: resolvedAccountType,
+        picture: profile?.picture || user.picture || null,
+        avatarBgColor: profile?.avatarBgColor || user.avatarBgColor || '#E8D4C8',
         plan: user.plan || 'Free',
         status: user.status || 'Active'
       },
