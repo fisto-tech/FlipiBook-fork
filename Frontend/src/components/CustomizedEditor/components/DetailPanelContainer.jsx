@@ -71,10 +71,21 @@ const DetailPanelContainer = ({
             }
             preloaderSettings={preloaderSettings}
             onUpdatePreloader={(newVal) =>
-              setPreloaderSettings((prev) => ({
-                ...(prev || {}),
-                ...(newVal || {}),
-              }))
+              setPreloaderSettings((prev) => {
+                const updated = {
+                  ...(prev || {}),
+                  ...(newVal || {}),
+                };
+                try {
+                  const pStr = JSON.stringify(updated);
+                  if (v_id) {
+                    sessionStorage.setItem(`flipibook_preloader_${v_id}`, pStr);
+                    localStorage.setItem(`flipibook_preloader_${v_id}`, pStr);
+                    localStorage.setItem(`customized_editor_branding_${v_id}`, JSON.stringify({ preloader: updated, preloaderSettings: updated, Branding: { preloaderSettings: updated } }));
+                  }
+                } catch (e) {}
+                return updated;
+              })
             }
             folder={folder}
             flipbookName={bookName}

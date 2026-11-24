@@ -46,30 +46,36 @@ export const createDefaultPreloaderSettings = (currentBook, locationState) => {
     enabled: true,
     isCustom: false,
     displayOption: 'preloader-only', // 'preloader-only' | 'logo-only' | 'both'
-    text: 'Preparing Flipbook...',
+    text: 'Preparing Flipibook',
     layout: 'spinner',
-    logoAnimation: 'bounce',
+    logoAnimation: 'fade',
     spinnerColor: '#E04752',
     bgColor: '#22252A',
     textColor: '#ffffff',
     showPercentage: false,
+    showText: true,
+    textPosition: 'bottom', // 'top' | 'bottom'
+    logoSize: 100, // percentage 40 - 200
     logo: '',
   };
-  if (p && typeof p === 'object' && Object.keys(p).length > 0 && p.isCustom) {
+  if (p && typeof p === 'object' && Object.keys(p).length > 0) {
     const rawText = p.text;
-    const resolvedText = (!rawText || rawText === 'Loading Modal Please Wait....') ? 'Preparing Flipbook...' : rawText;
+    const resolvedText = (!rawText || rawText === 'Loading Modal Please Wait....' || rawText === 'Loading Flipbook Please Wait....' || rawText === 'Preparing Flipbook...') ? 'Preparing Flipibook' : rawText;
     const resolvedDisplayOption = p.displayOption || (p.layout === 'logo-only' ? 'logo-only' : (p.logo ? 'both' : 'preloader-only'));
     const resolvedBgColor = (!p.bgColor || p.bgColor === '#D6E0F4') ? '#22252A' : p.bgColor;
     const resolvedSpinnerColor = (!p.spinnerColor || p.spinnerColor === '#3B3C8A') ? '#E04752' : p.spinnerColor;
     return {
       ...defaults,
       ...p,
-      isCustom: true,
+      isCustom: p.isCustom !== undefined ? p.isCustom : true,
       displayOption: resolvedDisplayOption,
       enabled: p.enabled !== undefined ? p.enabled : true,
+      showText: p.showText !== undefined ? p.showText : true,
+      textPosition: p.textPosition || 'bottom',
+      logoSize: p.logoSize !== undefined ? p.logoSize : 100,
       text: resolvedText,
       layout: p.layout === 'logo-only' ? 'spinner' : (p.layout || 'spinner'),
-      logoAnimation: p.logoAnimation || 'bounce',
+      logoAnimation: p.logoAnimation || 'fade',
       bgColor: resolvedBgColor,
       textColor: p.textColor || '#ffffff',
       spinnerColor: resolvedSpinnerColor,

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { Icon } from '@iconify/react';
 import { X, Search, Shapes } from 'lucide-react';
 import { icons } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -857,6 +856,13 @@ export const IconsModal = ({
     }
   };
  
+  const handleHeaderPointerDown = (e) => {
+    if (e.target.closest('button, input, [role="button"], a, select, textarea')) {
+      return;
+    }
+    dragControls.start(e);
+  };
+
   if (!isOpen) return null;
  
   const displayedIcons = filteredIcons.slice(0, visibleCount);
@@ -892,6 +898,7 @@ export const IconsModal = ({
         animate={{ opacity: isDraggingIcon ? 0 : 1, scale: isDraggingIcon ? 0.96 : 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: isDraggingIcon ? 0.28 : 0.18, ease: 'easeOut' }}
+        data-modal="true"
         className={`${defaultClasses} ${customClassName}`.trim()}
         style={{
           width: '21.5vw',
@@ -903,22 +910,27 @@ export const IconsModal = ({
           pointerEvents: isDraggingIcon ? 'none' : 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
       >
-        {/* ── Top Header & Drag Handle ── */}
-        <div className="px-[0.9vw] pt-[0.5vh] pb-[0.7vh]">
-          {/* Centered Six-Dot Drag Handle */}
-          <div className="flex justify-center items-center">
-            <div
-              onPointerDown={(e) => dragControls.start(e)}
-              className="flex items-center justify-center py-[0.1vh] px-[0.6vw] rounded-[0.35vw] text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-grab active:cursor-grabbing select-none"
-              title="Drag to move panel"
-            >
-              <Icon icon="ph:dots-six-bold" className="w-[1.2vw] h-[1.2vw] text-gray-400 hover:text-gray-600" />
-            </div>
-          </div>
- 
+        {/* 3vh Full-Width Sleek Gray Drag Bar */}
+        <div
+          onPointerDown={handleHeaderPointerDown}
+          className="w-full h-[3vh] min-h-[22px] bg-gradient-to-r from-[#E5E7EB] via-[#F3F4F6] to-[#E5E7EB] border-b border-gray-200/80 rounded-t-[0.75vw] flex items-center justify-center cursor-grab active:cursor-grabbing select-none shadow-xs transition-colors hover:brightness-95 flex-shrink-0"
+          style={{ touchAction: 'none' }}
+          title="Drag to move panel"
+        >
+          {/* Subtle Visual Drag Indicator */}
+          <div className="w-[3.5vw] min-w-[36px] h-[0.45vh] min-h-[3px] rounded-full bg-gray-400/80 shadow-xs pointer-events-none" />
+        </div>
+
+        {/* ── Top Header Area ── */}
+        <div
+          onPointerDown={handleHeaderPointerDown}
+          className="px-[0.9vw] pt-[0.8vh] pb-[0.7vh] cursor-grab active:cursor-grabbing select-none"
+          style={{ touchAction: 'none' }}
+        >
           {/* Title & Close Row */}
-          <div className="flex items-center justify-between mt-[0.2vh]">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-[0.45vw]">
               <Shapes className="w-[1.1vw] h-[1.1vw] text-gray-900" />
               <div className="flex items-baseline gap-[0.35vw]">
@@ -928,7 +940,7 @@ export const IconsModal = ({
                 </span>
               </div>
             </div>
- 
+
             <button
               onClick={onClose}
               className="w-[1.5vw] h-[1.5vw] rounded-[0.4vw] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -937,7 +949,7 @@ export const IconsModal = ({
               <X size="1vw" />
             </button>
           </div>
- 
+
           {/* Search Bar */}
           <div className="mt-[0.75vh]">
             <div className="relative flex items-center">
@@ -964,7 +976,9 @@ export const IconsModal = ({
  
         {/* ── Icons Grid Body with Lazy Infinite Scroll ── */}
         <div
+          data-scrollable="true"
           onScroll={handleScroll}
+          onWheel={(e) => e.stopPropagation()}
           className="flex-1 overflow-y-auto custom-scrollbar p-[0.75vw] border-t border-gray-100"
         >
           <div className="grid grid-cols-5 gap-[0.45vw]">

@@ -92,24 +92,6 @@ const hoverDbg = (...args) => {
 };
 if (typeof window !== 'undefined') console.log('%c[hover] logging is ON — move the mouse over the canvas', 'color:#5255CA;font-weight:bold');
 
-// Table divider flags are window-global and can get stuck (table re-rendered / listeners reset while the
-// pointer was on a divider). Only honour them when the pointer is really on a table; otherwise reset them
-// — a stuck flag blocked selection and handles for EVERY element on the page.
-const isOnActiveTableDivider = (target) => {
-  if (!window.__isHoveringTableDivider && !window.__isResizingTableDivider) return false;
-  const onTable = !!target?.closest?.('table, [data-type="table-frame"], g[id^="table-"]');
-  if (!onTable && !window.__isResizingTableDivider) {
-    window.__isHoveringTableDivider = false;
-    return false;
-  }
-  if (!onTable && window.__isResizingTableDivider && !document.body.classList.contains('table-resizing-active')) {
-    window.__isResizingTableDivider = false;
-    window.__isHoveringTableDivider = false;
-    return false;
-  }
-  return true;
-};
-
 export const useCanvasPointerEvents = ({
   zoom = 90,
   activePageIndex = 0,
@@ -328,7 +310,7 @@ export const useCanvasPointerEvents = ({
   const handleSvgMouseDown = (pageIndex, e) => {
     window.__isCanvasPointerDown = true;
     if (e._handledMarquee) return;
-    if (e.button !== 0 || e.target.closest('.resize-handle') || isOnActiveTableDivider(e.target)) return;
+    if (e.button !== 0 || e.target.closest('.resize-handle') || window.__isHoveringTableDivider || window.__isResizingTableDivider) return;
 
     // Allow native text selection/interaction inside actively edited text boxes
     if (e.target.closest('[contenteditable="true"]')) {
@@ -2569,7 +2551,7 @@ export const useCanvasPointerEvents = ({
   // ── FIGMA-STYLE CLICK: hierarchical frame drill-down selection ─────────────────
   const handleSvgClick = (e) => {
     clearSmartGuides();
-    if (e.target.closest('.resize-handle') || isOnActiveTableDivider(e.target)) return;
+    if (e.target.closest('.resize-handle') || window.__isHoveringTableDivider || window.__isResizingTableDivider) return;
 
     // Allow native text selection/interaction inside actively edited text boxes
     if (e.target.closest('[contenteditable="true"]')) {

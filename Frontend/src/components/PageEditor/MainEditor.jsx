@@ -42,7 +42,6 @@ import { FloatingToolbars } from './mainEditor/components/FloatingToolbars';
 import {
   LeftActionMenu,
   AddElementsModal,
-  StylesModal,
   IconsModal
 } from './LeftActionMenu';
 import { getTopLevelFrames, hitTest as hitTestExt, isPageRootElement } from './mainEditor/utils/frameHierarchyUtils';
@@ -151,7 +150,6 @@ const MainEditor = ({
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null); // Track which page's menu is open
   const [isElementsModalOpen, setIsElementsModalOpen] = useState(false);
-  const [isStylesModalOpen, setIsStylesModalOpen] = useState(false);
   const [isIconsModalOpen, setIsIconsModalOpen] = useState(false);
 
 
@@ -169,7 +167,6 @@ const MainEditor = ({
   useEffect(() => {
     if (isConvertedFlipbook) {
       setIsElementsModalOpen(false);
-      setIsStylesModalOpen(false);
       setIsIconsModalOpen(false);
       if (!pdfDefaultsSetRef.current) {
         if (setActiveTopTool) setActiveTopTool('interaction');
@@ -268,7 +265,6 @@ const MainEditor = ({
     activeTopToolRef.current = activeTopTool;
     if (activeTopTool === 'interaction' || activeTopTool === 'animation') {
       setIsElementsModalOpen(false);
-      setIsStylesModalOpen(false);
       setIsIconsModalOpen(false);
       if (marqueeOverlayRef1.current) {
         marqueeOverlayRef1.current.style.display = 'none';
@@ -1806,22 +1802,13 @@ const getDraggableElement = (target, canvasRoot) => {
               baseHeight={baseHeight}
               isElementsModalOpen={isElementsModalOpen}
               onToggleElementsModal={() => {
-                setIsStylesModalOpen(false);
                 setIsIconsModalOpen(false);
                 setIsElementsModalOpen(prev => !prev);
               }}
               onCloseElementsModal={() => setIsElementsModalOpen(false)}
-              isStylesModalOpen={isStylesModalOpen}
-              onToggleStylesModal={() => {
-                setIsElementsModalOpen(false);
-                setIsIconsModalOpen(false);
-                setIsStylesModalOpen(prev => !prev);
-              }}
-              onCloseStylesModal={() => setIsStylesModalOpen(false)}
               isIconsModalOpen={isIconsModalOpen}
               onToggleIconsModal={() => {
                 setIsElementsModalOpen(false);
-                setIsStylesModalOpen(false);
                 setIsIconsModalOpen(prev => !prev);
               }}
               onCloseIconsModal={() => setIsIconsModalOpen(false)}
@@ -1847,18 +1834,6 @@ const getDraggableElement = (target, canvasRoot) => {
               setActiveMainTool={setActiveMainTool}
               baseWidth={baseWidth}
               baseHeight={baseHeight}
-              dragConstraintsRef={editorContainerRef}
-            />
-          )}
-
-          {/* Draggable Styles Modal */}
-          {!isPdfMode && (
-            <StylesModal
-              isOpen={isStylesModalOpen}
-              onClose={() => setIsStylesModalOpen(false)}
-              isRulerEnabled={localRulerEnabled}
-              activePageIndex={activePageIndex}
-              saveModifiedPageHtml={saveModifiedPageHtml}
               dragConstraintsRef={editorContainerRef}
             />
           )}

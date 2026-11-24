@@ -4,6 +4,7 @@ import backgroundComponents from './Backgrounds';
 import animationComponents from './Animations';
 import * as BookAppearanceHelpers from './utils/bookAppearanceHelpers';
 import { resolveUploadsPath } from '../../utils/assets/assetUtils';
+import PreloaderOverlay from './components/PreloaderOverlay';
 
 import { LAYOUT_DEFAULT_COLORS } from './utils/layoutColors';
 import LeadFormPopup from './popups/LeadFormPopup';
@@ -58,6 +59,7 @@ const PreviewArea = React.memo(({
     currentBook: currentBookProp,
     baseUrl,
     onBookReady,
+    preloaderSettings: incomingPreloaderSettingsProp,
 }) => {
     const customizerRedux = useCustomizerState();
     const activeBookRedux = useActiveBook();
@@ -74,6 +76,7 @@ const PreviewArea = React.memo(({
     const menuBarSettings = menuBarSettingsProp || customizerRedux.menuBarSettings;
     const profileSettings = profileSettingsProp || customizerRedux.profileSettings;
     const watermarkSettings = watermarkSettingsProp || customizerRedux.watermarkSettings;
+    const preloaderSettings = incomingPreloaderSettingsProp || customizerRedux.preloaderSettings || incomingSettings?.preloader || incomingSettings?.preloaderSettings || incomingSettings?.Branding?.preloaderSettings || currentBook?.Customized_Settings?.Branding?.preloaderSettings;
 
     const [processedLogoSrc, setProcessedLogoSrc] = useState(incomingLogoSettings?.src || '');
     const [isInitialPreparing, setIsInitialPreparing] = useState(true);
@@ -2587,11 +2590,11 @@ const PreviewArea = React.memo(({
 
             {(!['Tablet', 'Mobile'].includes(activeDevice) || (activeDevice === 'Tablet' && isPhysicalTablet) || (activeDevice === 'Mobile' && isPhysicalMobile)) && backgroundLayers}
 
-            {isInitialPreparing && (
-                <div style={{ position: 'absolute', inset: 0, zIndex: 99999, backgroundColor: '#22252A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', transition: 'opacity 0.4s ease' }}>
-                    <div className="w-9 h-9 border-2 border-white/20 border-t-[#E04752] rounded-full animate-spin" />
-                    <span style={{ color: '#fff', fontSize: '13px', fontWeight: 500, letterSpacing: '0.03em' }}>Preparing Flipbook…</span>
-                </div>
+            {isInitialPreparing && !onBookReady && (
+                <PreloaderOverlay
+                    isLoading={true}
+                    preloaderSettings={preloaderSettings}
+                />
             )}
 
             <DeviceLayoutRenderer

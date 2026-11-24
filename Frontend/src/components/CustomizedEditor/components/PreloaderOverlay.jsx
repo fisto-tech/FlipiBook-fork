@@ -67,39 +67,6 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
     `}</style>
   );
 
-  // 1. DEFAULT PRELOADER (Exactly like Image 1: Dark theme with centered spinner & "Preparing Flipbook...")
-  if (!isCustom) {
-    return (
-      <div 
-        className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center transition-opacity duration-300 ${
-          isComplete ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
-        style={{
-          backgroundColor: DEFAULT_BG,
-          color: DEFAULT_TEXT
-        }}
-      >
-        <div className="flex flex-col items-center justify-center gap-4 px-4 text-center">
-          <div className="relative flex flex-col items-center justify-center">
-            <div 
-              className="w-10 h-10 border-[2.5px] border-t-transparent rounded-full animate-spin"
-              style={{ 
-                borderColor: `${DEFAULT_SPINNER} ${DEFAULT_SPINNER} ${DEFAULT_SPINNER} transparent` 
-              }}
-            />
-          </div>
-          <p 
-            className="font-medium text-sm tracking-wide text-center text-gray-200"
-            style={{ fontFamily: 'Poppins' }}
-          >
-            Preparing Flipbook...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // 2. CUSTOM PRELOADER (When user explicitly customizes it)
   const displayOption = preloaderSettings?.displayOption || (
     preloaderSettings?.layout === 'logo-only'
       ? 'logo-only'
@@ -107,12 +74,12 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
   );
 
   const rawText = preloaderSettings?.text;
-  const displayText = (!rawText || rawText === 'Loading Modal Please Wait....')
-    ? 'Preparing Flipbook...'
+  const displayText = (!rawText || rawText === 'Loading Modal Please Wait....' || rawText === 'Loading Flipbook Please Wait....' || rawText === 'Preparing Flipbook...')
+    ? 'Preparing Flipibook'
     : rawText;
 
-  // RULE: when both are shown, DO NOT show animation for logo (static only!)
-  const logoAnimation = displayOption === 'both' ? 'none' : (preloaderSettings?.logoAnimation || 'bounce');
+  // Logo animation (enabled for both logo-only and both)
+  const logoAnimation = preloaderSettings?.logoAnimation || 'fade';
   const animStyle = getLogoAnimationStyle(logoAnimation);
 
   const customBg = (!preloaderSettings?.bgColor || preloaderSettings.bgColor === '#D6E0F4')
@@ -123,9 +90,12 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
     ? DEFAULT_SPINNER
     : preloaderSettings.spinnerColor;
 
+  // Logo sizing (default 100%)
+  const logoScale = ((preloaderSettings?.logoSize !== undefined ? preloaderSettings.logoSize : 100) / 100);
+
   return (
     <div 
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[999999] flex flex-col items-center justify-center transition-opacity duration-300 ${
         isComplete ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{
@@ -135,7 +105,7 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
     >
       {keyframesStyle}
 
-      <div className="flex flex-col items-center gap-5 px-4 text-center">
+      <div className={`flex items-center gap-5 px-4 text-center ${preloaderSettings?.textPosition === 'top' ? 'flex-col-reverse' : 'flex-col'}`}>
         {/* OPTION A: Logo Only */}
         {displayOption === 'logo-only' ? (
           <div className="flex flex-col items-center gap-3">
@@ -144,13 +114,23 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
                 <img
                   src={preloaderSettings.logo}
                   alt="Preloader Logo"
-                  className="h-[75px] max-w-[220px] object-contain drop-shadow-sm"
+                  className="object-contain drop-shadow-sm transition-all"
+                  style={{
+                    height: `${Math.round(75 * logoScale)}px`,
+                    maxWidth: `${Math.round(220 * logoScale)}px`,
+                  }}
                 />
               </div>
             ) : (
               <div className="flex items-center justify-center p-2" style={animStyle}>
-                <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border border-white/10 shadow-sm">
-                  <span className="text-3xl">📖</span>
+                <div
+                  className="rounded-2xl bg-white/10 flex items-center justify-center border border-white/10 shadow-sm transition-all"
+                  style={{
+                    width: `${Math.round(64 * logoScale)}px`,
+                    height: `${Math.round(64 * logoScale)}px`,
+                  }}
+                >
+                  <span style={{ fontSize: `${Math.round(30 * logoScale)}px` }}>📖</span>
                 </div>
               </div>
             )}
@@ -171,13 +151,17 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
         ) : (
           /* OPTION B (Preloader Only) or OPTION C (Both: Static Logo + Preloader below) */
           <div className="flex flex-col items-center justify-center gap-4">
-            {/* Show Logo ONLY if displayOption is 'both' - and with NO animation */}
+            {/* Show Logo when displayOption is 'both' */}
             {displayOption === 'both' && preloaderSettings?.logo && (
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center" style={animStyle}>
                 <img
                   src={preloaderSettings.logo}
                   alt="Preloader Logo"
-                  className="h-[60px] max-w-[180px] object-contain"
+                  className="object-contain transition-all"
+                  style={{
+                    height: `${Math.round(60 * logoScale)}px`,
+                    maxWidth: `${Math.round(180 * logoScale)}px`,
+                  }}
                 />
               </div>
             )}
@@ -266,15 +250,18 @@ const PreloaderOverlay = ({ isLoading, preloaderSettings, loadingProgress = 0 })
         )}
 
         {/* Text */}
-        <p 
-          className="font-medium text-sm tracking-wide text-center max-w-[320px] truncate"
-          style={{ 
-            fontFamily: preloaderSettings?.font || 'Poppins',
-            fontSize: preloaderSettings?.fontSize ? `${preloaderSettings.fontSize}px` : undefined
-          }}
-        >
-          {displayText}
-        </p>
+        {preloaderSettings?.showText !== false && displayText && (
+          <p 
+            className="font-medium text-sm tracking-wide text-center max-w-[320px] truncate"
+            style={{ 
+              color: customColor,
+              fontFamily: preloaderSettings?.font || 'Poppins',
+              fontSize: preloaderSettings?.fontSize ? `${preloaderSettings.fontSize}px` : undefined
+            }}
+          >
+            {displayText}
+          </p>
+        )}
       </div>
     </div>
   );
