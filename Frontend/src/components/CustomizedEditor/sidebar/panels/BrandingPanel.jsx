@@ -1499,12 +1499,14 @@ const Branding = ({
                 ? "Preparing Flipibook"
                 : rawDisplayText;
 
+            const cardColor = isCustom ? (displayPreloader?.textColor || "#1E293B") : "#1E293B";
+
             return (
               <div
                 className="relative w-full h-[9.2vw] min-h-[120px] rounded-[1vw] flex flex-col items-center justify-center shadow-md border border-white/10 group overflow-hidden flex-shrink-0"
                 style={{
                   backgroundColor: isCustom ? (displayPreloader?.bgColor || "#D6E0F4") : "#D6E0F4",
-                  color: isCustom ? (displayPreloader?.textColor || "#1E293B") : "#1E293B",
+                  color: cardColor,
                 }}
               >
                 <style>{`
