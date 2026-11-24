@@ -267,11 +267,6 @@ const MyShelf = ({
         const u = JSON.parse(storedUser);
         if (u?.emailId || u?.email) return (u.emailId || u.email).toLowerCase();
       }
-      const storedProfile = localStorage.getItem('user_profile');
-      if (storedProfile) {
-        const p = JSON.parse(storedProfile);
-        if (p?.emailId || p?.email) return (p.emailId || p.email).toLowerCase();
-      }
     } catch (e) { }
     return '';
   })();
