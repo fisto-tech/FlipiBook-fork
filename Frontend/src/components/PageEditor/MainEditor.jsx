@@ -1762,6 +1762,10 @@ const getDraggableElement = (target, canvasRoot) => {
             }
           }}
           onMouseMove={(e) => {
+            // The page container (CanvasViewport) already handled moves over the page. Re-running
+            // here would resolve the wrong <svg> (first one in this div, e.g. a LeftActionMenu icon)
+            // and wipe the hover box that was just drawn.
+            if (e.target?.closest?.('[id^="canvas-content-"]')) return;
             if (handleSvgMouseMove) {
               handleSvgMouseMove(activePageIndex, e);
             }
