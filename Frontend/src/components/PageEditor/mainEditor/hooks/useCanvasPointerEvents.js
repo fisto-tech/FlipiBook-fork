@@ -13,6 +13,7 @@ import {
 import { clearSmartGuides } from '../utils/smartGuides';
 import { getTopLevelFrames, getDirectChildFrames, hitTest, isPageRootElement, getAllSelectablePageElements } from '../utils/frameHierarchyUtils';
 import { useInlineTextEditor } from './useInlineTextEditor';
+import { resolveGroupTarget, findGroupAtPoint } from '../utils/hitTargetResolver';
 import editCacheManager from '../../utils/EditCacheManager';
 import { updateShapeMaskTransform } from '../../LeftActionMenu/Elements/utils/shapeMaskUtils';
 import { drawShapeImageAdjustOverlay } from '../../penTool/penOverlayEngine';
@@ -27,70 +28,19 @@ import { hasCustomImageInShape } from '../../LeftActionMenu/Elements/utils/image
  */
 const setsAreEqual = (a, b) => a.size === b.size && [...a].every(v => b.has(v));
 
-// Group-first targeting: a shape inside a group targets the (outermost) group until the group —
-// or something inside it — is selected; then clicks go one level deeper into the group.
-const resolveGroupAwareTarget = (target, selectedId) => {
-  if (!target || !target.closest) return null;
-  // outermost group containing the target
-  // user-made groups only (Group action / Ctrl+G → id "group-…"); template wrappers keep normal picking
-  const USER_GROUP = 'g[data-type="group"][id^="group-"]';
-  let outer = null;
-  let g = target.closest(USER_GROUP);
-  while (g) { outer = g; g = g.parentElement?.closest(USER_GROUP); }
-  if (!outer || outer === target) return null;
-  if (outer.getAttribute('data-locked') === 'true') return null;
-
-  const svg = outer.ownerSVGElement;
-  const selEl = selectedId && svg ? svg.querySelector(`[id="${CSS.escape(selectedId)}"]`) : null;
-  // Nothing in this group selected yet -> target the whole group
-  if (!selEl || !outer.contains(selEl)) return outer;
-
-  // Inside the group's context: deepest group containing both the selection and the target
-  let ctx = (selEl.getAttribute('data-type') === 'group' && selEl.contains(target))
-    ? selEl
-    : selEl.parentElement?.closest('g[data-type="group"]');
-  while (ctx && !ctx.contains(target)) ctx = ctx.parentElement?.closest('g[data-type="group"]');
-  if (!ctx) ctx = outer;
-  // the child of that context which contains the target (next level down)
-  let c = target;
-  while (c.parentElement && c.parentElement !== ctx) c = c.parentElement;
-  return (c && c.id && c !== ctx) ? c : ctx;
-};
-
-// Groups have no fill of their own, so the empty space between grouped shapes hits nothing.
-// Find the topmost outermost group whose on-screen box contains the pointer.
-const findGroupAtPoint = (svg, clientX, clientY) => {
-  if (!svg) return null;
-  const groups = Array.from(svg.querySelectorAll('g[data-type="group"]')).filter(g =>
-    g.id && g.id.startsWith('group-') && // user-made groups only (not template/page wrapper groups)
-    g.getAttribute('data-hidden') !== 'true' &&
-    g.getAttribute('data-locked') !== 'true' &&
-    // outermost USER group only — a template/page wrapper tagged data-type="group" must not hide it
-    !g.parentElement?.closest('g[data-type="group"][id^="group-"]')
-  );
-  for (let i = groups.length - 1; i >= 0; i--) {
-    const r = groups[i].getBoundingClientRect();
-    if (r.width > 0 && r.height > 0 && clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
-      return groups[i];
-    }
-  }
-  return null;
-};
-
 // Hover diagnostics: run `window.__fbeHoverDebug = true` in the console, hover, then read the log.
-// ON by default for now; `window.__fbeHoverDebug = false` silences it. Repeats are skipped so moving
+// OFF by default; `window.__fbeHoverDebug = true` enables it. Repeats are skipped so moving
 // within one element doesn't flood the console.
 let lastHoverDbg = '';
 const hoverDbg = (...args) => {
   try {
-    if (window.__fbeHoverDebug === false) return;
+    if (window.__fbeHoverDebug !== true) return;
     const key = JSON.stringify(args);
     if (key === lastHoverDbg) return;
     lastHoverDbg = key;
     console.log('%c[hover]', 'color:#5255CA;font-weight:bold', ...args);
   } catch { /* noop */ }
 };
-if (typeof window !== 'undefined') console.log('%c[hover] logging is ON — move the mouse over the canvas', 'color:#5255CA;font-weight:bold');
 
 export const useCanvasPointerEvents = ({
   zoom = 90,
@@ -173,6 +123,32 @@ export const useCanvasPointerEvents = ({
   getDraggableElement
 }) => {
   const lastHoveredIdRef = useRef(null);
+
+  // ── Single hover state: every hover path (canvas, converted mode, direct tool, Layers panel,
+  // mouse leave) goes through these two functions, so there is exactly one hover box at a time.
+  const clearHover = () => {
+    const prevId = lastHoveredIdRef.current;
+    if (prevId) {
+      document.querySelectorAll(`[id="${CSS.escape(prevId)}"]`).forEach(el => {
+        el.removeAttribute('data-hovered');
+        el.removeAttribute('data-child-hovered');
+      });
+      lastHoveredIdRef.current = null;
+    }
+    clearOverlayType('hover');
+    clearOverlayType('child-hover');
+  };
+  // Returns true when a box was drawn. Same id → no work (O(1) fast path, checked by callers).
+  const setHover = (el, type = 'hover') => {
+    clearHover();
+    if (!el || !el.id) return false;
+    lastHoveredIdRef.current = el.id;
+    // Already selected: selection box is visible; remember id so moves within it stay no-op.
+    if (selectedLayerIdRef.current === el.id || multiSelectedIdsRef.current?.has(el.id)) return false;
+    el.setAttribute(type === 'child-hover' ? 'data-child-hovered' : 'data-hovered', 'true');
+    try { drawOverlayHighlight(el, type); } catch (err) { console.warn('[hover] draw failed:', err); }
+    return true;
+  };
   const resolveTargetParentForCreation = (svg, clientX, clientY) => {
     let activeId = currentFrameIdRef.current;
     const topFrames = getTopLevelFrames(svg);
@@ -1169,7 +1145,7 @@ export const useCanvasPointerEvents = ({
     // Empty gap inside a group: hit the group itself
     if (!hitCandidate || topFrames.some(f => f.id === hitCandidate.id) || isPageRootElement(hitCandidate, svg) ||
         hitCandidate.getAttribute('data-name') === 'Overlay' || hitCandidate.getAttribute('data-type') === 'background') {
-      const gapGroup = findGroupAtPoint(svg, e.clientX, e.clientY);
+      const gapGroup = findGroupAtPoint(svg, e.clientX, e.clientY, selectedLayerIdRef.current);
       const gapGroupSelected = gapGroup && (selectedLayerIdRef.current === gapGroup.id || multiSelectedIdsRef.current.has(gapGroup.id));
       // Unselected group: let drag-select (marquee) start; a plain click still selects the group on 'click'.
       if (gapGroupSelected) hitCandidate = gapGroup;
@@ -1745,18 +1721,8 @@ export const useCanvasPointerEvents = ({
 
       const hId = hoverTarget?.id || null;
       if (hId === lastHoveredIdRef.current) return;
-      if (lastHoveredIdRef.current) {
-        const prev = svg.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
-        prev?.removeAttribute('data-hovered');
-        clearOverlayType('hover');
-        lastHoveredIdRef.current = null;
-      }
-      if (hoverTarget && hoverTarget.id && selectedLayerIdRef.current !== hoverTarget.id) {
-        lastHoveredIdRef.current = hoverTarget.id;
-        hoverTarget.setAttribute('data-hovered', 'true');
-        drawOverlayHighlight(hoverTarget, 'hover');
-        hoverDbg('DRAWN hover box →', hoverTarget.id, document.getElementById(`overlay-poly-hover-${hoverTarget.id}`) ? 'polygon present ✔' : 'NO polygon created ✘');
-      }
+      if (setHover(hoverTarget, 'hover')) hoverDbg('DRAWN hover box →', hId);
+      else if (!hId) clearHover();
       return;
     }
 
@@ -1765,17 +1731,8 @@ export const useCanvasPointerEvents = ({
       const target = getDraggableElement(e.target, svg);
       const targetId = (target && target.id && target.tagName.toLowerCase() !== 'svg') ? target.id : null;
       if (targetId === lastHoveredIdRef.current) return;
-      if (lastHoveredIdRef.current) {
-        const prev = svg.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
-        prev?.removeAttribute('data-hovered');
-        clearOverlayType('child-hover');
-        lastHoveredIdRef.current = null;
-      }
-      if (targetId && !multiSelectedIdsRef.current.has(targetId) && selectedLayerIdRef.current !== targetId) {
-        lastHoveredIdRef.current = targetId;
-        target.setAttribute('data-hovered', 'true');
-        drawOverlayHighlight(target, 'child-hover');
-      }
+      if (targetId) setHover(target, 'child-hover');
+      else clearHover();
       return;
     }
 
@@ -1788,15 +1745,8 @@ export const useCanvasPointerEvents = ({
       e.target.getAttribute?.('data-type') === 'shield' ||
       (e.target.id && e.target.id.includes('overlay-poly-'));
 
-    if (isBackground && !findGroupAtPoint(svg, e.clientX, e.clientY)) {
-      if (lastHoveredIdRef.current) {
-        const prev = svg.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
-        prev?.removeAttribute('data-hovered');
-        prev?.removeAttribute('data-child-hovered');
-        clearOverlayType('hover');
-        clearOverlayType('child-hover');
-        lastHoveredIdRef.current = null;
-      }
+    if (isBackground && !findGroupAtPoint(svg, e.clientX, e.clientY, selectedLayerIdRef.current)) {
+      if (lastHoveredIdRef.current) clearHover();
       return;
     }
 
@@ -1843,7 +1793,7 @@ export const useCanvasPointerEvents = ({
     // Hovering the empty gap inside a group (or the page frame behind it) -> hover the group
     if (!candidate || isBackground || isPageRootElement(candidate, svg) || candidate.getAttribute('data-type') === 'frame' ||
         candidate.getAttribute('data-type') === 'background' || candidate.id === effectiveFrameId) {
-      const gapGroup = findGroupAtPoint(svg, e.clientX, e.clientY);
+      const gapGroup = findGroupAtPoint(svg, e.clientX, e.clientY, selectedLayerIdRef.current);
       if (gapGroup) {
         candidate = gapGroup;
         isChild = Boolean(effectiveFrameId && svg.querySelector(`[id="${effectiveFrameId}"]`)?.contains(gapGroup));
@@ -1852,7 +1802,9 @@ export const useCanvasPointerEvents = ({
 
     // Group-first hover: show the group's outline until you're working inside it
     if (candidate && e.target && !(e.target.id && e.target.id.includes('overlay-poly-'))) {
-      const groupAware = resolveGroupAwareTarget(e.target, selectedLayerIdRef.current);
+      // Same leaf + same resolver as handleSvgClick → hover box === the box a click selects
+      const leaf = getDraggableElement(e.target, svg) || e.target;
+      const groupAware = resolveGroupTarget(leaf, svg, selectedLayerIdRef.current);
       if (groupAware && groupAware.id) {
         candidate = groupAware;
         isChild = Boolean(effectiveFrameId && svg.querySelector(`[id="${effectiveFrameId}"]`)?.contains(groupAware));
@@ -1863,34 +1815,18 @@ export const useCanvasPointerEvents = ({
     // Same element under cursor - NO work needed!
     if (candidateId === lastHoveredIdRef.current) return;
 
-    // Clear previous hover
-    if (lastHoveredIdRef.current) {
-      const prev = svg.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
-      prev?.removeAttribute('data-hovered');
-      prev?.removeAttribute('data-child-hovered');
-      clearOverlayType('hover');
-      clearOverlayType('child-hover');
-      lastHoveredIdRef.current = null;
-    }
-
     if (!candidate || !candidateId) {
+      clearHover();
       const contentEl = e.target?.closest?.('[id]');
       if (contentEl && contentEl !== svg) hoverDbg('NOT drawn: no hoverable element found for →', contentEl.id);
       return;
     }
 
-    // If candidate is already selected, don't draw hover box
-    if (multiSelectedIdsRef.current.has(candidateId) || selectedLayerIdRef.current === candidateId) {
-      lastHoveredIdRef.current = candidateId;
+    if (setHover(candidate, isChild ? 'child-hover' : 'hover')) {
+      hoverDbg('DRAWN hover box →', candidateId, isChild ? '(child-hover)' : '(hover)');
+    } else {
       hoverDbg('skip: element already selected →', candidateId);
-      return;
     }
-
-    lastHoveredIdRef.current = candidateId;
-    candidate.setAttribute(isChild ? 'data-child-hovered' : 'data-hovered', 'true');
-    drawOverlayHighlight(candidate, isChild ? 'child-hover' : 'hover');
-    hoverDbg('DRAWN hover box →', candidateId, isChild ? '(child-hover)' : '(hover)',
-      document.getElementById(`overlay-poly-${isChild ? 'child-hover' : 'hover'}-${candidateId}`) ? 'polygon present ✔' : 'NO polygon created ✘');
   };
 
   // ── MARQUEE SELECTION LOGIC (Screen-Space Intersection) ──
@@ -2290,16 +2226,7 @@ export const useCanvasPointerEvents = ({
     const handleLayerHover = (e) => {
       const { layerId, isHovered, pageIndex } = e.detail || {};
 
-      // Clear any active hover overlay
-      if (lastHoveredIdRef.current) {
-        const prev = document.getElementById(lastHoveredIdRef.current) 
-                  || document.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
-        prev?.removeAttribute('data-hovered');
-        prev?.removeAttribute('data-child-hovered');
-        clearOverlayType('hover');
-        clearOverlayType('child-hover');
-        lastHoveredIdRef.current = null;
-      }
+      clearHover();
 
       if (!isHovered || !layerId) return;
 
@@ -2329,15 +2256,8 @@ export const useCanvasPointerEvents = ({
 
       if (isBackgroundOrOverlay) return;
 
-      lastHoveredIdRef.current = targetEl.id || layerId;
-      targetEl.setAttribute('data-hovered', 'true');
-      if (typeof drawOverlayHighlight === 'function') {
-        try {
-          drawOverlayHighlight(targetEl, 'hover');
-        } catch (err) {
-          console.warn('[useCanvasPointerEvents] Error drawing layer hover highlight:', err);
-        }
-      }
+      if (!targetEl.id) targetEl.id = layerId;
+      setHover(targetEl, 'hover');
     };
 
     window.addEventListener('layer-hover', handleLayerHover);
@@ -2351,18 +2271,7 @@ export const useCanvasPointerEvents = ({
     if ((e.buttons & 1) === 0 && (marqueeDataRef.current || marqueeRef.current)) {
       cleanupMarquee();
     }
-    const container = e.currentTarget.closest('.page-svg-container') || e.currentTarget;
-    const svg = container?.querySelector('svg');
-    if (svg) {
-      if (lastHoveredIdRef.current) {
-        const prev = svg.querySelector(`[id="${CSS.escape(lastHoveredIdRef.current)}"]`);
-        prev?.removeAttribute('data-hovered');
-        prev?.removeAttribute('data-child-hovered');
-        lastHoveredIdRef.current = null;
-      }
-      clearOverlayType('hover');
-      clearOverlayType('child-hover');
-    }
+    clearHover();
   };
 
 
@@ -2673,7 +2582,7 @@ export const useCanvasPointerEvents = ({
     // ── Click on a shape inside a group → select the group first, then its children ──
     if (!e.shiftKey && !e.metaKey && !e.ctrlKey && selectedSelectTool !== 'direct' && !(e.target.id && e.target.id.includes('overlay-poly-'))) {
       const leaf = getDraggableElement(e.target, svg);
-      const groupAware = leaf ? resolveGroupAwareTarget(leaf, selectedLayerIdRef.current) : null;
+      const groupAware = leaf ? resolveGroupTarget(leaf, svg, selectedLayerIdRef.current) : null;
       if (groupAware && groupAware.id) {
         setSingleSelection(groupAware.id);
         return;
@@ -2686,7 +2595,7 @@ export const useCanvasPointerEvents = ({
       const isOverlayPoly = Boolean(e.target.id && e.target.id.includes('overlay-poly-'));
       const onBackground = !isOverlayPoly && (!direct || direct === svg || isPageRootElement(direct, svg) ||
         direct.getAttribute?.('data-name') === 'Overlay' || direct.getAttribute?.('data-type') === 'background');
-      const gapGroup = (onBackground || isOverlayPoly) ? findGroupAtPoint(svg, e.clientX, e.clientY) : null;
+      const gapGroup = (onBackground || isOverlayPoly) ? findGroupAtPoint(svg, e.clientX, e.clientY, selectedLayerIdRef.current) : null;
       // Overlay outlines only count when they are the group's own hover/selection outline
       const polyIsGroupOutline = isOverlayPoly && gapGroup && e.target.id.endsWith(`-${gapGroup.id}`);
       if (onBackground || polyIsGroupOutline) {
