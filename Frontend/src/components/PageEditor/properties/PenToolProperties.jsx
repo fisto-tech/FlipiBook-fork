@@ -55,8 +55,27 @@ const PenToolProperties = ({
     window.dispatchEvent(new CustomEvent('vector-path-action', { detail: { action } }));
   };
 
-  if (!isVectorPath || !isNodeEditActive || isPenChosen) {
-    return null;
+  if (!isVectorPath) return null;
+
+  // Drawing with the Pen: show how it works (node tools appear when editing points)
+  if (isPenChosen || !isNodeEditActive) {
+    if (!isPenChosen) return null;
+    return (
+      <div className="flex flex-col gap-[0.6vw] w-full font-sans select-none text-gray-800">
+        <div className="flex items-center gap-[0.8vw]">
+          <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-tight">Pen Tool Properties</span>
+          <div className="flex-1 h-[1px] bg-gray-200" />
+        </div>
+        <ul className="flex flex-col gap-[0.35vw] text-[0.72vw] text-gray-500">
+          {['Click to add a point', 'Click and drag to make a curve', 'Click the first point to close the shape', 'Press Enter or Esc to finish'].map((t) => (
+            <li key={t} className="flex items-center gap-[0.45vw]">
+              <span className="w-[0.3vw] h-[0.3vw] rounded-full bg-indigo-400 shrink-0" />
+              {t}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   }
 
   return (

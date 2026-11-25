@@ -901,6 +901,8 @@ const MainEditor = ({
       // Clear pen tool nodes and Vectra overlay on tool switch
       document.querySelectorAll('.pen-tool-node').forEach(n => n.remove());
       if (activeMainTool !== 'pen' || selectedPenTool !== 'pen') {
+        // Leaving the pen: end its node-edit session too (left on, it hides every selection's handles)
+        if (nodeEditModeRef.current) exitNodeEditMode();
         vectraPenSessionRef.current.reset();
         clearVectraOverlay(activePageIndex);
         document.querySelectorAll('[id^="highlight-overlay-"]').forEach(overlay => {
@@ -951,12 +953,48 @@ const MainEditor = ({
 
 
 
+  // ── Handle watchdog: a single selection always gets its resize dots ─────────────────────
+  // Insertions (images, uploads), tool switches and page re-renders can wipe the HTML handle layer
+  // after the selection box was drawn. If the box is there but its dots are not, redraw them.
+  useEffect(() => {
+    if (!selectedLayerId || activeTopTool !== 'editor') return undefined;
+    if (multiSelectedIds && multiSelectedIds.size > 1) return undefined;
+    const id = selectedLayerId;
+    const check = () => {
+      if (nodeEditModeRef.current || window.__isAdjustingShapeImage) return;
+      const body = document.body;
+      if (body.classList.contains('dragging-active') || body.classList.contains('shape-adjust-active') ||
+        body.classList.contains('screen-color-picking')) return;
+      if (document.querySelector('[data-dragging="true"]')) return;
+      const el = document.getElementById(id);
+      if (!el || !el.isConnected) return;
+      if (isEditingTextRef.current && el.querySelector?.('[data-editing="true"], [contenteditable="true"]')) return;
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+      const hasBox = document.querySelector(`[id="overlay-poly-selected-${esc}"], [id="overlay-poly-child-selected-${esc}"]`);
+      if (!hasBox) return; // nothing selectable drawn (locked, background, frame…)
+      if (document.querySelector(`[id^="resize-handle-${esc}-"]`)) return;
+      const fn = drawOverlayHighlightRef.current || drawOverlayHighlight;
+      if (typeof fn === 'function') {
+        fn(el, el.getAttribute('data-child-selected') === 'true' ? 'child-selected' : 'selected');
+      }
+    };
+    const timers = [80, 300, 800].map((ms) => setTimeout(check, ms));
+    const iv = setInterval(check, 700);
+    return () => { timers.forEach(clearTimeout); clearInterval(iv); };
+  }, [selectedLayerId, multiSelectedIds, activeTopTool, pages]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Sync refs and perform page-level DOM highlights ──────────────────────────
   useEffect(() => {
     if (activeTopTool === 'interaction' || activeTopTool === 'animation') {
       if (nodeEditModeRef.current) {
         exitNodeEditMode();
       }
+    }
+
+    // A node-edit session whose path is gone or no longer selected is stale — end it so handles show
+    if (nodeEditModeRef.current && activeMainTool !== 'pen') {
+      const nPath = nodeEditPathRef.current;
+      if (!nPath || !nPath.isConnected || (selectedLayerId && nPath.id !== selectedLayerId)) exitNodeEditMode();
     }
 
     // Suppress regular selection box and resize handles when in Path Node Edit Mode or Shape Image Adjust Mode

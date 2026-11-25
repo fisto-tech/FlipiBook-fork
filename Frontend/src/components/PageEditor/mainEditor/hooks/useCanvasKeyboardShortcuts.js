@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import paper from 'paper';
 import {
   pathToD,
+  pathToDCombo,
   deleteSelectedNodeOrHandle,
   cleanPaperPathData,
   getPaperSegments,
@@ -59,6 +60,104 @@ export const useCanvasKeyboardShortcuts = ({
   drawMeasurementOverlayRef,
   lastMousePosRef
 }) => {
+  // ── Pen drawing: Delete / Backspace / Undo remove the last point, Redo puts it back ──────────
+  // Handled before every other shortcut so nothing else (layers, page history) is touched.
+  useEffect(() => {
+    if (activeMainTool !== 'pen' || selectedPenTool !== 'pen') return undefined;
+    const redoStack = [];
+    let detached = null; // the path element removed when its last point was undone
+
+    const session = () => vectraPenSessionRef?.current;
+    const snapshot = (vs) => ({
+      paths: JSON.parse(JSON.stringify(Array.from(vs.paths.values()))),
+      activePathId: vs.activePathId,
+    });
+    const restore = (vs, snap) => {
+      vs.paths = new Map(snap.paths.map((p) => [p.id, p]));
+      vs.activePathId = snap.activePathId;
+      vs.drag = null;
+      vs.ui.previewD = null;
+    };
+    const sync = (vs) => {
+      let el = drawingPathRef.current;
+      const d = pathToDCombo(vs.paths);
+      if (!d) {
+        if (el && el.parentNode) { detached = { el, parent: el.parentNode }; el.remove(); }
+        drawingPathRef.current = null;
+        if (clearVectraOverlay) clearVectraOverlay(activePageIndex);
+        // remove every pen node marker, on any page
+        document.querySelectorAll('[id^="highlight-overlay-"] #vectra-overlay-group').forEach((g) => { g.innerHTML = ''; });
+        document.querySelectorAll('.pen-tool-node').forEach((n) => n.remove());
+        return;
+      }
+      if ((!el || !el.isConnected) && detached) {
+        detached.parent.appendChild(detached.el);
+        el = detached.el;
+        drawingPathRef.current = el;
+        detached = null;
+      }
+      if (!el) return;
+      el.setAttribute('d', d);
+      if (renderVectraOverlay) renderVectraOverlay(activePageIndex, el.parentElement, vs);
+    };
+
+    const undoPoint = () => {
+      const vs = session();
+      const path = vs?.getActivePath?.();
+      if (!path) return false;
+      redoStack.push(snapshot(vs));
+      vs.removeLastNode(path);
+      sync(vs);
+      return true;
+    };
+    // Delete after the shape was closed / finished (no active path): clear the whole drawing
+    const deleteDrawing = () => {
+      const vs = session();
+      if (!vs || vs.getActivePath?.() || vs.paths.size === 0) return false;
+      redoStack.push(snapshot(vs));
+      vs.reset();
+      sync(vs);
+      if (setSelectedLayerId) setSelectedLayerId(null);
+      return true;
+    };
+    const redoPoint = () => {
+      const vs = session();
+      if (!vs || redoStack.length === 0) return false;
+      restore(vs, redoStack.pop());
+      sync(vs);
+      return true;
+    };
+
+    const onKey = (e) => {
+      const ae = document.activeElement;
+      if (ae && (['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName) || ae.isContentEditable)) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
+      let handled = false;
+      if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) handled = undoPoint() || deleteDrawing();
+      else if (mod && k === 'z' && !e.shiftKey) handled = undoPoint();
+      else if (mod && ((k === 'z' && e.shiftKey) || k === 'y')) handled = redoPoint();
+      if (handled) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    // A new point starts a new history — the undone points can't come back after that
+    const onCanvasDown = (e) => {
+      if (e.button === 0 && e.target?.closest?.('.page-svg-container')) redoStack.length = 0;
+    };
+
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onCanvasDown, true);
+    // the toolbar Undo / Redo buttons go through the page history — let them step points first
+    window.__penPointHistory = { undo: undoPoint, redo: redoPoint };
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('pointerdown', onCanvasDown, true);
+      if (window.__penPointHistory?.undo === undoPoint) delete window.__penPointHistory;
+    };
+  }, [activeMainTool, selectedPenTool, activePageIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const key = e.key.toLowerCase();

@@ -186,6 +186,7 @@ const pickInApp = (pages) => new Promise((resolve, reject) => {
     }
   `;
   document.head.appendChild(cursorStyle);
+  document.body.classList.add('screen-color-picking');
 
   let current = null;
   let pointer = null; // last pointer position (client coords)
@@ -320,6 +321,7 @@ const pickInApp = (pages) => new Promise((resolve, reject) => {
     window.removeEventListener('contextmenu', onContext, true);
     panel.remove();
     cursorStyle.remove();
+    document.body.classList.remove('screen-color-picking');
     if (swallowNextClick) {
       // swallow the click that follows the picking pointerdown (keeps the colour popup open)
       window.addEventListener('click', swallowClick, true);

@@ -521,7 +521,9 @@ const ShapeProperties = ({
   );
 
   const isCircleOrLine = isCircleShape || shapeType === 'ellipse' || shapeType === 'circle' || shapeType === 'line';
-  const isIconShape = selectedElementProps?.['data-type'] === 'icon';
+  // Pen tool defaults (no element yet): same simple stroke controls as icons
+  const isPenDefaults = Boolean(selectedElementProps?.__penDefaults);
+  const isIconShape = selectedElementProps?.['data-type'] === 'icon' || isPenDefaults;
   const shouldHideCornerRadius = hideCornerRadius || isCircleOrLine || !isCornerRadiusShape || isIconShape;
 
   const shapeCornerId = selectedElementProps?.['data-shape-id'] || (() => {
@@ -1190,7 +1192,7 @@ const ShapeProperties = ({
 
       {/* ===================== HEADER ===================== */}
       <div className="flex items-center gap-[0.8vw]">
-        <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-wider">{isIconShape ? 'Icon Properties' : 'Shape Properties'}</span>
+        <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-wider">{isPenDefaults ? 'Shape Properties' : isIconShape ? 'Icon Properties' : 'Shape Properties'}</span>
         <div className="flex-1 h-[1px] bg-gray-200" />
       </div>
 
@@ -1489,6 +1491,7 @@ const ShapeProperties = ({
       )}
 
       {/* ===================== APPEARANCE: EFFECTS ===================== */}
+      {!isPenDefaults && (
       <Effect
         isShape={true}
         openSubSection={openSubSection}
@@ -1503,6 +1506,7 @@ const ShapeProperties = ({
         setShowDetailedPicker={setShowDetailedPicker}
         noAccordion={true}
       />
+      )}
 
       {/* ===================== IMAGE ADJUSTMENT MODAL ===================== */}
       <ImageAdjustmentModal
