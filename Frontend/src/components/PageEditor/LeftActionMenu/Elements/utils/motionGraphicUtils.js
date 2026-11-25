@@ -1395,6 +1395,65 @@ export const MOTION_GRAPHIC_TEMPLATES = [
   { id: 'social-badge', name: 'Social Badge' }
 ];
 
+// Every template marks its main text with .motion-text-content (Slide Split's right half only has .ss-title)
+// and its sub text with .motion-text-subcontent.
+const PRIMARY_TEXT_SEL = '.motion-text-content, .ss-title';
+const SECONDARY_TEXT_SEL = '.motion-text-subcontent';
+
+const FONT_WEIGHT_NAMES = [
+  ['Thin', 100], ['Light', 300], ['Regular', 400], ['Medium', 500],
+  ['Semi Bold', 600], ['Bold', 700], ['Extra Bold', 800], ['Black', 900]
+];
+const fontWeightToCss = (w) => {
+  const n = parseInt(w, 10);
+  if (!isNaN(n)) return String(n);
+  const key = String(w || '').toLowerCase().trim();
+  if (key === 'normal') return '400';
+  const hit = FONT_WEIGHT_NAMES.find(([name]) => name.toLowerCase() === key);
+  return String(hit ? hit[1] : 400);
+};
+const cssWeightToName = (w) => {
+  const n = parseInt(w, 10) || (String(w).toLowerCase() === 'bold' ? 700 : 400);
+  let best = FONT_WEIGHT_NAMES[0];
+  FONT_WEIGHT_NAMES.forEach((entry) => { if (Math.abs(entry[1] - n) < Math.abs(best[1] - n)) best = entry; });
+  return best[0];
+};
+const cssFontFamily = (ff) => (String(ff).includes(',') ? ff : `'${ff}', sans-serif`);
+const displayFontFamily = (ff) => String(ff || '').split(',')[0].replace(/["']/g, '').trim();
+
+const rgbToHex = (rgb) => {
+  const m = String(rgb || '').match(/rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+))?/i);
+  if (!m) return null;
+  if (m[4] !== undefined && parseFloat(m[4]) === 0) return null;
+  return '#' + [m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+};
+
+const readComputed = (el, selector) => {
+  const node = el?.querySelector?.(selector);
+  const view = node?.ownerDocument?.defaultView;
+  if (!node || !view || !node.isConnected) return null;
+  try { return view.getComputedStyle(node); } catch { return null; }
+};
+
+// CSS iteration count for the element's current Animation setting
+const getIterationCountStr = (el) => {
+  const anim = el.getAttribute('data-animation-mode') || 'Infinite';
+  if (anim === 'Once') return '1';
+  if (anim === 'Twice') return '2';
+  if (anim === 'Thrice') return '3';
+  if (anim === 'Custom') {
+    const c = parseInt(el.getAttribute('data-animation-custom-count') || '', 10);
+    return !isNaN(c) && c > 0 ? String(c) : '1';
+  }
+  return 'infinite';
+};
+
+// Duration (ms) of the first `animation:` rule whose keyframe name starts with prefix
+const getRuleDurationMs = (css, prefix) => {
+  const m = String(css || '').match(new RegExp(`animation:\\s*${prefix}[A-Za-z0-9_-]*\\s+([0-9.]+)ms`));
+  return m ? parseFloat(m[1]) : null;
+};
+
 export const getMotionGraphicProperties = (el) => {
   if (!el) {
     return {
@@ -1429,6 +1488,7 @@ export const getMotionGraphicProperties = (el) => {
 
   let primaryTextColor =
     el.getAttribute('data-primary-text-color') ||
+    rgbToHex(readComputed(el, PRIMARY_TEXT_SEL)?.color) ||
     el.getAttribute('data-primary-color') ||
     '#0f291e';
 
@@ -1440,6 +1500,7 @@ export const getMotionGraphicProperties = (el) => {
 
   let secondaryTextColor =
     el.getAttribute('data-secondary-text-color') ||
+    rgbToHex(readComputed(el, SECONDARY_TEXT_SEL)?.color) ||
     el.getAttribute('data-secondary-color') ||
     '#0f291e';
 
@@ -1464,9 +1525,11 @@ export const getMotionGraphicProperties = (el) => {
 
   // Font properties
   const rawFs = el.getAttribute('data-font-size');
-  const primaryFontSize = rawFs !== null && rawFs !== '' ? parseInt(rawFs, 10) : (motionTemplate === 'social-badge' ? 14 : 24);
-  const primaryFontFamily = el.getAttribute('data-font-family') || 'Poppins';
-  const primaryFontWeight = el.getAttribute('data-font-weight') || 'Semi Bold';
+  const primaryFontSize = rawFs !== null && rawFs !== '' ? parseFloat(rawFs) : (motionTemplate === 'social-badge' ? 14 : 24);
+  const primaryCs = readComputed(el, PRIMARY_TEXT_SEL);
+  const secondaryCs = readComputed(el, SECONDARY_TEXT_SEL);
+  const primaryFontFamily = displayFontFamily(el.getAttribute('data-font-family') || primaryCs?.fontFamily) || 'Poppins';
+  const primaryFontWeight = el.getAttribute('data-font-weight') || (primaryCs ? cssWeightToName(primaryCs.fontWeight) : 'Semi Bold');
   const primaryLetterSpacing = el.getAttribute('data-letter-spacing') || 'Auto';
   const primaryLineHeight = el.getAttribute('data-line-height') || 'Auto';
   const primaryTextAlign = el.getAttribute('data-text-align') || 'center';
@@ -1474,9 +1537,12 @@ export const getMotionGraphicProperties = (el) => {
   const primaryIsStrikethrough = el.getAttribute('data-is-strikethrough') === 'true';
   const primaryIsList = el.getAttribute('data-is-list') === 'true';
 
-  const secondaryFontSize = parseInt(el.getAttribute('data-secondary-font-size') || '24', 10);
-  const secondaryFontFamily = el.getAttribute('data-secondary-font-family') || 'Poppins';
-  const secondaryFontWeight = el.getAttribute('data-secondary-font-weight') || 'Semi Bold';
+  const rawSecFs = el.getAttribute('data-secondary-font-size');
+  const secondaryFontSize = rawSecFs
+    ? parseFloat(rawSecFs)
+    : (secondaryCs ? Math.round(parseFloat(secondaryCs.fontSize)) : Math.round(primaryFontSize * 0.72)) || 18;
+  const secondaryFontFamily = displayFontFamily(el.getAttribute('data-secondary-font-family') || secondaryCs?.fontFamily) || 'Poppins';
+  const secondaryFontWeight = el.getAttribute('data-secondary-font-weight') || (secondaryCs ? cssWeightToName(secondaryCs.fontWeight) : 'Regular');
   const secondaryLetterSpacing = el.getAttribute('data-secondary-letter-spacing') || 'Auto';
   const secondaryLineHeight = el.getAttribute('data-secondary-line-height') || 'Auto';
   const secondaryTextAlign = el.getAttribute('data-secondary-text-align') || 'center';
@@ -1576,8 +1642,8 @@ export const applyHybridContainerSizing = (el, updates = {}) => {
     if (styleEl) {
       const letters = Array.from(curText);
       const letterCount = letters.length;
-      const curSpeed = parseFloat(target.getAttribute('data-speed')) || 80;
-      const curDuration = Math.round(4700 / Math.max(0.1, curSpeed / 100));
+      const curDuration = getRuleDurationMs(styleEl.textContent, 'cyber-trim-') || getRuleDurationMs(styleEl.textContent, 'cyber-text-') || 4700;
+      const iterCount = getIterationCountStr(target);
       const letterStaggerMs = letterCount > 1 ? Math.min(60, 450 / letterCount) : 0;
       const uniqueId = target.id ? target.id.replace('typography-', '') : '';
 
@@ -1585,7 +1651,7 @@ export const applyHybridContainerSizing = (el, updates = {}) => {
         const delayMs = i * letterStaggerMs;
         return `
         #${target.id} .cyber-char-${i} {
-          animation: cyber-text-${uniqueId} ${curDuration}ms infinite cubic-bezier(0.2, 0.8, 0.2, 1);
+          animation: cyber-text-${uniqueId} ${curDuration}ms ${iterCount} cubic-bezier(0.2, 0.8, 0.2, 1);
           animation-delay: ${delayMs}ms;
           animation-play-state: running;
         }`;
@@ -1641,10 +1707,10 @@ export const applyHybridContainerSizing = (el, updates = {}) => {
     const charSteps = Math.max(1, newText.length);
     const ytTypewriter = target.querySelector('.yt-typewriter-container');
     if (ytTypewriter) {
-      const curSpeed = parseFloat(target.getAttribute('data-speed')) || 80;
-      const curDuration = Math.round(3600 / Math.max(0.1, curSpeed / 100));
+      const ytCss = target.querySelector('style')?.textContent || '';
+      const curDuration = getRuleDurationMs(ytCss, 'yt-typing-') || getRuleDurationMs(ytCss, 'yt-logo-spring-') || 3600;
       const uniqueId = target.id ? target.id.replace('typography-', '') : '';
-      ytTypewriter.style.animation = `yt-typing-${uniqueId} ${curDuration}ms steps(${charSteps}, end) infinite`;
+      ytTypewriter.style.animation = `yt-typing-${uniqueId} ${curDuration}ms steps(${charSteps}, end) ${getIterationCountStr(target)}`;
     }
   } else if (template === 'box-reveal') {
     const textA = updates.primaryText !== undefined ? updates.primaryText : (target.getAttribute('data-text') || 'FLIPIBOOK');
@@ -1686,7 +1752,8 @@ export const applyHybridContainerSizing = (el, updates = {}) => {
     }
     const titleB = target.querySelector('.box-title-b');
     if (titleB) {
-      titleB.style.fontSize = `${Math.round(effectiveFontSize * 0.72)}px`;
+      const secFs = parseFloat(target.getAttribute('data-secondary-font-size'));
+      titleB.style.fontSize = `${secFs > 0 ? secFs : Math.round(effectiveFontSize * 0.72)}px`;
     }
 
     const styleEl = target.querySelector('style');
@@ -1711,7 +1778,10 @@ export const applyHybridContainerSizing = (el, updates = {}) => {
     const maxWidth = 420;
     const extraLeft = 58;
 
-    const wA = measureTitleTextWidth(textA, Math.round(rawFontSize * 0.72), 'Arial, sans-serif', '400', '0em');
+    // Template draws the top (primary) line at 72% — unless the user picked a primary size explicitly
+    const primaryExplicit = target.getAttribute('data-primary-size-explicit') === 'true';
+    const ratioA = primaryExplicit ? 1 : 0.72;
+    const wA = measureTitleTextWidth(textA, Math.round(rawFontSize * ratioA), 'Arial, sans-serif', '400', '0em');
     const wB = measureTitleTextWidth(textB, rawFontSize, 'Impact, "Arial Black", sans-serif', '400', '0em');
     const maxTextW = Math.max(wA, wB);
 
@@ -1734,11 +1804,12 @@ export const applyHybridContainerSizing = (el, updates = {}) => {
 
     const titleA = target.querySelector('.flipi-text-a');
     if (titleA) {
-      titleA.style.fontSize = `${Math.round(effectiveFontSize * 0.72)}px`;
+      titleA.style.fontSize = `${Math.round(effectiveFontSize * ratioA)}px`;
     }
+    const secFsFlipi = parseFloat(target.getAttribute('data-secondary-font-size'));
     const titleB = target.querySelector('.flipi-text-b');
     if (titleB) {
-      titleB.style.fontSize = `${effectiveFontSize}px`;
+      titleB.style.fontSize = `${secFsFlipi > 0 ? secFsFlipi : effectiveFontSize}px`;
     }
   } else if (template === 'slide-split') {
     const textA = updates.primaryText !== undefined ? updates.primaryText : (target.getAttribute('data-text') || 'FLIPIBOOK');
@@ -2068,17 +2139,20 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
   }
 
   if (updates.speed !== undefined) {
+    // Durations are scaled relative to the previous speed (80% = template's designed tempo),
+    // so repeated slider changes don't compound.
+    const prevSpeed = parseFloat(el.getAttribute('data-speed')) || 80;
+    const nextSpeed = Math.max(1, parseFloat(updates.speed) || 80);
     el.setAttribute('data-speed', String(updates.speed));
-    // Apply speed adjustment to style animations (standard duration ~ 4500ms scaled inversely)
-    const factor = Math.max(0.1, updates.speed / 100);
-    const styles = el.querySelectorAll('style');
-    styles.forEach((st) => {
-      st.textContent = st.textContent.replace(/animation:\s*([a-zA-Z0-9_-]+)\s+([0-9.]+)ms/g, (match, animName, dur) => {
-        const origDur = parseFloat(dur);
-        const newDur = Math.round(origDur / factor);
-        return `animation: ${animName} ${newDur}ms`;
+    const ratio = prevSpeed / nextSpeed;
+    if (ratio !== 1) {
+      const styles = el.querySelectorAll('style');
+      styles.forEach((st) => {
+        st.textContent = st.textContent.replace(/animation:\s*([a-zA-Z0-9_-]+)\s+([0-9.]+)ms/g, (match, animName, dur) => {
+          return `animation: ${animName} ${Math.max(50, Math.round(parseFloat(dur) * ratio))}ms`;
+        });
       });
-    });
+    }
   }
 
   if (updates.primaryText !== undefined) {
@@ -2090,8 +2164,7 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
         .map((char, i) => `<span class="cyber-char cyber-char-${i}">${char === ' ' ? '&nbsp;' : char}</span>`)
         .join('');
     } else {
-      const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text');
-      primarySpans.forEach((sp) => {
+      el.querySelectorAll('.motion-text-content').forEach((sp) => {
         sp.textContent = updates.primaryText;
       });
     }
@@ -2099,7 +2172,7 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.secondaryText !== undefined) {
     el.setAttribute('data-subtext', updates.secondaryText);
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
       sp.textContent = updates.secondaryText;
     });
@@ -2109,7 +2182,7 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
     const val = updates.textColor1 !== undefined ? updates.textColor1 : updates.primaryTextColor;
     el.setAttribute('data-text-color-1', val);
     el.setAttribute('data-primary-text-color', val);
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text');
+    const primarySpans = el.querySelectorAll(PRIMARY_TEXT_SEL);
     primarySpans.forEach((sp) => {
       sp.style.color = val;
       sp.style.fill = val;
@@ -2120,7 +2193,7 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
     const val = updates.textColor2 !== undefined ? updates.textColor2 : updates.secondaryTextColor;
     el.setAttribute('data-text-color-2', val);
     el.setAttribute('data-secondary-text-color', val);
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
       sp.style.color = val;
       sp.style.fill = val;
@@ -2202,31 +2275,32 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.primaryFontSize !== undefined) {
     el.setAttribute('data-font-size', String(updates.primaryFontSize));
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text, .ss-title, .sb-word-l, .bs-a, .sq-a, .sb-label');
+    el.setAttribute('data-primary-size-explicit', 'true');
+    const primarySpans = el.querySelectorAll(PRIMARY_TEXT_SEL);
     primarySpans.forEach((sp) => {
-      sp.style.setProperty('font-size', `${updates.primaryFontSize}pt`, 'important');
+      sp.style.setProperty('font-size', `${updates.primaryFontSize}px`, 'important');
     });
   }
 
   if (updates.primaryFontFamily !== undefined) {
     el.setAttribute('data-font-family', updates.primaryFontFamily);
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text');
+    const primarySpans = el.querySelectorAll(PRIMARY_TEXT_SEL);
     primarySpans.forEach((sp) => {
-      sp.style.fontFamily = `'${updates.primaryFontFamily}', sans-serif`;
+      sp.style.fontFamily = cssFontFamily(updates.primaryFontFamily);
     });
   }
 
   if (updates.primaryFontWeight !== undefined) {
     el.setAttribute('data-font-weight', updates.primaryFontWeight);
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text');
+    const primarySpans = el.querySelectorAll(PRIMARY_TEXT_SEL);
     primarySpans.forEach((sp) => {
-      sp.style.fontWeight = updates.primaryFontWeight.toLowerCase().includes('bold') ? '700' : '400';
+      sp.style.fontWeight = fontWeightToCss(updates.primaryFontWeight);
     });
   }
 
   if (updates.primaryTextAlign !== undefined) {
     el.setAttribute('data-text-align', updates.primaryTextAlign);
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text');
+    const primarySpans = el.querySelectorAll(PRIMARY_TEXT_SEL);
     primarySpans.forEach((sp) => {
       sp.style.textAlign = updates.primaryTextAlign;
     });
@@ -2234,7 +2308,7 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.primaryLetterSpacing !== undefined) {
     el.setAttribute('data-letter-spacing', updates.primaryLetterSpacing);
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text');
+    const primarySpans = el.querySelectorAll(PRIMARY_TEXT_SEL);
     primarySpans.forEach((sp) => {
       sp.style.letterSpacing = updates.primaryLetterSpacing === 'Auto' ? 'normal' : updates.primaryLetterSpacing;
     });
@@ -2242,7 +2316,7 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.primaryLineHeight !== undefined) {
     el.setAttribute('data-line-height', updates.primaryLineHeight);
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text');
+    const primarySpans = el.querySelectorAll(PRIMARY_TEXT_SEL);
     primarySpans.forEach((sp) => {
       sp.style.lineHeight = updates.primaryLineHeight === 'Auto' ? 'normal' : updates.primaryLineHeight;
     });
@@ -2250,15 +2324,17 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.primaryIsBold !== undefined) {
     el.setAttribute('data-is-bold', String(updates.primaryIsBold));
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text');
-    primarySpans.forEach((sp) => {
-      sp.style.fontWeight = updates.primaryIsBold ? '700' : '400';
-    });
+    // the weight dropdown already set an exact weight — don't flatten it to 700/400
+    if (updates.primaryFontWeight === undefined) {
+      el.querySelectorAll(PRIMARY_TEXT_SEL).forEach((sp) => {
+        sp.style.fontWeight = updates.primaryIsBold ? '700' : '400';
+      });
+    }
   }
 
   if (updates.primaryIsStrikethrough !== undefined) {
     el.setAttribute('data-is-strikethrough', String(updates.primaryIsStrikethrough));
-    const primarySpans = el.querySelectorAll('.motion-text-content, .flipi-text-a, .box-title-a, .yt-title-text, .cyber-text');
+    const primarySpans = el.querySelectorAll(PRIMARY_TEXT_SEL);
     primarySpans.forEach((sp) => {
       sp.style.textDecoration = updates.primaryIsStrikethrough ? 'line-through' : 'none';
     });
@@ -2266,31 +2342,31 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.secondaryFontSize !== undefined) {
     el.setAttribute('data-secondary-font-size', String(updates.secondaryFontSize));
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r, .ss-sub, .bs-b');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
-      sp.style.setProperty('font-size', `${updates.secondaryFontSize}pt`, 'important');
+      sp.style.setProperty('font-size', `${updates.secondaryFontSize}px`, 'important');
     });
   }
 
   if (updates.secondaryFontFamily !== undefined) {
     el.setAttribute('data-secondary-font-family', updates.secondaryFontFamily);
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
-      sp.style.fontFamily = `'${updates.secondaryFontFamily}', sans-serif`;
+      sp.style.fontFamily = cssFontFamily(updates.secondaryFontFamily);
     });
   }
 
   if (updates.secondaryFontWeight !== undefined) {
     el.setAttribute('data-secondary-font-weight', updates.secondaryFontWeight);
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
-      sp.style.fontWeight = updates.secondaryFontWeight.toLowerCase().includes('bold') ? '700' : '400';
+      sp.style.fontWeight = fontWeightToCss(updates.secondaryFontWeight);
     });
   }
 
   if (updates.secondaryTextAlign !== undefined) {
     el.setAttribute('data-secondary-text-align', updates.secondaryTextAlign);
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
       sp.style.textAlign = updates.secondaryTextAlign;
     });
@@ -2298,7 +2374,7 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.secondaryLetterSpacing !== undefined) {
     el.setAttribute('data-secondary-letter-spacing', updates.secondaryLetterSpacing);
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
       sp.style.letterSpacing = updates.secondaryLetterSpacing === 'Auto' ? 'normal' : updates.secondaryLetterSpacing;
     });
@@ -2306,7 +2382,7 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.secondaryLineHeight !== undefined) {
     el.setAttribute('data-secondary-line-height', updates.secondaryLineHeight);
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
       sp.style.lineHeight = updates.secondaryLineHeight === 'Auto' ? 'normal' : updates.secondaryLineHeight;
     });
@@ -2314,15 +2390,17 @@ export const updateMotionGraphicAttributes = (el, updates = {}) => {
 
   if (updates.secondaryIsBold !== undefined) {
     el.setAttribute('data-secondary-is-bold', String(updates.secondaryIsBold));
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r');
-    secSpans.forEach((sp) => {
-      sp.style.fontWeight = updates.secondaryIsBold ? '700' : '400';
-    });
+    // the weight dropdown already set an exact weight — don't flatten it to 700/400
+    if (updates.secondaryFontWeight === undefined) {
+      el.querySelectorAll(SECONDARY_TEXT_SEL).forEach((sp) => {
+        sp.style.fontWeight = updates.secondaryIsBold ? '700' : '400';
+      });
+    }
   }
 
   if (updates.secondaryIsStrikethrough !== undefined) {
     el.setAttribute('data-secondary-is-strikethrough', String(updates.secondaryIsStrikethrough));
-    const secSpans = el.querySelectorAll('.motion-text-subcontent, .flipi-text-b, .box-title-b, .sq-b, .sb-word-r');
+    const secSpans = el.querySelectorAll(SECONDARY_TEXT_SEL);
     secSpans.forEach((sp) => {
       sp.style.textDecoration = updates.secondaryIsStrikethrough ? 'line-through' : 'none';
     });

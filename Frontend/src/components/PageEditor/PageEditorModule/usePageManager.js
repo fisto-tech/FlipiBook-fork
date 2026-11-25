@@ -73,6 +73,8 @@ export const usePageManager = ({
   };
 
   const undo = () => {
+    // While drawing with the Pen, Undo removes the last point only
+    if (window.__penPointHistory?.undo?.()) return;
     if (history.length === 0) return;
 
     isUndoRedoActiveRef.current = true;
@@ -124,6 +126,8 @@ export const usePageManager = ({
   };
 
   const redo = () => {
+    // While drawing with the Pen, Redo brings back the last removed point
+    if (window.__penPointHistory?.redo?.()) return;
     if (redoStack.length === 0) return;
 
     isUndoRedoActiveRef.current = true;
@@ -264,14 +268,34 @@ export const usePageManager = ({
           newOverlay.setAttribute('fill', currentBg);
         }
 
+        const finalHtml = safeSerializeSvg(newDoc) || html;
+
+        pageCacheManager.invalidatePage(updated[index].id);
+        pageCacheManager.setCachedLayers(updated[index].id, finalHtml, layers);
+
         updated[index] = {
           ...updated[index],
-          html: safeSerializeSvg(newDoc) || html,
+          html: finalHtml,
           layers
         };
       }
       return updated;
     });
+
+    if (typeof document !== 'undefined') {
+      const liveSvg = document.querySelector(`.page-svg-container[data-page-index="${index}"] svg`);
+      if (liveSvg) {
+        Array.from(liveSvg.children).forEach(child => {
+          const name = child.getAttribute('data-name') || '';
+          const type = child.getAttribute('data-type') || '';
+          if (!name.includes('Overlay') && !name.includes('PDF Background') && type !== 'frame' && type !== 'background' && !['defs', 'metadata', 'style'].includes(child.tagName.toLowerCase())) {
+            child.remove();
+          }
+        });
+      }
+      document.querySelectorAll('.selection-overlay-layer polygon, [id^="overlay-poly-"], [id^="highlight-overlay-html-"]').forEach(el => el.remove());
+    }
+
     setHasUnsavedChanges(true);
     setSelectedLayerId(null);
     setMultiSelectedIds(new Set());
@@ -354,7 +378,7 @@ export const usePageManager = ({
         v_id: newPageId,
         name: copyName,
         html: newHtml,
-        layers: pageToDuplicate.layers ? JSON.parse(JSON.stringify(pageToDuplicate.layers)) : []
+        layers: pageToDuplicate.layers ? structuredClone(pageToDuplicate.layers) : []
       };
       const updated = [...prev];
       updated.splice(index + 1, 0, newPage);

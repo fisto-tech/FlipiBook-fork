@@ -9,6 +9,7 @@ import { getAssetBaseUrl, getSupabaseBaseUrl, rewriteHtmlUploadsToSupabase } fro
 import { useAuth } from '../context/AuthContext';
 import { analyticsApi } from '../api/analyticsApi';
 import { TemplatePreview, COVER_TEMPLATES } from './FlipbookInfoModal';
+import { CUSTOM_FONT_FAMILIES } from '../utils/customFonts';
 
 
 // Lazy-load preview iframe: only fetches HTML when card is visible in viewport
@@ -1136,24 +1137,50 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
         currentBook?.shareAccess ||
         'public';
 
-    const rawAcc = String(accessVal).toLowerCase();
-    const accessPrefix = 
-        (rawAcc.includes('private') && !rawAcc.includes('protect')) || rawAcc === 'private'
-            ? 'share=private'
-            : rawAcc.includes('password') || rawAcc.includes('protect')
-            ? 'share=password'
-            : rawAcc.includes('invite')
-            ? 'share=invite'
-            : 'share=public';
+    // Resolve fallback v_id from current URL if not present on currentBook (e.g. /editor/:folder/:v_id or /editor/:v_id or /customized_editor/:folder/:v_id)
+    let urlDerivedVId = '';
+    if (typeof window !== 'undefined') {
+        const pathSegments = window.location.pathname.split('/').filter(Boolean);
+        // Look for candidate 16+ hex or alphanumeric id segment
+        const idSegment = [...pathSegments].reverse().find(s => s && s !== 'editor' && s !== 'customized_editor' && s !== 'threed_editor' && s !== 'preview' && !isNaN(Number('0x' + s)) && s.length >= 8);
+        if (idSegment) {
+            urlDerivedVId = idSegment;
+        } else if (pathSegments.length > 0) {
+            const lastSeg = pathSegments[pathSegments.length - 1];
+            if (lastSeg && lastSeg !== 'editor' && lastSeg !== 'customized_editor') {
+                urlDerivedVId = lastSeg;
+            }
+        }
+    }
+
+    // Resolve the flipbook's public identifier (shareId or v_id)
+    const targetVId = 
+        currentBook?.v_id || 
+        currentBook?.id || 
+        currentBook?._id || 
+        currentBook?.realName || 
+        (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('v_id') : '') ||
+        urlDerivedVId ||
+        '';
 
     const shareIdVal = 
         currentBook?.Customized_Settings?.Visibility?.shareId || 
         currentBook?.Visibility?.shareId || 
-        (currentBook?.share?.shareId && currentBook.share.shareId !== currentBook?.v_id ? currentBook.share.shareId : null) || 
-        (currentBook?.shareId && currentBook.shareId !== currentBook?.v_id ? currentBook.shareId : null) || 
-        '';
+        currentBook?.share?.shareId || 
+        currentBook?.shareId || 
+        (typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('shareId') || '') : '') ||
+        targetVId;
 
-    let publicUrl = `${window.location.origin}/${accessPrefix}/${shareIdVal}`;
+    // Prefer constructed clean share URL if shareIdVal is known; otherwise fallback to flipbookUrl or origin/share
+    let publicUrl = (shareIdVal ? `${window.location.origin}/share/${shareIdVal}` : '') || flipbookUrl || `${window.location.origin}/share`;
+    // If publicUrl has old visibility prefix format, sanitize it
+    if (publicUrl && publicUrl.includes('/share=')) {
+        publicUrl = publicUrl.replace(/\/share=[^/]+\//, '/share/');
+    }
+    // If publicUrl ended up as just /share/, strip the trailing slash
+    if (publicUrl.endsWith('/share/')) {
+        publicUrl = publicUrl.slice(0, -1);
+    }
 
     if (activeLayout) {
         try {
@@ -1525,9 +1552,9 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                 <div className="flex items-center justify-start gap-[1cqw] flex-wrap">
                                     {/* Embed */}
                                     <div
-                                        onClick={() => setShowEmbedCode(!showEmbedCode)}
-                                        title="Toggle Embed Code"
-                                        className={`w-[4cqw] h-[4cqw] rounded-[0.8cqw] border flex items-center justify-center transition-all cursor-pointer shadow-sm group ${showEmbedCode ? 'bg-gray-100 border-gray-400' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}
+                                        onClick={() => { if (isBookPublished) setShowEmbedCode(!showEmbedCode); }}
+                                        title={isBookPublished ? "Toggle Embed Code" : "Publish flipbook to get the embed code"}
+                                        className={`w-[4cqw] h-[4cqw] rounded-[0.8cqw] border flex items-center justify-center transition-all shadow-sm group ${!isBookPublished ? 'opacity-40 cursor-not-allowed border-gray-200' : showEmbedCode ? 'cursor-pointer bg-gray-100 border-gray-400' : 'cursor-pointer border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}
                                     >
                                         <Icon icon="lucide:code-2" className={`w-[1.8cqw] h-[1.8cqw] ${showEmbedCode ? 'text-gray-800' : 'text-gray-600'} transition-transform`} />
                                     </div>
@@ -1578,7 +1605,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                 </div>
 
                                 {/* Embed Code smoothly expanding */}
-                                <div className={`grid transition-all duration-300 ease-in-out ${showEmbedCode ? 'grid-rows-[1fr] opacity-100 mt-[1cqw]' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+                                <div className={`grid transition-all duration-300 ease-in-out ${showEmbedCode && isBookPublished ? 'grid-rows-[1fr] opacity-100 mt-[1cqw]' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
                                     <div className="overflow-hidden flex flex-col gap-[1cqw]">
                                         <div className="flex items-center gap-[1cqw]">
                                             <h3 className="text-[1.2cqw] font-bold text-gray-800 whitespace-nowrap">Embed Code</h3>
@@ -1866,9 +1893,9 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                     <div className="flex items-center gap-[0.6vw]">
                                         {/* Embed */}
                                         <div
-                                            onClick={() => setShowEmbedCode(!showEmbedCode)}
-                                            title="Toggle Embed Code"
-                                            className={`w-[2.8vw] h-[2.8vw] rounded-[0.5vw] border flex items-center justify-center transition-all cursor-pointer shadow-sm group ${showEmbedCode ? 'bg-gray-100 border-gray-400' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}
+                                            onClick={() => { if (isBookPublished) setShowEmbedCode(!showEmbedCode); }}
+                                            title={isBookPublished ? "Toggle Embed Code" : "Publish flipbook to get the embed code"}
+                                            className={`w-[2.8vw] h-[2.8vw] rounded-[0.5vw] border flex items-center justify-center transition-all shadow-sm group ${!isBookPublished ? 'opacity-40 cursor-not-allowed border-gray-200' : showEmbedCode ? 'cursor-pointer bg-gray-100 border-gray-400' : 'cursor-pointer border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}
                                         >
                                             <Icon icon="lucide:code-2" className={`w-[1.2vw] h-[1.2vw] ${showEmbedCode ? 'text-gray-800' : 'text-gray-600'} transition-transform`} />
                                         </div>
@@ -1919,7 +1946,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                                     </div>
 
                                     {/* Embed Code smoothly expanding */}
-                                    <div className={`grid transition-all duration-300 ease-in-out ${showEmbedCode ? 'grid-rows-[1fr] opacity-100 mt-[0.5vw]' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+                                    <div className={`grid transition-all duration-300 ease-in-out ${showEmbedCode && isBookPublished ? 'grid-rows-[1fr] opacity-100 mt-[0.5vw]' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
                                         <div className="overflow-hidden flex flex-col gap-[0.6vw]">
                                             <div className="flex items-center gap-[0.6vw]">
                                                 <h3 className="text-[0.8vw] font-bold text-gray-800 whitespace-nowrap">Embed Code</h3>
@@ -2989,7 +3016,7 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
                     const opacity = isT1 ? text1ColorOpacity : text2ColorOpacity;
                     const setOpacity = isT1 ? setText1ColorOpacity : setText2ColorOpacity;
 
-                    const fontFamilies = ['Poppins', 'Inter', 'Roboto', 'Outfit', 'Montserrat', 'Playfair Display'];
+                    const fontFamilies = ['Poppins', 'Inter', 'Roboto', 'Outfit', 'Montserrat', 'Playfair Display', ...CUSTOM_FONT_FAMILIES];
                     const fontSizes = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 64];
                     const fontWeights = ['Regular', 'Medium', 'Semi Bold', 'Bold', 'Black'];
 

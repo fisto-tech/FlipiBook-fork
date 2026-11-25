@@ -208,10 +208,7 @@ export const getPublicClientIpAndLocation = async () => {
 
   // 1. Primary Provider: api4.ipify.org (strictly IPv4-only A-record endpoint)
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch('https://api4.ipify.org?format=json', { signal: controller.signal });
-    clearTimeout(timer);
+    const res = await fetch('https://api4.ipify.org?format=json', { signal: AbortSignal.timeout(2000) });
     if (res.ok) {
       const data = await res.json();
       if (data.ip && isIPv4(data.ip)) {
@@ -223,10 +220,7 @@ export const getPublicClientIpAndLocation = async () => {
   // 2. Secondary Provider: ipv4.icanhazip.com (Cloudflare IPv4-only edge)
   if (!detectedIpv4) {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch('https://ipv4.icanhazip.com', { signal: controller.signal });
-      clearTimeout(timer);
+      const res = await fetch('https://ipv4.icanhazip.com', { signal: AbortSignal.timeout(2000) });
       if (res.ok) {
         const text = await res.text();
         if (text && isIPv4(text.trim())) {
@@ -239,10 +233,7 @@ export const getPublicClientIpAndLocation = async () => {
   // 3. Fallback Provider: v4.ident.me (Strictly IPv4)
   if (!detectedIpv4) {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch('https://v4.ident.me', { signal: controller.signal });
-      clearTimeout(timer);
+      const res = await fetch('https://v4.ident.me', { signal: AbortSignal.timeout(2000) });
       if (res.ok) {
         const text = await res.text();
         if (text && isIPv4(text.trim())) {
@@ -255,10 +246,7 @@ export const getPublicClientIpAndLocation = async () => {
   // 4. Fallback Provider: ipapi.co (only if it returns an IPv4)
   if (!detectedIpv4) {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch('https://ipapi.co/json/', { signal: controller.signal });
-      clearTimeout(timer);
+      const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(2000) });
       if (res.ok) {
         const data = await res.json();
         if (data.ip && isIPv4(data.ip) && !data.error) {

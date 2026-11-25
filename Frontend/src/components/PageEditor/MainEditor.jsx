@@ -29,7 +29,7 @@ import { useSelectionOverlays } from './mainEditor/hooks/useSelectionOverlays';
 import { useInteractEngine } from './mainEditor/hooks/useInteractEngine';
 import { convertTextToForeignObject } from './mainEditor/utils/textConversionUtils';
 // Encapsulated in useCanvasPointerEvents
-import { useCanvasZoomPan } from './mainEditor/hooks/useCanvasZoomPan';
+import { useCanvasZoomPan, computePanBounds } from './mainEditor/hooks/useCanvasZoomPan';
 import { alignSelectedElements } from './mainEditor/utils/alignmentUtils';
 import { useCanvasTransforms } from './mainEditor/hooks/useCanvasTransforms';
 import { useCanvasAssetInsertion } from './mainEditor/hooks/useCanvasAssetInsertion';
@@ -39,10 +39,11 @@ import { useCanvasContextMenuAndBadges } from './mainEditor/hooks/useCanvasConte
 import { useCanvasPointerEvents } from './mainEditor/hooks/useCanvasPointerEvents';
 import { CanvasViewport } from './mainEditor/components/CanvasViewport';
 import { FloatingToolbars } from './mainEditor/components/FloatingToolbars';
+import { executeInlineTranslation } from './utils/inlineTranslationHelper';
 import {
   LeftActionMenu,
   AddElementsModal,
-  StylesModal,
+  ImagesModal,
   IconsModal
 } from './LeftActionMenu';
 import { getTopLevelFrames, hitTest as hitTestExt, isPageRootElement } from './mainEditor/utils/frameHierarchyUtils';
@@ -151,18 +152,25 @@ const MainEditor = ({
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null); // Track which page's menu is open
   const [isElementsModalOpen, setIsElementsModalOpen] = useState(false);
-  const [isStylesModalOpen, setIsStylesModalOpen] = useState(false);
+  const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
   const [isIconsModalOpen, setIsIconsModalOpen] = useState(false);
 
 
   const isConvertedFlipbook = Boolean(isPdfProject || (pages && pages.some(p => p.html && (p.html.includes('PDF Background') || p.html.includes('pdf-vector-layer') || p.html.includes('Document Shield')))));
   const isPdfMode = Boolean(isPdfProject || isConvertedFlipbook);
 
+  // Converted PDF / DOC / PPT books: Ruler and Trim View don't apply — keep them off (saved prefs untouched)
+  useEffect(() => {
+    if (!isConvertedFlipbook) return;
+    if (localTrimView) setLocalTrimView(false);
+    if (localRulerEnabled) setLocalRulerEnabled(false);
+  }, [isConvertedFlipbook, localTrimView, localRulerEnabled]);
+
   const pdfDefaultsSetRef = useRef(false);
   useEffect(() => {
     if (isConvertedFlipbook) {
       setIsElementsModalOpen(false);
-      setIsStylesModalOpen(false);
+      setIsImagesModalOpen(false);
       setIsIconsModalOpen(false);
       if (!pdfDefaultsSetRef.current) {
         if (setActiveTopTool) setActiveTopTool('interaction');
@@ -261,7 +269,7 @@ const MainEditor = ({
     activeTopToolRef.current = activeTopTool;
     if (activeTopTool === 'interaction' || activeTopTool === 'animation') {
       setIsElementsModalOpen(false);
-      setIsStylesModalOpen(false);
+      setIsImagesModalOpen(false);
       setIsIconsModalOpen(false);
       if (marqueeOverlayRef1.current) {
         marqueeOverlayRef1.current.style.display = 'none';
@@ -636,6 +644,33 @@ const MainEditor = ({
     return () => window.removeEventListener('editor-canva-color-changed', onCanvaColorChange);
   }, []);
 
+  // ── Inline Text Translation Event Listener ──
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__selectedLayerId = selectedLayerId;
+    }
+  }, [selectedLayerId]);
+
+  useEffect(() => {
+    const handleTriggerInlineTranslate = async (e) => {
+      const { targetLang = 'tam_Taml', layerId = null } = e?.detail || {};
+      await executeInlineTranslation({
+        targetLang,
+        layerId: layerId || selectedLayerId,
+        activePageIndex,
+        saveModifiedPageHtml,
+        onComplete: (translatedText) => {
+          console.log('[MainEditor] Text translated successfully:', translatedText?.slice(0, 30));
+        },
+        onError: (err) => {
+          console.warn('[MainEditor] Text translation warning:', err);
+        }
+      });
+    };
+    window.addEventListener('trigger-inline-translate', handleTriggerInlineTranslate);
+    return () => window.removeEventListener('trigger-inline-translate', handleTriggerInlineTranslate);
+  }, [activePageIndex, selectedLayerId, saveModifiedPageHtml]);
+
   const computedCanvaBackground = useMemo(() => {
     if (isPopupEditor) return 'transparent';
     if (!canvaColor) return '#E6E7E7';
@@ -665,6 +700,7 @@ const MainEditor = ({
     setMultiSelectedIds,
     pages,
     drawOverlayHighlight,
+    drawMultiSelectionHighlight,
     setActiveMainTool,
     setSelectedShapeTool,
     selectedShapeTool
@@ -865,6 +901,8 @@ const MainEditor = ({
       // Clear pen tool nodes and Vectra overlay on tool switch
       document.querySelectorAll('.pen-tool-node').forEach(n => n.remove());
       if (activeMainTool !== 'pen' || selectedPenTool !== 'pen') {
+        // Leaving the pen: end its node-edit session too (left on, it hides every selection's handles)
+        if (nodeEditModeRef.current) exitNodeEditMode();
         vectraPenSessionRef.current.reset();
         clearVectraOverlay(activePageIndex);
         document.querySelectorAll('[id^="highlight-overlay-"]').forEach(overlay => {
@@ -915,12 +953,48 @@ const MainEditor = ({
 
 
 
+  // ── Handle watchdog: a single selection always gets its resize dots ─────────────────────
+  // Insertions (images, uploads), tool switches and page re-renders can wipe the HTML handle layer
+  // after the selection box was drawn. If the box is there but its dots are not, redraw them.
+  useEffect(() => {
+    if (!selectedLayerId || activeTopTool !== 'editor') return undefined;
+    if (multiSelectedIds && multiSelectedIds.size > 1) return undefined;
+    const id = selectedLayerId;
+    const check = () => {
+      if (nodeEditModeRef.current || window.__isAdjustingShapeImage) return;
+      const body = document.body;
+      if (body.classList.contains('dragging-active') || body.classList.contains('shape-adjust-active') ||
+        body.classList.contains('screen-color-picking')) return;
+      if (document.querySelector('[data-dragging="true"]')) return;
+      const el = document.getElementById(id);
+      if (!el || !el.isConnected) return;
+      if (isEditingTextRef.current && el.querySelector?.('[data-editing="true"], [contenteditable="true"]')) return;
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+      const hasBox = document.querySelector(`[id="overlay-poly-selected-${esc}"], [id="overlay-poly-child-selected-${esc}"]`);
+      if (!hasBox) return; // nothing selectable drawn (locked, background, frame…)
+      if (document.querySelector(`[id^="resize-handle-${esc}-"]`)) return;
+      const fn = drawOverlayHighlightRef.current || drawOverlayHighlight;
+      if (typeof fn === 'function') {
+        fn(el, el.getAttribute('data-child-selected') === 'true' ? 'child-selected' : 'selected');
+      }
+    };
+    const timers = [80, 300, 800].map((ms) => setTimeout(check, ms));
+    const iv = setInterval(check, 700);
+    return () => { timers.forEach(clearTimeout); clearInterval(iv); };
+  }, [selectedLayerId, multiSelectedIds, activeTopTool, pages]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Sync refs and perform page-level DOM highlights ──────────────────────────
   useEffect(() => {
     if (activeTopTool === 'interaction' || activeTopTool === 'animation') {
       if (nodeEditModeRef.current) {
         exitNodeEditMode();
       }
+    }
+
+    // A node-edit session whose path is gone or no longer selected is stale — end it so handles show
+    if (nodeEditModeRef.current && activeMainTool !== 'pen') {
+      const nPath = nodeEditPathRef.current;
+      if (!nPath || !nPath.isConnected || (selectedLayerId && nPath.id !== selectedLayerId)) exitNodeEditMode();
     }
 
     // Suppress regular selection box and resize handles when in Path Node Edit Mode or Shape Image Adjust Mode
@@ -1148,6 +1222,16 @@ const getDraggableElement = (target, canvasRoot) => {
         titleGroup.id = `title-${Date.now()}`;
       }
       return titleGroup;
+    }
+
+    // Icons are single compound elements (hit-box + icon paths); always select the whole icon group,
+    // never its transparent hit-box rect (styling that rect draws a box around the icon)
+    const iconGroup = current && typeof current.closest === 'function' ? current.closest('g[data-type="icon"]') : null;
+    if (iconGroup) {
+      if (!iconGroup.id) {
+        iconGroup.id = `icon-${Date.now()}`;
+      }
+      return iconGroup;
     }
 
     // Decorator elements are single compound elements; always drag/select the whole decorator group
@@ -1581,20 +1665,14 @@ const getDraggableElement = (target, canvasRoot) => {
 
             if (!editorContainerRef.current) return;
 
-            const containerWidth = editorContainerRef.current.clientWidth;
-            const containerHeight = editorContainerRef.current.clientHeight;
-
-            const baseVhHeight = window.innerHeight * 0.78;
             const currentScale = zoom / 100;
-
-            const bounds = getCanvasBounds(null, baseWidth, baseHeight);
-            const canvasWidthMM = bounds.canvasWidthMM || 1600;
-
-            const scaledCanvasW = (baseVhHeight * (canvasWidthMM / baseHeight)) * currentScale;
-            const scaledCanvasH = (baseVhHeight * (1000 / baseHeight)) * currentScale;
-
-            const maxPanX = Math.max(containerWidth * 1.5, scaledCanvasW);
-            const maxPanY = Math.max(containerHeight * 1.5, scaledCanvasH);
+            const { maxPanX, maxPanY } = computePanBounds(
+              editorContainerRef.current,
+              zoomContainerRef.current,
+              currentScale,
+              baseWidth,
+              baseHeight
+            );
 
             const boundedX = Math.min(Math.max(newX, -maxPanX), maxPanX);
             const boundedY = Math.min(Math.max(newY, -maxPanY), maxPanY);
@@ -1751,6 +1829,10 @@ const getDraggableElement = (target, canvasRoot) => {
             }
           }}
           onMouseMove={(e) => {
+            // The page container (CanvasViewport) already handled moves over the page. Re-running
+            // here would resolve the wrong <svg> (first one in this div, e.g. a LeftActionMenu icon)
+            // and wipe the hover box that was just drawn.
+            if (e.target?.closest?.('[id^="canvas-content-"]')) return;
             if (handleSvgMouseMove) {
               handleSvgMouseMove(activePageIndex, e);
             }
@@ -1803,27 +1885,38 @@ const getDraggableElement = (target, canvasRoot) => {
               activeMainTool={activeMainTool}
               baseWidth={baseWidth}
               baseHeight={baseHeight}
+              isImagesModalOpen={isImagesModalOpen}
+              onToggleImagesModal={() => {
+                setIsElementsModalOpen(false);
+                setIsIconsModalOpen(false);
+                setIsImagesModalOpen(prev => !prev);
+              }}
+              onCloseImagesModal={() => setIsImagesModalOpen(false)}
               isElementsModalOpen={isElementsModalOpen}
               onToggleElementsModal={() => {
-                setIsStylesModalOpen(false);
+                setIsImagesModalOpen(false);
                 setIsIconsModalOpen(false);
                 setIsElementsModalOpen(prev => !prev);
               }}
               onCloseElementsModal={() => setIsElementsModalOpen(false)}
-              isStylesModalOpen={isStylesModalOpen}
-              onToggleStylesModal={() => {
-                setIsElementsModalOpen(false);
-                setIsIconsModalOpen(false);
-                setIsStylesModalOpen(prev => !prev);
-              }}
-              onCloseStylesModal={() => setIsStylesModalOpen(false)}
               isIconsModalOpen={isIconsModalOpen}
               onToggleIconsModal={() => {
+                setIsImagesModalOpen(false);
                 setIsElementsModalOpen(false);
-                setIsStylesModalOpen(false);
                 setIsIconsModalOpen(prev => !prev);
               }}
               onCloseIconsModal={() => setIsIconsModalOpen(false)}
+            />
+          )}
+
+          {/* Draggable Images Modal */}
+          {!isPdfMode && (
+            <ImagesModal
+              isOpen={isImagesModalOpen}
+              onClose={() => setIsImagesModalOpen(false)}
+              isRulerEnabled={localRulerEnabled}
+              activePageIndex={activePageIndex}
+              dragConstraintsRef={editorContainerRef}
             />
           )}
 
@@ -1846,18 +1939,6 @@ const getDraggableElement = (target, canvasRoot) => {
               setActiveMainTool={setActiveMainTool}
               baseWidth={baseWidth}
               baseHeight={baseHeight}
-              dragConstraintsRef={editorContainerRef}
-            />
-          )}
-
-          {/* Draggable Styles Modal */}
-          {!isPdfMode && (
-            <StylesModal
-              isOpen={isStylesModalOpen}
-              onClose={() => setIsStylesModalOpen(false)}
-              isRulerEnabled={localRulerEnabled}
-              activePageIndex={activePageIndex}
-              saveModifiedPageHtml={saveModifiedPageHtml}
               dragConstraintsRef={editorContainerRef}
             />
           )}

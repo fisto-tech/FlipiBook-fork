@@ -4,6 +4,7 @@ import backgroundComponents from './Backgrounds';
 import animationComponents from './Animations';
 import * as BookAppearanceHelpers from './utils/bookAppearanceHelpers';
 import { resolveUploadsPath } from '../../utils/assets/assetUtils';
+import PreloaderOverlay from './components/PreloaderOverlay';
 
 import { LAYOUT_DEFAULT_COLORS } from './utils/layoutColors';
 import LeadFormPopup from './popups/LeadFormPopup';
@@ -28,6 +29,7 @@ const PreviewArea = React.memo(({
     logoSettings: incomingLogoSettingsProp,
     watermarkSettings: watermarkSettingsProp,
     leadFormSettings: incomingLeadFormSettingsProp,
+    onUpdateLeadForm,
     settings: incomingSettings,
     profileSettings: profileSettingsProp,
     zoom = 1.0,
@@ -56,6 +58,8 @@ const PreviewArea = React.memo(({
     shareId: incomingShareId,
     currentBook: currentBookProp,
     baseUrl,
+    onBookReady,
+    preloaderSettings: incomingPreloaderSettingsProp,
 }) => {
     const customizerRedux = useCustomizerState();
     const activeBookRedux = useActiveBook();
@@ -72,14 +76,22 @@ const PreviewArea = React.memo(({
     const menuBarSettings = menuBarSettingsProp || customizerRedux.menuBarSettings;
     const profileSettings = profileSettingsProp || customizerRedux.profileSettings;
     const watermarkSettings = watermarkSettingsProp || customizerRedux.watermarkSettings;
+    const preloaderSettings = incomingPreloaderSettingsProp || customizerRedux.preloaderSettings || incomingSettings?.preloader || incomingSettings?.preloaderSettings || incomingSettings?.Branding?.preloaderSettings || currentBook?.Customized_Settings?.Branding?.preloaderSettings;
 
     const [processedLogoSrc, setProcessedLogoSrc] = useState(incomingLogoSettings?.src || '');
     const [isInitialPreparing, setIsInitialPreparing] = useState(true);
 
+    const handleBookReady = useCallback(() => {
+        setIsInitialPreparing(false);
+        if (typeof onBookReady === 'function') {
+            onBookReady();
+        }
+    }, [onBookReady]);
+
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsInitialPreparing(false);
-        }, 1800);
+        }, 3000);
         return () => clearTimeout(timer);
     }, []);
 
@@ -389,7 +401,6 @@ const PreviewArea = React.memo(({
     const containerRef = useRef();
     const screenRef = useRef();
     const isFlippingRef = useRef(false);
-    const lastPreviewOpen = useRef(otherSetupSettings?.gallery?.previewOpen);
 
     const activeDevice = activeDeviceProp; // Desktop, Tablet, Mobile
     const isPortraitLayout = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
@@ -865,12 +876,7 @@ const PreviewArea = React.memo(({
         return finalPages;
     }, [pages, bookAppearanceSettings?.transparentSheets]);
 
-    useEffect(() => {
-        if (!disableAutoGallery && !isPublishedPreview && otherSetupSettings?.gallery?.previewOpen && otherSetupSettings.gallery.previewOpen !== lastPreviewOpen.current) {
-            setShowGalleryPopup(true);
-            lastPreviewOpen.current = otherSetupSettings.gallery.previewOpen;
-        }
-    }, [otherSetupSettings?.gallery?.previewOpen, isPublishedPreview, disableAutoGallery]);
+
 
     // Sync current page with targetPage prop (from PageEditor's activePageIndex or direct URL)
     useEffect(() => {
@@ -920,6 +926,7 @@ const PreviewArea = React.memo(({
         }
     }, [externalShowTOC]);
     const [showExportPopup, setShowExportPopup] = useState(false);
+    const [isAutoDownloadPDF, setIsAutoDownloadPDF] = useState(false);
     const [showSharePopup, setShowSharePopup] = useState(false);
     const [showProfilePopup, setShowProfilePopup] = useState(false);
 
@@ -1340,7 +1347,8 @@ const PreviewArea = React.memo(({
     const handleDownload = useCallback(() => {
         // Close share popup first
         setShowSharePopup(false);
-        // Open export/download popup after the call stack
+        // Automatically download PDF directly without opening the export modal
+        setIsAutoDownloadPDF(true);
         setTimeout(() => setShowExportPopup(true), 0);
     }, []);
 
@@ -1766,7 +1774,8 @@ const PreviewArea = React.memo(({
         isTurnJs,
         physicalZoom: actualPhysicalZoom,
         watermarkSettings,
-        style: interactionZoomStyle
+        style: interactionZoomStyle,
+        onBookReady: handleBookReady,
     }), [
         augmentedPages, incomingVId, incomingVIdProp, currentBook?.v_id,
         WIDTH, HEIGHT, baseDimensions, flipTime, flipStyle, useHardCover,
@@ -1775,7 +1784,8 @@ const PreviewArea = React.memo(({
         textureStyle, shadowActive, shadowStyle, shadowFilter, currentPage,
         isSinglePage, onPageClick, settings, setShowViewBookmarkPopup,
         memoizedBuildPageDoc, activeLayout, interactionZoom, activeTooltip,
-        isTurnJs, actualPhysicalZoom, watermarkSettings, interactionZoomStyle
+        isTurnJs, actualPhysicalZoom, watermarkSettings, interactionZoomStyle,
+        handleBookReady
     ]);
 
 
@@ -1788,14 +1798,42 @@ const PreviewArea = React.memo(({
     }, [activeSubView]);
 
     const prevEnabledRef = useRef(leadFormSettings?.enabled);
+    const prevTemplateKeyRef = useRef(leadFormSettings?._previewKey);
+    const prevManualPreviewRef = useRef(leadFormSettings?._manualPreview);
     useEffect(() => {
         const currentEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
         const prevEnabled = prevEnabledRef.current === true || prevEnabledRef.current === 'true';
+        const templateChanged = leadFormSettings?._previewKey && leadFormSettings?._previewKey !== prevTemplateKeyRef.current;
+        
+        // When a template is selected or preview key changes, reset submitted and show form
+        if (templateChanged) {
+            prevTemplateKeyRef.current = leadFormSettings._previewKey;
+            prevManualPreviewRef.current = true;
+            prevEnabledRef.current = leadFormSettings?.enabled;
+            setLeadFormSubmitted(false);
+            setShowLeadForm(true);
+            return;
+        }
+
+        // Handle explicit manual preview toggle from the eye icon
+        if (leadFormSettings?._manualPreview !== undefined && leadFormSettings?._manualPreview !== prevManualPreviewRef.current) {
+            prevManualPreviewRef.current = leadFormSettings._manualPreview;
+            if (leadFormSettings._manualPreview === false) {
+                setShowLeadForm(false);
+            } else if (leadFormSettings._manualPreview === true) {
+                setLeadFormSubmitted(false);
+                setShowLeadForm(true);
+            }
+            return;
+        }
+
         if (currentEnabled && !prevEnabled && !isPublishedPreview) {
             setLeadFormSubmitted(false);
+            setShowLeadForm(true);
         }
         prevEnabledRef.current = leadFormSettings?.enabled;
-    }, [leadFormSettings?.enabled, isPublishedPreview]);
+        prevTemplateKeyRef.current = leadFormSettings?._previewKey;
+    }, [leadFormSettings?.enabled, leadFormSettings?._previewKey, leadFormSettings?._manualPreview, isPublishedPreview]);
 
     useEffect(() => {
         const isEnabled = leadFormSettings?.enabled === true || leadFormSettings?.enabled === 'true';
@@ -1811,6 +1849,10 @@ const PreviewArea = React.memo(({
 
         const isLeadFormTabActive = (activeSubView || '').toLowerCase() === 'leadform';
         if (isLeadFormTabActive && !leadFormSubmitted) {
+            if (leadFormSettings?._manualPreview === false) {
+                setShowLeadForm(false);
+                return;
+            }
             setShowLeadForm(true);
             return;
         }
@@ -2336,6 +2378,8 @@ const PreviewArea = React.memo(({
             setShowSharePopup={setShowSharePopup}
             showExportPopup={showExportPopup}
             setShowExportPopup={setShowExportPopup}
+            isAutoDownloadPDF={isAutoDownloadPDF}
+            setIsAutoDownloadPDF={setIsAutoDownloadPDF}
             showProfilePopup={showProfilePopup}
             setShowProfilePopup={setShowProfilePopup}
             creatorProfileData={creatorProfileData}
@@ -2391,7 +2435,18 @@ const PreviewArea = React.memo(({
             notes={notes}
             isMobileLandscape={isMobileLandscape}
             leadFormSettings={leadFormSettings}
-            onOpenLeadForm={() => setShowLeadForm(true)}
+            watermarkSettings={watermarkSettings}
+            onOpenLeadForm={() => {
+                setLeadFormSubmitted(false);
+                setShowLeadForm(true);
+                if (onUpdateLeadForm && leadFormSettings?._manualPreview === false) {
+                    onUpdateLeadForm({
+                        ...leadFormSettings,
+                        _manualPreview: true,
+                        _previewKey: Date.now()
+                    });
+                }
+            }}
         />
     );
 
@@ -2536,11 +2591,11 @@ const PreviewArea = React.memo(({
 
             {(!['Tablet', 'Mobile'].includes(activeDevice) || (activeDevice === 'Tablet' && isPhysicalTablet) || (activeDevice === 'Mobile' && isPhysicalMobile)) && backgroundLayers}
 
-            {isInitialPreparing && (
-                <div style={{ position: 'absolute', inset: 0, zIndex: 99999, backgroundColor: '#1E1F24', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', transition: 'opacity 0.4s ease' }}>
-                    <div className="w-9 h-9 border-2 border-white/20 border-t-[#ea543a] rounded-full animate-spin" />
-                    <span style={{ color: '#fff', fontSize: '13px', fontWeight: 500, letterSpacing: '0.03em' }}>Preparing Flipbook…</span>
-                </div>
+            {isInitialPreparing && !onBookReady && (
+                <PreloaderOverlay
+                    isLoading={true}
+                    preloaderSettings={preloaderSettings}
+                />
             )}
 
             <DeviceLayoutRenderer
@@ -2614,6 +2669,14 @@ const PreviewArea = React.memo(({
                     onClose={() => {
                         setShowLeadForm(false);
                         setLeadFormSubmitted(true);
+                        if (onUpdateLeadForm) {
+                            onUpdateLeadForm({
+                                ...leadFormSettings,
+                                _manualPreview: false
+                            });
+                        } else if (leadFormSettings?._manualPreview === true) {
+                            leadFormSettings._manualPreview = false;
+                        }
                     }}
                 />
             )}

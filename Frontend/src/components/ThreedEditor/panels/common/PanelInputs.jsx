@@ -31,6 +31,7 @@ export function SliderRow({ label, value = 50, onChange }) {
 
 export function AxisInput({ axis, value = 0, onChange, step = 0.1, min, max, className = "" }) {
   const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef(null);
   const [textVal, setTextVal] = useState(() => {
     const num = Number(value) || 0;
     return String(Math.round(num * 100) / 100);
@@ -89,20 +90,24 @@ export function AxisInput({ axis, value = 0, onChange, step = 0.1, min, max, cla
     }
   };
 
-  // Mouse drag-scrub on axis label (X, Y, Z)
+  // Mouse drag-scrub on axis container (label or value input)
   const isDraggingRef = useRef(false);
+  const hasMovedRef = useRef(false);
   const dragStartXRef = useRef(0);
   const dragStartValRef = useRef(0);
 
-  const handleLabelPointerDown = (e) => {
-    e.preventDefault();
+  const startScrubbing = (clientX, initialVal) => {
     isDraggingRef.current = true;
-    dragStartXRef.current = e.clientX;
-    dragStartValRef.current = parseFloat(textVal) || Number(value) || 0;
+    hasMovedRef.current = false;
+    dragStartXRef.current = clientX;
+    dragStartValRef.current = initialVal;
 
     const onPointerMove = (ev) => {
       if (!isDraggingRef.current) return;
       const dx = ev.clientX - dragStartXRef.current;
+      if (Math.abs(dx) > 2) {
+        hasMovedRef.current = true;
+      }
       const multiplier = ev.shiftKey ? 0.02 : 0.05;
       const change = dx * multiplier * (step || 0.1);
       let nextVal = Math.round((dragStartValRef.current + change) * 100) / 100;
@@ -114,12 +119,56 @@ export function AxisInput({ axis, value = 0, onChange, step = 0.1, min, max, cla
 
     const onPointerUp = () => {
       isDraggingRef.current = false;
+      document.body.style.removeProperty("cursor");
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
 
+    document.body.style.cursor = "ew-resize";
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
+  };
+
+  const handleLabelPointerDown = (e) => {
+    e.preventDefault();
+    const currentNum = parseFloat(textVal) || Number(value) || 0;
+    startScrubbing(e.clientX, currentNum);
+  };
+
+  const handleInputPointerDown = (e) => {
+    // If already focused, let the user place caret or select text normally
+    if (isFocused) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const currentNum = parseFloat(textVal) || Number(value) || 0;
+    let dragThresholdPassed = false;
+
+    const onPreMove = (moveEv) => {
+      const dist = Math.hypot(moveEv.clientX - startX, moveEv.clientY - startY);
+      if (dist > 3) {
+        dragThresholdPassed = true;
+        window.removeEventListener("pointermove", onPreMove);
+        window.removeEventListener("pointerup", onPreUp);
+        startScrubbing(moveEv.clientX, currentNum);
+      }
+    };
+
+    const onPreUp = () => {
+      window.removeEventListener("pointermove", onPreMove);
+      window.removeEventListener("pointerup", onPreUp);
+      // Simple click without dragging -> focus and select input for direct typing
+      if (!dragThresholdPassed) {
+        setIsFocused(true);
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+      }
+    };
+
+    window.addEventListener("pointermove", onPreMove);
+    window.addEventListener("pointerup", onPreUp);
   };
 
   return (
@@ -136,14 +185,19 @@ export function AxisInput({ axis, value = 0, onChange, step = 0.1, min, max, cla
         {axis}
       </span>
       <input
+        ref={inputRef}
         type="text"
         inputMode="decimal"
         value={textVal}
+        onPointerDown={handleInputPointerDown}
         onFocus={() => setIsFocused(true)}
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="w-full text-right text-[0.74vw] font-normal text-gray-900 bg-transparent outline-none pl-[0.1vw] pr-[0.1vw] min-w-0"
+        title="Click to type, or drag horizontally to adjust"
+        className={`w-full text-right text-[0.74vw] font-normal text-gray-900 bg-transparent outline-none pl-[0.1vw] pr-[0.1vw] min-w-0 ${
+          isFocused ? "cursor-text" : "cursor-ew-resize select-none"
+        }`}
       />
     </div>
   );

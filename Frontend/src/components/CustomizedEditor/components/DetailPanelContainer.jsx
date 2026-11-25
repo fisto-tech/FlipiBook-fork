@@ -71,10 +71,21 @@ const DetailPanelContainer = ({
             }
             preloaderSettings={preloaderSettings}
             onUpdatePreloader={(newVal) =>
-              setPreloaderSettings((prev) => ({
-                ...(prev || {}),
-                ...(newVal || {}),
-              }))
+              setPreloaderSettings((prev) => {
+                const updated = {
+                  ...(prev || {}),
+                  ...(newVal || {}),
+                };
+                try {
+                  const pStr = JSON.stringify(updated);
+                  if (v_id) {
+                    sessionStorage.setItem(`flipibook_preloader_${v_id}`, pStr);
+                    localStorage.setItem(`flipibook_preloader_${v_id}`, pStr);
+                    localStorage.setItem(`customized_editor_branding_${v_id}`, JSON.stringify({ preloader: updated, preloaderSettings: updated, Branding: { preloaderSettings: updated } }));
+                  }
+                } catch (e) {}
+                return updated;
+              })
             }
             folder={folder}
             flipbookName={bookName}
@@ -133,6 +144,7 @@ const DetailPanelContainer = ({
             onUpdate={setMenuBarSettings}
             otherSettings={otherSetupSettings}
             onUpdateOther={setOtherSetupSettings}
+            bookAppearanceSettings={bookAppearanceSettings}
             pages={pages}
             folderName={folder}
             bookName={bookName}
@@ -151,6 +163,7 @@ const DetailPanelContainer = ({
             onBack={handleBack}
             settings={otherSetupSettings}
             onUpdate={setOtherSetupSettings}
+            bookAppearanceSettings={bookAppearanceSettings}
             folderName={folder}
             bookName={v_id || bookName}
             pages={pages}

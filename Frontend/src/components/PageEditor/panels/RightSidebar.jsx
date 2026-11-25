@@ -32,6 +32,8 @@ import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { normalizeForeignObjectNamespaces } from '../LeftActionMenu/Elements/utils/tableElementUtils';
 
+import { readIconPaint } from '../utils/iconPaint';
+import PenDefaultsPanel from '../properties/PenDefaultsPanel';
 const RightSidebar = ({
   isDoublePage,
   setIsDoublePage,
@@ -410,6 +412,23 @@ const RightSidebar = ({
 
   const selectedElementProps = useMemo(() => {
     if (!selectedLayerId) return null;
+
+    // Check live canvas DOM first: if the canvas container is mounted and element was removed, return null immediately
+    if (typeof document !== 'undefined') {
+      const pageContainer = document.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`);
+      if (pageContainer) {
+        let liveEl = null;
+        try {
+          liveEl = pageContainer.querySelector(`[id="${CSS.escape(selectedLayerId)}"]`);
+        } catch {
+          liveEl = document.getElementById(selectedLayerId);
+        }
+        if (!liveEl) {
+          return null;
+        }
+      }
+    }
+
     const page = pages[activePageIndex];
     if (page && page.html) {
       const parser = new DOMParser();
@@ -572,6 +591,16 @@ const RightSidebar = ({
           }
           if (parseFloat(strokeWidthStr) === 0 || isNaN(parseFloat(strokeWidthStr)) || strokeStyle === 'transparent' || strokeStyle === 'rgba(0, 0, 0, 0)') {
             strokeStyle = 'none';
+          }
+        }
+
+        // Icons: paint lives on the inner icon group/paths, not the outer <g> — read it from there
+        if (el.getAttribute('data-type') === 'icon' && el.tagName.toLowerCase() === 'g') {
+          const paint = readIconPaint(el);
+          if (paint) {
+            strokeStyle = paint.stroke;
+            fillStyle = paint.fill;
+            strokeWidthStr = paint.strokeWidth;
           }
         }
 
@@ -1544,6 +1573,11 @@ const RightSidebar = ({
                       )}
                     </div>
                   </div>
+                ) : activeMainTool === 'pen' && !isPdfProject ? (
+                  /* Pen tool active, nothing selected: pen tips + paint for the next path */
+                  <div className="flex flex-col p-[1.5vw] gap-[1.5vw]">
+                    <PenDefaultsPanel activePageIndex={activePageIndex} activeMainTool={activeMainTool} />
+                  </div>
                 ) : (
                   /* Page Properties (Default View) */
                   <PageProperties
@@ -1588,7 +1622,8 @@ const RightSidebar = ({
               setSelectedLayerId={setSelectedLayerId}
               selectedElement={(() => {
                 if (!selectedLayerId) return null;
-                const container = document.querySelector(`.page-svg-container [id="${selectedLayerId}"]`);
+                const safeId = (window.CSS && CSS.escape) ? CSS.escape(selectedLayerId) : selectedLayerId;
+                const container = document.querySelector(`.page-svg-container [id="${safeId}"]`);
                 const el = container || document.getElementById(selectedLayerId) || null;
                 if (!el) return null;
                 const name = el.getAttribute('data-name') || '';

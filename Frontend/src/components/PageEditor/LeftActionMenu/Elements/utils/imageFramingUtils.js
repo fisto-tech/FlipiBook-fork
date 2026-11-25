@@ -734,7 +734,9 @@ export const createImageFrameNode = (frameNameOrPreset, rawSvgOrCx, cxOrCy, cy) 
   }
 
   const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
-  let cleanSvg = (rawSvg || '').replace(/<\?xml.*?\?>/g, '');
+  let cleanSvg = (rawSvg || '')
+    .replace(/<\?xml.*?\?>/g, '')
+    .replace(/__FRAME_IMAGE__/g, DEFAULT_FRAME_IMAGE);
 
   // Scope pattern and image IDs to avoid SVG pattern ID collisions between multiple frames
   const idRegex = /id="(pattern[^"]*|image[^"]*)"/g;

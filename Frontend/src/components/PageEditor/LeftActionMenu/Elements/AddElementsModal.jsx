@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { X, Search } from 'lucide-react';
@@ -42,110 +41,8 @@ export const AddElementsModal = ({
   const [selectedCategory, setSelectedCategory] = useState('shapes');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Initial viewport coordinates for fixed portal positioning
-  const [modalPos, setModalPos] = useState({ x: 100, y: 70 });
-
   // Synchronized ruler state custom hook
   const [rulerActive] = useRulerState(isRulerEnabled);
-
-  // Dynamic drag constraints covering the full browser viewport (above layer, sidebar, top toolbar)
-  const [dragConstraints, setDragConstraints] = useState({
-    top: -50,
-    left: -200,
-    right: 1200,
-    bottom: 600,
-  });
-
-  // Calculate initial viewport position when modal opens next to the "Add Elements" button (below navbar)
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const nav = document.querySelector('nav');
-    const navbarBottom = nav ? nav.getBoundingClientRect().bottom : Math.round(window.innerHeight * 0.07);
-    const minAllowedTop = navbarBottom + 8;
-
-    const elementsBtn = document.querySelector('button[title="Add Elements"]');
-    const container = dragConstraintsRef?.current;
-    let initialX = 100;
-    let initialY = minAllowedTop + 10;
-
-    if (elementsBtn) {
-      const btnRect = elementsBtn.getBoundingClientRect();
-      initialX = Math.round(btnRect.right + 12);
-      initialY = Math.max(minAllowedTop, Math.round(btnRect.top));
-    } else if (container) {
-      const cRect = container.getBoundingClientRect();
-      initialX = Math.round(cRect.left + (rulerActive ? window.innerWidth * 0.062 : window.innerWidth * 0.05));
-      initialY = Math.max(minAllowedTop, Math.round(cRect.top + (rulerActive ? window.innerWidth * 0.022 : window.innerWidth * 0.01)));
-    }
-
-    setModalPos({ x: initialX, y: initialY });
-  }, [isOpen, rulerActive, dragConstraintsRef]);
-
-  // Compute travel constraints relative to modal's initial position across full window
-  const updateDragConstraints = useCallback(() => {
-    const modal = modalRef.current;
-    if (!modal) return;
-
-    const mRect = modal.getBoundingClientRect();
-
-    // Get current transform offset if already dragged
-    let currentX = 0;
-    let currentY = 0;
-    try {
-      const transform = window.getComputedStyle(modal).transform;
-      if (transform && transform !== 'none') {
-        const MatrixClass = window.DOMMatrixReadOnly || window.DOMMatrix || window.WebKitCSSMatrix;
-        if (MatrixClass) {
-          const matrix = new MatrixClass(transform);
-          currentX = matrix.m41;
-          currentY = matrix.m42;
-        }
-      }
-    } catch {
-      // fallback
-    }
-
-    // Modal's initial un-transformed position on screen
-    const baseLeft = mRect.left - currentX;
-    const baseTop = mRect.top - currentY;
-    const mWidth = mRect.width || 380;
-
-    // Detect navbar bottom boundary so modal never enters/covers the navbar
-    const nav = document.querySelector('nav');
-    const navbarBottom = nav ? nav.getBoundingClientRect().bottom : Math.round(window.innerHeight * 0.07);
-    const minAllowedTop = navbarBottom + 8;
-
-    // Up: can move up only until minAllowedTop (stops below Navbar, can float over Top Toolbar)
-    const maxUp = minAllowedTop - baseTop;
-    // Left: can move left to 10px from screen left (above Layer Sidebar)
-    const maxLeft = -(baseLeft - 10);
-    // Right: can move right across full window (above RightSidebar)
-    const maxRight = Math.max(50, window.innerWidth - baseLeft - mWidth - 10);
-    // Down: can move down until header remains accessible
-    const maxDown = Math.max(50, window.innerHeight - baseTop - 60);
-
-    setDragConstraints({
-      top: Math.min(0, maxUp),
-      left: Math.min(0, maxLeft),
-      right: maxRight,
-      bottom: maxDown,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const frameId = requestAnimationFrame(() => {
-      updateDragConstraints();
-    });
-
-    window.addEventListener('resize', updateDragConstraints);
-    return () => {
-      cancelAnimationFrame(frameId);
-      window.removeEventListener('resize', updateDragConstraints);
-    };
-  }, [isOpen, modalPos, updateDragConstraints]);
 
   const [recentElementIds, setRecentElementIds] = useState(getStoredRecentElementIds);
   const [isDraggingElement, setIsDraggingElement] = useState(false);
@@ -178,6 +75,35 @@ export const AddElementsModal = ({
       window.removeEventListener('mouseup', handleDragEndEvt);
     };
   }, []);
+
+  // Close panel when clicking outside (canvas, backdrop, outside editor)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDownOutside = (e) => {
+      // Don't close if clicking inside modal
+      if (modalRef.current && modalRef.current.contains(e.target)) {
+        return;
+      }
+      // Don't close if clicking the "Add Elements" button on the left sidebar
+      const elementsBtn = document.querySelector('button[title*="Add Elements"], button[title*="Elements"], [data-tool="elements"]');
+      if (elementsBtn && elementsBtn.contains(e.target)) {
+        return;
+      }
+      // Don't close while actively dragging an element from the modal onto the canvas
+      if (isDraggingElement || window.__isDraggingElementFromModal) {
+        return;
+      }
+      if (typeof onClose === 'function') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDownOutside, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDownOutside, true);
+    };
+  }, [isOpen, onClose, isDraggingElement]);
 
   const recordRecentElement = useCallback((item) => {
     if (!item || !item.id) return;
@@ -313,9 +239,17 @@ export const AddElementsModal = ({
     dragControls.start(e);
   };
 
-  if (typeof document === 'undefined') return null;
+  if (!isOpen) return null;
 
-  return createPortal(
+  const defaultPosition = {
+    left: rulerActive ? '6.2vw' : '5vw',
+    top: rulerActive ? '2.2vw' : '1vw',
+    right: 'auto',
+  };
+
+  const defaultClasses = 'absolute z-50 bg-white rounded-[0.75vw] border border-gray-300 shadow-[0_12px_45px_rgba(0,0,0,0.14)] flex flex-col overflow-hidden select-none transition-[left,top] duration-300 ease-in-out';
+
+  return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -326,7 +260,7 @@ export const AddElementsModal = ({
           dragControls={dragControls}
           dragMomentum={false}
           dragElastic={0}
-          dragConstraints={dragConstraints}
+          dragConstraints={dragConstraintsRef}
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{
             opacity: isDraggingElement ? 0 : 1,
@@ -334,41 +268,43 @@ export const AddElementsModal = ({
           }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{
-            duration: isDraggingElement ? 0.28 : 0.24,
-            ease: [0.16, 1, 0.3, 1],
+            duration: isDraggingElement ? 0.28 : 0.18,
+            ease: 'easeOut',
           }}
-          className="fixed z-[9999] bg-white rounded-[0.75vw] border border-gray-300 shadow-[0_12px_45px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden select-none"
+          data-modal="true"
+          className={defaultClasses}
           style={{
             width: '28.5vw',
             minWidth: '420px',
-            height: '75vh',
-            maxHeight: 'calc(100vh - 40px)',
-            left: modalPos.x,
-            top: modalPos.y,
+            height: '68vh',
+            maxHeight: '640px',
+            ...defaultPosition,
             pointerEvents: isDraggingElement ? 'none' : 'auto',
           }}
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
         >
-          {/* Top Header & Drag Handle Area */}
+          {/* 3vh Full-Width Sleek Gray Drag Bar */}
           <div
             onPointerDown={handleHeaderPointerDown}
-            className="px-[1.2vw] pt-[0.6vh] pb-[0.8vh] cursor-grab active:cursor-grabbing select-none"
+            className="w-full h-[3vh] min-h-[22px] bg-gradient-to-r from-[#E5E7EB] via-[#F3F4F6] to-[#E5E7EB] border-b border-gray-200/80 rounded-t-[0.75vw] flex items-center justify-center cursor-grab active:cursor-grabbing select-none shadow-xs transition-colors hover:brightness-95 flex-shrink-0"
+            style={{ touchAction: 'none' }}
+            title="Drag to move panel"
+          >
+            {/* Subtle Visual Drag Indicator */}
+            <div className="w-[3.5vw] min-w-[36px] h-[0.45vh] min-h-[3px] rounded-full bg-gray-400/80 shadow-xs pointer-events-none" />
+          </div>
+
+          {/* Top Header Area */}
+          <div
+            onPointerDown={handleHeaderPointerDown}
+            className="px-[1.2vw] pt-[0.8vh] pb-[0.8vh] cursor-grab active:cursor-grabbing select-none"
             style={{ touchAction: 'none' }}
           >
-            {/* Centered Six-Dot Drag Handle */}
-            <div className="flex justify-center items-center">
-              <div
-                className="flex items-center justify-center py-[0.1vh] px-[0.6vw] rounded-[0.35vw] text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-grab active:cursor-grabbing select-none"
-                title="Drag to move panel"
-              >
-                <Icon icon="ph:dots-six-bold" className="w-[1.3vw] h-[1.3vw] text-gray-400 hover:text-gray-600" />
-              </div>
-            </div>
-
             {/* Title & Close Row */}
-            <div className="flex items-start justify-between mt-[0.3vh]">
+            <div className="flex items-start justify-between">
               <div className="pointer-events-none">
                 <div className="flex items-center gap-[0.45vw]">
                   <Icon icon="ph:diamonds-four" className="w-[1.2vw] h-[1.2vw] text-gray-900" />
@@ -413,7 +349,11 @@ export const AddElementsModal = ({
             />
 
             {/* Right Elements Grid */}
-            <div className="flex-1 overflow-y-auto p-[0.6vw] flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden hover:[scrollbar-width:thin] hover:[&::-webkit-scrollbar]:block custom-scrollbar transition-all duration-200">
+            <div
+              data-scrollable="true"
+              onWheel={(e) => e.stopPropagation()}
+              className="flex-1 overflow-y-auto p-[0.6vw] flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden hover:[scrollbar-width:thin] hover:[&::-webkit-scrollbar]:block custom-scrollbar transition-all duration-200"
+            >
               {groupedBySubtopic ? (
                 <div className="flex flex-col gap-[2vh]">
                   {groupedBySubtopic.map(({ title, items }) => (
@@ -484,8 +424,7 @@ export const AddElementsModal = ({
           </div>
         </motion.div>
       )}
-    </AnimatePresence>,
-    document.body
+    </AnimatePresence>
   );
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 
+import { createScreenEyeDropper, canPickScreenColor } from '../utils/screenColorPicker';
 // Helper functions for color conversion
 export const hexToHsv = (hex) => {
   if (!hex || typeof hex !== "string") return { h: 0, s: 0, v: 100 };
@@ -235,8 +236,8 @@ export default function ColorPallet({ color = "#000000", onChange, opacity, onOp
             <button
               type="button"
               onClick={async () => {
-                if ('EyeDropper' in window) {
-                  const eyeDropper = new window.EyeDropper();
+                if (canPickScreenColor()) {
+                  const eyeDropper = createScreenEyeDropper();
                   try {
                     const result = await eyeDropper.open();
                     if (onChange) onChange(result.sRGBHex.toUpperCase());

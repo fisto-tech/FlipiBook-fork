@@ -248,6 +248,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
 
     const localOffset = React.useMemo(() => {
         if (offset === 0) return 0; // Use offset prop to respect single page mode
+        // Follow the offset sign from PreviewArea (set when a turn STARTS) so centring glides with the page
+        if (typeof offset === 'number') return offset < 0 ? -(dimWidth / 2) : (dimWidth / 2);
         // Shift left to center the front cover, shift right to center the back cover
         if (currentPage === 0) {
             return -(dimWidth / 2);
@@ -846,7 +848,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                 <div
                     className="transition-all duration-600 ease-in-out"
                     style={{
-                        transform: `translateX(${localOffset}px) scale(1)`,
+                        translate: `${localOffset}px 0`, transform: `scale(1)`,
+                        transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.6s ease-in-out',
                         transformOrigin: 'center center'
                     }}
                 >
@@ -1119,10 +1122,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                         setPageInputValue(String(currentPage + 1));
                                     }
                                 }}
-                                className={`${isTablet ? 'text-[0.75vw] mx-[0.3vw] px-[0.15vw] py-[0.1vw]' : 'text-[0.85vw] mx-[0.4vw] px-[0.2vw] py-[0.15vw]'} font-medium tracking-wide rounded-[0.25vw] outline-none text-center transition-colors shadow-inner`}
+                                className={`${isTablet ? 'text-[0.75vw] mx-[0.3vw] px-[0.15vw] py-[0.1vw]' : 'text-[0.85vw] mx-[0.4vw] px-[0.2vw] py-[0.15vw]'} font-medium tracking-wide rounded-[0.25vw] outline-none text-center transition-colors shadow-inner box-border`}
                                 style={{
                                     color: getLayoutColor('toolbar-text-main', '#FFFFFF'),
-                                    width: `${String(pages.length).length + 1.2}ch`,
+                                    width: `${Math.max(String(pageInputValue || '').length, String(pages.length || totalPages || 0).length) + 1.6}ch`,
+                                    minWidth: '3.2ch',
                                     backgroundColor: 'rgba(255,255,255,0.2)',
                                     border: `1px solid rgba(255,255,255,0.35)`
                                 }}

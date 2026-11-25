@@ -343,6 +343,15 @@ export const svgGlobalStyles = `
     transition: all 0.1s ease;
   }
 
+  /* Embeds (YouTube etc.): the first click selects the frame; once selected, clicks inside reach the
+     iframe so the video can play. The stroke overlay still catches its border for dragging. */
+  .page-svg-container svg g[data-type="embed-frame"][data-selected="true"]:not([data-dragging="true"]) > rect.svg-image-stroke-overlay {
+    pointer-events: stroke !important;
+  }
+  body.dragging-active .page-svg-container svg g[data-type="embed-frame"] > rect.svg-image-stroke-overlay {
+    pointer-events: all !important;
+  }
+
   /* Video & Iframe Scaling Fixes */
   foreignObject video {
     width: 100% !important;

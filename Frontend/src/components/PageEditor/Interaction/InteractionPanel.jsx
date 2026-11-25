@@ -2807,6 +2807,9 @@ const InteractionPanel = ({
     const id = idStr || el?.id || "";
     const name = el?.getAttribute?.("data-name") || "";
     const dataType = el?.getAttribute?.("data-type") || "";
+    if (dataType && ['icon', 'shape', 'button', 'text', 'image', 'video', 'audio', 'qrcode', 'table', 'table-frame', 'embed', 'embed-frame', 'map', 'slideshow', 'hotspot', 'decorator', 'group'].includes(dataType)) {
+      return false;
+    }
     if (dataType === "frame") return true;
     if (el?.tagName?.toLowerCase() === "svg") return true;
     if (/^(page|slide)\s*\d+/i.test(name) || name === "Overlay") return true;
@@ -2814,8 +2817,9 @@ const InteractionPanel = ({
     if (
       el?.parentElement?.tagName?.toLowerCase() === "svg" &&
       el?.tagName?.toLowerCase() === "g"
-    )
-      return true;
+    ) {
+      return !dataType && !id.startsWith('icon-') && !id.startsWith('shape-') && !id.startsWith('text-') && !id.startsWith('image-');
+    }
     return false;
   }, []);
 

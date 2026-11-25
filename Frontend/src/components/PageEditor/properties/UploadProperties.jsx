@@ -4,7 +4,6 @@ import {
   Image as ImageIcon,
   ChevronRight,
   Link,
-  FileText,
   Video
 } from 'lucide-react';
 import { Icon } from '@iconify/react';
@@ -220,8 +219,8 @@ const UploadProperties = ({ activePageIndex, setActiveMainTool }) => {
             You can import the following from a URL:
           </p>
 
-          {/* 3 Horizontal Mini Cards */}
-          <div className="grid grid-cols-3 gap-[0.4vw] my-[0.1vw]">
+          {/* 2 Horizontal Mini Cards */}
+          <div className="grid grid-cols-2 gap-[0.4vw] my-[0.1vw]">
             {/* Images */}
             <div className="bg-gray-50/80 border border-gray-200/80 rounded-[0.4vw] p-[0.45vw] flex items-center gap-[0.35vw]">
               <div className="w-[1.4vw] h-[1.4vw] rounded-[0.35vw] bg-blue-100/60 text-blue-600 flex items-center justify-center flex-shrink-0">
@@ -230,17 +229,6 @@ const UploadProperties = ({ activePageIndex, setActiveMainTool }) => {
               <div className="flex flex-col min-w-0">
                 <span className="text-[0.72vw] font-semibold text-gray-900 leading-tight">Images</span>
                 <span className="text-[0.62vw] text-gray-500 font-medium truncate">JPG, PNG, SVG</span>
-              </div>
-            </div>
-
-            {/* PDF */}
-            <div className="bg-gray-50/80 border border-gray-200/80 rounded-[0.4vw] p-[0.45vw] flex items-center gap-[0.35vw]">
-              <div className="w-[1.4vw] h-[1.4vw] rounded-[0.35vw] bg-red-100/60 text-red-500 flex items-center justify-center flex-shrink-0">
-                <FileText size="0.8vw" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[0.72vw] font-semibold text-gray-900 leading-tight">PDF</span>
-                <span className="text-[0.62vw] text-gray-500 font-medium truncate">PDF Docs</span>
               </div>
             </div>
 

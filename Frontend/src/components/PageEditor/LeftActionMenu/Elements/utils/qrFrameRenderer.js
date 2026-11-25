@@ -934,10 +934,25 @@ export async function preloadDefaultFrames() {
  */
 export function getCachedFrame(frameId, url = 'https://example.com') {
   const frameObj = QR_FRAMES.find(f => f.id === frameId) || QR_FRAMES[0];
+  // Reuse a cached render only if it encodes the SAME url with default styling. Matching on the frame
+  // alone returned another QR's image (e.g. one already given a real URL), so a newly added QR showed
+  // a different code until its own render replaced it.
+  const wanted = (url && String(url).trim()) ? String(url).trim() : 'https://example.com';
+  const wantedPayload = /^(https?:|mailto:|tel:|sms:)/i.test(wanted) ? wanted : `https://${wanted}`;
+  const isDefault = (val, def) => val === undefined || val === null || val === '' || val === def;
   for (const [k, v] of qrImageCache.entries()) {
     try {
       const parsed = JSON.parse(k);
-      if (parsed.frame === frameId) {
+      if (
+        parsed.frame === frameId &&
+        parsed.url === wantedPayload &&
+        !parsed.logoSrc &&
+        isDefault(parsed.qrColor, '#000000') &&
+        isDefault(parsed.backdrop, '#FFFFFF') &&
+        isDefault(parsed.patternStyle, 'classic-square') &&
+        isDefault(parsed.eyeFrame, 'classic-square') &&
+        isDefault(parsed.eyeBall, 'square')
+      ) {
         return v;
       }
     } catch (_) {}

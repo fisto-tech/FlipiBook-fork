@@ -64,7 +64,11 @@ export const SPINE_SHADOW_EDGE = { left: 'right', right: 'left', cover: 'left', 
 export const getSpineShadowType = (pageIdx, pages = []) => {
     if (pageIdx === 0) return 'cover';
     const total = pages.length;
-    const isLast = pageIdx === total - 1 || (pageIdx === total - 2 && pages[pageIdx + 1]?.isPad);
+    // Back cover only for a real final page. With an odd page count a transparent pad follows the
+    // real last page, which is then a normal right-hand page of the spread (needs its spine shadow).
+    // Back cover only when the final page sits on the LEFT (odd index → even page count).
+    // With an odd page count the final page is a right-hand page of a spread: no back cover.
+    const isLast = pageIdx === total - 1 && pageIdx % 2 === 1 && !pages[pageIdx]?.isPad;
     if (isLast) return 'backCover';
     return pageIdx % 2 === 0 ? 'right' : 'left';
 };
@@ -186,6 +190,8 @@ export const cleanStaticHtml = (html) => {
             updatedAttrs = updatedAttrs.replace(/\bheight=["'][^"']*["']/i, 'height="100%"');
             if (!/width="100%"/.test(updatedAttrs)) updatedAttrs += ' width="100%"';
             if (!/height="100%"/.test(updatedAttrs)) updatedAttrs += ' height="100%"';
+            // Fill the page edge to edge (default "meet" letterboxes a sub-pixel white strip at the spine)
+            updatedAttrs = updatedAttrs.replace(/\bpreserveAspectRatio=["'][^"']*["']/i, '') + ' preserveAspectRatio="none"';
             return `<svg ${updatedAttrs}>`;
         });
 
@@ -227,6 +233,8 @@ export const sanitizePageHtmlForPreview = (html) => {
             }
             rootSvg.setAttribute('width', '100%');
             rootSvg.setAttribute('height', '100%');
+            // Fill the page edge to edge (default "meet" letterboxes a sub-pixel white strip at the spine)
+            rootSvg.setAttribute('preserveAspectRatio', 'none');
         }
 
         doc.querySelectorAll('iframe').forEach(iframe => {

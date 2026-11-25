@@ -467,15 +467,7 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
     const handleRadialWheel = (e) => {
         e.stopPropagation();
         if (e.cancelable) e.preventDefault();
-        setRadialScroll(prev => {
-            const shift = e.deltaY > 0 ? 1 : -1;
-            if (spreads.length <= 7) {
-                const nextFocus = activeSpreadIdx + prev + shift;
-                if (nextFocus < 0) return -activeSpreadIdx;
-                if (nextFocus > spreads.length - 1) return spreads.length - 1 - activeSpreadIdx;
-            }
-            return prev + shift;
-        });
+        setRadialScroll(prev => prev + (e.deltaY > 0 ? 1 : -1));
     };
 
     // Detect if the current book is a PDF project
@@ -575,18 +567,21 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
     );
 
     // Radial Dial Configuration (Shared between dial and preview)
-    // Always use the exact set of spreads â€” no repetition.
-    // Use a fixed compact angle step (26Â°) so segments stay near each other
-    // regardless of how few pages the book has. For large books (many spreads),
-    // scale the step down so segments don't overlap.
     const radialConfig = useMemo(() => {
         if (!spreads || spreads.length === 0) return { displaySpreads: [], angleStep: 26 };
 
-        const displaySpreads = [...spreads];
-        // Fixed compact step: ~26° keeps segments visually touching.
-        // Always use fixed spacing so pages don't get crushed when there are many pages!
-        const compactStep = 26;
-        const angleStep = compactStep;
+        // For books with few spreads (e.g. <= 14), repeat them so the 360-degree circle is completely populated without empty gaps
+        let displaySpreads = [...spreads];
+        if (spreads.length > 0 && spreads.length < 14) {
+            const repeatTimes = Math.ceil(14 / spreads.length);
+            const repeated = [];
+            for (let r = 0; r < repeatTimes; r++) {
+                repeated.push(...spreads);
+            }
+            displaySpreads = repeated;
+        }
+
+        const angleStep = 360 / displaySpreads.length;
 
         return { displaySpreads, angleStep };
     }, [spreads]);
@@ -897,6 +892,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                         const isBackCover = typeof offset === 'number' ? offset > 0 : (currentPage >= (pages?.length || 0) - 1 && (pages?.length || 0) % 2 === 0);
                         const isSinglePage = isCover || isBackCover || (pages?.length || 0) <= 1;
                         const bookHalfWidth = (isSinglePage ? 0.5 : 1) * dimWidth * responsiveScale;
+                        // Arrows sit at the spread position; the cover/back-cover shift is a GPU `translate` (no per-frame layout)
+                        const arrowShift = (isCover || isBackCover) && (pages?.length || 0) > 1 ? bookHalfWidth : 0;
                         const gap = isMobileLandscape ? 2.5 : isTablet ? 3 : 4;
                         return (
                             <>
@@ -905,10 +902,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                         className={`absolute top-1/2 -translate-y-1/2 ${isTablet ? 'w-[2vw] h-[2vw] ' : 'w-[3vw] h-[3vw]'} flex items-center justify-center group z-20 ${!hasPrev ? 'pointer-events-none' : 'cursor-pointer'}`}
                                         style={{
                                             color: getLayoutColor('toolbar-bg', '#555555'),
-                                            left: `calc(50% - ${bookHalfWidth}px - ${gap}vw)`,
+                                            left: `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`,
                                             opacity: hasPrev ? 1 : 0,
                                             pointerEvents: hasPrev ? 'auto' : 'none',
-                                            transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                            translate: `calc(${arrowShift}px - var(--fbe-arrow-nudge, 0px)) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                         }}
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -926,10 +924,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                         className={`absolute top-1/2 -translate-y-1/2 ${isTablet ? 'w-[2vw] h-[2vw] ' : 'w-[3vw] h-[3vw]'} flex items-center justify-center group z-20 ${!hasNext ? 'pointer-events-none' : 'cursor-pointer'}`}
                                         style={{
                                             color: getLayoutColor('toolbar-bg', '#555555'),
-                                            right: `calc(50% - ${bookHalfWidth}px - ${gap}vw)`,
+                                            right: `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`,
                                             opacity: hasNext ? 1 : 0,
                                             pointerEvents: hasNext ? 'auto' : 'none',
-                                            transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                            translate: `calc(var(--fbe-arrow-nudge, 0px) - ${arrowShift}px) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                         }}
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -987,12 +986,13 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                         setPageInputValue(String(currentPage + 1));
                                     }
                                 }}
-                                className={`${isMobileLandscape ? 'text-[0.45vw] mx-[0.2vw] px-[0.1vw] py-[0.05vw]' : isTablet ? 'text-[0.55vw] mx-[0.3vw] px-[0.15vw] py-[0.05vw]' : 'text-[0.65vw] mx-[0.3vw] px-[0.2vw] py-[0.05vw]'} font-bold rounded-[0.2vw] outline-none text-center transition-colors shadow-inner`}
+                                className={`${isMobileLandscape ? 'text-[0.45vw] mx-[0.2vw] px-[0.1vw] py-[0.05vw]' : isTablet ? 'text-[0.55vw] mx-[0.3vw] px-[0.15vw] py-[0.05vw]' : 'text-[0.65vw] mx-[0.3vw] px-[0.2vw] py-[0.05vw]'} font-bold rounded-[0.2vw] outline-none text-center transition-colors shadow-inner box-border`}
                                 style={{
                                     color: getLayoutColor('toolbar-bg', '#555555'),
                                     backgroundColor: getLayoutColorAlpha('toolbar-bg', '87, 92, 156', 0.1),
                                     border: `1px solid ${getLayoutColorAlpha('toolbar-bg', '87, 92, 156', 0.2)}`,
-                                    width: `${String(pages.length).length + 1.2}ch`
+                                    width: `${Math.max(String(pageInputValue || '').length, String(pages.length || 0).length) + 1.6}ch`,
+                                    minWidth: '3.2ch'
                                 }}
                                 onFocus={(e) => {
                                     e.target.style.backgroundColor = getLayoutColorAlpha('toolbar-bg', '87, 92, 156', 0.15);
@@ -1020,9 +1020,9 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                     <div
                         className="relative flex items-center justify-center magazine-content-area"
                         style={{
-                            transform: `translateX(${localOffset}px) scale(${responsiveScale})`,
+                            translate: `${localOffset}px 0`, transform: `scale(${responsiveScale})`,
                             transformOrigin: 'center center',
-                            transition: 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
+                            transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
                         }}
                     >
                         {modifiedChildren}
@@ -1213,10 +1213,6 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                             {/* Clipping/Masking container for the orbital track and pages */}
                             <div 
                                 className="absolute inset-0 pointer-events-none"
-                                style={{
-                                    clipPath: 'polygon(-20% -20%, 50% -20%, 50% 120%, -20% 120%)',
-                                    WebkitClipPath: 'polygon(-20% -20%, 50% -20%, 50% 120%, -20% 120%)'
-                                }}
                             >
                                 {/* 1. Transparent Orbit Track (Geometric Reference) */}
                                 <div className="absolute inset-0 flex items-center justify-center">

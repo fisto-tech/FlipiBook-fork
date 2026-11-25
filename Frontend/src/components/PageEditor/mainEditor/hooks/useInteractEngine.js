@@ -44,34 +44,19 @@ export const syncTableCellSelectionOverlay = (tableEl) => {
     wrapper.style.position = 'relative';
   }
 
-  const bWidth = parseFloat(tableEl.getAttribute('data-border-width') || '1') || 1;
   const highlightColor = '#EA543A';
+  // Same measurement as the table panel's highlight: real on-screen rects scaled back to the wrapper's
+  // units (offset sums are off by ~a border width inside foreignObject), minus the wrapper's border.
+  const wrapperRect = wrapper.getBoundingClientRect();
+  const sX = (wrapperRect.width > 0 && wrapper.offsetWidth > 0) ? (wrapperRect.width / wrapper.offsetWidth) : 1;
+  const sY = (wrapperRect.height > 0 && wrapper.offsetHeight > 0) ? (wrapperRect.height / wrapper.offsetHeight) : sX;
+  // Thin stroke, constant ON SCREEN (~1.25px) — not the table's border width (looked extra thick)
+  const highlightStroke = Math.max(0.2, 1.25 / (sX || 1));
 
   const getCellLocalRect = (cell) => {
-    if (cell && wrapper) {
-      let l = 0;
-      let t = 0;
-      let curr = cell;
-      while (curr && curr !== wrapper && curr !== document.body && curr !== document.documentElement) {
-        l += curr.offsetLeft || 0;
-        t += curr.offsetTop || 0;
-        if (curr.offsetParent === wrapper) {
-          break;
-        }
-        curr = curr.offsetParent;
-      }
-      const w = cell.offsetWidth || cell.clientWidth || 0;
-      const h = cell.offsetHeight || cell.clientHeight || 0;
-      if (w > 0 && h > 0) {
-        return { left: l, top: t, right: l + w, bottom: t + h, width: w, height: h };
-      }
-    }
-    const wrapperRect = wrapper.getBoundingClientRect();
     const cRect = cell.getBoundingClientRect();
-    const sX = (wrapperRect.width > 0 && wrapper.offsetWidth > 0) ? (wrapperRect.width / wrapper.offsetWidth) : 1;
-    const sY = (wrapperRect.height > 0 && wrapper.offsetHeight > 0) ? (wrapperRect.height / wrapper.offsetHeight) : sX;
-    const l = (cRect.left - wrapperRect.left) / sX;
-    const t = (cRect.top - wrapperRect.top) / sY;
+    const l = (cRect.left - wrapperRect.left) / sX - (wrapper.clientLeft || 0);
+    const t = (cRect.top - wrapperRect.top) / sY - (wrapper.clientTop || 0);
     const w = cRect.width / sX;
     const h = cRect.height / sY;
     return { left: l, top: t, right: l + w, bottom: t + h, width: w, height: h };
@@ -107,15 +92,14 @@ export const syncTableCellSelectionOverlay = (tableEl) => {
     }
     const oWidth = Math.max(1, maxRight - minLeft);
     const oHeight = Math.max(1, maxBottom - minTop);
-    overlay.style.cssText = `position:absolute;left:${minLeft}px;top:${minTop}px;width:${oWidth}px;height:${oHeight}px;border:${bWidth}px solid ${highlightColor};box-sizing:border-box;pointer-events:none;z-index:9999;border-radius:0px;`;
+    overlay.style.cssText = `position:absolute;left:${minLeft}px;top:${minTop}px;width:${oWidth}px;height:${oHeight}px;border:${highlightStroke}px solid ${highlightColor};box-sizing:border-box;pointer-events:none;z-index:9999;border-radius:0px;`;
   } else {
     overlays.forEach(n => n.remove());
     selectedCells.forEach(cell => {
-      const cellBWidth = parseFloat(cell.getAttribute('data-cell-border-width') || bWidth) || bWidth;
       const rect = getCellLocalRect(cell);
       const overlay = document.createElement('div');
       overlay.className = 'table-cell-selection-overlay';
-      overlay.style.cssText = `position:absolute;left:${rect.left}px;top:${rect.top}px;width:${Math.max(1, rect.width)}px;height:${Math.max(1, rect.height)}px;border:${cellBWidth}px solid ${highlightColor};box-sizing:border-box;pointer-events:none;z-index:9999;border-radius:0px;`;
+      overlay.style.cssText = `position:absolute;left:${rect.left}px;top:${rect.top}px;width:${Math.max(1, rect.width)}px;height:${Math.max(1, rect.height)}px;border:${highlightStroke}px solid ${highlightColor};box-sizing:border-box;pointer-events:none;z-index:9999;border-radius:0px;`;
       wrapper.appendChild(overlay);
     });
   }
@@ -219,7 +203,14 @@ export const useInteractEngine = ({
             const isTableSelected = tableParent && tableParent.getAttribute('data-table-selected') === 'true';
             const hitCellWhileSelected = Boolean(isTableSelected && target.closest('td, th, .table-cell-selection-overlay'));
             const isTableCellEditing = tableParent && tableParent.getAttribute('data-table-mode') === 'cell-edit';
-            const isResizingDivider = Boolean(window.__isResizingTableDivider) || Boolean(window.__isHoveringTableDivider);
+            // Divider flags are window-global: only block when the drag really starts on a table
+            // (a stuck flag stopped drag / resize for every other element)
+            let isResizingDivider = Boolean(window.__isResizingTableDivider) || Boolean(window.__isHoveringTableDivider);
+            if (isResizingDivider && !tableParent) {
+              if (!document.body.classList.contains('table-resizing-active')) window.__isResizingTableDivider = false;
+              window.__isHoveringTableDivider = false;
+              isResizingDivider = false;
+            }
             // If adjusting shape image mask/crop, stop interact.js drag so user can pan the inner image
             if (window.__isAdjustingShapeImage || document.body.classList.contains("shape-adjust-active")) {
               safeStopInteraction(event.interaction);
@@ -1075,9 +1066,26 @@ export const useInteractEngine = ({
         }
       });
 
+    const handleGlobalPointerUp = (e) => {
+      if (!e || e.buttons === 0) {
+        if (document.body.classList.contains('dragging-active')) {
+          document.body.classList.remove('dragging-active');
+        }
+        document.querySelectorAll('[data-dragging="true"]').forEach(el => {
+          el.removeAttribute('data-dragging');
+        });
+      }
+    };
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('mouseup', handleGlobalPointerUp);
+
     return () => {
       interactable.unset();
       clearSmartGuides();
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('mouseup', handleGlobalPointerUp);
       document.body.classList.remove('dragging-active');
     };
   }, [zoom, activePageIndex]); // No longer depends on frequently changing callbacks
@@ -2334,11 +2342,52 @@ export const useInteractEngine = ({
                             tableInside.style.width = '100%';
                             tableInside.style.height = '100%';
                             tableInside.style.tableLayout = 'fixed';
-                            const eqPct = (100 / rowCount).toFixed(3);
-                            trs.forEach(r => {
-                              r.style.height = `${eqPct}%`;
-                              r.style.boxSizing = 'border-box';
-                            });
+                            // Keep each row's own share (they scale with the box). Resetting them to equal
+                            // heights on every resize step moved row lines the user had placed.
+                            trs.forEach(r => { r.style.boxSizing = 'border-box'; });
+
+                            // Smallest box the CONTENT fits in (measured once per resize): every column as
+                            // wide as its longest word, every row as tall as its text. Handles stop there.
+                            if (!state.tableContentMin) {
+                              const sY = tableInside.offsetHeight > 0 ? (tableInside.getBoundingClientRect().height / tableInside.offsetHeight) : 1;
+                              const colMins = [];
+                              let minH = 0;
+                              trs.forEach((tr) => {
+                                let c = 0;
+                                let rowNeed = 0;
+                                Array.from(tr.children).forEach((cell) => {
+                                  const span = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                  const cs = window.getComputedStyle(cell);
+                                  if (span === 1) {
+                                    const chromeX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+                                    let need = chromeX + 4;
+                                    const words = (cell.textContent || '').split(/\s+/).filter(Boolean);
+                                    if (words.length) {
+                                      const probe = document.createElement('span');
+                                      probe.style.cssText = 'white-space:nowrap;position:absolute;visibility:hidden;';
+                                      cell.appendChild(probe);
+                                      words.forEach((w) => { probe.textContent = w; need = Math.max(need, probe.offsetWidth + chromeX + 2); });
+                                      probe.remove();
+                                    }
+                                    colMins[c] = Math.max(colMins[c] || 0, need);
+                                  }
+                                  if (parseInt(cell.getAttribute('rowspan') || '1', 10) === 1) {
+                                    const chromeY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+                                    let contentH = 0;
+                                    if (cell.childNodes.length) {
+                                      const range = document.createRange();
+                                      range.selectNodeContents(cell);
+                                      contentH = range.getBoundingClientRect().height / (sY || 1);
+                                    }
+                                    rowNeed = Math.max(rowNeed, contentH + chromeY + 1);
+                                  }
+                                  c += span;
+                                });
+                                minH += Math.max(rowNeed, 4);
+                              });
+                              const minW = colMins.reduce((a, b) => a + (b || 0), 0);
+                              state.tableContentMin = { w: Math.ceil(minW), h: Math.ceil(minH) };
+                            }
 
                             if (!state.initialTableFontSize) {
                               state.initialTableFontSize = parseFloat(el.getAttribute('data-font-size') || tableInside.style.fontSize) || 9;
@@ -2350,16 +2399,42 @@ export const useInteractEngine = ({
                               state.initialTablePadX = parseFloat(el.getAttribute('data-padding-x')) || 6;
                             }
 
-                            // Do NOT blow up font-size or padding when expanding width/height.
-                            // Only scale down gracefully if the user shrinks the table very small.
-                            const maxRowH = Math.max(1, imgH / rowCount);
-                            const maxColW = Math.max(1, imgW / colCount);
-                            const newPadY = Math.min(state.initialTablePadY, Math.max(0, Math.floor((maxRowH - 12) / 2)));
-                            const newPadX = Math.min(state.initialTablePadX, Math.max(0, Math.floor(maxColW / 6)));
-                            const newFs = Math.min(state.initialTableFontSize, Math.max(4, Math.floor(maxRowH - (newPadY * 2))));
+                            // Box size when this resize started (first move: attributes not yet changed)
+                            if (state.tableStartW === undefined) {
+                              state.tableStartW = parseFloat(child.getAttribute('width')) || imgW || 1;
+                              state.tableStartH = parseFloat(child.getAttribute('height')) || imgH || 1;
+                              // per-cell font sizes (typography can set them on cells, not just the table)
+                              state.tableCellFonts = new Map();
+                              tableInside.querySelectorAll('td, th').forEach((cell) => {
+                                const fsRaw = cell.style.fontSize;
+                                if (fsRaw) state.tableCellFonts.set(cell, { value: parseFloat(fsRaw), unit: fsRaw.replace(/[\d.\s-]/g, '') || 'pt' });
+                              });
+                            }
+
+                            // CORNER handles scale the table: text + padding follow the size (down to 4pt).
+                            // SIDE handles change only width / height: text keeps its size and the box stops
+                            // at the content's minimum (see clamp below).
+                            const MIN_FONT_PT = 4;
+                            const MAX_FONT_PT = 120;
+                            let fontScale = 1;
+                            if (isCorner) {
+                              const rawScale = Math.min(imgW / state.tableStartW, imgH / state.tableStartH);
+                              const minScale = MIN_FONT_PT / (state.initialTableFontSize || 9);
+                              const maxScale = MAX_FONT_PT / (state.initialTableFontSize || 9);
+                              fontScale = Math.max(minScale, Math.min(maxScale, rawScale || 1));
+                            }
+                            const newFs = Math.round(state.initialTableFontSize * fontScale * 10) / 10;
+                            const newPadY = Math.round(state.initialTablePadY * fontScale * 10) / 10;
+                            const newPadX = Math.round(state.initialTablePadX * fontScale * 10) / 10;
+                            state.tableFontScale = fontScale;
 
                             tableInside.style.fontSize = `${newFs}pt`;
                             el.setAttribute('data-font-size', String(newFs));
+                            el.setAttribute('data-padding-y', String(newPadY));
+                            el.setAttribute('data-padding-x', String(newPadX));
+                            state.tableCellFonts?.forEach((f, cell) => {
+                              cell.style.fontSize = `${Math.round(f.value * fontScale * 10) / 10}${f.unit}`;
+                            });
 
                             trs.forEach(r => {
                               Array.from(r.children).forEach(c => {
@@ -2376,8 +2451,10 @@ export const useInteractEngine = ({
                             }));
 
                             // Allow table to resize even very small without artificial blocking
-                            const minTableH = Math.max(12, rowCount * 4);
-                            const minTableW = Math.max(16, colCount * 6);
+                            // Content minimum (measured at the starting text size) scales with the text when scaling
+                            const contentScale = isCorner ? (state.tableFontScale || 1) : 1;
+                            const minTableH = Math.max(12, rowCount * 4, (state.tableContentMin?.h || 0) * contentScale);
+                            const minTableW = Math.max(16, colCount * 6, (state.tableContentMin?.w || 0) * contentScale);
 
                             if ((dir === 'n' || dir === 's' || isCorner) && imgH < minTableH) {
                               if (dir === 'n' || dir === 'nw' || dir === 'ne') {

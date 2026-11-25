@@ -32,6 +32,7 @@ import { parseGradient } from './ColorPicker';
 import { PropertySlider } from './propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
+import { applyIconPaint, isIconElement } from '../utils/iconPaint';
 // ShapeAppearanceControls export for backwards compatibility
 export const ShapeAppearanceControls = ({
   backgroundColor,
@@ -368,20 +369,17 @@ const ShapeProperties = ({
     setIsCompressingShapeImage(true);
 
     try {
-      let targetFile = file;
       let finalDataUrl = null;
-      let imgWidth = 0;
-      let imgHeight = 0;
       let compBytes = file.size;
 
+      // Smart Gate: If raw image is very heavy (> 3MB), optimize off-thread to 4K UHD @ 0.94 quality
+      // so 10+ images won't hang the canvas, while keeping crisp detail at high zoom.
       if (shouldOptimizeImage(file)) {
         try {
-          const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+          const opt = await optimizeImageForWeb(file, { maxDimension: 3840, quality: 0.94 });
           if (opt?.dataUrl) {
             finalDataUrl = opt.dataUrl;
-            imgWidth = opt.width;
-            imgHeight = opt.height;
-            compBytes = opt.compressedSize || opt.file?.size || compBytes;
+            compBytes = opt.compressedSize || compBytes;
           }
         } catch (optErr) {
           console.warn('[ShapeProperties] Optimization fallback:', optErr);
@@ -393,7 +391,7 @@ const ShapeProperties = ({
           const reader = new FileReader();
           reader.onload = (event) => resolve(event.target.result);
           reader.onerror = () => resolve(null);
-          reader.readAsDataURL(targetFile);
+          reader.readAsDataURL(file);
         });
       }
 
@@ -523,7 +521,10 @@ const ShapeProperties = ({
   );
 
   const isCircleOrLine = isCircleShape || shapeType === 'ellipse' || shapeType === 'circle' || shapeType === 'line';
-  const shouldHideCornerRadius = hideCornerRadius || isCircleOrLine || !isCornerRadiusShape;
+  // Pen tool defaults (no element yet): same simple stroke controls as icons
+  const isPenDefaults = Boolean(selectedElementProps?.__penDefaults);
+  const isIconShape = selectedElementProps?.['data-type'] === 'icon' || isPenDefaults;
+  const shouldHideCornerRadius = hideCornerRadius || isCircleOrLine || !isCornerRadiusShape || isIconShape;
 
   const shapeCornerId = selectedElementProps?.['data-shape-id'] || (() => {
     try {
@@ -816,12 +817,15 @@ const ShapeProperties = ({
 
   const parsedFillGrad = (safeFill && typeof safeFill === 'string' && safeFill.includes('gradient')) ? parseGradient(safeFill) : null;
 
-  const rawStroke = selectedElementProps?.['data-stroke-color'] || selectedElementProps?.stroke;
+  // Icons: stroke/width come from the icon paths (read by the sidebar), not stale data-* on the wrapper
+  const rawStroke = isIconShape ? selectedElementProps?.stroke : (selectedElementProps?.['data-stroke-color'] || selectedElementProps?.stroke);
   const safeStroke = (!rawStroke || rawStroke === 'inherit')
     ? (selectedElementProps?.['data-stroke-color'] || 'none')
     : rawStroke;
 
-  const rawStrokeWeight = parseFloat(selectedElementProps?.['data-stroke-width'] || selectedElementProps?.['stroke-width'] || selectedElementProps?.strokeWidth || 0);
+  const rawStrokeWeight = isIconShape
+    ? parseFloat(selectedElementProps?.strokeWidth || 0)
+    : parseFloat(selectedElementProps?.['data-stroke-width'] || selectedElementProps?.['stroke-width'] || selectedElementProps?.strokeWidth || 0);
   const safeStrokeWeight = isNaN(rawStrokeWeight) ? 0 : rawStrokeWeight;
 
   const backgroundColor = {
@@ -1010,9 +1014,13 @@ const ShapeProperties = ({
       const pos = next.strokePosition || 'Outside';
       updates['data-stroke-width'] = sw.toString();
       updates['data-stroke-position'] = pos;
-      updates['vector-effect'] = 'non-scaling-stroke';
+      if (!isIconShape) updates['vector-effect'] = 'non-scaling-stroke';
 
-      if (pos === 'Outside') {
+      if (isIconShape) {
+        // icons are open strokes — no alignment, the width is applied as-is
+        updates['stroke-width'] = sw.toString();
+        updates['strokeWidth'] = sw.toString();
+      } else if (pos === 'Outside') {
         updates['stroke-width'] = (sw * 2).toString();
         updates['strokeWidth'] = (sw * 2).toString();
         updates['paint-order'] = 'stroke fill';
@@ -1079,6 +1087,10 @@ const ShapeProperties = ({
         if (updates['stroke-linecap']) child.setAttribute('stroke-linecap', updates['stroke-linecap']);
         if (updates['stroke-linejoin']) child.setAttribute('stroke-linejoin', updates['stroke-linejoin']);
       });
+      if (isIconElement(liveEl)) {
+        // paint the icon paths, keep the transparent hit-box invisible
+        Object.entries(updates).forEach(([k, v]) => applyIconPaint(liveEl, k, v));
+      }
     }
 
     if (isMaskedShape || hasAppliedGradient) {
@@ -1180,11 +1192,12 @@ const ShapeProperties = ({
 
       {/* ===================== HEADER ===================== */}
       <div className="flex items-center gap-[0.8vw]">
-        <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-wider">Shape Properties</span>
+        <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap tracking-wider">{isPenDefaults ? 'Shape Properties' : isIconShape ? 'Icon Properties' : 'Shape Properties'}</span>
         <div className="flex-1 h-[1px] bg-gray-200" />
       </div>
 
-      {/* ===================== MASKING & FLATTEN ACTIONS ===================== */}
+      {/* ===================== MASKING & FLATTEN ACTIONS (not for icons) ===================== */}
+      {!isIconShape && (
       <div className="flex flex-col gap-[0.6vw]">
         <div className="grid grid-cols-2 gap-[0.7vw]">
           {/* Mask Button */}
@@ -1228,6 +1241,7 @@ const ShapeProperties = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* ===================== IMAGE MASKING / FRAMING SECTION ===================== */}
       {shapeType !== 'line' && (isMaskEnabled || hasUploadedImage) && (
@@ -1258,7 +1272,7 @@ const ShapeProperties = ({
               {isCompressingShapeImage ? (
                 <>
                   <Loader2 size="1vw" className="text-indigo-600 animate-spin" />
-                  <span>Compressing image...</span>
+                  <span>Loading image...</span>
                 </>
               ) : (
                 <>
@@ -1299,11 +1313,11 @@ const ShapeProperties = ({
                     className="w-full h-full object-cover"
                   />
 
-                  {/* Circular Spinner while compressing */}
+                  {/* Circular Spinner while loading */}
                   {isCompressingShapeImage && (
                     <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex flex-col items-center justify-center z-20">
                       <Loader2 className="w-[1.4vw] h-[1.4vw] text-white animate-spin" />
-                      <span className="text-[0.62vw] text-white font-medium mt-[0.2vw]">Compressing...</span>
+                      <span className="text-[0.62vw] text-white font-medium mt-[0.2vw]">Loading...</span>
                     </div>
                   )}
 
@@ -1456,6 +1470,9 @@ const ShapeProperties = ({
         showDetailedPicker={showDetailedPicker}
         setShowDetailedPicker={setShowDetailedPicker}
         hideFill={shapeType === 'line'}
+        hideAlignment={isIconShape}
+        hideLineCorner={isIconShape}
+        hideDash={isIconShape}
         noAccordion={true}
       />
 
@@ -1474,6 +1491,7 @@ const ShapeProperties = ({
       )}
 
       {/* ===================== APPEARANCE: EFFECTS ===================== */}
+      {!isPenDefaults && (
       <Effect
         isShape={true}
         openSubSection={openSubSection}
@@ -1488,6 +1506,7 @@ const ShapeProperties = ({
         setShowDetailedPicker={setShowDetailedPicker}
         noAccordion={true}
       />
+      )}
 
       {/* ===================== IMAGE ADJUSTMENT MODAL ===================== */}
       <ImageAdjustmentModal

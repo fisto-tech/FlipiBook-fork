@@ -410,17 +410,21 @@ const Layout = ({ onBack, activeLayout, onUpdateLayout, layoutColors, onUpdateLa
                             <div
                                 key={index}
                                 onClick={() => { if (!colorPopup) handleLayoutClick(layoutNum); }}
-                                className={`flex flex-col gap-[0.4vw] p-[0.45vw] rounded-[0.8vw] transition-all duration-300 border-2 cursor-pointer ${isActive
-                                    ? 'border-[#3E4491] bg-white shadow-[0_4px_12px_rgba(62,68,145,0.12)] scale-[1.02]'
-                                    : 'border-transparent hover:bg-gray-50'
-                                    } ${isSpotlighted ? 'relative z-[310] !bg-white' : ''}`}
+                                className={`flex flex-col items-center gap-[0.4vw] cursor-pointer group`}
                             >
-                                <div className="relative group rounded-[0.6vw] overflow-hidden transition-all bg-[#F8F9FA] aspect-[1.4/1]">
-                                    <img src={img} alt={layoutName} className="w-full h-full object-cover" />
+                                <div
+                                    className={`w-full p-[0.35vw] rounded-[0.8vw] transition-all duration-300 border-2 ${isActive
+                                        ? 'border-[#E05638] bg-white shadow-[0_4px_12px_rgba(224,86,56,0.12)] scale-[1.02]'
+                                        : 'border-transparent hover:bg-gray-50'
+                                        } ${isSpotlighted ? 'relative z-[310] !bg-white' : ''}`}
+                                >
+                                    <div className="relative rounded-[0.6vw] overflow-hidden transition-all bg-[#F8F9FA] aspect-[1.4/1]">
+                                        <img src={img} alt={layoutName} className="w-full h-full object-cover" />
+                                    </div>
                                 </div>
 
-                                <div className="flex items-center justify-center px-[0vw] pt-[0.2vw]">
-                                    <span className={` font-semibold ${isActive ? 'text-gray-800 text-[0.8vw]' : 'text-gray-800 text-[0.75vw]'}`}>
+                                <div className="flex items-center justify-center pt-[0.1vw]">
+                                    <span className={`font-semibold transition-colors ${isActive ? 'text-[#E05638] text-[0.8vw]' : 'text-gray-700 text-[0.75vw] group-hover:text-gray-900'}`}>
                                         {layoutName}
                                     </span>
                                 </div>

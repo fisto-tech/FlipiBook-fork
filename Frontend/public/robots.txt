@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /storage/
+Disallow: /editor/
+Disallow: /customized_editor/
+Disallow: /threed_editor/
+
+Sitemap: https://flipibook.com/sitemap.xml

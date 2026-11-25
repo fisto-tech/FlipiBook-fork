@@ -1,0 +1,170 @@
+// Key constants for local storage synchronization across admin tabs/pages
+export const STORAGE_KEYS = {
+  ADMIN_ROLES: 'flipibook_admin_roles',
+  ADMIN_USERS: 'flipibook_admin_users',
+  ADMIN_PERMISSIONS: 'flipibook_admin_permissions'
+};
+
+// Default permissions state
+export const DEFAULT_MODULE_PERMISSIONS = [
+  {
+    id: 'dashboard',
+    name: 'Dashboard',
+    description: 'Analytics, statistics, and system overview',
+    enabled: false,
+  },
+  {
+    id: 'user_management',
+    name: 'User Management',
+    description: 'User accounts, credential controls, and access',
+    enabled: false,
+  },
+  {
+    id: 'template_management',
+    name: 'Template Management',
+    description: 'Document templates and design presets',
+    enabled: false,
+  },
+  {
+    id: 'management',
+    name: 'Management',
+    description: 'Operational tracking, followups, budgets, leads & reports',
+    enabled: false,
+  },
+];
+
+// Permissions map storage: { [targetKey]: [ { id, name, description, enabled } ] }
+// targetKey can be a userId (e.g. 'FLIP_AD0002') or a role group (e.g. 'All 3D Artist', 'Team Leads')
+export const getStoredPermissionsMap = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.ADMIN_PERMISSIONS);
+    return data ? JSON.parse(data) : {};
+  } catch (e) {
+    console.error('Failed to parse permissions from localStorage', e);
+    return {};
+  }
+};
+
+export const saveStoredPermissionsMap = (permMap) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ADMIN_PERMISSIONS, JSON.stringify(permMap));
+    window.dispatchEvent(new Event('flipibook_permissions_updated'));
+  } catch (e) {
+    console.error('Failed to save permissions to localStorage', e);
+  }
+};
+
+// Determine permissions for a specific logged-in admin user
+export const getUserEffectivePermissions = (currentAdmin) => {
+  if (!currentAdmin) return null;
+  // Super Admin account always has all permissions
+  const roleName = String(currentAdmin.role || '').toLowerCase();
+  const userId = String(currentAdmin.userId || '').toLowerCase();
+  if (roleName === 'super admin' || userId === 'admin' || currentAdmin.email === 'admin@flipibook.com') {
+    return {
+      dashboard: true,
+      user_management: true,
+      template_management: true,
+      management: true,
+      isSuperAdmin: true
+    };
+  }
+
+  // 1. Check user.permissions returned from DB on login
+  if (Array.isArray(currentAdmin.permissions) && currentAdmin.permissions.length > 0) {
+    return currentAdmin.permissions.reduce((acc, p) => ({ ...acc, [p.id]: Boolean(p.enabled) }), { isSuperAdmin: false });
+  }
+
+  const permMap = getStoredPermissionsMap();
+
+  // 2. Direct user assignment check in permMap
+  const directPerms = permMap[currentAdmin.userId];
+  if (directPerms && Array.isArray(directPerms)) {
+    return directPerms.reduce((acc, p) => ({ ...acc, [p.id]: p.enabled }), { isSuperAdmin: false });
+  }
+
+  // 3. Team Leads check
+  if (currentAdmin.teamHead && permMap['Team Leads']) {
+    return permMap['Team Leads'].reduce((acc, p) => ({ ...acc, [p.id]: p.enabled }), { isSuperAdmin: false });
+  }
+
+  // 4. Designation group check (e.g. 'Software Developer' or 'All Software Developer')
+  const userDesig = currentAdmin.designation || currentAdmin.role || '';
+  if (permMap[userDesig]) {
+    return permMap[userDesig].reduce((acc, p) => ({ ...acc, [p.id]: p.enabled }), { isSuperAdmin: false });
+  }
+  const roleKey = `All ${userDesig}`;
+  if (permMap[roleKey]) {
+    return permMap[roleKey].reduce((acc, p) => ({ ...acc, [p.id]: p.enabled }), { isSuperAdmin: false });
+  }
+
+  // Fallback: disabled
+  return {
+    dashboard: false,
+    user_management: false,
+    template_management: false,
+    management: false,
+    isSuperAdmin: false
+  };
+};
+
+// Default empty roles and users list (cleared as requested)
+export const getStoredRoles = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.ADMIN_ROLES);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error('Failed to parse roles from localStorage', e);
+    return [];
+  }
+};
+
+export const saveStoredRoles = (roles) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ADMIN_ROLES, JSON.stringify(roles));
+    window.dispatchEvent(new Event('flipibook_roles_updated'));
+  } catch (e) {
+    console.error('Failed to save roles to localStorage', e);
+  }
+};
+
+export const DEFAULT_ADMIN_USER = {
+  sNo: 1,
+  name: 'Super Administrator',
+  userId: 'Admin',
+  password: 'Admin@123',
+  designation: 'Admin',
+  roleId: 'R_ID01',
+  teamHead: true,
+  createdDate: 'Jan 1, 2026',
+  email: 'admin@flipibook.com',
+  status: 'Active'
+};
+
+export const getStoredUsers = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.ADMIN_USERS);
+    const parsed = data ? JSON.parse(data) : [];
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return [DEFAULT_ADMIN_USER];
+    }
+    // Ensure Admin is always included
+    const hasAdmin = parsed.some((u) => String(u.userId || '').toLowerCase() === 'admin');
+    if (!hasAdmin) {
+      return [DEFAULT_ADMIN_USER, ...parsed];
+    }
+    return parsed;
+  } catch (e) {
+    console.error('Failed to parse users from localStorage', e);
+    return [DEFAULT_ADMIN_USER];
+  }
+};
+
+export const saveStoredUsers = (users) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ADMIN_USERS, JSON.stringify(users));
+    window.dispatchEvent(new Event('flipibook_users_updated'));
+  } catch (e) {
+    console.error('Failed to save users to localStorage', e);
+  }
+};

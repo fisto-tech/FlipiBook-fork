@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Icon } from '@iconify/react';
 import FlipbookPreview from '../components/PageEditor/modals/FlipbookPreview';
+import PreloaderOverlay from '../components/CustomizedEditor/components/PreloaderOverlay';
+import { createDefaultPreloaderSettings } from '../components/CustomizedEditor/utils/defaultSettings';
 import { resolveUploadsPath, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
 import { getFromDB, CUSTOMIZED_EDITOR_KEY, getCustomizedEditorKey } from '../utils/storage/dbUtils';
@@ -194,10 +196,20 @@ const PreviewPage = () => {
               if (cachedCust.leadForm && (cachedCust.leadForm.enabled !== undefined || cachedCust.leadForm.fields)) {
                 leadFormObj = { ...leadFormObj, ...cachedCust.leadForm };
               }
+              if (cachedCust.Branding?.preloaderSettings) {
+                brandingObj.preloaderSettings = cachedCust.Branding.preloaderSettings;
+              }
             }
           } catch (cErr) {
             console.warn('[PreviewPage] Could not read IndexedDB cache:', cErr);
           }
+
+          const preloaderSettings =
+            brandingObj?.preloaderSettings ||
+            processedData.Customized_Settings?.Branding?.preloaderSettings ||
+            processedData.settings?.Branding?.preloaderSettings ||
+            processedData.settings?.preloaderSettings ||
+            processedData.settings?.preloader;
 
           const mergedSettings = {
             ...(processedData.meta || {}),
@@ -209,7 +221,9 @@ const PreviewPage = () => {
             BookAppearance: appearanceObj,
             otherSetup: otherSetupObj,
             leadForm: leadFormObj,
-            leadform: leadFormObj
+            leadform: leadFormObj,
+            preloader: preloaderSettings,
+            preloaderSettings: preloaderSettings
           };
 
           setData({
@@ -230,9 +244,7 @@ const PreviewPage = () => {
 
   if (isLoading || !data) {
     return (
-      <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-[#5551FF]" />
-      </div>
+      <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#22252A' }} />
     );
   }
 
@@ -327,6 +339,7 @@ const PreviewPage = () => {
         baseUrl={data.projectBaseUrl || ''}
         v_id={data.v_id}
         shareId={data.Customized_Settings?.Visibility?.shareId || data.Visibility?.shareId || (new URLSearchParams(location.search).get('shareId'))}
+        isPublishedPreview={true}
         isLoadingParent={false}
         currentBook={data}
       />

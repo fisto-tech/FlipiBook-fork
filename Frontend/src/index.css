@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* High-fidelity SVG image rendering for crisp canvas zoom */
+svg image, svg pattern image {
+  image-rendering: auto;
+  image-rendering: smooth;
+}
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
@@ -991,3 +997,8 @@ body.table-resizing-active * {
 
 
 
+
+/* Page editor maps: show the OpenStreetMap image (identical to export) instead of the Google iframe */
+.page-svg-container .map-stage:has(> img.fbe-map-image) > iframe.fbe-map-iframe {
+  visibility: hidden !important;
+}

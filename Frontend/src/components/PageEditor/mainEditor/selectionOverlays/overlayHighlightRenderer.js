@@ -9,6 +9,25 @@ import {
   purgeElementOverlays
 } from './overlayDomUtils';
 
+// Live pointer state: a drag / text-edit flag that outlived its gesture must never hide the handles.
+let pointerIsDown = false;
+if (typeof window !== 'undefined' && !window.__fbeHandlePointerTrack) {
+  window.__fbeHandlePointerTrack = true;
+  window.addEventListener('pointerdown', () => { pointerIsDown = true; }, true);
+  const up = () => { pointerIsDown = false; };
+  window.addEventListener('pointerup', up, true);
+  window.addEventListener('pointercancel', up, true);
+  window.addEventListener('blur', up);
+}
+const isLiveTextEdit = (el) => !!(el && (el.getAttribute?.('data-editing') === 'true' ||
+  el.querySelector?.('[data-editing="true"], [contenteditable="true"]')));
+const clearStaleDrag = (el) => {
+  if (pointerIsDown) return;
+  if (el?.getAttribute?.('data-dragging') === 'true') el.removeAttribute('data-dragging');
+  document.querySelectorAll('[data-dragging="true"]').forEach((n) => n.removeAttribute('data-dragging'));
+  document.body.classList.remove('dragging-active');
+};
+
 export { isElementHidden, purgeElementOverlays };
 
 /**
@@ -52,7 +71,12 @@ export const createOverlayHighlightRenderer = ({
     if (el.getAttribute('data-is-animating') === 'true') return;
 
     // Suppress object selection box, hover highlights, and resize handles during Path Node Edit Mode
-    if (nodeEditModeRef?.current || el.getAttribute('data-node-edit') === 'true' || el.closest?.('[data-node-edit-active="true"]')) {
+    // (the data-node-edit markers only count while node-edit mode is really on; stale ones are dropped)
+    if (!nodeEditModeRef?.current && (el.getAttribute('data-node-edit') === 'true' || el.closest?.('[data-node-edit-active="true"]'))) {
+      el.removeAttribute('data-node-edit');
+      el.closest?.('[data-node-edit-active="true"]')?.removeAttribute('data-node-edit-active');
+    }
+    if (nodeEditModeRef?.current) {
       const overlay = getOverlayForElement(el);
       if (overlay) {
         overlay.querySelectorAll(`[id*="${el.id}"]`).forEach(node => {
@@ -122,17 +146,28 @@ export const createOverlayHighlightRenderer = ({
           // Keep the current element's overlay
           if (nid === keepPolyId || nid === keepPathId) continue;
 
+          // Overlay ids are "overlay-(poly|path)-<type>-<elementId>": match the element id exactly at
+          // the end. A substring match ("includes") also hit every element whose id merely CONTAINS
+          // this id (e.g. a page root "page-1" vs "page-1-text-3").
+          const belongsTo = (id) => nid.endsWith(`-${id}`);
+          // Hover outlines of OTHER elements are never selection leftovers. Purging them here wiped the
+          // canvas hover box in Edit mode, where the page root (an ancestor of everything) is selected
+          // and redrawn while you move over its children.
+          const nodeCls = node.getAttribute?.('class') || '';
+          const isHoverNode = nodeCls.includes('overlay-type-hover') || nodeCls.includes('overlay-type-child-hover');
+
           // Purge stale overlays for this element (step 1)
-          if (nid.includes(el.id)) {
+          if (belongsTo(el.id)) {
+            if (isHoverNode) { try { if (window.__fbeHoverDebug !== false) console.log('%c[hover]', 'color:#5255CA;font-weight:bold', 'removed hover box because the element got selected →', el.id); } catch { /* noop */ } }
             node.remove();
             continue;
           }
 
           // Purge descendant element overlays (step 3) â€” check if overlay belongs to any descendant
-          if (descendantIds.size > 0) {
+          if (descendantIds.size > 0 && !isHoverNode) {
             let isDescendant = false;
             for (const did of descendantIds) {
-              if (nid.includes(did)) { isDescendant = true; break; }
+              if (belongsTo(did)) { isDescendant = true; break; }
             }
             if (isDescendant) { node.remove(); continue; }
           }
@@ -223,7 +258,7 @@ export const createOverlayHighlightRenderer = ({
       isAudioInInteraction;
 
     // Skip if this text element is currently in text-edit mode
-    const isBeingEdited = isEditingTextRef.current && el.id === selectedLayerIdRef.current;
+    const isBeingEdited = isEditingTextRef.current && el.id === selectedLayerIdRef.current && isLiveTextEdit(el);
 
     if (isOverlay) {
       purgeElementOverlays(el);
@@ -291,7 +326,7 @@ export const createOverlayHighlightRenderer = ({
 
         if (localBBox && localBBox.width > 0 && localBBox.height > 0 && elScreenCtm) {
           el.dataset.overlayRetries = '0';
-          const isBeingEditedCheck = isEditingTextRef.current && el.id === selectedLayerIdRef.current;
+          const isBeingEditedCheck = isEditingTextRef.current && el.id === selectedLayerIdRef.current && isLiveTextEdit(el);
 
           const localToOverlay = overlayCtm.inverse().multiply(elScreenCtm);
           const pt1 = overlay.createSVGPoint(); pt1.x = localBBox.x; pt1.y = localBBox.y;
@@ -414,7 +449,10 @@ export const createOverlayHighlightRenderer = ({
 
           // Draw resize handles for selected elements (single selection only)
           const isMultiSelectionBox = el.id === 'multi' || el.id === 'multi-selection-bounds';
-          const selectionCount = isMultiSelectionBox ? 1 : (multiSelectedIdsRef.current.size > 0 ? multiSelectedIdsRef.current.size : (selectedLayerIdRef.current ? 1 : 0));
+          const liveMultiCount = multiSelectedIdsRef.current
+            ? Array.from(multiSelectedIdsRef.current).filter((mid) => document.getElementById(mid)?.isConnected).length : 0;
+          const hasMultipleSelection = !isMultiSelectionBox && liveMultiCount > 1 && multiSelectedIdsRef.current.has(el.id);
+          const selectionCount = isMultiSelectionBox ? 1 : (hasMultipleSelection ? multiSelectedIdsRef.current.size : 1);
           if (selectionCount === 1 && (type === 'selected' || type === 'child-selected') && !isBeingEditedCheck) {
             const htmlOverlay = getHtmlOverlayForElement(el);
             const isFreeFrameEl2 = el.getAttribute('data-name')?.toLowerCase() === 'free frame' || el.getAttribute('data-type') === 'free-frame' || el.id?.startsWith('free-frame');
@@ -426,6 +464,7 @@ export const createOverlayHighlightRenderer = ({
             const showSideHandles = activeTopToolRef.current !== 'interaction' && activeTopToolRef.current !== 'animation' || isInteractiveResizable;
 
             if (htmlOverlay) {
+              clearStaleDrag(el);
               const isDragging = el.getAttribute('data-dragging') === 'true' || document.body.classList.contains('dragging-active');
               if (isDragging) {
                 const existingHandles = htmlOverlay.querySelectorAll(`[id^="resize-handle-${el.id}-"], [id^="rotate-handle-${el.id}"], [id^="rotation-degree-badge-${el.id}"], [id^="rotate-hotspot-${el.id}-"]`);
@@ -448,7 +487,8 @@ export const createOverlayHighlightRenderer = ({
                 const name = handleNames[i];
                 const isSide = ['n', 'e', 's', 'w'].includes(name);
                 const handleId = `resize-handle-${el.id}-${name}`;
-                let handle = htmlOverlay.querySelector(`[id="${handleId}"]`);
+                const safeHandleId = (window.CSS && CSS.escape) ? CSS.escape(handleId) : handleId;
+                let handle = htmlOverlay.querySelector(`[id="${safeHandleId}"]`) || document.getElementById(handleId);
 
                 if (isSide && !showSideHandles) {
                   if (handle) handle.remove();
@@ -468,6 +508,11 @@ export const createOverlayHighlightRenderer = ({
 
                 handle.style.display = '';
                 handle.className = `resize-handle overlay-type-${type} absolute`;
+
+                const safeX = Number.isFinite(p?.x) ? p.x.toFixed(2) : '0';
+                const safeY = Number.isFinite(p?.y) ? p.y.toFixed(2) : '0';
+                const safeRot = Number.isFinite(rotation) ? rotation.toFixed(1) : '0';
+                const safeScale = (zoomScale && Number.isFinite(zoomScale) && zoomScale > 0) ? (1 / zoomScale).toFixed(3) : '1';
 
                 if (isSide) {
                   const targetStyle = isBlackSelection2
@@ -496,7 +541,7 @@ export const createOverlayHighlightRenderer = ({
                     }
                   }
 
-                  handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / zoomScale).toFixed(3)}) translate(-50%, -50%)`;
+                  handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
                 } else if (isLCorner) {
                   const arm = 8.5;
                   const barThickness = 2.5;
@@ -532,7 +577,7 @@ export const createOverlayHighlightRenderer = ({
                     `;
                   }
 
-                  handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / zoomScale).toFixed(3)}) translate(-50%, -50%)`;
+                  handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
                 } else {
                   const targetStyle = `corner-${handleSize}-${handleBorderColor}`;
                   if (handle.dataset.styled !== targetStyle) {
@@ -549,7 +594,7 @@ export const createOverlayHighlightRenderer = ({
                     handle.style.height = `${handleSize}px`;
                   }
 
-                  handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / zoomScale).toFixed(3)}) translate(-50%, -50%)`;
+                  handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
                 }
 
                 handle.style.cursor = (isInteractiveResizable || activeTopToolRef.current === 'editor') ? getRotatingCursor(name, rotation) : 'default';
@@ -750,7 +795,10 @@ export const createOverlayHighlightRenderer = ({
 
       // â”€â”€ RESIZE HANDLES (8 handles) - Fallback path â”€â”€
       const isMultiSelectionBox = el.id === 'multi' || el.id === 'multi-selection-bounds';
-      const selectionCount = isMultiSelectionBox ? 1 : (multiSelectedIdsRef.current.size > 0 ? multiSelectedIdsRef.current.size : (selectedLayerIdRef.current ? 1 : 0));
+      const liveMultiCountFB = multiSelectedIdsRef.current
+        ? Array.from(multiSelectedIdsRef.current).filter((mid) => document.getElementById(mid)?.isConnected).length : 0;
+      const hasMultipleSelection = !isMultiSelectionBox && liveMultiCountFB > 1 && multiSelectedIdsRef.current.has(el.id);
+      const selectionCount = isMultiSelectionBox ? 1 : (hasMultipleSelection ? multiSelectedIdsRef.current.size : 1);
       if (selectionCount === 1 && (type === 'selected' || type === 'child-selected') && !isBeingEdited) {
         const htmlOverlay = getHtmlOverlayForElement(el);
         const isFreeFrameFB2 = el.getAttribute('data-name')?.toLowerCase() === 'free frame' || el.getAttribute('data-type') === 'free-frame' || el.id?.startsWith('free-frame');
@@ -762,6 +810,7 @@ export const createOverlayHighlightRenderer = ({
         const showSideHandlesFB = activeTopToolRef.current !== 'interaction' && activeTopToolRef.current !== 'animation' || isInteractiveResizableFB;
 
         if (htmlOverlay) {
+          clearStaleDrag(el);
           const isDragging = el.getAttribute('data-dragging') === 'true' || document.body.classList.contains('dragging-active');
           if (isDragging) {
             htmlOverlay.querySelectorAll(`[id^="resize-handle-${el.id}-"], [id^="rotate-handle-${el.id}"], [id^="rotation-degree-badge-${el.id}"], [id^="rotate-hotspot-${el.id}-"]`).forEach(h => {
@@ -794,7 +843,8 @@ export const createOverlayHighlightRenderer = ({
             const name = handleNames[i];
             const isSide = ['n', 'e', 's', 'w'].includes(name);
             const handleId = `resize-handle-${el.id}-${name}`;
-            let handle = htmlOverlay?.querySelector(`[id="${handleId}"]`);
+            const safeHandleId = (window.CSS && CSS.escape) ? CSS.escape(handleId) : handleId;
+            let handle = htmlOverlay?.querySelector(`[id="${safeHandleId}"]`) || document.getElementById(handleId);
 
             if (isSide && !showSideHandlesFB) {
               if (handle) handle.remove();
@@ -814,6 +864,12 @@ export const createOverlayHighlightRenderer = ({
 
             handle.style.display = '';
             handle.className = `resize-handle overlay-type-${type} absolute`;
+
+            const safeX = Number.isFinite(p?.x) ? p.x.toFixed(2) : '0';
+            const safeY = Number.isFinite(p?.y) ? p.y.toFixed(2) : '0';
+            const safeRot = Number.isFinite(rotation) ? rotation.toFixed(1) : '0';
+            const curZoomScale = zoom / 100;
+            const safeScale = (curZoomScale && Number.isFinite(curZoomScale) && curZoomScale > 0) ? (1 / curZoomScale).toFixed(3) : '1';
 
             if (isSide) {
               const targetStyle = isBlackSelectionFB2
@@ -842,7 +898,7 @@ export const createOverlayHighlightRenderer = ({
                 }
               }
 
-              handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / (zoom / 100)).toFixed(3)}) translate(-50%, -50%)`;
+              handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
             } else if (!isLine && isLCornerFB) {
               const arm = 8.5;
               const barThickness = 2.5;
@@ -878,7 +934,7 @@ export const createOverlayHighlightRenderer = ({
                 `;
               }
 
-              handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / (zoom / 100)).toFixed(3)}) translate(-50%, -50%)`;
+              handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
             } else {
               const targetStyle = `corner-${handleSize}-${handleBorderColor}`;
               if (handle.dataset.styled !== targetStyle) {
@@ -895,7 +951,7 @@ export const createOverlayHighlightRenderer = ({
                 handle.style.height = `${handleSize}px`;
               }
 
-              handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / (zoom / 100)).toFixed(3)}) translate(-50%, -50%)`;
+              handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
             }
             handle.style.cursor = (isInteractiveResizableFB || activeTopToolRef.current === 'editor') ? getRotatingCursor(name, rotation) : 'default';
           });

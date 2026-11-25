@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
-import { Trash2, ChevronDown, ChevronsLeft } from "lucide-react";
+import { Trash2, ChevronDown, ChevronsLeft, Upload } from "lucide-react";
 import axios from "axios";
 import PremiumDropdown from "../../components/PremiumDropdown";
 import AlertModal from "../../../AlertModal";
@@ -13,6 +13,7 @@ import {
 import ReplaceMediaModal from "../../../PageEditor/modals/ReplaceMediaModal";
 import { useAuth } from "../../../../context/AuthContext";
 import { fontFamilies } from "../../utils/fontConstants";
+import { getLogoAnimationStyle } from "../../components/PreloaderOverlay";
 
 const Branding = ({
   logoSettings,
@@ -47,10 +48,80 @@ const Branding = ({
   const [showLogoAdjustments, setShowLogoAdjustments] = useState(false);
   const [showPreloaderModal, setShowPreloaderModal] = useState(false);
   const [tempPreloaderSettings, setTempPreloaderSettings] = useState({});
+  const panelRef = useRef(null);
+  const [modalLeft, setModalLeft] = useState("calc(37.5vw + 12px)");
+
+  useEffect(() => {
+    const updateModalPosition = () => {
+      if (panelRef.current) {
+        const rect = panelRef.current.getBoundingClientRect();
+        if (rect.right > 0) {
+          setModalLeft(`${rect.right + 12}px`);
+        }
+      }
+    };
+    if (showPreloaderModal) {
+      updateModalPosition();
+      requestAnimationFrame(updateModalPosition);
+    }
+    window.addEventListener("resize", updateModalPosition);
+    return () => window.removeEventListener("resize", updateModalPosition);
+  }, [showPreloaderModal]);
   const [showStyleDropdown, setShowStyleDropdown] = useState(false);
+  const [showAnimDropdown, setShowAnimDropdown] = useState(false);
+  const styleDropdownRef = useRef(null);
+  const animDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (styleDropdownRef.current && !styleDropdownRef.current.contains(e.target)) {
+        setShowStyleDropdown(false);
+      }
+      if (animDropdownRef.current && !animDropdownRef.current.contains(e.target)) {
+        setShowAnimDropdown(false);
+      }
+    };
+    if (showStyleDropdown || showAnimDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showStyleDropdown, showAnimDropdown]);
 
   const handleOpenPreloaderModal = () => {
-    setTempPreloaderSettings(preloaderSettings || {});
+    const cur = preloaderSettings || {};
+    const existingOption = cur.displayOption || (
+      cur.layout === "logo-only"
+        ? "logo-only"
+        : (cur.logo ? "both" : "preloader-only")
+    );
+    const rawText = cur.text;
+    const resolvedText = (!rawText ||
+      rawText === "Loading Modal Please Wait...." ||
+      rawText === "Loading Flipbook Please Wait...." ||
+      rawText === "Preparing Flipbook...")
+        ? "Preparing Flipibook"
+        : rawText;
+
+    setTempPreloaderSettings({
+      enabled: true,
+      isCustom: cur.isCustom === true,
+      displayOption: existingOption,
+      layout: cur.layout === "logo-only" ? "spinner" : (cur.layout || "spinner"),
+      logoAnimation: cur.logoAnimation || "fade",
+      spinnerColor: (!cur.spinnerColor || cur.spinnerColor === "#3B3C8A") ? "#E04752" : cur.spinnerColor,
+      bgColor: (!cur.bgColor || cur.bgColor === "#D6E0F4") ? "#22252A" : cur.bgColor,
+      textColor: cur.textColor || "#ffffff",
+      showPercentage: false,
+      showText: cur.showText !== undefined ? cur.showText : true,
+      textPosition: cur.textPosition || "bottom",
+      logoSize: cur.logoSize !== undefined ? cur.logoSize : 100,
+      font: cur.font || "Poppins",
+      fontSize: cur.fontSize || "14",
+      logo: cur.logo || "",
+      text: resolvedText,
+    });
     setShowPreloaderModal(true);
   };
   const moveTimerRef = useRef(null);
@@ -300,19 +371,18 @@ const Branding = ({
     if (!file) return;
     const uploadedUrl = await uploadCustomizedAsset(file, "preloaderLogo");
     if (uploadedUrl) {
-      const newSettings = { ...tempPreloaderSettings, logo: uploadedUrl };
-      setTempPreloaderSettings(newSettings);
-      onUpdatePreloader(newSettings);
+      setTempPreloaderSettings((prev) => ({
+        ...prev,
+        logo: uploadedUrl,
+      }));
       return;
     }
     const reader = new FileReader();
     reader.onload = (event) => {
-      const newSettings = {
-        ...tempPreloaderSettings,
+      setTempPreloaderSettings((prev) => ({
+        ...prev,
         logo: event.target.result,
-      };
-      setTempPreloaderSettings(newSettings);
-      onUpdatePreloader(newSettings);
+      }));
     };
     reader.readAsDataURL(file);
   };
@@ -324,6 +394,7 @@ const Branding = ({
       onUpdateWatermark({
         ...watermarkSettings,
         src: uploadedUrl,
+        name: file?.name || "Watermark.png",
         opacity: watermarkSettings?.opacity ?? 64,
         position: watermarkSettings?.position || "Bottom Right",
         adjustments: watermarkSettings?.adjustments ?? {
@@ -343,6 +414,7 @@ const Branding = ({
       onUpdateWatermark({
         ...watermarkSettings,
         src: event.target.result,
+        name: file?.name || "Watermark.png",
         opacity: watermarkSettings?.opacity ?? 64,
         position: watermarkSettings?.position || "Bottom Right",
         adjustments: watermarkSettings?.adjustments ?? {
@@ -532,7 +604,7 @@ const Branding = ({
 
   // Default Logo View
   return (
-    <div className="flex flex-col h-full bg-transparent font-sans">
+    <div ref={panelRef} className="flex flex-col h-full bg-transparent font-sans">
       {/* Sub-header */}
       <div className="h-[7.5vh] flex items-center justify-between px-[1.2vw] border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center gap-[0.75vw] text-gray-800">
@@ -808,7 +880,7 @@ const Branding = ({
           <div className="mb-[0.5vw]">
             <div className="flex items-center gap-[0.5vw] mt-[1.5vw]">
               <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">
-                Add Watermark
+                Watermark
               </span>
               <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
               {watermarkSettings?.src && (
@@ -821,11 +893,92 @@ const Branding = ({
               )}
             </div>
           </div>
-          {watermarkSettings?.src ? (
-            <div className="flex flex-col gap-[0.5vw]">
+
+          {/* Select Image Type Dropdown */}
+          <div className="flex items-center justify-between mb-[0.8vw] px-[0.2vw]">
+            <span className="text-[0.8vw] font-medium text-gray-700">
+              Select the Image type :
+            </span>
+            <select
+              value={watermarkSettings?.type || "Fit"}
+              onChange={(e) =>
+                onUpdateWatermark({
+                  ...watermarkSettings,
+                  type: e.target.value,
+                })
+              }
+              className="px-[0.8vw] py-[0.35vw] bg-white border border-gray-300 rounded-[0.4vw] text-[0.78vw] text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer"
+            >
+              <option value="Fit">Fit</option>
+              <option value="Fill">Fill</option>
+              <option value="Stretch">Stretch</option>
+            </select>
+          </div>
+
+          {/* Drag & Drop or Upload Box */}
+          <div className="flex flex-col gap-[0.75vw] mb-[0.8vw]">
+            <div
+              onClick={() => setReplaceTarget("watermark")}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith("image/")) {
+                  handleWatermarkReplace(file);
+                }
+              }}
+              className="w-full h-[6.8vw] border-2 border-dashed border-gray-300 rounded-[0.75vw] bg-white p-[0.8vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#ff5722] hover:bg-orange-50/20 group shadow-sm"
+            >
+              <div className="flex items-center gap-[0.3vw] text-[0.75vw]">
+                <span className="text-gray-500 font-medium">Drag & Drop or</span>
+                <span className="text-[#ff5722] font-semibold hover:underline">Upload</span>
+              </div>
+              <div className="my-[0.35vw] text-gray-400 group-hover:text-[#ff5722] transition-colors">
+                <Upload size="1.2vw" />
+              </div>
+              <span className="text-[0.65vw] text-gray-400 font-medium">
+                Supported File Format : JPG, PNG
+              </span>
+            </div>
+          </div>
+
+          {/* Add URL */}
+          <div className="flex flex-col gap-[0.35vw] mb-[1.2vw]">
+            <span className="text-[0.75vw] font-semibold text-gray-700">
+              Add URL :
+            </span>
+            <input
+              type="text"
+              value={watermarkSettings?.url || ""}
+              onChange={(e) =>
+                onUpdateWatermark({
+                  ...watermarkSettings,
+                  url: e.target.value,
+                })
+              }
+              placeholder="https://"
+              className="w-full px-[0.8vw] py-[0.45vw] bg-white border border-gray-300 rounded-[0.4vw] text-[0.75vw] focus:ring-[0.0625vw] focus:ring-blue-500 focus:outline-none text-gray-700 shadow-sm"
+            >
+            </input>
+          </div>
+
+          {/* Remove or Replace Watermark Section */}
+          {watermarkSettings?.src && (
+            <div className="mb-[1.2vw]">
+              <div className="flex items-center gap-[0.5vw] mb-[0.75vw]">
+                <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap">
+                  Remove or Replace Watermark
+                </span>
+                <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
+              </div>
+
               <div className="flex items-center gap-[1vw]">
-                {/* Thumbnail */}
-                <div className="relative w-[8.5vw] h-[6vw] rounded-[0.4vw] overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200">
+                {/* Thumbnail Preview */}
+                <div className="relative w-[8.5vw] h-[5.5vw] rounded-[0.4vw] overflow-hidden bg-gray-50 flex-shrink-0 flex items-center justify-center border border-gray-200">
                   <img
                     src={watermarkSettings.src}
                     alt="Watermark Thumbnail"
@@ -848,63 +1001,46 @@ const Branding = ({
                 </div>
 
                 {/* Info & Actions */}
-                <div className="flex flex-col flex-1 gap-[0.4vw] py-[0.2vw]">
+                <div className="flex flex-col flex-1 gap-[0.35vw] py-[0.2vw]">
                   <div className="flex flex-col gap-[0.1vw]">
-                    <span className="text-[0.9vw] font-medium text-gray-700 truncate w-[10vw]">
-                      Watermark
+                    <span className="text-[0.85vw] font-medium text-gray-800 truncate w-[10vw]">
+                      {watermarkSettings?.name || "Watermark.png"}
                     </span>
-                    <span className="text-[0.75vw] text-gray-400">
+                    <span className="text-[0.72vw] text-gray-400">
                       {watermarkResolution && watermarkFileSize
                         ? `${watermarkResolution} • ${watermarkFileSize}`
                         : watermarkFileSize ||
                           watermarkResolution ||
-                          "Loading size..."}
+                          "1920 X 1080 • 24MB"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-[0.5vw]">
+                  <div className="flex items-center gap-[0.5vw] mt-[0.2vw]">
                     <button
                       onClick={() => setReplaceTarget("watermark")}
-                      className="px-[0.75vw] py-[0.4vw] bg-[#f3f4f6] hover:bg-[#e5e7eb] text-gray-700 text-[0.75vw] font-semibold rounded-[0.4vw] border border-gray-200 cursor-pointer transition-colors"
+                      className="px-[0.75vw] py-[0.35vw] bg-white hover:bg-gray-50 text-gray-700 text-[0.72vw] font-semibold rounded-[0.4vw] border border-gray-300 cursor-pointer transition-colors shadow-sm"
                     >
-                      Replace image
+                      Replace Image
                     </button>
                     <button
                       onClick={() => setDeleteTarget("watermark")}
-                      className="p-[0.45vw] bg-[#f3f4f6] hover:bg-[#fee2e2] text-gray-500 hover:text-red-500 rounded-[0.4vw] border border-gray-200 cursor-pointer transition-colors"
+                      className="p-[0.4vw] bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-[0.4vw] border border-gray-300 cursor-pointer transition-colors shadow-sm"
+                      title="Delete Watermark"
                     >
-                      <Trash2 size="0.95vw" />
+                      <Trash2 size="0.9vw" />
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-[0.75vw] mb-[1vw]">
-              {/* Drag & Drop Box */}
-              <div
-                onClick={() => setReplaceTarget("watermark")}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const file = e.dataTransfer.files[0];
-                  if (file && file.type.startsWith("image/")) {
-                    handleWatermarkReplace(file);
-                  }
-                }}
-                className="w-full h-[7vw] border-2 border-dashed border-gray-400 rounded-[0.75vw] bg-white p-[0.9vw] flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-[#4c5add] hover:bg-gray-50/50 group shadow-sm"
-              >
-                <div className="flex items-center">
-                  <span className="text-gray-500 text-[0.8vw] font-semibold">
-                    + Add Watermark
-                  </span>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Add Watermark On Pages Header */}
+          <div className="flex items-center gap-[0.5vw] mt-[1vw] mb-[0.75vw]">
+            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap">
+              Add Watermark On Pages
+            </span>
+            <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
+          </div>
           <input
             type="file"
             ref={watermarkFileInputRef}
@@ -1101,29 +1237,78 @@ const Branding = ({
             </div>
           )}
           {/* Preloader Customization Section */}
-          <div className="flex items-center gap-[1vw] mb-[0.5vw] mt-[1.5vw]">
-            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.5vw]">
+          <div className="flex items-center gap-[1vw] mb-[0.8vw] mt-[1.5vw]">
+            <span className="text-[0.85vw] font-semibold text-gray-900 whitespace-nowrap pb-[0.2vw]">
               Preloaded Customization
             </span>
             <div className="h-[0.0925vw] bg-gray-200 flex-1"> </div>
           </div>
+
           {/* Interactive Preloader Preview Box */}
           {(() => {
-            const displayPreloader = showPreloaderModal
-              ? { ...preloaderSettings, ...tempPreloaderSettings }
-              : preloaderSettings || {};
+            const displayPreloader = preloaderSettings || {};
+            const isCustom = displayPreloader?.isCustom === true;
+            const darkBg = "#22252A";
+            const whiteText = "#ffffff";
+            const defaultSpinner = "#E04752";
+
+            const displayOption = displayPreloader?.displayOption || (
+              displayPreloader?.layout === "logo-only"
+                ? "logo-only"
+                : (displayPreloader?.logo ? "both" : "preloader-only")
+            );
+
+            // Logo animation (enabled for logo-only and both)
+            const logoAnim = displayPreloader?.logoAnimation || "fade";
+            const animStyle = getLogoAnimationStyle(logoAnim);
+            const rawDisplayText = displayPreloader?.text;
+            const displayText =
+              !rawDisplayText ||
+              rawDisplayText === "Loading Modal Please Wait...." ||
+              rawDisplayText === "Loading Flipbook Please Wait...." ||
+              rawDisplayText === "Preparing Flipbook..."
+                ? "Preparing Flipibook"
+                : rawDisplayText;
+
+            const cardBg = isCustom
+              ? ((!displayPreloader?.bgColor || displayPreloader.bgColor === "#D6E0F4") ? darkBg : displayPreloader.bgColor)
+              : darkBg;
+            const cardColor = isCustom ? (displayPreloader?.textColor || whiteText) : whiteText;
+            const spinnerColor = isCustom
+              ? ((!displayPreloader?.spinnerColor || displayPreloader.spinnerColor === "#3B3C8A") ? defaultSpinner : displayPreloader.spinnerColor)
+              : defaultSpinner;
+
             return (
               <div
-                className="relative w-full h-[8vw] rounded-[1vw] flex flex-col items-center justify-center shadow-md border border-white/10 group overflow-hidden flex-shrink-0"
+                className="relative w-full h-[9.2vw] min-h-[120px] rounded-[1vw] flex flex-col items-center justify-center shadow-md border border-white/10 group overflow-hidden flex-shrink-0"
                 style={{
-                  backgroundColor: displayPreloader?.bgColor || "#D6E0F4",
-                  color: displayPreloader?.textColor || "#ffffff",
+                  backgroundColor: cardBg,
+                  color: cardColor,
                 }}
               >
-                {/* Swap Layout Button / Popup trigger */}
+                <style>{`
+                  @keyframes preloaderJump {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-8px); }
+                  }
+                  @keyframes preloaderSlide {
+                    0%, 100% { transform: translateX(-8px); }
+                    50% { transform: translateX(8px); }
+                  }
+                  @keyframes preloaderFade {
+                    0%, 100% { opacity: 0.25; transform: scale(0.96); }
+                    50% { opacity: 1; transform: scale(1.02); }
+                  }
+                  @keyframes preloaderPulse {
+                    0%, 100% { transform: scale(0.92); }
+                    50% { transform: scale(1.08); }
+                  }
+                `}</style>
+
+                {/* Edit Button */}
                 <button
                   onClick={handleOpenPreloaderModal}
-                  className="absolute top-[0.75vw] right-[0.75vw] p-[0.4vw] rounded-full bg-black/40 hover:bg-black/60 text-white cursor-pointer transition-colors flex items-center justify-center z-[20]"
+                  className="absolute top-[0.75vw] right-[0.75vw] p-[0.4vw] rounded-full bg-black/40 hover:bg-black/60 text-white cursor-pointer transition-colors flex items-center justify-center z-[40]"
                   title="Change preloader settings"
                 >
                   <Icon
@@ -1132,335 +1317,578 @@ const Branding = ({
                   />
                 </button>
 
-                <div className="flex flex-col items-center gap-[0.8vw]">
-                  {displayPreloader?.layout !== "spinner" &&
-                    displayPreloader?.logo && (
-                      <img
-                        src={displayPreloader.logo}
-                        alt="Preloader Logo"
-                        className="h-[2.5vw] object-contain"
-                      />
-                    )}
-                  {displayPreloader?.layout === "bar" ? (
-                    <div className="flex flex-col items-center gap-2 w-[12vw]">
-                      <div className="w-full bg-gray-600/40 h-[0.4vw] rounded-full overflow-hidden">
+                {/* Badge: Default vs Custom */}
+                <div className="absolute top-[0.7vw] left-[0.8vw] z-[20] flex items-center gap-1 px-[0.4vw] py-[0.1vw] rounded-full bg-black/25 text-[0.58vw] font-medium backdrop-blur-xs text-white">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isCustom ? "bg-indigo-400" : "bg-emerald-400"}`} />
+                  <span>{isCustom ? "Custom Preloader" : "Default"}</span>
+                </div>
+
+                <div className={`flex items-center gap-[0.45vw] px-[1vw] pt-2 ${displayPreloader?.textPosition === "top" ? "flex-col-reverse" : "flex-col"}`}>
+                  {!isCustom ? (
+                    /* DEFAULT PRELOADER DISPLAY (Matching Image 1: Dark theme with centered spinner & Preparing Flipbook...) */
+                    <div className={`flex items-center justify-center gap-[0.4vw] ${displayPreloader?.textPosition === "top" ? "flex-col-reverse" : "flex-col"}`}>
+                      <div className="relative flex items-center justify-center">
                         <div
-                          className="h-full rounded-full"
+                          className="w-[1.6vw] h-[1.6vw] border-[2.5px] border-t-transparent rounded-full animate-spin"
                           style={{
-                            width: "40%",
-                            backgroundColor:
-                              displayPreloader?.spinnerColor || "#3B3C8A",
+                            borderColor: `${defaultSpinner} ${defaultSpinner} ${defaultSpinner} transparent`,
                           }}
-                        ></div>
+                        />
                       </div>
-                      {displayPreloader?.showPercentage && (
-                        <span className="text-[0.7vw] font-semibold">0%</span>
-                      )}
-                    </div>
-                  ) : displayPreloader?.layout === "dots" ? (
-                    <div className="flex flex-col items-center gap-[0.3vw] py-[0.3vw]">
-                      <div className="flex items-center gap-[0.4vw]">
-                        <div
-                          className="w-[0.5vw] h-[0.5vw] rounded-full"
-                          style={{
-                            backgroundColor:
-                              displayPreloader?.spinnerColor || "#3B3C8A",
-                          }}
-                        ></div>
-                        <div
-                          className="w-[0.5vw] h-[0.5vw] rounded-full"
-                          style={{
-                            backgroundColor:
-                              displayPreloader?.spinnerColor || "#3B3C8A",
-                          }}
-                        ></div>
-                        <div
-                          className="w-[0.5vw] h-[0.5vw] rounded-full"
-                          style={{
-                            backgroundColor:
-                              displayPreloader?.spinnerColor || "#3B3C8A",
-                          }}
-                        ></div>
-                      </div>
-                      {displayPreloader?.showPercentage && (
-                        <span className="text-[0.7vw] font-semibold">0%</span>
+                      {displayPreloader?.showText !== false && (
+                        <p
+                          className="text-[0.72vw] font-medium text-center tracking-wide truncate max-w-[15vw]"
+                          style={{ color: cardColor, fontFamily: "Poppins" }}
+                        >
+                          Preparing Flipibook
+                        </p>
                       )}
                     </div>
                   ) : (
-                    // default circular spinner
-                    <div className="relative flex flex-col items-center justify-center">
-                      <div className="relative flex items-center justify-center">
-                        <div
-                          className={`${displayPreloader?.logo ? "w-[4vw] h-[4vw]" : "w-[2.2vw] h-[2.2vw]"} border-[3px] border-t-transparent rounded-full`}
-                          style={{
-                            borderColor: `${displayPreloader?.spinnerColor || "#3B3C8A"} ${displayPreloader?.spinnerColor || "#3B3C8A"} ${displayPreloader?.spinnerColor || "#3B3C8A"} transparent`,
-                          }}
-                        ></div>
-                        {displayPreloader?.logo && (
-                          <img
-                            src={displayPreloader.logo}
-                            alt="Preloader Logo"
-                            className="absolute h-[2vw] max-w-[2.8vw] object-contain"
-                          />
-                        )}
-                        {displayPreloader?.showPercentage &&
-                          !displayPreloader?.logo && (
-                            <span className="absolute text-[0.6vw] font-bold">
-                              0%
-                            </span>
+                    /* CUSTOM PRELOADER DISPLAY */
+                    <>
+                      {/* OPTION 1: Logo Only */}
+                      {displayOption === "logo-only" ? (
+                        <div className="flex flex-col items-center gap-[0.3vw]">
+                          {displayPreloader?.logo ? (
+                            <div style={animStyle}>
+                              <img
+                                src={displayPreloader.logo}
+                                alt="Preloader Logo"
+                                className="object-contain drop-shadow-sm transition-all"
+                                style={{
+                                  height: `${2.8 * ((displayPreloader?.logoSize !== undefined ? displayPreloader.logoSize : 100) / 100)}vw`,
+                                  maxWidth: `${6 * ((displayPreloader?.logoSize !== undefined ? displayPreloader.logoSize : 100) / 100)}vw`,
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div style={animStyle}>
+                              <div
+                                className="rounded-[0.4vw] bg-white/10 flex items-center justify-center border border-white/10 transition-all"
+                                style={{
+                                  width: `${2.4 * ((displayPreloader?.logoSize !== undefined ? displayPreloader.logoSize : 100) / 100)}vw`,
+                                  height: `${2.4 * ((displayPreloader?.logoSize !== undefined ? displayPreloader.logoSize : 100) / 100)}vw`,
+                                }}
+                              >
+                                <span style={{ fontSize: `${1.2 * ((displayPreloader?.logoSize !== undefined ? displayPreloader.logoSize : 100) / 100)}vw` }}>📖</span>
+                              </div>
+                            </div>
                           )}
-                      </div>
-                      {displayPreloader?.showPercentage &&
-                        displayPreloader?.logo && (
-                          <span className="text-[0.6vw] font-bold mt-[0.3vw]">
-                            0%
-                          </span>
-                        )}
-                    </div>
+                          {displayPreloader?.showPercentage && (
+                            <span className="text-[0.65vw] font-bold">45%</span>
+                          )}
+                        </div>
+                      ) : (
+                        /* OPTION 2 (Preloader Only) or OPTION 3 (Both: Static Logo + Preloader below) */
+                        <div className="flex flex-col items-center justify-center gap-[0.35vw]">
+                          {/* Logo shown when displayOption is 'both' */}
+                          {displayOption === "both" && displayPreloader?.logo && (
+                            <div className="flex items-center justify-center" style={animStyle}>
+                              <img
+                                src={displayPreloader.logo}
+                                alt="Preloader Logo"
+                                className="object-contain transition-all"
+                                style={{
+                                  height: `${2 * ((displayPreloader?.logoSize !== undefined ? displayPreloader.logoSize : 100) / 100)}vw`,
+                                  maxWidth: `${5 * ((displayPreloader?.logoSize !== undefined ? displayPreloader.logoSize : 100) / 100)}vw`,
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Preloader Indicator */}
+                          {displayPreloader?.layout === "bar" ? (
+                            <div className="flex flex-col items-center gap-1 w-[11vw]">
+                              <div className="w-full bg-gray-600/30 h-[0.35vw] rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: "45%",
+                                    backgroundColor: spinnerColor,
+                                  }}
+                                />
+                              </div>
+                              {displayPreloader?.showPercentage && (
+                                <span className="text-[0.6vw] font-semibold">45%</span>
+                              )}
+                            </div>
+                          ) : displayPreloader?.layout === "dots" ? (
+                            <div className="flex items-center gap-[0.35vw] py-[0.1vw]">
+                              <div
+                                className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce [animation-delay:-0.3s]"
+                                style={{
+                                  backgroundColor: spinnerColor,
+                                }}
+                              />
+                              <div
+                                className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce [animation-delay:-0.15s]"
+                                style={{
+                                  backgroundColor: spinnerColor,
+                                }}
+                              />
+                              <div
+                                className="w-[0.45vw] h-[0.45vw] rounded-full animate-bounce"
+                                style={{
+                                  backgroundColor: spinnerColor,
+                                }}
+                              />
+                              {displayPreloader?.showPercentage && (
+                                <span className="text-[0.6vw] font-semibold ml-1">45%</span>
+                              )}
+                            </div>
+                          ) : (
+                            /* Circular Spinner rendered strictly below logo */
+                            <div className="relative flex flex-col items-center justify-center">
+                              <div
+                                className="w-[1.6vw] h-[1.6vw] border-[2.5px] border-t-transparent rounded-full animate-spin"
+                                style={{
+                                  borderColor: `${spinnerColor} ${spinnerColor} ${spinnerColor} transparent`,
+                                }}
+                              />
+                              {displayPreloader?.showPercentage && (
+                                <span className="text-[0.55vw] font-bold mt-[0.15vw]">
+                                  45%
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {displayPreloader?.showText !== false && (
+                        <p
+                          className="text-[0.72vw] font-medium text-center truncate max-w-[15vw]"
+                          style={{ color: cardColor, fontFamily: displayPreloader?.font || "Poppins" }}
+                        >
+                          {displayText}
+                        </p>
+                      )}
+                    </>
                   )}
-                  <p
-                    className="text-[0.75vw] font-semibold text-center truncate max-w-[15vw]"
-                    style={{ fontFamily: displayPreloader?.font || "Poppins" }}
-                  >
-                    {displayPreloader?.text || "Loading Modal Please Wait...."}
-                  </p>
                 </div>
               </div>
             );
           })()}
+
           {/* Preloader Styles Modal */}
           {showPreloaderModal &&
             typeof document !== "undefined" &&
             createPortal(
               <div
-                className="fixed w-[22vw] z-[9999] bg-white rounded-[0.8vw] shadow-[0_4px_30px_rgba(0,0,0,0.2)] border border-gray-200 overflow-hidden"
+                className="fixed w-[26vw] min-w-[360px] max-w-[440px] z-[9999] bg-white rounded-[0.8vw] shadow-[0_10px_35px_rgba(0,0,0,0.22)] border border-gray-200 flex flex-col overflow-hidden"
                 style={{
                   top: "50%",
-                  left: "48vw",
-                  transform: "translate(-50%, -50%)",
-                  maxHeight: "90vh",
-                  overflowY: "auto",
+                  left: modalLeft,
+                  transform: "translateY(-50%)",
+                  maxHeight: "72vh",
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="p-[1.2vw] space-y-[1.2vw]">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-[1.1vw] font-semibold text-black">
-                      Preloaded Customization
-                    </h4>
-                    <button
-                      onClick={() => {
-                        onUpdatePreloader({
-                          ...(preloaderSettings || {}),
-                          ...(tempPreloaderSettings || {}),
-                        });
-                        setShowPreloaderModal(false);
-                      }}
-                      className="text-gray-500 hover:text-gray-800 focus:outline-none"
-                    >
-                      <Icon icon="lucide:x" className="w-[1.2vw] h-[1.2vw]" />
-                    </button>
+                {/* Fixed Header */}
+                <div className="flex items-center justify-between px-[1.2vw] py-[0.8vw] border-b border-gray-100 shrink-0 bg-white">
+                  <h4 className="text-[1.1vw] min-text-[16px] font-semibold text-black">
+                    Preloaded Customization
+                  </h4>
+                  <button
+                    onClick={() => {
+                      setShowPreloaderModal(false);
+                    }}
+                    className="text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+                  >
+                    <Icon icon="lucide:x" className="w-[1.2vw] h-[1.2vw]" />
+                  </button>
+                </div>
+
+                {/* Scrollable Content Body */}
+                <div className="px-[1.2vw] py-[0.8vw] space-y-[0.8vw] overflow-y-auto flex-1 custom-scrollbar">
+
+                  {/* 3 CUSTOM OPTIONS SEGMENTED SELECTOR */}
+                  <div className="flex flex-col gap-[0.4vw]">
+                    <span className="text-[0.82vw] font-semibold text-gray-800">
+                      Preloader Mode (Choose one)
+                    </span>
+                    <div className="grid grid-cols-3 gap-[0.4vw] p-1 bg-gray-100 rounded-[0.6vw]">
+                      {[
+                        { id: "preloader-only", label: "Only Preloader" },
+                        { id: "logo-only", label: "Only Logo" },
+                        { id: "both", label: "Both" },
+                      ].map((tab) => {
+                        const activeOption = tempPreloaderSettings?.displayOption || (
+                          tempPreloaderSettings?.layout === "logo-only"
+                            ? "logo-only"
+                            : (tempPreloaderSettings?.logo ? "both" : "preloader-only")
+                        );
+                        const isSelected = activeOption === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => {
+                              setTempPreloaderSettings({
+                                ...tempPreloaderSettings,
+                                isCustom: true,
+                                displayOption: tab.id,
+                                layout: tab.id === "logo-only" ? "logo-only" : (tempPreloaderSettings?.layout === "logo-only" ? "spinner" : (tempPreloaderSettings?.layout || "spinner")),
+                              });
+                            }}
+                            className={`py-[0.55vw] px-[0.4vw] rounded-[0.4vw] transition-all cursor-pointer text-center ${
+                              isSelected
+                                ? "bg-white text-indigo-600 font-semibold shadow-xs"
+                                : "text-gray-600 hover:text-gray-900"
+                            }`}
+                          >
+                            <span className="text-[0.75vw]">{tab.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* Add Logo and Preloader Style */}
-                  <div className="grid grid-cols-2 gap-[1vw]">
-                    <div className="flex flex-col gap-[0.4vw]">
-                      <span className="text-[0.85vw] font-medium text-gray-800">
-                        Add Logo
-                      </span>
-                      <button
-                        onClick={() => setReplaceTarget("preloaderLogo")}
-                        className="h-[3vw] rounded-[0.5vw] border border-dashed border-gray-400 bg-gray-50 flex items-center justify-center gap-[0.4vw] text-gray-500 hover:bg-gray-100 transition-colors focus:outline-none"
-                      >
-                        {tempPreloaderSettings?.logo ? (
-                          <img
-                            src={tempPreloaderSettings.logo}
-                            alt="Preloader Logo"
-                            className="h-[2vw] object-contain"
-                          />
-                        ) : (
-                          <>
-                            <Icon
-                              icon="lucide:plus"
-                              className="w-[1vw] h-[1vw]"
-                            />
-                            <span className="text-[0.8vw]">Add logo</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <div className="flex flex-col gap-[0.4vw]">
-                      <span className="text-[0.85vw] font-medium text-gray-800">
-                        Preloader Style
-                      </span>
-                      <div className="relative">
-                        <button
-                          onClick={() =>
-                            setShowStyleDropdown(!showStyleDropdown)
-                          }
-                          className="w-full h-[3vw] rounded-[0.5vw] border border-gray-200 bg-white flex items-center justify-between px-[1vw] hover:bg-gray-50 transition-colors focus:outline-none"
-                        >
-                          <div className="flex items-center gap-[0.5vw]">
-                            {(!tempPreloaderSettings?.layout ||
-                              tempPreloaderSettings.layout === "spinner") && (
-                              <Icon
-                                icon="lucide:loader-2"
-                                className="w-[1.2vw] h-[1.2vw] text-gray-600"
-                              />
-                            )}
-                            {tempPreloaderSettings?.layout === "bar" && (
-                              <div className="w-[1.5vw] h-[0.3vw] bg-gray-600 rounded-full" />
-                            )}
-                            {tempPreloaderSettings?.layout === "dots" && (
-                              <div className="flex gap-[0.2vw]">
-                                <div className="w-[0.3vw] h-[0.3vw] bg-gray-600 rounded-full" />
-                                <div className="w-[0.3vw] h-[0.3vw] bg-gray-600 rounded-full" />
-                                <div className="w-[0.3vw] h-[0.3vw] bg-gray-600 rounded-full" />
-                              </div>
-                            )}
-                          </div>
-                          <Icon
-                            icon="lucide:arrow-right-left"
-                            className="w-[0.9vw] h-[0.9vw] text-gray-500"
-                          />
-                        </button>
+                  {/* CONDITIONAL CONTROLS BASED ON SELECTED MODE */}
+                  {(() => {
+                    const activeOption = tempPreloaderSettings?.displayOption || (
+                      tempPreloaderSettings?.layout === "logo-only"
+                        ? "logo-only"
+                        : (tempPreloaderSettings?.logo ? "both" : "preloader-only")
+                    );
 
-                        {showStyleDropdown && (
-                          <div className="absolute top-full mt-[0.2vw] left-0 w-full bg-white border border-gray-200 rounded-[0.4vw] shadow-lg z-[100] overflow-hidden">
-                            {["spinner", "bar", "dots"].map((layout) => (
-                              <div
-                                key={layout}
-                                className={`px-[1vw] py-[0.6vw] flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors ${tempPreloaderSettings?.layout === layout ? "bg-indigo-50 text-indigo-600" : "text-gray-700"}`}
+                    return (
+                      <div className="space-y-[0.8vw]">
+                        {/* 1. Preloader Style Dropdown (for 'preloader-only' and 'both') */}
+                        {activeOption !== "logo-only" && (
+                          <div className="flex flex-col gap-[0.35vw]">
+                            <span className="text-[0.82vw] font-medium text-gray-800">
+                              Preloader Style {activeOption === "both" && "(Shown below logo)"}
+                            </span>
+                            <div className="relative" ref={styleDropdownRef}>
+                              <button
                                 onClick={() => {
-                                  setTempPreloaderSettings({
-                                    ...tempPreloaderSettings,
-                                    layout,
-                                  });
-                                  setShowStyleDropdown(false);
+                                  setShowStyleDropdown(!showStyleDropdown);
+                                  setShowAnimDropdown(false);
                                 }}
+                                className="w-full h-[2.8vw] rounded-[0.5vw] border border-gray-200 bg-white flex items-center justify-between px-[0.8vw] hover:bg-gray-50 transition-colors focus:outline-none cursor-pointer"
                               >
-                                <span className="text-[0.8vw] font-medium capitalize">
-                                  {layout}
+                                <span className="text-[0.75vw] text-gray-800 font-medium">
+                                  {tempPreloaderSettings?.layout === "bar"
+                                    ? "Progress Bar"
+                                    : tempPreloaderSettings?.layout === "dots"
+                                    ? "Bouncing Dots"
+                                    : "Circular Spinner"}
                                 </span>
-                                {layout === "spinner" && (
+                                <Icon
+                                  icon="lucide:chevron-down"
+                                  className="w-[0.8vw] h-[0.8vw] text-gray-500"
+                                />
+                              </button>
+
+                              {showStyleDropdown && (
+                                <div className="absolute top-full mt-[0.2vw] left-0 w-full bg-white border border-gray-200 rounded-[0.4vw] shadow-lg z-[100] overflow-hidden">
+                                  {[
+                                    { id: "spinner", label: "Circular Spinner", icon: "lucide:loader-2" },
+                                    { id: "bar", label: "Progress Bar", icon: "lucide:minus" },
+                                    { id: "dots", label: "Bouncing Dots", icon: "lucide:more-horizontal" },
+                                  ].map((styleItem) => (
+                                    <div
+                                      key={styleItem.id}
+                                      className={`px-[0.8vw] py-[0.5vw] flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors ${
+                                        (tempPreloaderSettings?.layout || "spinner") === styleItem.id
+                                          ? "bg-indigo-50 text-indigo-600 font-semibold"
+                                          : "text-gray-700"
+                                      }`}
+                                      onClick={() => {
+                                        setTempPreloaderSettings({
+                                          ...tempPreloaderSettings,
+                                          layout: styleItem.id,
+                                        });
+                                        setShowStyleDropdown(false);
+                                      }}
+                                    >
+                                      <span className="text-[0.75vw]">
+                                        {styleItem.label}
+                                      </span>
+                                      <Icon
+                                        icon={styleItem.icon}
+                                        className="w-[0.9vw] h-[0.9vw]"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 2. Logo Upload Box (for 'logo-only' and 'both') */}
+                        {activeOption !== "preloader-only" && (
+                          <div className="flex flex-col gap-[0.35vw]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[0.82vw] font-medium text-gray-800">
+                                Preloader Logo
+                              </span>
+                              {tempPreloaderSettings?.logo && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTempPreloaderSettings({
+                                      ...tempPreloaderSettings,
+                                      logo: "",
+                                    });
+                                  }}
+                                  className="text-[0.7vw] text-red-500 hover:text-red-700 cursor-pointer"
+                                  title="Remove logo"
+                                >
+                                  Remove Logo
+                                </button>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setReplaceTarget("preloaderLogo")}
+                              className="h-[3.2vw] min-h-[44px] rounded-[0.5vw] border border-dashed border-gray-400 bg-gray-50 flex items-center justify-center gap-[0.4vw] text-gray-500 hover:bg-gray-100 transition-colors focus:outline-none cursor-pointer"
+                            >
+                              {tempPreloaderSettings?.logo ? (
+                                <img
+                                  src={tempPreloaderSettings.logo}
+                                  alt="Preloader Logo"
+                                  className="h-[2.4vw] max-w-[6vw] object-contain"
+                                />
+                              ) : (
+                                <>
                                   <Icon
-                                    icon="lucide:loader-2"
+                                    icon="lucide:plus"
                                     className="w-[1vw] h-[1vw]"
                                   />
-                                )}
-                                {layout === "bar" && (
-                                  <div className="w-[1vw] h-[0.2vw] bg-current rounded-full" />
-                                )}
-                                {layout === "dots" && (
-                                  <div className="flex gap-[0.15vw]">
-                                    <div className="w-[0.2vw] h-[0.2vw] bg-current rounded-full" />
-                                    <div className="w-[0.2vw] h-[0.2vw] bg-current rounded-full" />
-                                    <div className="w-[0.2vw] h-[0.2vw] bg-current rounded-full" />
-                                  </div>
-                                )}
-                              </div>
-                            ))}
+                                  <span className="text-[0.8vw]">Upload Preloader Logo</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Logo Size Slider (when in logo-only or both mode) */}
+                        {activeOption !== "preloader-only" && (
+                          <div className="flex flex-col gap-[0.35vw]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[0.82vw] font-medium text-gray-800">
+                                Logo Size
+                              </span>
+                              <span className="text-[0.72vw] font-semibold text-gray-700 bg-gray-100 px-[0.4vw] py-[0.1vw] rounded-[0.2vw]">
+                                {tempPreloaderSettings?.logoSize ?? 100}%
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={40}
+                              max={200}
+                              step={1}
+                              value={tempPreloaderSettings?.logoSize ?? 100}
+                              onChange={(e) =>
+                                setTempPreloaderSettings({
+                                  ...tempPreloaderSettings,
+                                  logoSize: parseInt(e.target.value) || 100,
+                                })
+                              }
+                              className="w-full cursor-pointer custom-range-slider mt-[0.1vw]"
+                              style={{
+                                backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${(((tempPreloaderSettings?.logoSize ?? 100) - 40) / 160) * 100}%, #E2E8F0 ${(((tempPreloaderSettings?.logoSize ?? 100) - 40) / 160) * 100}%, #E2E8F0 100%)`,
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        {/* 3. Logo Animation Dropdown (for 'logo-only' and 'both') */}
+                        {activeOption !== "preloader-only" && (
+                          <div className="flex flex-col gap-[0.35vw]">
+                            <span className="text-[0.82vw] font-medium text-gray-800">
+                              Logo Animation Style
+                            </span>
+                            <div className="relative" ref={animDropdownRef}>
+                              <button
+                                onClick={() => {
+                                  setShowAnimDropdown(!showAnimDropdown);
+                                  setShowStyleDropdown(false);
+                                }}
+                                className="w-full h-[2.8vw] rounded-[0.5vw] border border-gray-200 bg-white flex items-center justify-between px-[0.8vw] hover:bg-gray-50 transition-colors focus:outline-none cursor-pointer"
+                              >
+                                <div className="flex items-center gap-[0.5vw]">
+                                  <Icon icon="lucide:activity" className="w-[1vw] h-[1vw] text-indigo-600" />
+                                  <span className="text-[0.78vw] font-medium text-gray-800 capitalize">
+                                    {(tempPreloaderSettings?.logoAnimation || "fade") === "slide"
+                                      ? "Left to Right"
+                                      : (tempPreloaderSettings?.logoAnimation || "fade") === "bounce"
+                                      ? "Jumping (Bounce)"
+                                      : (tempPreloaderSettings?.logoAnimation || "fade") === "pulse"
+                                      ? "Pulse (Zoom)"
+                                      : (tempPreloaderSettings?.logoAnimation || "fade") === "none"
+                                      ? "None (Static)"
+                                      : "Fade In & Out"}
+                                  </span>
+                                </div>
+                                <Icon icon="lucide:chevron-down" className="w-[0.8vw] h-[0.8vw] text-gray-500" />
+                              </button>
+
+                              {showAnimDropdown && (
+                                <div className="absolute top-full mt-[0.2vw] left-0 w-full bg-white border border-gray-200 rounded-[0.4vw] shadow-lg z-[100] overflow-hidden">
+                                  {[
+                                    { id: "fade", label: "Fade In & Out", desc: "Smooth opacity breathing" },
+                                    { id: "bounce", label: "Jumping (Bounce)", desc: "Vertical jumping" },
+                                    { id: "slide", label: "Left to Right", desc: "Horizontal glide" },
+                                    { id: "pulse", label: "Pulse", desc: "Scale pulse" },
+                                    { id: "none", label: "None (Static)", desc: "No animation" },
+                                  ].map((animItem) => (
+                                    <div
+                                      key={animItem.id}
+                                      className={`px-[0.8vw] py-[0.5vw] flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors ${
+                                        (tempPreloaderSettings?.logoAnimation || "fade") === animItem.id
+                                          ? "bg-indigo-50 text-indigo-600 font-semibold"
+                                          : "text-gray-700"
+                                      }`}
+                                      onClick={() => {
+                                        setTempPreloaderSettings({
+                                          ...tempPreloaderSettings,
+                                          logoAnimation: animItem.id,
+                                        });
+                                        setShowAnimDropdown(false);
+                                      }}
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="text-[0.75vw]">{animItem.label}</span>
+                                        <span className="text-[0.62vw] text-gray-400">{animItem.desc}</span>
+                                      </div>
+                                      {(tempPreloaderSettings?.logoAnimation || "fade") === animItem.id && (
+                                        <Icon icon="lucide:check" className="w-[0.9vw] h-[0.9vw] text-indigo-600" />
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Preloader text */}
                   <div className="flex flex-col gap-[0.4vw]">
-                    <span className="text-[0.85vw] font-medium text-gray-800">
-                      Preloader text
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="Enter text"
-                      value={tempPreloaderSettings?.text || ""}
-                      onChange={(e) =>
-                        setTempPreloaderSettings({
-                          ...tempPreloaderSettings,
-                          text: e.target.value,
-                        })
-                      }
-                      className="w-full px-[0.8vw] py-[0.5vw] bg-white border border-gray-200 rounded-[0.4vw] text-[0.8vw] focus:outline-none focus:border-indigo-500 text-gray-700"
-                    />
-                    <div className="grid grid-cols-2 gap-[0.5vw] mt-[0.2vw]">
-                      <PremiumDropdown
-                        options={fontFamilies}
-                        value={tempPreloaderSettings?.font || "Poppins"}
-                        onChange={(val) =>
-                          setTempPreloaderSettings({
-                            ...tempPreloaderSettings,
-                            font: val,
-                          })
-                        }
-                        width="100%"
-                        isFont={true}
-                      />
-                      <PremiumDropdown
-                        options={["10", "12", "14", "16", "18", "20", "24"]}
-                        value={tempPreloaderSettings?.fontSize || "14"}
-                        onChange={(val) =>
-                          setTempPreloaderSettings({
-                            ...tempPreloaderSettings,
-                            fontSize: val,
-                          })
-                        }
-                        width="100%"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Loading Percentage */}
-                  <div className="flex flex-col gap-[0.4vw]">
                     <div className="flex items-center justify-between">
                       <span className="text-[0.85vw] font-medium text-gray-800">
-                        Loading Percentage
+                        Preloader text
                       </span>
                       <button
+                        type="button"
                         onClick={() =>
                           setTempPreloaderSettings({
                             ...tempPreloaderSettings,
-                            showPercentage:
-                              !tempPreloaderSettings?.showPercentage,
+                            showText: tempPreloaderSettings?.showText === false ? true : false,
                           })
                         }
-                        className={`w-[2.2vw] h-[1.2vw] rounded-full p-[0.1vw] transition-colors focus:outline-none ${tempPreloaderSettings?.showPercentage ? "bg-[#4A3AFF]" : "bg-gray-200 border border-gray-300"}`}
+                        className={`w-[2.2vw] h-[1.2vw] rounded-full p-[0.1vw] transition-colors focus:outline-none cursor-pointer ${
+                          tempPreloaderSettings?.showText !== false
+                            ? "bg-[#4A3AFF]"
+                            : "bg-gray-200 border border-gray-300"
+                        }`}
                       >
                         <div
-                          className={`w-[1vw] h-[1vw] rounded-full bg-white shadow-sm transition-transform ${tempPreloaderSettings?.showPercentage ? "translate-x-[1vw]" : "translate-x-0"}`}
+                          className={`w-[1vw] h-[1vw] rounded-full bg-white shadow-sm transition-transform ${
+                            tempPreloaderSettings?.showText !== false
+                              ? "translate-x-[1vw]"
+                              : "translate-x-0"
+                          }`}
                         />
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-[0.5vw] mt-[0.2vw]">
-                      <PremiumDropdown
-                        options={fontFamilies}
-                        value={
-                          tempPreloaderSettings?.percentageFont || "Poppins"
-                        }
-                        onChange={(val) =>
-                          setTempPreloaderSettings({
-                            ...tempPreloaderSettings,
-                            percentageFont: val,
-                          })
-                        }
-                        width="100%"
-                        isFont={true}
-                      />
-                      <PremiumDropdown
-                        options={["10", "12", "14", "16", "18", "20", "24"]}
-                        value={
-                          tempPreloaderSettings?.percentageFontSize || "14"
-                        }
-                        onChange={(val) =>
-                          setTempPreloaderSettings({
-                            ...tempPreloaderSettings,
-                            percentageFontSize: val,
-                          })
-                        }
-                        width="100%"
-                      />
-                    </div>
+                    {tempPreloaderSettings?.showText !== false && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Preparing Flipibook"
+                          value={
+                            (!tempPreloaderSettings?.text ||
+                             tempPreloaderSettings.text === "Loading Modal Please Wait...." ||
+                             tempPreloaderSettings.text === "Loading Flipbook Please Wait...." ||
+                             tempPreloaderSettings.text === "Preparing Flipbook...")
+                              ? "Preparing Flipibook"
+                              : tempPreloaderSettings.text
+                          }
+                          onChange={(e) =>
+                            setTempPreloaderSettings({
+                              ...tempPreloaderSettings,
+                              text: e.target.value,
+                            })
+                          }
+                          className="w-full px-[0.8vw] py-[0.5vw] bg-white border border-gray-200 rounded-[0.4vw] text-[0.8vw] focus:outline-none focus:border-indigo-500 text-gray-700"
+                        />
+                        <div className="grid grid-cols-2 gap-[0.5vw] mt-[0.2vw]">
+                          <PremiumDropdown
+                            options={fontFamilies}
+                            value={tempPreloaderSettings?.font || "Poppins"}
+                            onChange={(val) =>
+                              setTempPreloaderSettings({
+                                ...tempPreloaderSettings,
+                                font: val,
+                              })
+                            }
+                            width="100%"
+                            isFont={true}
+                          />
+                          <PremiumDropdown
+                            options={["10", "12", "14", "16", "18", "20", "24"]}
+                            value={tempPreloaderSettings?.fontSize || "14"}
+                            onChange={(val) =>
+                              setTempPreloaderSettings({
+                                ...tempPreloaderSettings,
+                                fontSize: val,
+                              })
+                            }
+                            width="100%"
+                          />
+                        </div>
+
+                        {/* Position option: switch between Top and Bottom */}
+                        <div className="flex items-center justify-between pt-[0.2vw]">
+                          <span className="text-[0.78vw] font-medium text-gray-700">
+                            Position
+                          </span>
+                          <div className="flex items-center gap-[0.2vw] p-[0.15vw] bg-gray-100 rounded-[0.4vw]">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setTempPreloaderSettings({
+                                  ...tempPreloaderSettings,
+                                  textPosition: "top",
+                                })
+                              }
+                              className={`flex items-center gap-[0.25vw] px-[0.7vw] py-[0.25vw] rounded-[0.3vw] text-[0.72vw] font-medium transition-all cursor-pointer ${
+                                tempPreloaderSettings?.textPosition === "top"
+                                  ? "bg-white text-indigo-600 shadow-xs"
+                                  : "text-gray-600 hover:text-gray-900"
+                              }`}
+                            >
+                              <Icon icon="lucide:arrow-up" className="w-[0.75vw] h-[0.75vw]" />
+                              <span>Top</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setTempPreloaderSettings({
+                                  ...tempPreloaderSettings,
+                                  textPosition: "bottom",
+                                })
+                              }
+                              className={`flex items-center gap-[0.25vw] px-[0.7vw] py-[0.25vw] rounded-[0.3vw] text-[0.72vw] font-medium transition-all cursor-pointer ${
+                                (tempPreloaderSettings?.textPosition || "bottom") === "bottom"
+                                  ? "bg-white text-indigo-600 shadow-xs"
+                                  : "text-gray-600 hover:text-gray-900"
+                              }`}
+                            >
+                              <Icon icon="lucide:arrow-down" className="w-[0.75vw] h-[0.75vw]" />
+                              <span>Bottom</span>
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Preloader Colors */}
@@ -1501,10 +1929,10 @@ const Branding = ({
                           onChange={(e) => {
                             let val = e.target.value;
                             if (!val.startsWith("#")) val = "#" + val;
-                            setTempPreloaderSettings({
-                              ...tempPreloaderSettings,
+                            setTempPreloaderSettings((prev) => ({
+                              ...prev,
                               textColor: val,
-                            });
+                            }));
                           }}
                           className="text-[0.8vw] text-gray-600 font-mono bg-transparent w-full outline-none"
                         />
@@ -1523,7 +1951,9 @@ const Branding = ({
                         className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
                         style={{
                           backgroundColor:
-                            tempPreloaderSettings?.bgColor || "#2F91FD",
+                            (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
+                              ? "#22252A"
+                              : tempPreloaderSettings.bgColor,
                         }}
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -1541,15 +1971,17 @@ const Branding = ({
                         <input
                           type="text"
                           value={(
-                            tempPreloaderSettings?.bgColor || "#2F91FD"
+                            (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
+                              ? "#22252A"
+                              : tempPreloaderSettings.bgColor
                           ).toUpperCase()}
                           onChange={(e) => {
                             let val = e.target.value;
                             if (!val.startsWith("#")) val = "#" + val;
-                            setTempPreloaderSettings({
-                              ...tempPreloaderSettings,
+                            setTempPreloaderSettings((prev) => ({
+                              ...prev,
                               bgColor: val,
-                            });
+                            }));
                           }}
                           className="text-[0.8vw] text-gray-600 font-mono bg-transparent w-full outline-none"
                         />
@@ -1559,50 +1991,221 @@ const Branding = ({
                       </div>
                     </div>
 
-                    {/* Accent Color */}
-                    <div className="flex items-center gap-[1vw]">
-                      <span className="text-[0.8vw] font-medium text-gray-800 w-[5vw]">
-                        Accent :
-                      </span>
-                      <div
-                        className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
-                        style={{
-                          backgroundColor:
-                            tempPreloaderSettings?.spinnerColor || "#2F91FD",
-                        }}
-                        onClick={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setPickerPos({
-                            x: Math.min(
-                              window.innerWidth - 260,
-                              rect.left + 260,
-                            ),
-                            y: rect.top,
-                          });
-                          setShowPreloaderSpinnerColorPicker(true);
-                        }}
-                      />
-                      <div className="flex-1 flex items-center justify-between border border-gray-300 rounded-[0.4vw] px-[0.6vw] py-[0.4vw] bg-white">
-                        <input
-                          type="text"
-                          value={(
-                            tempPreloaderSettings?.spinnerColor || "#2F91FD"
-                          ).toUpperCase()}
-                          onChange={(e) => {
-                            let val = e.target.value;
-                            if (!val.startsWith("#")) val = "#" + val;
-                            setTempPreloaderSettings({
-                              ...tempPreloaderSettings,
-                              spinnerColor: val,
-                            });
-                          }}
-                          className="text-[0.8vw] text-gray-600 font-mono bg-transparent w-full outline-none"
-                        />
-                        <span className="text-[0.8vw] text-gray-500 font-mono ml-2">
-                          100%
+                    {/* Accent Color - only shown for preloader-only and both (hidden for logo-only) */}
+                    {(tempPreloaderSettings?.displayOption || (tempPreloaderSettings?.layout === "logo-only" ? "logo-only" : (tempPreloaderSettings?.logo ? "both" : "preloader-only"))) !== "logo-only" && (
+                      <div className="flex items-center gap-[1vw]">
+                        <span className="text-[0.8vw] font-medium text-gray-800 w-[5vw]">
+                          Accent :
                         </span>
+                        <div
+                          className="w-[1.8vw] h-[1.8vw] rounded-[0.4vw] border border-gray-200 cursor-pointer shadow-sm hover:border-indigo-400"
+                          style={{
+                            backgroundColor:
+                              (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
+                                ? "#E04752"
+                                : tempPreloaderSettings.spinnerColor,
+                          }}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setPickerPos({
+                              x: Math.min(
+                                window.innerWidth - 260,
+                                rect.left + 260,
+                              ),
+                              y: rect.top,
+                            });
+                            setShowPreloaderSpinnerColorPicker(true);
+                          }}
+                        />
+                        <div className="flex-1 flex items-center justify-between border border-gray-300 rounded-[0.4vw] px-[0.6vw] py-[0.4vw] bg-white">
+                          <input
+                            type="text"
+                            value={(
+                              (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
+                                ? "#E04752"
+                                : tempPreloaderSettings.spinnerColor
+                            ).toUpperCase()}
+                            onChange={(e) => {
+                              let val = e.target.value;
+                              if (!val.startsWith("#")) val = "#" + val;
+                              setTempPreloaderSettings((prev) => ({
+                                ...prev,
+                                spinnerColor: val,
+                              }));
+                            }}
+                            className="text-[0.8vw] text-gray-600 font-mono bg-transparent w-full outline-none"
+                          />
+                          <span className="text-[0.8vw] text-gray-500 font-mono ml-2">
+                            100%
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
+                  </div>
+
+                  {/* Live Modal Preview Card (Shown below properties) */}
+                  {(() => {
+                    const currentOption = tempPreloaderSettings?.displayOption || (
+                      tempPreloaderSettings?.layout === "logo-only"
+                        ? "logo-only"
+                        : (tempPreloaderSettings?.logo ? "both" : "preloader-only")
+                    );
+                    const modalLogoAnim = tempPreloaderSettings?.logoAnimation || "fade";
+                    const modalAnimStyle = getLogoAnimationStyle(modalLogoAnim);
+                    const modalBg = (!tempPreloaderSettings?.bgColor || tempPreloaderSettings.bgColor === "#D6E0F4")
+                      ? "#22252A"
+                      : tempPreloaderSettings.bgColor;
+                    const modalColor = tempPreloaderSettings?.textColor || "#ffffff";
+                    const modalSpinner = (!tempPreloaderSettings?.spinnerColor || tempPreloaderSettings.spinnerColor === "#3B3C8A")
+                      ? "#E04752"
+                      : tempPreloaderSettings.spinnerColor;
+                    const modalLogoScale = ((tempPreloaderSettings?.logoSize !== undefined ? tempPreloaderSettings.logoSize : 100) / 100);
+                    const previewRaw = tempPreloaderSettings?.text;
+                    const previewText = (!previewRaw ||
+                      previewRaw === "Loading Modal Please Wait...." ||
+                      previewRaw === "Loading Flipbook Please Wait...." ||
+                      previewRaw === "Preparing Flipbook...")
+                        ? "Preparing Flipibook"
+                        : previewRaw;
+
+                    return (
+                      <div className="flex flex-col gap-[0.35vw] pt-[0.2vw]">
+                        <span className="text-[0.82vw] font-medium text-gray-800">Preview</span>
+                        <div
+                          className="relative w-full h-[6.5vw] min-h-[90px] rounded-[0.6vw] flex flex-col items-center justify-center border border-gray-700/30 overflow-hidden shadow-inner"
+                          style={{ backgroundColor: modalBg, color: modalColor }}
+                        >
+                          <div className={`flex items-center gap-[0.3vw] ${tempPreloaderSettings?.textPosition === "top" ? "flex-col-reverse" : "flex-col"}`}>
+                            {currentOption === "logo-only" ? (
+                              <div className="flex flex-col items-center gap-[0.2vw]">
+                                {tempPreloaderSettings?.logo ? (
+                                  <div style={modalAnimStyle}>
+                                    <img
+                                      src={tempPreloaderSettings.logo}
+                                      alt="Preloader Logo"
+                                      className="object-contain drop-shadow-sm transition-all"
+                                      style={{
+                                        height: `${2 * modalLogoScale}vw`,
+                                        maxWidth: `${5 * modalLogoScale}vw`,
+                                      }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div style={modalAnimStyle}>
+                                    <div
+                                      className="rounded-[0.3vw] bg-white/10 flex items-center justify-center transition-all"
+                                      style={{
+                                        width: `${1.8 * modalLogoScale}vw`,
+                                        height: `${1.8 * modalLogoScale}vw`,
+                                      }}
+                                    >
+                                      <span style={{ fontSize: `${1 * modalLogoScale}vw` }}>📖</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center gap-[0.25vw]">
+                                {currentOption === "both" && tempPreloaderSettings?.logo && (
+                                  <div className="flex items-center justify-center" style={modalAnimStyle}>
+                                    <img
+                                      src={tempPreloaderSettings.logo}
+                                      alt="Preloader Logo"
+                                      className="object-contain transition-all"
+                                      style={{
+                                        height: `${1.6 * modalLogoScale}vw`,
+                                        maxWidth: `${4 * modalLogoScale}vw`,
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                {tempPreloaderSettings?.layout === "bar" ? (
+                                  <div className="w-[8vw] bg-gray-600/30 h-[0.3vw] rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width: "50%", backgroundColor: modalSpinner }} />
+                                  </div>
+                                ) : tempPreloaderSettings?.layout === "dots" ? (
+                                  <div className="flex items-center gap-[0.3vw]">
+                                    <div className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce [animation-delay:-0.3s]" style={{ backgroundColor: modalSpinner }} />
+                                    <div className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce [animation-delay:-0.15s]" style={{ backgroundColor: modalSpinner }} />
+                                    <div className="w-[0.4vw] h-[0.4vw] rounded-full animate-bounce" style={{ backgroundColor: modalSpinner }} />
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="w-[1.2vw] h-[1.2vw] border-[2px] border-t-transparent rounded-full animate-spin"
+                                    style={{ borderColor: `${modalSpinner} ${modalSpinner} ${modalSpinner} transparent` }}
+                                  />
+                                )}
+                              </div>
+                            )}
+                            {tempPreloaderSettings?.showText !== false && (
+                              <p
+                                className="text-[0.68vw] font-medium text-center truncate max-w-[12vw]"
+                                style={{
+                                  color: modalColor,
+                                  fontFamily: tempPreloaderSettings?.font || "Poppins",
+                                }}
+                              >
+                                {previewText}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Fixed Footer */}
+                <div className="px-[1.2vw] py-[0.8vw] border-t border-gray-100 flex items-center justify-between shrink-0 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaultSettings = {
+                        enabled: true,
+                        isCustom: false,
+                        displayOption: "preloader-only",
+                        text: "Preparing Flipibook",
+                        layout: "spinner",
+                        logoAnimation: "fade",
+                        spinnerColor: "#E04752",
+                        bgColor: "#22252A",
+                        textColor: "#ffffff",
+                        showPercentage: false,
+                        showText: true,
+                        textPosition: "bottom",
+                        logoSize: 100,
+                        logo: "",
+                      };
+                      setTempPreloaderSettings(defaultSettings);
+                    }}
+                    className="px-[0.6vw] py-[0.35vw] text-[0.72vw] text-gray-500 hover:text-gray-800 hover:underline cursor-pointer"
+                  >
+                    Reset to Default
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowPreloaderModal(false)}
+                      className="px-[0.8vw] py-[0.4vw] rounded-[0.4vw] border border-gray-300 text-[0.78vw] font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isReset = tempPreloaderSettings?.isCustom === false;
+                        onUpdatePreloader({
+                          ...(preloaderSettings || {}),
+                          ...(tempPreloaderSettings || {}),
+                          isCustom: !isReset,
+                        });
+                        setShowPreloaderModal(false);
+                      }}
+                      className="px-[1vw] py-[0.4vw] rounded-[0.4vw] bg-[#4A3AFF] hover:bg-[#3d2ee6] text-white text-[0.78vw] font-semibold cursor-pointer shadow-sm"
+                    >
+                      Save Changes
+                    </button>
                   </div>
                 </div>
               </div>,
@@ -1784,19 +2387,13 @@ const Branding = ({
         {showPreloaderBgColorPicker && (
           <CustomColorPicker
             color={
-              showPreloaderModal
-                ? tempPreloaderSettings?.bgColor || "#2D2F33"
-                : preloaderSettings?.bgColor || "#2D2F33"
+              tempPreloaderSettings?.bgColor || "#22252A"
             }
             onChange={(color) => {
-              if (showPreloaderModal) {
-                setTempPreloaderSettings({
-                  ...tempPreloaderSettings,
-                  bgColor: color,
-                });
-              } else {
-                onUpdatePreloader({ ...preloaderSettings, bgColor: color });
-              }
+              setTempPreloaderSettings((prev) => ({
+                ...prev,
+                bgColor: color,
+              }));
             }}
             onClose={() => setShowPreloaderBgColorPicker(false)}
             position={pickerPos}
@@ -1806,19 +2403,13 @@ const Branding = ({
         {showPreloaderTextColorPicker && (
           <CustomColorPicker
             color={
-              showPreloaderModal
-                ? tempPreloaderSettings?.textColor || "#ffffff"
-                : preloaderSettings?.textColor || "#ffffff"
+              tempPreloaderSettings?.textColor || "#ffffff"
             }
             onChange={(color) => {
-              if (showPreloaderModal) {
-                setTempPreloaderSettings({
-                  ...tempPreloaderSettings,
-                  textColor: color,
-                });
-              } else {
-                onUpdatePreloader({ ...preloaderSettings, textColor: color });
-              }
+              setTempPreloaderSettings((prev) => ({
+                ...prev,
+                textColor: color,
+              }));
             }}
             onClose={() => setShowPreloaderTextColorPicker(false)}
             position={pickerPos}
@@ -1828,22 +2419,13 @@ const Branding = ({
         {showPreloaderSpinnerColorPicker && (
           <CustomColorPicker
             color={
-              showPreloaderModal
-                ? tempPreloaderSettings?.spinnerColor || "#3B3C8A"
-                : preloaderSettings?.spinnerColor || "#3B3C8A"
+              tempPreloaderSettings?.spinnerColor || "#E04752"
             }
             onChange={(color) => {
-              if (showPreloaderModal) {
-                setTempPreloaderSettings({
-                  ...tempPreloaderSettings,
-                  spinnerColor: color,
-                });
-              } else {
-                onUpdatePreloader({
-                  ...preloaderSettings,
-                  spinnerColor: color,
-                });
-              }
+              setTempPreloaderSettings((prev) => ({
+                ...prev,
+                spinnerColor: color,
+              }));
             }}
             onClose={() => setShowPreloaderSpinnerColorPicker(false)}
             position={pickerPos}
@@ -1856,6 +2438,7 @@ const Branding = ({
             size="small"
             titleText="Add Image"
             buttonText="Add Image"
+            hideImportViaUrl={true}
             onClose={() => setReplaceTarget(null)}
             onReplace={(file) => {
               if (replaceTarget === "logo") {

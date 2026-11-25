@@ -130,6 +130,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     pageOpacity,
     singlePage = false,
     hardCoverZoom,
+    onBookReady,
   },
   ref,
 ) {
@@ -138,6 +139,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
   const reactFlipRef = useRef(null); // ref for react-pageflip
   const onFlipRef = useRef(onFlip); // always-current onFlip — avoids stale closure in turn.js
   const onTurningRef = useRef(onTurning);
+  // Corner drag → centre the book as soon as the user grabs a page (not only on release)
+  const lastPeelRef = useRef(null); // pageObject from the latest corner 'start'
   const queuedFlipRef = useRef(null);
   const [scriptsLoaded, setScriptsLoaded] = useState(() =>
     Boolean(typeof window !== "undefined" && window.jQuery?.fn?.turn),
@@ -289,7 +292,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
           staticBg.removeAttribute("data-loading");
           const existingImg = staticBg.querySelector("img");
           if (!existingImg || existingImg.src !== url) {
-            staticBg.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;" alt="Page ${pageKey}" />`;
+            staticBg.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:fill;display:block;pointer-events:none;" alt="Page ${pageKey}" />`;
           }
         }
       } catch (_) {}
@@ -350,7 +353,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
   const isInteractiveHtml = useCallback((rawHtml) => {
     if (!rawHtml || typeof rawHtml !== "string") return false;
-    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|data-scrollable=["']true|class=["'][^"']*interactive|<a\s+href/i.test(
+    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|data-scrollable=["']true|class=["'][^"']*interactive|<a\s+href|data-animation|data-text-effect/i.test(
       rawHtml,
     );
   }, []);
@@ -573,7 +576,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
                     src="${texture}" 
                     onload="const p=this.parentElement;if(p){const l=p.querySelector('.fbe-page-loader');if(l)l.style.display='none';p.setAttribute('data-loaded','true');p.removeAttribute('data-placeholder');p.removeAttribute('data-loading');}this.style.opacity='1';" 
                     onerror="const p=this.parentElement;if(p){const l=p.querySelector('.fbe-page-loader');if(l)l.style.display='none';p.setAttribute('data-loaded','true');p.removeAttribute('data-placeholder');p.removeAttribute('data-loading');}this.style.display='none';" 
-                    style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;z-index:1;opacity:0;"
+                    style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;z-index:1;opacity:0;"
                     alt="Page ${pageNum}" 
                     decoding="async" 
                 />
@@ -752,9 +755,9 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       let startX = 0;
       let startY = 0;
 
-      const isLastPage =
-        i === augmentedPages.length - 1 ||
-        (i === augmentedPages.length - 2 && augmentedPages[i + 1]?.isPad);
+      // Back-cover styling only for a real final page. With an odd page count a transparent pad is
+      // appended, so the real last page is a right-hand page of a spread and needs its normal spine shadow.
+      const isLastPage = i === augmentedPages.length - 1 && i % 2 === 1 && !page.isPad;
       const directionClass = i % 2 === 0 ? "right" : "left";
 
       let sheetStyles = {};
@@ -1121,7 +1124,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       try {
         if (!window.jQuery) await loadScript("/lib/jquery.min.js");
         if (!window.jQuery?.fn?.turn || window._turnJsVersion !== 4) {
-          await loadScript("/lib/turn.min.js?v=4.2-fbe");
+          await loadScript("/lib/turn.min.js?v=5.4-fbe");
         }
         if (alive) {
           setScriptsLoaded(true);
@@ -1314,9 +1317,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       }
 
       const isFirst = i === 0;
-      const isLast =
-        i === augmented.length - 1 ||
-        (i === augmented.length - 2 && augmented[i + 1]?.isPad);
+      // Real final page only (see note above) — a page followed by the odd-count pad is an inner page.
+      const isLast = i === augmented.length - 1 && i % 2 === 1 && !augmented[i]?.isPad;
       const positionClass =
         `${isFirst ? "fbe-page--first" : ""} ${isLast ? "fbe-page--last" : ""}`.trim();
       const directionClass = i % 2 === 0 ? "right" : "left";
@@ -1447,6 +1449,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       autoCenter: false,
       when: {
         start: (e, pageObject, corner) => {
+          if (corner) lastPeelRef.current = pageObject || null;
           if (corner) {
             // Warm the pages about to be revealed as soon as a corner drag begins
             if (pageObject?.next) ensureRevealedLoaded(pageObject.next);
@@ -1483,6 +1486,9 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
           // before 'turned'. Treating that as "cancelled" dropped the turning classes mid-turn for
           // a frame (overlay/spine-shadow flash). Only a peel released WITHOUT turning cleans up here.
           if (!turned && turnInProgressRef.current) return;
+          lastPeelRef.current = null;
+          // Peel released without turning: ease the drag nudge back
+          if (!turned) resetDragNudge(400);
           isFlippingRef.current = false;
           if (!turned) {
             setIsTurning(false);
@@ -1522,6 +1528,13 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             bookEl.current.classList.add("fbe-is-turning", "fbe-is-flipping");
 
           ensureRevealedLoaded(turnPage);
+          // Dark backing under the spine (CSS) — only while a two-page spread is (or is becoming) visible
+          // Off as soon as a turn heads to a lone cover, or it shows beside the cover while the page lifts away
+          if (bookEl.current && Array.isArray(view))
+            bookEl.current.toggleAttribute(
+              "data-spread",
+              !singlePage && view[0] > 0 && view[1] > 0,
+            );
 
           let logical = turnPage - 1;
           if (!singlePage && Array.isArray(view) && view.length >= 2) {
@@ -1531,8 +1544,13 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             logical = turnPage % 2 === 0 ? turnPage - 1 : turnPage - 2;
           }
           if (onTurningRef.current) onTurningRef.current({ data: logical });
+          // Layout centring starts now (CSS: translate 0.85s, same easing). Ease the drag nudge out
+          // with the IDENTICAL duration/curve so the two cancel out exactly — no wobble or re-centre.
+          document.documentElement.style.setProperty("--fbe-nudge-dur", "850ms");
+          resetDragNudge(850);
         },
         turned: (_e, turnPage, view) => {
+          lastPeelRef.current = null;
           turnInProgressRef.current = false;
           isFlippingRef.current = false;
           const activeView =
@@ -1542,6 +1560,11 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
               : turnPage % 2 === 0
                 ? [turnPage, turnPage + 1]
                 : [turnPage - 1, turnPage]);
+          if (bookEl.current)
+            bookEl.current.toggleAttribute(
+              "data-spread",
+              !singlePage && activeView[0] > 0 && activeView[1] > 0,
+            );
 
           let logical = turnPage - 1;
           if (
@@ -1604,6 +1627,14 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
     [initPage, initPage + 1, initPage + 2].forEach((p) => preloadPageToDom(p));
     markUnderSheetRef.current();
+
+    if (typeof onBookReady === "function") {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          onBookReady();
+        }, 80);
+      });
+    }
 
     // No automatic corner peel on load — the corner only peels when the user hovers it.
 
@@ -1702,6 +1733,97 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       }
     }
   }, [width, height, singlePage, ready, useFullTurnJs]);
+
+  // Gradual centring while a cover corner is dragged (like FlipHTML5): the book slides toward
+  // its centred position in proportion to how far the page has been pulled. Applied as an extra
+  // `translate` on the engine wrapper; when the turn is released the layout's own centring
+  // takes over while this nudge eases back to 0 (same duration/easing), so the motion stays continuous.
+  const CENTER_EASE = "cubic-bezier(0.45, 0, 0.2, 1)";
+  const dragNudgeRef = useRef(null); // { pressX, deltaLocal, span }
+  const resetDragNudge = useCallback((ms) => {
+    const box = containerRef.current;
+    dragNudgeRef.current = null;
+    // Nav arrows (layouts read these CSS vars) ease back in step with the book
+    const root = document.documentElement;
+    if (root.style.getPropertyValue("--fbe-arrow-nudge")) {
+      root.style.setProperty("--fbe-nudge-dur", `${ms || 0}ms`);
+      root.style.removeProperty("--fbe-arrow-nudge");
+    }
+    if (!box || !box.style.translate) return;
+    box.style.transition = ms ? `translate ${ms}ms ${CENTER_EASE}` : "none";
+    box.style.translate = "";
+  }, []);
+
+  useEffect(() => {
+    const el = bookEl.current;
+    const box = containerRef.current;
+    if (!el || !box || singlePage) return undefined;
+
+    // Half-page centring units: front cover alone = -1, back cover alone = +1, open spread = 0
+    const centerUnits = (logical, total) => {
+      if (logical <= 0) return -1;
+      if (logical >= total - 1 && total % 2 === 0) return 1;
+      return 0;
+    };
+    const pointX = (ev) => (ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX);
+
+    const onMove = (ev) => {
+      const d = dragNudgeRef.current;
+      if (!d) return;
+      const progress = Math.min(1, Math.abs(pointX(ev) - d.pressX) / d.span);
+      box.style.transition = "none";
+      box.style.translate = `${d.deltaLocal * progress}px 0`;
+      // Arrows: move outward when the book opens up to a spread, inward when it closes to a cover
+      const root = document.documentElement;
+      root.style.setProperty("--fbe-nudge-dur", "0s");
+      root.style.setProperty("--fbe-arrow-nudge", `${d.arrowSpread * progress}px`);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove, true);
+      window.removeEventListener("touchmove", onMove, true);
+      window.removeEventListener("mouseup", onUp, true);
+      window.removeEventListener("touchend", onUp, true);
+    };
+
+    const onPress = (ev) => {
+      const po = lastPeelRef.current;
+      if (!po || !po.next) return;
+      let currentLogical = 0;
+      try {
+        const v = window.jQuery(el).turn("view") || [];
+        currentLogical = v[0] > 0 ? v[0] - 1 : (v.find((p) => p > 0) || 1) - 1;
+      } catch (_) { return; }
+      const total = augmentedPages.length;
+      const n = po.next;
+      const targetLogical = n <= 1 ? 0 : n % 2 === 0 ? n - 1 : n - 2;
+      const units = centerUnits(targetLogical, total) - centerUnits(currentLogical, total);
+      if (!units) return;
+      const rect = el.getBoundingClientRect();
+      const scale = el.offsetWidth ? rect.width / el.offsetWidth : 1;
+      const halfPageScreen = rect.width / 4; // book shows two pages
+      // Slide toward the centred spread (front cover → book moves right; verified in a real browser drag)
+      const curAbs = Math.abs(centerUnits(currentLogical, total));
+      const tgtAbs = Math.abs(centerUnits(targetLogical, total));
+      dragNudgeRef.current = {
+        arrowSpread: (curAbs - tgtAbs) * halfPageScreen,
+        pressX: pointX(ev),
+        deltaLocal: (units * halfPageScreen) / (scale || 1),
+        span: Math.max(1, rect.width * 0.85),
+      };
+      window.addEventListener("mousemove", onMove, true);
+      window.addEventListener("touchmove", onMove, { capture: true, passive: true });
+      window.addEventListener("mouseup", onUp, true);
+      window.addEventListener("touchend", onUp, true);
+    };
+
+    el.addEventListener("mousedown", onPress, true);
+    el.addEventListener("touchstart", onPress, { capture: true, passive: true });
+    return () => {
+      onUp();
+      el.removeEventListener("mousedown", onPress, true);
+      el.removeEventListener("touchstart", onPress, true);
+    };
+  }, [singlePage, ready, augmentedPages.length]);
 
   // If a requested turn did not start (end of book, blocked), undo the freeze + turning state
   const settleIfNoTurn = useCallback(($book) => {
@@ -1989,6 +2111,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
     >
       <FlipBookStyles cornerRadius={cornerRadius} />
 
+
       {/* Loading indicator */}
       {!ready && (
         <div
@@ -1998,13 +2121,21 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "#f7f7f7",
-            color: "#999",
-            fontSize: "13px",
+            background: "transparent",
             zIndex: 10,
           }}
         >
-          Loading FlipBook…
+          <div
+            className="fbe-spinner"
+            style={{
+              width: "32px",
+              height: "32px",
+              border: "3px solid rgba(224, 71, 82, 0.2)",
+              borderTopColor: "#E04752",
+              borderRadius: "50%",
+              animation: "fbe-spin 0.7s linear infinite",
+            }}
+          />
         </div>
       )}
 

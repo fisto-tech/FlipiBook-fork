@@ -22,6 +22,31 @@ const calculateFitZoom = (containerWidth, containerHeight, baseWidth, baseHeight
 };
 
 /**
+ * Calculates pan boundaries to ensure the canvas book/sheet is never hidden or lost out of view.
+ * Guarantees that at least a comfortable margin of the sheet remains visible on screen at all times.
+ */
+export const computePanBounds = (containerEl, zoomContainerEl, currentScale = 1, baseW = 210, baseH = 297) => {
+  const containerWidth = containerEl?.clientWidth || window.innerWidth;
+  const containerHeight = containerEl?.clientHeight || window.innerHeight;
+
+  const sheetEl = zoomContainerEl?.querySelector?.('.group\\/page') || zoomContainerEl?.firstElementChild || zoomContainerEl;
+  const unscaledW = sheetEl?.offsetWidth || ((containerHeight * 0.78) * ((baseW || 210) / (baseH || 297))) || 500;
+  const unscaledH = sheetEl?.offsetHeight || (containerHeight * 0.78) || 700;
+
+  const scaledW = unscaledW * currentScale;
+  const scaledH = unscaledH * currentScale;
+
+  // At least 100px or 30% of sheet must always remain inside the viewport boundary
+  const minVisibleX = Math.min(100, scaledW * 0.3);
+  const minVisibleY = Math.min(100, scaledH * 0.3);
+
+  const maxPanX = Math.max(0, (containerWidth / 2) + (scaledW / 2) - minVisibleX);
+  const maxPanY = Math.max(0, (containerHeight / 2) + (scaledH / 2) - minVisibleY);
+
+  return { maxPanX, maxPanY };
+};
+
+/**
  * Hook to manage smooth canvas zooming, panning, auto-fit to container,
  * mouse wheel zoom gestures, and window resize listeners.
  */
@@ -42,9 +67,12 @@ export const useCanvasZoomPan = ({
   lastWheelTimeRef,
   suppressClickRef
 }) => {
-  // Smooth wheel-zoom animation state
+  // Smooth wheel-zoom & smooth wheel-pan animation state
   const targetZoomRef = useRef(null);
   const zoomAnchorRef = useRef({ x: 0, y: 0 });
+  const panRafRef = useRef(null);
+  const targetPanRef = useRef(null);
+  const suppressClickTimeoutRef = useRef(null);
 
   const handleZoomIn = () => {
     const currentP = currentPanRef.current || pan || { x: 0, y: 0 };
@@ -54,7 +82,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -68,7 +96,7 @@ export const useCanvasZoomPan = ({
       currentZoomRef.current = nextZoom;
       if (zoomContainerRef.current) {
         zoomContainerRef.current.style.transition = 'transform 0.15s ease-out';
-        zoomContainerRef.current.style.transform = `translate3d(${currentP.x}px, ${currentP.y}px, 0px) scale(${nextZoom / 100})`;
+        zoomContainerRef.current.style.transform = `translate(${currentP.x}px, ${currentP.y}px) scale(${nextZoom / 100})`;
       }
       return nextZoom;
     });
@@ -141,14 +169,17 @@ export const useCanvasZoomPan = ({
     const el = editorContainerRef.current;
     if (!el) return;
     const handleWheel = (e) => {
-      if (e.target.closest('.editor-ss-overlay') || e.target.closest('input')) return;
+      if (e.target.closest('.editor-ss-overlay, input, textarea, select, .flipbook-text-scrollbar, [contenteditable="true"], [data-scrollable="true"], [data-modal], [data-modal="true"], .custom-scrollbar, [role="dialog"], .overflow-y-auto, .overflow-auto, .modal-scroll-container')) return;
+      if (window.__isAdjustingShapeImage) return;
+
       if (e.ctrlKey || e.metaKey || e.altKey) {
         e.preventDefault();
         e.stopPropagation();
 
         lastWheelTimeRef.current = Date.now();
         suppressClickRef.current = true;
-        setTimeout(() => { suppressClickRef.current = false; }, 200);
+        if (suppressClickTimeoutRef.current) clearTimeout(suppressClickTimeoutRef.current);
+        suppressClickTimeoutRef.current = setTimeout(() => { suppressClickRef.current = false; }, 200);
 
         const containerEl = zoomContainerRef.current;
         if (!containerEl) return;
@@ -187,15 +218,18 @@ export const useCanvasZoomPan = ({
           const centerX = editorRect.left + editorRect.width / 2 + currentPan.x;
           const centerY = editorRect.top + editorRect.height / 2 + currentPan.y;
           const ratio = nextZoom / currentZoom;
-          const nextPan = {
-            x: currentPan.x + (zoomAnchorRef.current.x - centerX) * (1 - ratio),
-            y: currentPan.y + (zoomAnchorRef.current.y - centerY) * (1 - ratio),
-          };
+          const rawNextX = currentPan.x + (zoomAnchorRef.current.x - centerX) * (1 - ratio);
+          const rawNextY = currentPan.y + (zoomAnchorRef.current.y - centerY) * (1 - ratio);
+
+          const { maxPanX, maxPanY } = computePanBounds(el, zoomContainerRef.current, nextZoom / 100, baseWidth, baseHeight);
+          const clampedX = Math.min(Math.max(rawNextX, -maxPanX), maxPanX);
+          const clampedY = Math.min(Math.max(rawNextY, -maxPanY), maxPanY);
+          const nextPan = { x: clampedX, y: clampedY };
 
           currentZoomRef.current = nextZoom;
           currentPanRef.current = nextPan;
           if (zoomContainerRef.current) {
-            zoomContainerRef.current.style.transform = `translate(${nextPan.x}px, ${nextPan.y}px) scale(${nextZoom / 100})`;
+            zoomContainerRef.current.style.transform = `translate(${clampedX}px, ${clampedY}px) scale(${nextZoom / 100})`;
           }
           window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextPan }));
 
@@ -211,19 +245,167 @@ export const useCanvasZoomPan = ({
           }
           wheelRafRef.current = requestAnimationFrame(step);
         };
+        if (zoomContainerRef.current) zoomContainerRef.current.style.willChange = 'transform';
         wheelRafRef.current = requestAnimationFrame(step);
+      } else {
+        // Standard Scroll:
+        // - Normal scroll: sheet moves top and bottom
+        // - Shift + scroll: sheet moves left and right
+        e.preventDefault();
+        e.stopPropagation();
+
+        lastWheelTimeRef.current = Date.now();
+        suppressClickRef.current = true;
+        if (suppressClickTimeoutRef.current) clearTimeout(suppressClickTimeoutRef.current);
+        suppressClickTimeoutRef.current = setTimeout(() => { suppressClickRef.current = false; }, 200);
+
+        const containerEl = zoomContainerRef.current;
+        if (!containerEl) return;
+
+        // Cancel any running wheel-zoom animation so it doesn't fight pan
+        if (wheelRafRef.current) {
+          cancelAnimationFrame(wheelRafRef.current);
+          wheelRafRef.current = null;
+          targetZoomRef.current = null;
+        }
+
+        let multiplier = 1;
+        if (e.deltaMode === 1) multiplier = 16;
+        else if (e.deltaMode === 2) multiplier = 100;
+
+        let dx = 0;
+        let dy = 0;
+
+        if (e.shiftKey) {
+          // Shift + scroll -> Move sheet left and right
+          const rawDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          dx = rawDelta * multiplier;
+          dy = 0;
+        } else {
+          // Normal scroll -> Move sheet top and bottom (and trackpad horizontal if deltaX present)
+          dx = e.deltaX * multiplier;
+          dy = e.deltaY * multiplier;
+        }
+
+        const currentP = currentPanRef.current || pan || { x: 0, y: 0 };
+        const currentZ = currentZoomRef.current || zoom || 100;
+        const currentScale = currentZ / 100;
+
+        const { maxPanX, maxPanY } = computePanBounds(el, containerEl, currentScale, baseWidth, baseHeight);
+
+        // Accumulate displacement on targetPan so rapid wheel ticks stack smoothly with natural momentum
+        const baseTargetX = targetPanRef.current ? targetPanRef.current.x : currentP.x;
+        const baseTargetY = targetPanRef.current ? targetPanRef.current.y : currentP.y;
+
+        const nextTargetX = Math.min(Math.max(baseTargetX - dx, -maxPanX), maxPanX);
+        const nextTargetY = Math.min(Math.max(baseTargetY - dy, -maxPanY), maxPanY);
+
+        targetPanRef.current = { x: nextTargetX, y: nextTargetY };
+
+        if (panRafRef.current) return; // animation already gliding smoothly
+
+        // GPU layer for the whole glide (CanvasViewport drops it ~150ms after the final pan commit)
+        containerEl.style.willChange = 'transform';
+
+        const panStep = () => {
+          if (!targetPanRef.current) {
+            panRafRef.current = null;
+            return;
+          }
+          const target = targetPanRef.current;
+          const curr = currentPanRef.current || { x: 0, y: 0 };
+          const diffX = target.x - curr.x;
+          const diffY = target.y - curr.y;
+
+          const doneX = Math.abs(diffX) < 0.25;
+          const doneY = Math.abs(diffY) < 0.25;
+
+          // Smooth exponential ease-out interpolation
+          const stepX = doneX ? target.x : curr.x + diffX * 0.28;
+          const stepY = doneY ? target.y : curr.y + diffY * 0.28;
+
+          const currZ = currentZoomRef.current || zoom || 100;
+          const scale = currZ / 100;
+
+          const nextP = { x: stepX, y: stepY };
+          currentPanRef.current = nextP;
+
+          if (zoomContainerRef.current) {
+            zoomContainerRef.current.style.transition = 'none';
+            zoomContainerRef.current.style.transform = `translate(${stepX}px, ${stepY}px) scale(${scale})`;
+          }
+          window.dispatchEvent(new CustomEvent('editor-pan-update', { detail: nextP }));
+
+          // Commit React state only when the glide settles: a setPan every frame re-rendered the whole
+          // canvas (all page HTML) ~60×/s, which made scrolling stutter. The DOM transform above
+          // already moves the sheet each frame.
+          if (doneX && doneY) {
+            panRafRef.current = null;
+            targetPanRef.current = null;
+            setPan(nextP);
+            return;
+          }
+
+          panRafRef.current = requestAnimationFrame(panStep);
+        };
+
+        panRafRef.current = requestAnimationFrame(panStep);
       }
     };
+
+    const handleMouseDown = () => {
+      // If user starts clicking or dragging with hand/spacebar, immediately freeze any active glide
+      if (panRafRef.current) {
+        cancelAnimationFrame(panRafRef.current);
+        panRafRef.current = null;
+        targetPanRef.current = null;
+        // Keep where the glide stopped (state is only committed at the end of a glide)
+        if (currentPanRef.current) setPan({ ...currentPanRef.current });
+      }
+    };
+
+    // Popups (colour pickers etc.) put an invisible full-screen click-catcher over the canvas
+    // to close on outside click. It swallows wheel events, so scroll / shift+scroll / zoom stop
+    // working while a picker is open. Forward wheel events that land on such a transparent
+    // layer (and are over the canvas) to the canvas handler. Real modals (tinted/blurred
+    // backdrops) are not affected.
+    const isTransparentClickCatcher = (node) => {
+      if (!node || node === document.body || node === document.documentElement || el.contains(node)) return false;
+      const cs = window.getComputedStyle(node);
+      if (cs.position !== 'fixed') return false;
+      const r = node.getBoundingClientRect();
+      if (r.width < window.innerWidth * 0.9 || r.height < window.innerHeight * 0.9) return false;
+      const bg = cs.backgroundColor || '';
+      const transparentBg = bg === 'transparent' || /rgba?\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(bg);
+      const noBlur = !cs.backdropFilter || cs.backdropFilter === 'none';
+      return transparentBg && noBlur && (cs.backgroundImage === 'none' || !cs.backgroundImage);
+    };
+    const handleWindowWheel = (e) => {
+      if (el.contains(e.target)) return; // the canvas handles its own events
+      const r = el.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+      if (!isTransparentClickCatcher(e.target)) return;
+      handleWheel(e);
+    };
+
     el.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    el.addEventListener('mousedown', handleMouseDown, { capture: true });
+    window.addEventListener('wheel', handleWindowWheel, { passive: false });
     return () => {
       el.removeEventListener('wheel', handleWheel, { capture: true });
+      el.removeEventListener('mousedown', handleMouseDown, { capture: true });
+      window.removeEventListener('wheel', handleWindowWheel);
     };
   }, [currentPanRef, currentZoomRef, editorContainerRef, lastWheelTimeRef, pan, setPan, setZoom, suppressClickRef, wheelRafRef, zoom, zoomContainerRef]);
 
-  // Cancel any running wheel-zoom animation on unmount
+  // Cancel any running wheel-zoom or pan animation on unmount
   useEffect(() => () => {
     if (wheelRafRef.current) cancelAnimationFrame(wheelRafRef.current);
+    if (panRafRef.current) cancelAnimationFrame(panRafRef.current);
+    if (suppressClickTimeoutRef.current) clearTimeout(suppressClickTimeoutRef.current);
     wheelRafRef.current = null;
+    panRafRef.current = null;
+    targetPanRef.current = null;
   }, [wheelRafRef]);
 
   return {

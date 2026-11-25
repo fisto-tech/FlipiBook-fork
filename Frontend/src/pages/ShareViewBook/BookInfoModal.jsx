@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '@iconify/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import { TemplatePreview } from '../../components/CoverPictureTemplate';
+import LazyPreview from '../../components/MyFlipbooks/LazyPreview';
 
 /**
  * "Book Information" popup on the share page (styled like CreateFlipbookModal).
@@ -25,9 +25,17 @@ const BookInfoModal = ({
     const about = clean(info.about) || clean(info.description);
     const tags = Array.isArray(info.tags) ? info.tags.filter(Boolean) : [];
     const cover = info.coverPicture || bookData?.Customized_Settings?.coverPicture || null;
-    const coverImgUrl = cover?.type !== 'template' ? (cover?.url || bookData?.thumbnail || '') : '';
+    const firstPage = bookData?.pages?.[0];
     const publishedAt = bookData?.publishedAt || info.publishedAt || bookData?.createdAt;
-    const publisher = clean(bookData?.publisher) || clean(info.publisher);
+    // Full published date, e.g. "23 November 2026"
+    const formatFullDate = (val) => {
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return formatDisplayDate(val);
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+    // Publisher shown as a name, never an email address
+    const rawPublisher = clean(bookData?.publisher) || clean(info.publisher) || '';
+    const publisher = rawPublisher.includes('@') ? rawPublisher.split('@')[0] : rawPublisher;
     const pageCount = bookData?.pages?.length || 0;
     const dash = <span className="text-gray-400">—</span>;
 
@@ -73,21 +81,18 @@ const BookInfoModal = ({
 
                 {/* Cover + title card */}
                 <div className="border border-gray-200 rounded-[0.8vw] p-[1.2vw] mb-[1vw] bg-white flex gap-[1.2vw]">
-                    <div className="shrink-0 w-[12vw] aspect-[4/3] rounded-[0.6vw] overflow-hidden bg-gray-50 border border-gray-200/60 flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
-                        {cover?.type === 'template' ? (
-                            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                                <TemplatePreview {...cover} pages={bookData?.pages || []} />
-                            </div>
-                        ) : coverImgUrl ? (
-                            <img
-                                src={coverImgUrl}
-                                alt="Book cover"
-                                className="w-full h-full object-cover"
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            />
-                        ) : (
-                            <Icon icon="lucide:book-open" className="w-[2.4vw] h-[2.4vw] text-gray-300" />
-                        )}
+                    {/* Cover thumbnail — same renderer as My Flipbooks (cover template / image, else page 1) */}
+                    <div className="shrink-0 w-[12vw] aspect-[4/3] rounded-[0.6vw] overflow-hidden bg-gray-50 border border-gray-200/60 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+                        <LazyPreview
+                            v_id={bookData?.v_id}
+                            emailId={bookData?.userEmail}
+                            title={title}
+                            imageUrl={cover?.type !== 'template' ? (cover?.url || bookData?.thumbnail || null) : null}
+                            coverPicture={cover}
+                            pages={bookData?.pages || []}
+                            firstPageFileName={firstPage?.fileName || (firstPage?.name ? `${firstPage.name}.svg` : 'Page 1.svg')}
+                            firstPageContent={firstPage?.html || firstPage?.content || null}
+                        />
                     </div>
                     <div className="flex flex-col flex-1 min-w-0">
                         <h3 className="text-[1.15vw] font-bold text-gray-900 tracking-tight leading-tight truncate" title={title}>{title}</h3>
@@ -140,7 +145,7 @@ const BookInfoModal = ({
                                 </div>
                             )
                         },
-                        { label: 'Published', value: publishedAt ? formatDisplayDate(publishedAt) : dash },
+                        { label: 'Published', value: publishedAt ? formatFullDate(publishedAt) : dash },
                         { label: 'Publisher', value: publisher ? <span className="text-gray-700">{publisher}</span> : dash }
                     ].map((item, index) => (
                         <div key={index} className="flex items-center py-[0.65vw] border-b border-gray-100 last:border-0">

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import FlipbookPreview from '../../components/PageEditor/modals/FlipbookPreview';
+import PreloaderOverlay from '../../components/CustomizedEditor/components/PreloaderOverlay';
+import { createDefaultPreloaderSettings } from '../../components/CustomizedEditor/utils/defaultSettings';
 import { LAYOUT_DEFAULT_COLORS } from '../../components/CustomizedEditor/utils/layoutColors';
 import { Icon } from '@iconify/react';
 import { Ghost, ArrowLeft, Home, BookOpen, Clock, X, Heart } from 'lucide-react';
@@ -29,7 +31,7 @@ const ShareViewBook = () => {
     const [passwordError, setPasswordError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
-    const [, setTempSettings] = useState(null);
+    const [tempSettings, setTempSettings] = useState(null);
 
     // Current Logged-in User via Auth Context
     const { user } = useAuth();
@@ -472,11 +474,13 @@ const ShareViewBook = () => {
                 }
 
                 // Extract and set tempSettings immediately so the custom preloader works while image preloading happens
+                const preloaderVal = processedData?.Customized_Settings?.Branding?.preloaderSettings || processedData?.settings?.Branding?.preloaderSettings || processedData?.settings?.preloader || processedData?.settings?.preloaderSettings || processedData?.meta?.preloaderSettings;
                 const extractedSettings = {
                     ...(processedData?.meta || {}),
                     ...(processedData?.Customized_Settings || {}),
                     ...(processedData?.settings || {}),
-                    preloader: processedData?.Customized_Settings?.Branding?.preloaderSettings || processedData?.settings?.Branding?.preloaderSettings || processedData?.settings?.preloader || processedData?.settings?.preloaderSettings || processedData?.meta?.preloaderSettings
+                    preloader: preloaderVal,
+                    preloaderSettings: preloaderVal
                 };
                 setTempSettings(extractedSettings);
 
@@ -505,18 +509,6 @@ const ShareViewBook = () => {
                         return { ...p, html };
                     });
                     // Images load naturally as pages are viewed — no preloading block needed
-                }
-
-                // Sync URL path to match actual access mode (e.g. /share=public/ vs /share=private/)
-                const rawAccMode = String(processedData?.Visibility?.access || processedData?.share?.access || 'public').toLowerCase();
-                let targetPrefix = 'share=public';
-                if (rawAccMode.includes('private')) targetPrefix = 'share=private';
-                else if (rawAccMode.includes('password')) targetPrefix = 'share=password';
-                else if (rawAccMode.includes('invite')) targetPrefix = 'share=invite';
-
-                const expectedPath = `/${targetPrefix}/${shareId}`;
-                if (location.pathname !== expectedPath) {
-                    navigate(`${expectedPath}${location.search}`, { replace: true });
                 }
 
                 // Only update state if the component is still mounted
@@ -580,20 +572,6 @@ const ShareViewBook = () => {
 
                 const status = err.response?.status;
                 const errData = err.response?.data || {};
-
-                // Auto-sync URL path if visibility mode changed on backend
-                const errAccMode = String(errData.accessMode || (errData.isPrivate ? 'private' : errData.isPasswordProtected ? 'password' : errData.isInviteOnly ? 'invite' : '')).toLowerCase();
-                if (errAccMode) {
-                    let targetPrefix = 'share=public';
-                    if (errAccMode.includes('private')) targetPrefix = 'share=private';
-                    else if (errAccMode.includes('password')) targetPrefix = 'share=password';
-                    else if (errAccMode.includes('invite')) targetPrefix = 'share=invite';
-
-                    const expectedPath = `/${targetPrefix}/${shareId}`;
-                    if (location.pathname !== expectedPath) {
-                        navigate(`${expectedPath}${location.search}`, { replace: true });
-                    }
-                }
 
                 // Retry on network errors or 5xx server errors â€” keep loading=true
                 const isRetryable = !err.response || status >= 500;
@@ -811,9 +789,22 @@ const ShareViewBook = () => {
 
     const isMobileDevice = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    if (loading) return (
-        <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#ffffff' }} />
-    );
+    if (loading) {
+        const activePreloader = tempSettings?.preloader;
+        if (activePreloader) {
+            return (
+                <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: activePreloader?.bgColor || '#22252A' }}>
+                    <PreloaderOverlay
+                        isLoading={true}
+                        preloaderSettings={activePreloader}
+                    />
+                </div>
+            );
+        }
+        return (
+            <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, backgroundColor: '#22252A' }} />
+        );
+    }
 
     if (accessMode === 'password') return (
         <div onContextMenu={(e) => e.preventDefault()} className="relative w-screen h-screen overflow-hidden select-none bg-slate-950">
@@ -1113,7 +1104,16 @@ const ShareViewBook = () => {
             <FlipbookPreview
                 pages={bookData.pages}
                 pageName={bookData.meta?.flipbookName || 'Untitled Flipbook'}
-                settings={{ ...(bookData.meta || {}), ...(bookData.Customized_Settings || {}), ...(bookData.settings || {}), ...settings, userEmail: bookData.userEmail || bookData.meta?.userEmail, shareId: shareId || bookData?.Customized_Settings?.Visibility?.shareId || bookData?.Visibility?.shareId }}
+                settings={{
+                    ...(bookData.meta || {}),
+                    ...(bookData.Customized_Settings || {}),
+                    ...(bookData.settings || {}),
+                    ...settings,
+                    preloader: bookData?.Customized_Settings?.Branding?.preloaderSettings || bookData?.settings?.Branding?.preloaderSettings || tempSettings?.preloader,
+                    preloaderSettings: bookData?.Customized_Settings?.Branding?.preloaderSettings || bookData?.settings?.Branding?.preloaderSettings || tempSettings?.preloader,
+                    userEmail: bookData.userEmail || bookData.meta?.userEmail,
+                    shareId: shareId || bookData?.Customized_Settings?.Visibility?.shareId || bookData?.Visibility?.shareId
+                }}
                 isMobile={isMobileDevice}
                 onClose={null}
                 baseUrl={bookData.meta?.baseUrl ? `${getBackendUrl()}${bookData.meta.baseUrl}` : null}

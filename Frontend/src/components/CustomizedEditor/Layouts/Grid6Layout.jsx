@@ -161,6 +161,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
 
     const localOffset = React.useMemo(() => {
         if (offset === 0) return 0; // Use offset prop to respect single page mode
+        // Follow the offset sign from PreviewArea (set when a turn STARTS) so centring glides with the page
+        if (typeof offset === 'number') return offset < 0 ? -(dimWidth / 2) : (dimWidth / 2);
         // Shift left to center the front cover, shift right to center the back cover
         const length = pages?.length || pagesCount || 0;
         if (currentPage === 0) {
@@ -916,10 +918,10 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                     if (isSinglePage) {
                         leftBound = shift - scaledPage / 2;
                         rightBound = shift + scaledPage / 2;
-                    } else if (currentPage === 0) {
+                    } else if (typeof offset === 'number' ? offset < 0 : currentPage === 0) {
                         leftBound = shift;
                         rightBound = shift + scaledPage;
-                    } else if (currentPage >= (pages?.length || pagesCount || 0) - 1 && currentPage % 2 !== 0) {
+                    } else if (typeof offset === 'number' ? offset > 0 : (currentPage >= (pages?.length || pagesCount || 0) - 1 && currentPage % 2 !== 0)) {
                         leftBound = shift - scaledPage;
                         rightBound = shift;
                     } else {
@@ -936,10 +938,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                 <div
                                     className="absolute top-1/2 -translate-y-1/2 -translate-x-full flex items-center transition-all duration-500 ease-out pointer-events-auto"
                                     style={{
-                                        left: `calc(50% + ${leftBound}px - ${isTablet ? '2.5vw' : '3.5vw'})`,
+                                        left: `calc(50% - ${isTablet ? '2.5vw' : '3.5vw'})`,
                                         opacity: currentPage > 0 ? 1 : 0,
                                         pointerEvents: currentPage > 0 ? 'auto' : 'none',
-                                        transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease'
+                                        translate: `calc(-100% + ${leftBound}px - var(--fbe-arrow-nudge, 0px)) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease'
                                     }}
                                 >
                                     <button
@@ -963,10 +966,11 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                 <div
                                     className="absolute top-1/2 -translate-y-1/2 flex items-center transition-all duration-500 ease-out pointer-events-auto"
                                     style={{
-                                        left: `calc(50% + ${rightBound}px + ${isTablet ? '1vw' : '1.5vw'})`,
+                                        left: `calc(50% + ${isTablet ? '1vw' : '1.5vw'})`,
                                         opacity: currentPage < (pages?.length || pagesCount || 0) - 1 ? 1 : 0,
                                         pointerEvents: currentPage < (pages?.length || pagesCount || 0) - 1 ? 'auto' : 'none',
-                                        transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease'
+                                        translate: `calc(${rightBound}px + var(--fbe-arrow-nudge, 0px)) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease'
                                     }}
                                 >
                                     <button
@@ -1301,9 +1305,10 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                                     setPageInputValue(String(currentPage + 1));
                                 }
                             }}
-                            className={`${isTablet ? 'text-[0.65vw] mx-[0.3vw] px-[0.15vw] py-[0.1vw]' : 'text-[0.8vw] mx-[0.4vw] px-[0.2vw] py-[0.15vw]'} font-bold rounded-[0.25vw] outline-none text-center transition-colors shadow-inner`}
+                            className={`${isTablet ? 'text-[0.65vw] mx-[0.3vw] px-[0.15vw] py-[0.1vw]' : 'text-[0.8vw] mx-[0.4vw] px-[0.2vw] py-[0.15vw]'} font-bold rounded-[0.25vw] outline-none text-center transition-colors shadow-inner box-border`}
                             style={{
-                                width: `${String(pages.length).length + 1.2}ch`,
+                                width: `${Math.max(String(pageInputValue || '').length, String(pages.length || 0).length) + 1.6}ch`,
+                                minWidth: '3.2ch',
                                 color: getLayoutColor('bottom-toolbar-bg', '#555555'),
                                 backgroundColor: getLayoutColorAlpha('bottom-toolbar-bg', '87, 92, 156', 0.2),
                                 border: `1px solid ${getLayoutColorAlpha('bottom-toolbar-bg', '87, 92, 156', 0.35)}`
@@ -1344,7 +1349,8 @@ if (e.target.closest('.overflow-y-auto') || e.target.closest('.overflow-x-auto')
                     <div
                         className="relative transition-all duration-600 ease-in-out"
                         style={{
-                            transform: `translateX(${localOffset}px) scale(1)`,
+                            translate: `${localOffset}px 0`, transform: `scale(1)`,
+                            transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.6s ease-in-out',
                             transformOrigin: 'center center',
                             filter: 'drop-shadow(0 2vw 4vw rgba(0,0,0,0.1))'
                         }}

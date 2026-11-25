@@ -2,11 +2,19 @@
  * mapCatalog.jsx
  * Google Maps Presets Catalog for FlipiBook Elements Panel
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { DEFAULT_MAP_DATA, MAP_TEMPLATES, createMapElementNode, getMapSvgCode } from '../utils/mapElementUtils';
+import { DEFAULT_MAP_DATA, MAP_TEMPLATES, createMapElementNode, getMapSvgCode, resolveCurrentMapLocation, subscribeMapDefaultLocation } from '../utils/mapElementUtils';
 
 export const MapTemplateThumbnail = ({ templateId, theme = 'Light Theme', buttonColor = '#000000' }) => {
+  // New maps default to the user's current location: resolve it when the map presets are shown
+  const [, setLocTick] = useState(0);
+  useEffect(() => {
+    const unsub = subscribeMapDefaultLocation(() => setLocTick((t) => t + 1));
+    resolveCurrentMapLocation();
+    return unsub;
+  }, []);
+  const placeLabel = DEFAULT_MAP_DATA.city || DEFAULT_MAP_DATA.name;
   const isDark = String(theme).toLowerCase().includes('dark');
   const cardBg = isDark ? '#1e293b' : '#ffffff';
   const textTitle = isDark ? '#f9fafb' : '#111827';
@@ -47,7 +55,7 @@ export const MapTemplateThumbnail = ({ templateId, theme = 'Light Theme', button
               className="w-[1.2vw] h-[1.2vw] rounded object-cover flex-shrink-0"
             />
             <div className="flex-1 min-w-0 flex flex-col leading-tight">
-              <span className="text-[0.44vw] font-bold truncate" style={{ color: textTitle }}>Coimbatore</span>
+              <span className="text-[0.44vw] font-bold truncate" style={{ color: textTitle }}>{placeLabel}</span>
               <span className="text-[0.35vw] truncate" style={{ color: textSubtitle }}>Tamil Nadu, India</span>
               <div className="flex items-center gap-[0.12vw] mt-[0.03vw]">
                 <span className="text-amber-500 text-[0.35vw]">★</span>
@@ -70,7 +78,7 @@ export const MapTemplateThumbnail = ({ templateId, theme = 'Light Theme', button
               className="w-[1.2vw] h-[1.2vw] rounded object-cover flex-shrink-0"
             />
             <div className="flex-1 min-w-0 flex flex-col leading-tight">
-              <span className="text-[0.42vw] font-bold truncate" style={{ color: textTitle }}>Coimbatore, India</span>
+              <span className="text-[0.42vw] font-bold truncate" style={{ color: textTitle }}>{placeLabel}</span>
               <span className="text-[0.34vw] truncate" style={{ color: textSubtitle }}>Tamil Nadu, India</span>
               <div className="flex items-center gap-[0.08vw]">
                 <span className="text-amber-500 text-[0.35vw]">★</span>
@@ -104,7 +112,7 @@ export const MapTemplateThumbnail = ({ templateId, theme = 'Light Theme', button
                 className="w-[1.3vw] h-[1.3vw] rounded object-cover flex-shrink-0"
               />
               <div className="flex-1 min-w-0 flex flex-col">
-                <span className="text-[0.45vw] font-bold truncate leading-tight" style={{ color: textTitle }}>Coimbatore</span>
+                <span className="text-[0.45vw] font-bold truncate leading-tight" style={{ color: textTitle }}>{placeLabel}</span>
                 <span className="text-[0.36vw] truncate" style={{ color: textSubtitle }}>Tamil Nadu, India</span>
                 <div className="flex items-center gap-[0.12vw] mt-[0.02vw]">
                   <span className="text-amber-500 text-[0.38vw]">★</span>

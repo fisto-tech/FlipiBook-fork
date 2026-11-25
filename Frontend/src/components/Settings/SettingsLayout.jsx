@@ -74,10 +74,6 @@ const SettingsLayout = () => {
   const { user: authUser, logout, setUser: setAuthUser } = useAuth();
   const [user, setUser] = useState(() => {
     let base = { ...defaultProfile };
-    try {
-      const stored = localStorage.getItem('user_profile');
-      if (stored) base = { ...base, ...JSON.parse(stored) };
-    } catch (e) {}
     const initUser = getInitialUser();
     if (initUser) {
       base = {
@@ -131,9 +127,6 @@ const SettingsLayout = () => {
           if (setAuthUser) {
             setAuthUser(merged);
           }
-          try {
-            localStorage.setItem('user_profile', JSON.stringify(merged));
-          } catch (e) {}
         }
       } catch (err) {
         console.warn("SettingsLayout profile fetch error:", err);
@@ -157,7 +150,6 @@ const SettingsLayout = () => {
     // Clear client session and user data
     clearSession();
     localStorage.removeItem("user");
-    localStorage.removeItem("user_profile");
     localStorage.removeItem("token");
     localStorage.removeItem("auth_token");
     localStorage.removeItem("last_active_folder");
@@ -190,34 +182,26 @@ const SettingsLayout = () => {
   useEffect(() => {
     if (authUser && typeof authUser === 'object') {
       const email = authUser.emailId || authUser.email || "";
-      let localProfile = {};
-      try {
-        const stored = localStorage.getItem('user_profile');
-        if (stored) localProfile = JSON.parse(stored);
-      } catch (e) {}
 
       setUser((prev) => ({
         ...defaultProfile,
         ...prev,
-        ...localProfile,
         ...authUser,
         name:
-          localProfile.name ||
           authUser.displayName ||
           authUser.name ||
           authUser.userName ||
           (email ? email.split("@")[0] : prev.name),
         displayName:
-          localProfile.displayName ||
           authUser.displayName ||
           authUser.name ||
           prev.displayName ||
           "",
         email: email || prev.email,
         emailId: email || prev.emailId,
-        picture: localProfile.picture !== undefined ? localProfile.picture : (authUser.picture || prev.picture),
+        picture: authUser.picture || prev.picture,
         avatarBgColor:
-          localProfile.avatarBgColor || authUser.avatarBgColor || prev.avatarBgColor || "#E8D4C8",
+          authUser.avatarBgColor || prev.avatarBgColor || "#E8D4C8",
       }));
     }
   }, [authUser]);

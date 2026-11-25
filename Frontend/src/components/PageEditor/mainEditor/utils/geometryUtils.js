@@ -37,14 +37,22 @@ export const invalidateVisualBBox = (el) => {
   else activeFrameId++;
 };
 
+// Cheap signature of an element's own geometry: a cached box is only reused while these are unchanged,
+// so resizing within the same frame (e.g. auto-width text growing while typing) never reuses an old box.
+const geometrySignature = (el) => {
+  const g = (n) => el.getAttribute?.(n) || '';
+  return `${g('x')}|${g('y')}|${g('width')}|${g('height')}|${g('transform')}|${g('d')}|${g('points')}|${g('r')}|${g('rx')}|${g('ry')}|${el.childElementCount || 0}`;
+};
+
 export const getVisualBBox = (el) => {
   if (!el || typeof el.getBBox !== 'function') return { x: 0, y: 0, width: 0, height: 0 };
+  const sig = geometrySignature(el);
   const cached = visualBBoxCache.get(el);
-  if (cached && cached.frameId === activeFrameId) {
+  if (cached && cached.frameId === activeFrameId && cached.sig === sig) {
     return cached.bbox;
   }
   const result = calculateRawVisualBBox(el);
-  visualBBoxCache.set(el, { frameId: activeFrameId, bbox: result });
+  visualBBoxCache.set(el, { frameId: activeFrameId, sig, bbox: result });
   return result;
 };
 

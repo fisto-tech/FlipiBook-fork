@@ -49,6 +49,7 @@ import {
 } from "./PageEditorModule";
 import { normalizeForeignObjectNamespaces, healTableElementNode } from "./LeftActionMenu/Elements/utils/tableElementUtils";
 
+import { neutralizeIconHitBox } from './utils/iconPaint';
 export { parseLayersFromSVG };
 
 const VIRTUAL_FOLDERS = new Set([
@@ -191,6 +192,15 @@ const PageEditor = () => {
         const rootId =
           pagesRef.current[activePageIndexRef.current]?.layers?.[0]?.id;
         return rootId || prev;
+      }
+      // Icons are one element: if any inner part (hit-box rect, paint group, path) gets selected,
+      // select the whole icon instead — styling the inner hit-box draws a box around the icon.
+      if (typeof next === "string" && typeof document !== "undefined") {
+        try {
+          const el = document.getElementById(next);
+          const icon = el?.closest?.('g[data-type="icon"]');
+          if (icon && icon !== el && icon.id) return icon.id;
+        } catch { /* ignore */ }
       }
       return next;
     });
@@ -737,6 +747,13 @@ const PageEditor = () => {
       if (pageSvg && updated[activePageIndex]) {
         const clone = pageSvg.cloneNode(true);
         clone.querySelectorAll('[data-highlight-id], .frame-boundary, #ghost-layer, .selection-overlay-layer').forEach(e => e.remove());
+        clone.querySelectorAll('[data-anim-run], [data-is-animating]').forEach(e => {
+          e.removeAttribute('data-anim-run');
+          e.removeAttribute('data-is-animating');
+          if (e.style.opacity === '0' && e.getAttribute('data-animation-trigger') === 'While Opening') {
+            e.style.opacity = '';
+          }
+        });
         const serializer = new XMLSerializer();
         const liveHtml = safeSerializeSvg(clone) || serializer.serializeToString(clone);
         updated[activePageIndex] = { ...updated[activePageIndex], html: liveHtml };
@@ -1564,6 +1581,8 @@ const PageEditor = () => {
                     rootFrame.style.removeProperty('-webkit-clip-path');
                   }
                 }
+                // Heal icons whose transparent hit-box picked up a stroke/fill from older edits
+                doc.querySelectorAll('g[data-type="icon"]').forEach((icon) => neutralizeIconHitBox(icon));
                 const allEls = doc.querySelectorAll("*");
                 allEls.forEach((el) => {
                   const hasDropShadow =
@@ -2145,8 +2164,8 @@ const PageEditor = () => {
 
           <MainEditor
             isPdfProject={isPdfProject}
-            isRulerEnabled={isRulerEnabled}
-            isTrimView={isTrimView}
+            isRulerEnabled={isPdfProject ? false : isRulerEnabled}
+            isTrimView={isPdfProject ? false : isTrimView}
             pages={pages}
             activePageIndex={activePageIndex}
             setActivePageIndex={setActivePageIndex}
@@ -2251,7 +2270,7 @@ const PageEditor = () => {
         <RightSidebar
           isDoublePage={isDoublePage}
           setIsDoublePage={setIsDoublePage}
-          isRulerEnabled={isRulerEnabled}
+          isRulerEnabled={isPdfProject ? false : isRulerEnabled}
           setIsRulerEnabled={setIsRulerEnabled}
           activeMainTool={activeMainTool}
           setActiveMainTool={setActiveMainTool}

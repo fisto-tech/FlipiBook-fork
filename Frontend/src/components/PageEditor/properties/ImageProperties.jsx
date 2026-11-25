@@ -260,7 +260,7 @@ const ImageProperties = ({
     let imageUrl = URL.createObjectURL(file);
     if (shouldOptimizeImage(file)) {
       try {
-        const opt = await optimizeImageForWeb(file, { maxDimension: 2048, quality: 0.82 });
+        const opt = await optimizeImageForWeb(file, { maxDimension: 3840, quality: 0.94 });
         if (opt?.file) {
           file = opt.file;
           imageUrl = opt.dataUrl || URL.createObjectURL(file);

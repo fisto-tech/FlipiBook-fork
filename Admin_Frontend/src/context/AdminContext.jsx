@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 const AdminContext = createContext(null);
 
@@ -10,13 +11,11 @@ export const useAdmin = () => {
 
 export const AdminProvider = ({ children }) => {
   const [adminUser, setAdminUser] = useState(() => {
-    return {
-      name: 'Super Administrator',
-      email: 'admin@flipibook.com',
-      role: 'admin',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      initials: 'SA'
-    };
+    try {
+      const saved = localStorage.getItem('flipibook_admin_user');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return null;
   });
 
   const [toasts, setToasts] = useState([]);
@@ -37,11 +36,84 @@ export const AdminProvider = ({ children }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const login = async (userIdOrEmail, password) => {
+    const cleanId = String(userIdOrEmail || '').trim();
+    const cleanIdLower = cleanId.toLowerCase();
+
+    // Check for Super Admin credentials
+    const isSuperAdmin =
+      (cleanIdLower === 'admin' || cleanIdLower === 'super admin' || cleanIdLower === 'admin@flipibook.com') &&
+      password === 'Admin@123';
+
+    try {
+      const res = await axios.post(
+        '/api/auth/login',
+        {
+          userId: cleanId,
+          emailId: cleanId,
+          password
+        },
+        { withCredentials: true }
+      );
+
+      if (res.data?.success) {
+        const userData = res.data.user || {};
+        const isSuper =
+          String(userData.userId || cleanId).toLowerCase() === 'admin' ||
+          String(userData.emailId || cleanId).toLowerCase() === 'admin@flipibook.com';
+
+        const newAdmin = {
+          name: userData.name || (isSuper ? 'Super Administrator' : 'Staff Member'),
+          email: userData.emailId || userData.email || cleanId,
+          userId: userData.userID || userData.userId || cleanId,
+          designation: userData.designation || (isSuper ? 'Admin' : 'Staff'),
+          role: isSuper ? 'Super Admin' : (userData.role || userData.designation || 'Staff'),
+          roleId: userData.roleId || '',
+          permissions: userData.permissions || [],
+          avatar: userData.picture || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          initials: (userData.name || 'Admin').slice(0, 2).toUpperCase()
+        };
+        localStorage.setItem('flipibook_admin_user', JSON.stringify(newAdmin));
+        setAdminUser(newAdmin);
+        window.dispatchEvent(new Event('flipibook_permissions_updated'));
+        return { success: true, user: newAdmin };
+      }
+      return { success: false, message: res.data?.message || 'Login failed' };
+    } catch (err) {
+      // Direct handling for Super Admin credentials
+      if (isSuperAdmin) {
+        const superAdminUser = {
+          name: 'Super Administrator',
+          email: 'admin@flipibook.com',
+          userId: 'Admin',
+          role: 'Super Admin',
+          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          initials: 'SA'
+        };
+        localStorage.setItem('flipibook_admin_user', JSON.stringify(superAdminUser));
+        setAdminUser(superAdminUser);
+        return { success: true, user: superAdminUser };
+      }
+
+      throw err;
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('flipibook_admin_user');
+    setAdminUser(null);
+    try {
+      axios.post('/api/auth/logout', {}, { withCredentials: true }).catch(() => {});
+    } catch (_) {}
+  };
+
   return (
     <AdminContext.Provider
       value={{
         adminUser,
         setAdminUser,
+        login,
+        logout,
         showToast
       }}
     >

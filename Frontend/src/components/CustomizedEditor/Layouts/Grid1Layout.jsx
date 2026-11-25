@@ -2,7 +2,7 @@ import React, { useState, useEffect, lazy, Suspense, useRef, useMemo, useCallbac
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import Sound from '../popups/Sound';
-const MobileLayout1 = lazy(() => import('../Mobile/MobileLayouts/MobileLayout1'));
+import MobileLayout1 from '../Mobile/MobileLayouts/MobileLayout1';
 import PageThumbnail from '../common/PageThumbnail';
 import BrandLogo from '../common/BrandLogo';
 
@@ -840,8 +840,10 @@ const Grid1Layout = React.memo((props) => {
                         : (dimWidth * responsiveScale);
 
                     const gap = (isTablet ? 3.5 : 4.5);
-                    const leftPos = `calc(50% - ${bookHalfWidth}px - ${gap}vw)`;
-                    const rightPos = `calc(50% - ${bookHalfWidth}px - ${gap}vw)`;
+                    // Arrows sit at the spread position; the cover/back-cover shift is a GPU `translate` (no per-frame layout)
+                    const arrowShift = (isCover || isBackCover) && !isPortraitLayout ? bookHalfWidth : 0;
+                    const leftPos = `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`;
+                    const rightPos = `calc(50% - ${bookHalfWidth + arrowShift}px - ${gap}vw)`;
 
                     return (
                         <>
@@ -854,7 +856,8 @@ const Grid1Layout = React.memo((props) => {
                                         color: getLayoutColor('toolbar-text-main', '#FFFFFF'),
                                         opacity: hasPrev ? 1 : 0,
                                         pointerEvents: hasPrev ? 'auto' : 'none',
-                                        transition: 'left 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                        translate: `calc(${arrowShift}px - var(--fbe-arrow-nudge, 0px)) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                     }}
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -876,7 +879,8 @@ const Grid1Layout = React.memo((props) => {
                                         color: getLayoutColor('toolbar-text-main', '#FFFFFF'),
                                         opacity: hasNext ? 1 : 0,
                                         pointerEvents: hasNext ? 'auto' : 'none',
-                                        transition: 'right 0.45s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease, transform 0.2s ease'
+                                        translate: `calc(var(--fbe-arrow-nudge, 0px) - ${arrowShift}px) -50%`,
+                                        transition: 'translate var(--fbe-nudge-dur, 0.85s) cubic-bezier(0.45, 0, 0.2, 1), opacity 0.35s ease, transform 0.2s ease'
                                     }}
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -934,12 +938,13 @@ const Grid1Layout = React.memo((props) => {
                                     setPageInputValue(String(currentPage + 1));
                                 }
                             }}
-                            className={`${isMobileLandscape ? 'text-[0.55vw] mx-[0.2vw] px-[0.1vw] py-[0.05vw]' : isTablet ? 'text-[0.65vw] mx-[0.3vw] px-[0.15vw] py-[0.05vw]' : ((isSidebarOpen && !isFullscreen) ? 'text-[0.6vw] mx-[0.2vw] px-[0.05vw] py-[0vw]' : 'text-[0.75vw] mx-[0.35vw] px-[0.15vw] py-[0.05vw]')} font-bold rounded-[0.2vw] outline-none text-center transition-colors shadow-inner`}
+                            className={`${isMobileLandscape ? 'text-[0.55vw] mx-[0.2vw] px-[0.1vw] py-[0.05vw]' : isTablet ? 'text-[0.65vw] mx-[0.3vw] px-[0.15vw] py-[0.05vw]' : ((isSidebarOpen && !isFullscreen) ? 'text-[0.6vw] mx-[0.2vw] px-[0.15vw] py-[0vw]' : 'text-[0.75vw] mx-[0.35vw] px-[0.2vw] py-[0.05vw]')} font-bold rounded-[0.2vw] outline-none text-center transition-colors shadow-inner box-border`}
                             style={{
                                 color: getLayoutColor('toolbar-bg', '#555555'),
                                 backgroundColor: getLayoutColorAlpha('toolbar-bg', '87, 92, 156', 0.1),
                                 border: `1px solid ${getLayoutColorAlpha('toolbar-bg', '87, 92, 156', 0.2)}`,
-                                width: `${String(pages.length).length + (isSidebarOpen ? 0.8 : 1.2)}ch`
+                                width: `${Math.max(String(pageInputValue || '').length, String(pages.length || 0).length) + 1.6}ch`,
+                                minWidth: '3.2ch'
                             }}
                             onFocus={(e) => {
                                 e.target.style.backgroundColor = getLayoutColorAlpha('toolbar-bg', '87, 92, 156', 0.15);
@@ -968,9 +973,9 @@ const Grid1Layout = React.memo((props) => {
                 <div
                     className="relative flipbook-magazine-wrapper"
                     style={{
-                        transform: `translateX(${localOffset}px) scale(${responsiveScale})`,
+                        translate: `${localOffset}px 0`, transform: `scale(${responsiveScale})`,
                         transformOrigin: 'center center',
-                        transition: 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
+                        transition: 'translate 0.85s cubic-bezier(0.45, 0, 0.2, 1), transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)',
                         width: isPortraitLayout ? dimWidth : dimWidth * 2,
                         height: dimHeight
                     }}
