@@ -210,8 +210,8 @@ export function LightingPanel({
     };
   }, [showAllEnvironments]);
 
-  // State for dynamic HDRI list loaded from backend database
-  const [dynamicHdris, setDynamicHdris] = useState(() => [...builtInHdris]);
+  // State for dynamic HDRI list loaded exclusively from backend database API
+  const [dynamicHdris, setDynamicHdris] = useState([]);
 
   useEffect(() => {
     fetchHdris().then((loaded) => {

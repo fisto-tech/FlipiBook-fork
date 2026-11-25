@@ -12,6 +12,7 @@ router.get('/status', pageEditorController.getServiceStatus);
 router.get('/resolve-map-url', pageEditorController.resolveMapUrl);
 router.get('/map-geocode', pageEditorController.geocodeMapQuery);
 router.get('/map-tile', pageEditorController.getMapTile);
+router.get('/pixabay', pageEditorController.searchPixabay);
 
 // Protected routes (requires authenticated user)
 router.get('/data', authenticateUser, pageEditorController.getPageData);

@@ -251,6 +251,90 @@ const getMapTile = (req, res) => {
 };
 
 /**
+ * Pixabay image search for the editor's Add Elements → Images panel.
+ * The API key stays on the server (env PIXBAY_API / PIXABAY_API). Responses are cached for 24h
+ * as Pixabay's API terms require.
+ * @route GET /api/page-editor/pixabay?q=&page=&orientation=
+ */
+let pixabayKeyCache = null;
+const getPixabayKey = () => {
+  if (pixabayKeyCache !== null) return pixabayKeyCache;
+  let key = process.env.PIXBAY_API || process.env.PIXABAY_API || process.env.PIXABAY_API_KEY || '';
+  if (!key) {
+    // Local monorepo fallback: the key may only be in the Frontend .env
+    try {
+      const fs = require('fs');
+      const pathMod = require('path');
+      const candidate = pathMod.resolve(__dirname, '../../../../../Frontend/.env');
+      if (fs.existsSync(candidate)) {
+        const parsed = require('dotenv').parse(fs.readFileSync(candidate));
+        key = parsed.PIXBAY_API || parsed.PIXABAY_API || '';
+      }
+    } catch (e) { /* ignore */ }
+  }
+  pixabayKeyCache = key || '';
+  return pixabayKeyCache;
+};
+const pixabayCache = new Map();
+const PIXABAY_TTL = 24 * 60 * 60 * 1000;
+const cdnSize = (previewURL, size) => (
+  /^https:\/\/cdn\.pixabay\.com\/.+_150\.(jpe?g|png)$/i.test(previewURL || '')
+    ? previewURL.replace(/_150\.(jpe?g|png)$/i, `_${size}.$1`) : null
+);
+
+const searchPixabay = async (req, res) => {
+  try {
+    const key = getPixabayKey();
+    if (!key) return res.status(503).json({ success: false, message: 'Pixabay API key is not configured (PIXBAY_API)' });
+    const q = String(req.query.q || '').trim().slice(0, 100);
+    const page = Math.max(1, Math.min(50, parseInt(req.query.page, 10) || 1));
+    const perPage = Math.max(3, Math.min(60, parseInt(req.query.per_page, 10) || 30));
+    const orientation = ['all', 'horizontal', 'vertical'].includes(req.query.orientation) ? req.query.orientation : 'all';
+    const cacheKey = `v2|${q.toLowerCase()}|${page}|${perPage}|${orientation}`;
+    const hit = pixabayCache.get(cacheKey);
+    if (hit && Date.now() - hit.at < PIXABAY_TTL) return res.status(200).json(hit.data);
+
+    const params = new URLSearchParams({
+      key, q, page: String(page), per_page: String(perPage), image_type: 'photo',
+      orientation, safesearch: 'true', order: q ? 'popular' : 'latest',
+    });
+    const body = await new Promise((resolve, reject) => {
+      https.get(`https://pixabay.com/api/?${params.toString()}`, (resp) => {
+        let d = '';
+        resp.setEncoding('utf8');
+        resp.on('data', (c) => { d += c; });
+        resp.on('end', () => (resp.statusCode === 200 ? resolve(d) : reject(new Error(`Pixabay ${resp.statusCode}`))));
+        resp.on('error', reject);
+      }).on('error', reject).setTimeout(10000, function onTimeout() { this.destroy(new Error('timeout')); });
+    });
+    const json = JSON.parse(body);
+    const data = {
+      success: true,
+      total: json.totalHits || 0,
+      page,
+      hits: (json.hits || []).map((h) => ({
+        id: h.id,
+        tags: h.tags,
+        width: h.imageWidth,
+        height: h.imageHeight,
+        // Permanent CDN links (the API's webformatURL/largeImageURL are temporary, rate-limited
+        // pixabay.com/get/ links that often fail to load in the browser)
+        preview: cdnSize(h.previewURL, 640) || h.webformatURL, // grid
+        large: cdnSize(h.previewURL, 1280) || h.webformatURL,  // inserted into the page
+        user: h.user,
+        pageURL: h.pageURL,
+      })),
+    };
+    if (pixabayCache.size > 500) pixabayCache.delete(pixabayCache.keys().next().value);
+    pixabayCache.set(cacheKey, { at: Date.now(), data });
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('[Page Editor Controller] searchPixabay error:', error.message);
+    return res.status(502).json({ success: false, message: 'Image search failed' });
+  }
+};
+
+/**
  * Get page editor data for an authenticated user and specific flipbook
  * @route GET /api/page-editor/data
  */
@@ -364,5 +448,6 @@ module.exports = {
   getPageData,
   resolveMapUrl,
   geocodeMapQuery,
-  getMapTile
+  getMapTile,
+  searchPixabay
 };

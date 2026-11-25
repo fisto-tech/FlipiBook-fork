@@ -7,6 +7,7 @@ import { ELEMENT_CATEGORIES, searchElementCatalog, getElementItemById } from './
 import { useRulerState, useElementInsertion, useCanvasDropListener } from './hooks';
 import { CategorySidebarList, ElementGridCard } from './components';
 
+import PixabayImagesPanel from './components/PixabayImagesPanel';
 const RECENT_ELEMENTS_STORAGE_KEY = 'flipibook_recent_elements';
 const MAX_RECENT_ELEMENTS = 24;
 
@@ -425,7 +426,7 @@ export const AddElementsModal = ({
                 <Search size="0.95vw" className="absolute left-[0.75vw] text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search Elements..."
+                  placeholder={selectedCategory === 'images' ? 'Search free images (Pixabay)...' : 'Search Elements...'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onPointerDown={(e) => e.stopPropagation()}
@@ -450,7 +451,9 @@ export const AddElementsModal = ({
               onWheel={(e) => e.stopPropagation()}
               className="flex-1 overflow-y-auto p-[0.6vw] flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden hover:[scrollbar-width:thin] hover:[&::-webkit-scrollbar]:block custom-scrollbar transition-all duration-200"
             >
-              {groupedBySubtopic ? (
+              {selectedCategory === 'images' ? (
+                <PixabayImagesPanel query={searchQuery} pageIndex={activePageIndex} />
+              ) : groupedBySubtopic ? (
                 <div className="flex flex-col gap-[2vh]">
                   {groupedBySubtopic.map(({ title, items }) => (
                     <div key={title} className="flex flex-col">

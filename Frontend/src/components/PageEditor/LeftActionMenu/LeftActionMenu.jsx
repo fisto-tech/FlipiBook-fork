@@ -85,7 +85,17 @@ export const LeftActionMenu = ({
     >
       {/* ── Main Vertical Menu ── */}
       <div className="bg-white rounded-[0.7vw] border border-gray-300 shadow-sm p-[0.28vw] flex flex-col items-center gap-[0.45vw] w-[3.4vw]">
-        {/* 1. Elements */}
+        {/* 1. Templets */}
+        <button
+          onClick={() => handleItemClick('templets')}
+          title="Templates"
+          className="flex flex-col items-center justify-center w-full aspect-square p-[0.2vw] rounded-[0.42vw] transition-all cursor-pointer group text-[#9EA1A7] hover:bg-black hover:text-white"
+        >
+          <TempletsIcon className="w-[1.05vw] h-[1.05vw] transition-colors text-[#9EA1A7] group-hover:text-white" />
+          <span className="text-[0.54vw] leading-none mt-[0.25vw] font-medium tracking-tight transition-colors text-gray-600 group-hover:text-white">Templets</span>
+        </button>
+
+        {/* 2. Elements */}
         <button
           onClick={() => handleItemClick('elements')}
           title="Add Elements"
@@ -97,16 +107,6 @@ export const LeftActionMenu = ({
         >
           <ElementsIcon className={`w-[1.05vw] h-[1.05vw] transition-colors ${isElementsModalOpen ? 'text-white' : 'text-[#9EA1A7] group-hover:text-white'}`} />
           <span className={`text-[0.54vw] leading-none mt-[0.25vw] font-medium tracking-tight transition-colors ${isElementsModalOpen ? 'text-white' : 'text-gray-600 group-hover:text-white'}`}>Elements</span>
-        </button>
-
-        {/* 2. Templets */}
-        <button
-          onClick={() => handleItemClick('templets')}
-          title="Templates"
-          className="flex flex-col items-center justify-center w-full aspect-square p-[0.2vw] rounded-[0.42vw] transition-all cursor-pointer group text-[#9EA1A7] hover:bg-black hover:text-white"
-        >
-          <TempletsIcon className="w-[1.05vw] h-[1.05vw] transition-colors text-[#9EA1A7] group-hover:text-white" />
-          <span className="text-[0.54vw] leading-none mt-[0.25vw] font-medium tracking-tight transition-colors text-gray-600 group-hover:text-white">Templets</span>
         </button>
 
         {/* 3. Icons */}
