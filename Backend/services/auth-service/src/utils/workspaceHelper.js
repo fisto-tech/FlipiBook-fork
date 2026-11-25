@@ -152,6 +152,9 @@ const safeMigrateDirectory = (srcDir, destDir) => {
 const createUserWorkspace = (user) => {
   try {
     if (!user) return null;
+    if (user.role === 'admin' || String(user.userID || '').toLowerCase() === 'admin') {
+      return null;
+    }
     const storageRoot = getStorageRoot();
     ensureDir(storageRoot);
 
