@@ -16,6 +16,7 @@ const PORT = process.env.ADMIN_SERVICE_PORT || process.env.ADMIN_PORT || process
 // Middleware
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:3000',
   'http://localhost:8000',
   'https://testing.flipibook.com',

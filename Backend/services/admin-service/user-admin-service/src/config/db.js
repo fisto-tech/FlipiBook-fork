@@ -7,19 +7,43 @@ try {
   dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 } catch (_) {}
 
+let isConnecting = false;
+
 const connectDB = async () => {
+  if (mongoose.connection.readyState === 1 || isConnecting) {
+    return mongoose.connection;
+  }
+
   try {
+    isConnecting = true;
     const mongoURI = process.env.MONGO_URI;
     if (!mongoURI) {
       console.warn('[Admin Service] Warning: MONGO_URI not defined, running without DB connection.');
       return;
     }
 
-    const conn = await mongoose.connect(mongoURI);
-    console.log(`[Admin Service] MongoDB Connected: ${conn.connection.host}`);
+    const conn = await mongoose.connect(mongoURI, {
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 60000,
+      connectTimeoutMS: 30000,
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      retryWrites: true,
+      retryReads: true,
+    });
+    const dbTarget = conn.connection.name || conn.connection.host || 'connected';
+    console.log(`[Admin Service] MongoDB Connected: ${dbTarget}`);
   } catch (error) {
     console.error(`[Admin Service] Database connection error: ${error.message}`);
+    setTimeout(connectDB, 5000);
+  } finally {
+    isConnecting = false;
   }
 };
+
+mongoose.connection.on('disconnected', () => {
+  console.warn('[Admin Service] MongoDB disconnected. Reconnecting in 3s...');
+  setTimeout(connectDB, 3000);
+});
 
 module.exports = connectDB;
