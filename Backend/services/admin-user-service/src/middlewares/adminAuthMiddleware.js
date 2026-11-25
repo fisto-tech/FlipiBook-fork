@@ -61,8 +61,7 @@ const verifyAdmin = async (req, res, next) => {
 
     if (user && user.role !== 'admin' && user.role !== 'moderator' && user.role !== 'staff' && !user.isAdmin && !adminStaff) {
       if (isDev) {
-        // In local development, automatically promote the logged-in dev user to admin role
-        await User.updateOne({ _id: user._id }, { $set: { role: 'admin', isAdmin: true } });
+        // In local development, attach dev admin context to req without altering User document
         req.admin = {
           id: user._id,
           userID: user.userID,

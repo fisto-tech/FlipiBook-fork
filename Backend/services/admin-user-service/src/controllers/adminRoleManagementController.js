@@ -1,11 +1,22 @@
 const { AdminRole, AdminUser } = require('../models');
 
+// Helper to convert permissions array [ { id, name, enabled } ]
+// into user's requested Access format: [ { "dashboard": 1 }, { "user_management": 0 }, ... ]
+const formatPermissionsToAccess = (permissions) => {
+  if (!Array.isArray(permissions)) return [];
+  return permissions.map((p) => {
+    const key = p.name || p.id;
+    const val = p.enabled ? 1 : 0;
+    return { [key]: val };
+  });
+};
+
 // ── ADMIN ROLES CONTROLLER ──────────────────────────────────────────────
 
 // GET /api/admin/roles
 const getRoles = async (req, res) => {
   try {
-    const roles = await AdminRole.find({ isActive: true }).sort({ createdAt: 1 }).lean();
+    const roles = await AdminRole.find().sort({ createdAt: 1 }).lean();
     return res.status(200).json({ success: true, roles });
   } catch (err) {
     console.error('[getRoles error]:', err);
@@ -16,22 +27,15 @@ const getRoles = async (req, res) => {
 // POST /api/admin/roles
 const createRole = async (req, res) => {
   try {
-    const { roleName, designation, permissions, applyTo } = req.body;
-    if (!roleName || !roleName.trim()) {
+    const { Role, roleName } = req.body;
+    const targetRole = (Role || roleName || '').trim();
+    if (!targetRole) {
       return res.status(400).json({ success: false, message: 'Role Name is required' });
     }
 
-    const cleanName = roleName.trim();
-    // Count existing to generate ID or let pre-save hook generate it
-    const roleCount = await AdminRole.countDocuments();
-    const roleId = `R_ID${String(roleCount + 1).padStart(2, '0')}`;
-
     const newRole = await AdminRole.create({
-      roleId,
-      roleName: cleanName,
-      designation: (designation || cleanName).trim(),
-      applyTo: applyTo || 'All',
-      permissions: permissions || []
+      Role: targetRole,
+      createdDate: new Date()
     });
 
     return res.status(201).json({ success: true, role: newRole });
@@ -45,91 +49,72 @@ const createRole = async (req, res) => {
 // Update permissions for a role or specific user
 const updateRolePermissions = async (req, res) => {
   try {
-    const { targetKey, permissions, applyTo, appliedPersonName, appliedPersonId } = req.body;
+    const { targetKey, permissions, applyTo, appliedPersonId, appliedPersonName } = req.body;
     if (!targetKey) {
       return res.status(400).json({ success: false, message: 'Target key is required' });
     }
 
-    // Resolve person name and id if provided or if targetKey is a user
-    let personName = appliedPersonName || '';
-    let personId = appliedPersonId || '';
+    const accessList = formatPermissionsToAccess(permissions);
 
-    // 1. If an individual person was selected (or targetKey is a specific User ID)
-    const specificUserId = personId || (targetKey && targetKey.startsWith('FLIP_') ? targetKey : null);
-    const userMatch = specificUserId
-      ? await AdminUser.findOne({ $or: [{ userId: specificUserId }, { email: specificUserId.toLowerCase() }] })
-      : await AdminUser.findOne({ $or: [{ userId: targetKey }, { email: targetKey.toLowerCase() }] });
+    // Identify if the target refers to Super Admin / Fist-O / Admin
+    const isSuperAdminTarget =
+      String(targetKey).toLowerCase() === 'admin' ||
+      String(targetKey).toLowerCase() === 'super administrator' ||
+      String(targetKey).toLowerCase() === 'fist-o' ||
+      String(applyTo || '').toLowerCase() === 'admin' ||
+      String(applyTo || '').toLowerCase() === 'fist-o' ||
+      String(applyTo || '').toLowerCase() === 'super administrator' ||
+      String(appliedPersonName || '').toLowerCase() === 'fist-o';
 
-    if (userMatch) {
-      // Update individual user's permissions in adminusers
-      userMatch.permissions = permissions || [];
-      await userMatch.save();
+    if (isSuperAdminTarget) {
+      const adminUser = await AdminUser.findOne({
+        $or: [
+          { userid: { $regex: /^admin$/i } },
+          { name: { $regex: /super administrator|fist-o/i } },
+          { e_mailid: 'admin@flipibook.com' }
+        ]
+      });
 
-      personName = userMatch.name;
-      personId = userMatch.userId;
-      const desig = userMatch.designation || 'Staff';
-
-      // Store a SEPARATE individual role record for this specific person
-      const roleCount = await AdminRole.countDocuments();
-      const updatedPersonRole = await AdminRole.findOneAndUpdate(
-        {
-          appliedPersonId: personId
-        },
-        {
-          $set: {
-            roleName: `${desig} - ${personName}`,
-            designation: desig,
-            permissions: permissions || [],
-            applyTo: `${personName} (${personId})`,
-            appliedPersonName: personName,
-            appliedPersonId: personId,
-            isActive: true
-          },
-          $setOnInsert: {
-            roleId: userMatch.roleId || `R_ID${String(roleCount + 1).padStart(2, '0')}`,
-            isDefault: false,
-            createdBy: 'system'
-          }
-        },
-        { upsert: true, new: true }
-      );
-
-      return res.status(200).json({ success: true, user: userMatch, role: updatedPersonRole });
+      if (adminUser) {
+        adminUser.Access = accessList;
+        await adminUser.save();
+        return res.status(200).json({ success: true, user: adminUser });
+      }
     }
 
-    // 2. Otherwise update or create general role document for the designation
+    // 1. If an individual person was selected (or targetKey is a specific User ID or personId)
+    const specificUserId = appliedPersonId || (targetKey && (targetKey.startsWith('FLIP_') || targetKey === 'Admin') ? targetKey : null);
+    const userMatch = specificUserId
+      ? await AdminUser.findOne({ $or: [{ userid: specificUserId }, { e_mailid: specificUserId.toLowerCase() }] })
+      : await AdminUser.findOne({ $or: [{ userid: targetKey }, { name: targetKey }, { e_mailid: targetKey.toLowerCase() }] });
+
+    if (userMatch) {
+      // Update individual user's Access in AdminUser
+      userMatch.Access = accessList;
+      await userMatch.save();
+
+      return res.status(200).json({ success: true, user: userMatch });
+    }
+
+    // 2. Otherwise update or create general role document
     const cleanTarget = targetKey.replace(/^All\s+/i, '').trim();
-    const roleCount = await AdminRole.countDocuments();
     const updatedRole = await AdminRole.findOneAndUpdate(
-      {
-        designation: cleanTarget,
-        appliedPersonId: { $in: ['', null, undefined] }
-      },
+      { Role: cleanTarget },
       {
         $set: {
-          roleName: cleanTarget,
-          designation: cleanTarget,
-          permissions: permissions || [],
-          applyTo: applyTo || 'All',
-          isActive: true
-        },
-        $setOnInsert: {
-          roleId: `R_ID${String(roleCount + 1).padStart(2, '0')}`,
-          isDefault: false,
-          createdBy: 'system'
+          Role: cleanTarget,
+          createdDate: new Date()
         }
       },
       { upsert: true, new: true }
     );
 
-    // Sync all members under this designation into appliedPersons array
+    // Sync all members under this designation
     if (updatedRole) {
       await AdminUser.updateMany(
-        { designation: updatedRole.designation || updatedRole.roleName },
-        { $set: { permissions: permissions || [] } }
+        { designation: cleanTarget },
+        { $set: { Access: accessList } }
       ).catch(() => {});
-
-      await syncAppliedPersons(updatedRole);
     }
 
     return res.status(200).json({ success: true, role: updatedRole });
@@ -141,29 +126,50 @@ const updateRolePermissions = async (req, res) => {
 
 // ── ADMIN STAFF USERS CONTROLLER ────────────────────────────────────────
 
+// Default full access for Admin
+const DEFAULT_ADMIN_ACCESS = [
+  { "Dashboard": 1 },
+  { "3D Editor Assets": 1 },
+  { "User Management": 1 },
+  { "Template Management": 1 },
+  { "Management": 1 }
+];
+
 // GET /api/admin/management-users
 const getAdminUsers = async (req, res) => {
   try {
     // Ensure default Super Admin exists in AdminUser collection
     const superAdminExists = await AdminUser.findOne({
-      $or: [{ userId: 'Admin' }, { email: 'admin@flipibook.com' }],
+      $or: [{ userid: { $regex: /^admin$/i } }, { e_mailid: 'admin@flipibook.com' }],
       isDeleted: false
     });
 
     if (!superAdminExists) {
       await AdminUser.create({
-        userId: 'Admin',
-        name: 'Super Administrator',
-        email: 'admin@flipibook.com',
+        userid: 'ADMIN',
+        name: 'Fist-O',
         designation: 'Admin',
-        roleId: 'R_ID01',
-        teamHead: false,
+        e_mailid: 'admin@flipibook.com',
         password: 'Admin@123',
-        rawPassword: 'Admin@123',
-        status: 'Active'
+        createddate: new Date(),
+        status: 'Active',
+        Access: DEFAULT_ADMIN_ACCESS
       }).catch((createErr) => {
         console.warn('[Ensure SuperAdmin Warning]:', createErr.message);
       });
+    } else {
+      let needsSave = false;
+      if (superAdminExists.name !== 'Fist-O') {
+        superAdminExists.name = 'Fist-O';
+        needsSave = true;
+      }
+      if (!Array.isArray(superAdminExists.Access) || superAdminExists.Access.length === 0) {
+        superAdminExists.Access = DEFAULT_ADMIN_ACCESS;
+        needsSave = true;
+      }
+      if (needsSave) {
+        await superAdminExists.save().catch(() => {});
+      }
     }
 
     const users = await AdminUser.find({ isDeleted: false }).sort({ createdAt: 1 }).lean();
@@ -177,33 +183,69 @@ const getAdminUsers = async (req, res) => {
 // POST /api/admin/management-users
 const createAdminUser = async (req, res) => {
   try {
-    const { name, email, designation, roleId, teamHead, password } = req.body;
+    const { name, email, e_mailid, designation, password, status, Access, permissions } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Full name is required' });
     }
 
+    // Auto-generate userid (starting from FLIP_AD0001)
     const userCount = await AdminUser.countDocuments();
-    const userId = `FLIP_AD${String(userCount + 1).padStart(4, '0')}`;
-    const cleanEmail = email ? email.trim().toLowerCase() : `admin_${Date.now()}@flipibook.com`;
-
-    // Initially, user ID is set as password if not explicitly typed
-    const effectivePassword = password && password.trim() ? password.trim() : userId;
+    const userid = `FLIP_AD${String(userCount + 1).padStart(4, '0')}`;
+    const cleanEmail = (e_mailid || email || `admin_${Date.now()}@flipibook.com`).trim().toLowerCase();
+    const effectivePassword = password && password.trim() ? password.trim() : userid;
+    const effectiveAccess = Array.isArray(Access) && Access.length > 0
+      ? Access
+      : (Array.isArray(permissions) ? formatPermissionsToAccess(permissions) : []);
 
     const newUser = await AdminUser.create({
-      userId,
+      userid,
       name: name.trim(),
-      email: cleanEmail,
-      designation: designation || 'Staff',
-      roleId: roleId || '',
-      teamHead: Boolean(teamHead),
+      designation: (designation || 'Staff').trim(),
+      e_mailid: cleanEmail,
       password: effectivePassword,
-      rawPassword: effectivePassword,
-      status: 'Active'
+      createddate: new Date(),
+      status: status || 'Active',
+      Access: effectiveAccess
     });
 
     return res.status(201).json({ success: true, user: newUser });
   } catch (err) {
     console.error('[createAdminUser error]:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PUT /api/admin/management-users/:id
+const updateAdminUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, e_mailid, designation, password, status, Access, permissions } = req.body;
+
+    const user = await AdminUser.findOne({
+      $or: [{ userid: id }, { _id: id }],
+      isDeleted: false
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (name) user.name = name.trim();
+    if (e_mailid || email) {
+      user.e_mailid = (e_mailid || email).trim().toLowerCase();
+    }
+    if (designation) user.designation = designation.trim();
+    if (status) user.status = status;
+    if (Access || permissions) {
+      user.Access = Access || formatPermissionsToAccess(permissions);
+    }
+    if (password && password.trim()) {
+      user.password = password.trim();
+    }
+
+    await user.save();
+    return res.status(200).json({ success: true, message: 'User updated successfully', user });
+  } catch (err) {
+    console.error('[updateAdminUser error]:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -217,13 +259,12 @@ const updateAdminUserPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password is required' });
     }
 
-    const user = await AdminUser.findOne({ $or: [{ userId: id }, { _id: id }] });
+    const user = await AdminUser.findOne({ $or: [{ userid: id }, { _id: id }] });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     user.password = password.trim();
-    user.rawPassword = password.trim();
     await user.save();
 
     return res.status(200).json({ success: true, message: 'Password updated successfully' });
@@ -238,7 +279,7 @@ const deleteAdminUser = async (req, res) => {
   try {
     const { id } = req.params;
     await AdminUser.findOneAndUpdate(
-      { $or: [{ userId: id }, { _id: id }] },
+      { $or: [{ userid: id }, { _id: id }] },
       { $set: { isDeleted: true } }
     );
     return res.status(200).json({ success: true, message: 'User marked as deleted' });
@@ -254,6 +295,7 @@ module.exports = {
   updateRolePermissions,
   getAdminUsers,
   createAdminUser,
+  updateAdminUser,
   updateAdminUserPassword,
   deleteAdminUser
 };

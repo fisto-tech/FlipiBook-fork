@@ -30,12 +30,13 @@ export default function AdminSidebar() {
     };
   }, [adminUser]);
 
-  // Determine which sections to render
-  const canViewDashboard = permissions?.isSuperAdmin || permissions?.dashboard !== false;
-  const canView3DAssets = permissions?.isSuperAdmin || permissions?.threed_editor_assets !== false;
-  const canViewUsers = permissions?.isSuperAdmin || permissions?.user_management !== false;
-  const canViewTemplates = permissions?.isSuperAdmin || permissions?.template_management !== false;
-  const canViewManagement = permissions?.isSuperAdmin || permissions?.management !== false;
+  // Determine which sections to render based on permissions
+  const canViewDashboard = permissions?.dashboard !== false;
+  const canView3DAssets = permissions?.threed_editor_assets !== false;
+  const canViewUsers = permissions?.user_management !== false;
+  const canViewTemplates = permissions?.template_management !== false;
+  // Always keep Management accessible if user has access to it or is configuring role access
+  const canViewManagement = permissions?.management !== false;
 
   return (
     <aside className="w-[16.5vw] bg-[#161c28] h-screen flex flex-col justify-between py-[1.8vw] px-[1.1vw] select-none text-white flex-shrink-0">
@@ -61,10 +62,9 @@ export default function AdminSidebar() {
               to="/"
               end
               className={({ isActive }) =>
-                `w-full flex items-center gap-[0.85vw] px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer ${
-                  isActive
-                    ? 'bg-[#374151]/70 text-white shadow-xs'
-                    : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
+                `w-full flex items-center gap-[0.85vw] px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer ${isActive
+                  ? 'bg-[#374151]/70 text-white shadow-xs'
+                  : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
                 }`
               }
             >
@@ -85,10 +85,9 @@ export default function AdminSidebar() {
             <NavLink
               to="/3d-editor-assets"
               className={({ isActive }) =>
-                `w-full flex items-center gap-[0.85vw] px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer ${
-                  isActive
-                    ? 'bg-[#374151]/70 text-white shadow-xs'
-                    : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
+                `w-full flex items-center gap-[0.85vw] px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer ${isActive
+                  ? 'bg-[#374151]/70 text-white shadow-xs'
+                  : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
                 }`
               }
             >
@@ -108,10 +107,9 @@ export default function AdminSidebar() {
             <NavLink
               to="/users"
               className={({ isActive }) =>
-                `w-full flex items-center gap-[0.85vw] px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer ${
-                  isActive
-                    ? 'bg-[#374151]/70 text-white shadow-xs'
-                    : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
+                `w-full flex items-center gap-[0.85vw] px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer ${isActive
+                  ? 'bg-[#374151]/70 text-white shadow-xs'
+                  : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
                 }`
               }
             >
@@ -130,10 +128,9 @@ export default function AdminSidebar() {
             <NavLink
               to="/templates"
               className={({ isActive }) =>
-                `w-full flex items-center gap-[0.85vw] px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer ${
-                  isActive
-                    ? 'bg-[#374151]/70 text-white shadow-xs'
-                    : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
+                `w-full flex items-center gap-[0.85vw] px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer ${isActive
+                  ? 'bg-[#374151]/70 text-white shadow-xs'
+                  : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
                 }`
               }
             >
@@ -153,11 +150,10 @@ export default function AdminSidebar() {
             <div>
               <div
                 onClick={() => setManagementOpen((prev) => !prev)}
-                className={`w-full flex items-center justify-between px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer select-none ${
-                  location.pathname.startsWith('/management')
-                    ? 'bg-[#374151]/40 text-white'
-                    : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
-                }`}
+                className={`w-full flex items-center justify-between px-[0.95vw] py-[0.7vw] rounded-[0.55vw] text-[0.88vw] font-medium transition cursor-pointer select-none ${location.pathname.startsWith('/management')
+                  ? 'bg-[#374151]/40 text-white'
+                  : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
+                  }`}
               >
                 <div className="flex items-center gap-[0.85vw]">
                   <span className="text-gray-400 group-hover:text-white">
@@ -169,9 +165,8 @@ export default function AdminSidebar() {
                   <span>Management</span>
                 </div>
                 <svg
-                  className={`w-[0.9vw] h-[0.9vw] transition-transform duration-200 text-gray-400 ${
-                    managementOpen ? 'rotate-180' : ''
-                  }`}
+                  className={`w-[0.9vw] h-[0.9vw] transition-transform duration-200 text-gray-400 ${managementOpen ? 'rotate-180' : ''
+                    }`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -187,10 +182,9 @@ export default function AdminSidebar() {
                   <NavLink
                     to="/management/role-access"
                     className={({ isActive }) =>
-                      `flex items-center gap-[0.6vw] px-[0.75vw] py-[0.55vw] rounded-[0.45vw] text-[0.82vw] font-medium transition cursor-pointer ${
-                        isActive
-                          ? 'bg-[#374151]/80 text-white font-semibold'
-                          : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
+                      `flex items-center gap-[0.6vw] px-[0.75vw] py-[0.55vw] rounded-[0.45vw] text-[0.82vw] font-medium transition cursor-pointer ${isActive
+                        ? 'bg-[#374151]/80 text-white font-semibold'
+                        : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
                       }`
                     }
                   >
@@ -201,10 +195,9 @@ export default function AdminSidebar() {
                   <NavLink
                     to="/management/users"
                     className={({ isActive }) =>
-                      `flex items-center gap-[0.6vw] px-[0.75vw] py-[0.55vw] rounded-[0.45vw] text-[0.82vw] font-medium transition cursor-pointer ${
-                        isActive
-                          ? 'bg-[#374151]/80 text-white font-semibold'
-                          : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
+                      `flex items-center gap-[0.6vw] px-[0.75vw] py-[0.55vw] rounded-[0.45vw] text-[0.82vw] font-medium transition cursor-pointer ${isActive
+                        ? 'bg-[#374151]/80 text-white font-semibold'
+                        : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2636]'
                       }`
                     }
                   >

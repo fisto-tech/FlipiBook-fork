@@ -5,6 +5,7 @@ const {
   updateRolePermissions,
   getAdminUsers,
   createAdminUser,
+  updateAdminUser,
   updateAdminUserPassword,
   deleteAdminUser
 } = require('../controllers/adminRoleManagementController');
@@ -19,6 +20,7 @@ router.put('/roles/permissions', updateRolePermissions);
 // Admin staff user endpoints
 router.get('/management-users', getAdminUsers);
 router.post('/management-users', createAdminUser);
+router.put('/management-users/:id', updateAdminUser);
 router.patch('/management-users/:id/password', updateAdminUserPassword);
 router.delete('/management-users/:id', deleteAdminUser);
 

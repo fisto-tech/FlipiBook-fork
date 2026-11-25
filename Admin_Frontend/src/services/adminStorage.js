@@ -14,6 +14,12 @@ export const DEFAULT_MODULE_PERMISSIONS = [
     enabled: false,
   },
   {
+    id: 'threed_editor_assets',
+    name: '3D Editor Assets',
+    description: 'Manage 3D assets, models, materials, and canvas editor files',
+    enabled: false,
+  },
+  {
     id: 'user_management',
     name: 'User Management',
     description: 'User accounts, credential controls, and access',
@@ -32,6 +38,20 @@ export const DEFAULT_MODULE_PERMISSIONS = [
     enabled: false,
   },
 ];
+
+// Merge stored/fetched permissions with DEFAULT_MODULE_PERMISSIONS to ensure all modules are always present
+export const mergeWithDefaultPermissions = (permissionsList) => {
+  if (!Array.isArray(permissionsList)) {
+    return DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p }));
+  }
+  return DEFAULT_MODULE_PERMISSIONS.map((defaultMod) => {
+    const matched = permissionsList.find((p) => p && (p.id === defaultMod.id || p.name === defaultMod.name));
+    return {
+      ...defaultMod,
+      enabled: matched ? Boolean(matched.enabled) : false
+    };
+  });
+};
 
 // Permissions map storage: { [targetKey]: [ { id, name, description, enabled } ] }
 // targetKey can be a userId (e.g. 'FLIP_AD0002') or a role group (e.g. 'All 3D Artist', 'Team Leads')
@@ -57,30 +77,24 @@ export const saveStoredPermissionsMap = (permMap) => {
 // Determine permissions for a specific logged-in admin user
 export const getUserEffectivePermissions = (currentAdmin) => {
   if (!currentAdmin) return null;
-  // Super Admin account always has all permissions
   const roleName = String(currentAdmin.role || '').toLowerCase();
   const userId = String(currentAdmin.userId || '').toLowerCase();
-  if (roleName === 'super admin' || userId === 'admin' || currentAdmin.email === 'admin@flipibook.com') {
-    return {
-      dashboard: true,
-      user_management: true,
-      template_management: true,
-      management: true,
-      isSuperAdmin: true
-    };
-  }
-
-  // 1. Check user.permissions returned from DB on login
-  if (Array.isArray(currentAdmin.permissions) && currentAdmin.permissions.length > 0) {
-    return currentAdmin.permissions.reduce((acc, p) => ({ ...acc, [p.id]: Boolean(p.enabled) }), { isSuperAdmin: false });
-  }
+  const isSuperAdminAccount = roleName === 'super admin' || userId === 'admin' || currentAdmin.email === 'admin@flipibook.com';
 
   const permMap = getStoredPermissionsMap();
 
-  // 2. Direct user assignment check in permMap
-  const directPerms = permMap[currentAdmin.userId];
+  // 1. Direct user assignment check in permMap (e.g. 'Admin' or 'Super Administrator' or specific userId)
+  const directPerms =
+    permMap[currentAdmin.userId] ||
+    (isSuperAdminAccount ? (permMap['Super Administrator'] || permMap['Admin']) : null);
+
   if (directPerms && Array.isArray(directPerms)) {
-    return directPerms.reduce((acc, p) => ({ ...acc, [p.id]: p.enabled }), { isSuperAdmin: false });
+    return directPerms.reduce((acc, p) => ({ ...acc, [p.id]: Boolean(p.enabled) }), { isSuperAdmin: false });
+  }
+
+  // 2. Check user.permissions returned from DB on login
+  if (Array.isArray(currentAdmin.permissions) && currentAdmin.permissions.length > 0) {
+    return currentAdmin.permissions.reduce((acc, p) => ({ ...acc, [p.id]: Boolean(p.enabled) }), { isSuperAdmin: false });
   }
 
   // 3. Team Leads check
@@ -88,8 +102,8 @@ export const getUserEffectivePermissions = (currentAdmin) => {
     return permMap['Team Leads'].reduce((acc, p) => ({ ...acc, [p.id]: p.enabled }), { isSuperAdmin: false });
   }
 
-  // 4. Designation group check (e.g. 'Software Developer' or 'All Software Developer')
-  const userDesig = currentAdmin.designation || currentAdmin.role || '';
+  // 4. Designation group check (e.g. 'Software Developer' or 'All Software Developer' or 'All Admin')
+  const userDesig = currentAdmin.designation || currentAdmin.role || (isSuperAdminAccount ? 'Admin' : '');
   if (permMap[userDesig]) {
     return permMap[userDesig].reduce((acc, p) => ({ ...acc, [p.id]: p.enabled }), { isSuperAdmin: false });
   }
@@ -98,9 +112,22 @@ export const getUserEffectivePermissions = (currentAdmin) => {
     return permMap[roleKey].reduce((acc, p) => ({ ...acc, [p.id]: p.enabled }), { isSuperAdmin: false });
   }
 
+  // Default for Super Admin if not customized yet: all true
+  if (isSuperAdminAccount) {
+    return {
+      dashboard: true,
+      threed_editor_assets: true,
+      user_management: true,
+      template_management: true,
+      management: true,
+      isSuperAdmin: false
+    };
+  }
+
   // Fallback: disabled
   return {
     dashboard: false,
+    threed_editor_assets: false,
     user_management: false,
     template_management: false,
     management: false,
@@ -130,13 +157,13 @@ export const saveStoredRoles = (roles) => {
 
 export const DEFAULT_ADMIN_USER = {
   sNo: 1,
-  name: 'Super Administrator',
-  userId: 'Admin',
+  name: 'Fist-O',
+  userId: 'ADMIN',
   password: 'Admin@123',
   designation: 'Admin',
   roleId: 'R_ID01',
   teamHead: false,
-  createdDate: 'Jan 1, 2026',
+  createdDate: 'Nov 23, 2026',
   email: 'admin@flipibook.com',
   status: 'Active'
 };
@@ -148,12 +175,20 @@ export const getStoredUsers = () => {
     if (!Array.isArray(parsed) || parsed.length === 0) {
       return [DEFAULT_ADMIN_USER];
     }
-    // Ensure Admin is always included
     const hasAdmin = parsed.some((u) => String(u.userId || '').toLowerCase() === 'admin');
     if (!hasAdmin) {
       return [DEFAULT_ADMIN_USER, ...parsed];
     }
-    return parsed;
+    return parsed.map((u) => {
+      if (String(u.userId || '').toLowerCase() === 'admin') {
+        return {
+          ...u,
+          name: 'Fist-O',
+          userId: 'ADMIN'
+        };
+      }
+      return u;
+    });
   } catch (e) {
     console.error('Failed to parse users from localStorage', e);
     return [DEFAULT_ADMIN_USER];

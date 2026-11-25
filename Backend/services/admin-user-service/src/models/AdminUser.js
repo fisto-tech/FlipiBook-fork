@@ -3,10 +3,8 @@ const bcrypt = require('bcryptjs');
 
 const adminUserSchema = new mongoose.Schema(
   {
-    userId: {
+    userid: {
       type: String,
-      required: true,
-      unique: true,
       trim: true,
       uppercase: true,
       index: true
@@ -17,78 +15,59 @@ const adminUserSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
-    email: {
+    designation: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    e_mailid: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
       lowercase: true,
       index: true
     },
     password: {
       type: String,
-      required: true,
-      select: false // Avoid exposing hashed password in regular queries
+      required: true
     },
-    rawPassword: {
-      type: String,
-      default: '' // Initial plain password or userId for display in admin dashboard table
-    },
-    designation: {
-      type: String,
-      required: true,
-      trim: true,
-      // e.g. 'Admin', 'SBU', 'Project Head', 'Software Developer', 'UI/UX', etc.
-      index: true
-    },
-    roleId: {
-      type: String,
-      ref: 'AdminRole',
-      default: 'R_ID01'
-    },
-    teamHead: {
-      type: Boolean,
-      default: false
-    },
-    permissions: {
-      type: Array,
-      default: []
+    createddate: {
+      type: Date,
+      default: Date.now
     },
     status: {
       type: String,
-      enum: ['Active', 'Inactive', 'Suspended'],
-      default: 'Active',
-      index: true
+      enum: ['Active', 'De-Active'],
+      default: 'Active'
     },
-    avatar: {
-      type: String,
-      default: ''
-    },
-    phone: {
-      type: String,
-      trim: true,
-      default: ''
-    },
-    lastLoginAt: {
-      type: Date,
-      default: null
-    },
-    isDeleted: {
-      type: Boolean,
-      default: false,
-      index: true
+    // Access: Array [{"Access module name": 0 or 1}]
+    Access: {
+      type: Array,
+      default: []
     }
   },
   {
-    timestamps: true
+    versionKey: false
   }
 );
 
-// Pre-save hook to hash password if modified
+// Pre-save hook: auto-generate userid (starting from FLIP_AD0001) & hash password
 adminUserSchema.pre('save', async function () {
-  if (!this.isModified('password')) return;
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  // Auto-generate userid if not present
+  if (!this.userid) {
+    try {
+      const count = await this.constructor.countDocuments();
+      this.userid = `FLIP_AD${String(count + 1).padStart(4, '0')}`;
+    } catch (err) {
+      this.userid = `FLIP_AD${Date.now().toString().slice(-4)}`;
+    }
+  }
+
+  // Hash password if modified
+  if (this.isModified('password') && this.password) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
 });
 
 // Helper instance method to compare passwords

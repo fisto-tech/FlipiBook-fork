@@ -238,6 +238,11 @@ export const createManagementStaffUser = async (userData) => {
   return res.data;
 };
 
+export const updateManagementStaffUser = async (id, userData) => {
+  const res = await api.put(`/api/admin/management-users/${id}`, userData);
+  return res.data;
+};
+
 export const updateManagementStaffPassword = async (id, password) => {
   const res = await api.patch(`/api/admin/management-users/${id}/password`, { password });
   return res.data;

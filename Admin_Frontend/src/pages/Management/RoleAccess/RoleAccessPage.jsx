@@ -9,7 +9,8 @@ import {
   saveStoredUsers,
   getStoredPermissionsMap,
   saveStoredPermissionsMap,
-  DEFAULT_MODULE_PERMISSIONS
+  DEFAULT_MODULE_PERMISSIONS,
+  mergeWithDefaultPermissions
 } from '../../../services/adminStorage';
 import {
   getAdminRoles,
@@ -46,21 +47,25 @@ export default function RoleAccessPage() {
 
           // Populate permissions map from DB roles
           const permMap = getStoredPermissionsMap();
-          // Always ensure Admin has full access by default
-          const allAdminEnabled = DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: true }));
-          permMap['Admin'] = allAdminEnabled;
-          permMap['All Admin'] = allAdminEnabled;
-          permMap['Super Administrator (Admin)'] = allAdminEnabled;
+          // Ensure default for Admin only if not yet set
+          if (!permMap['Admin'] && !permMap['Super Administrator']) {
+            const allAdminEnabled = DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: true }));
+            permMap['Admin'] = allAdminEnabled;
+            permMap['All Admin'] = allAdminEnabled;
+            permMap['Super Administrator'] = allAdminEnabled;
+            permMap['Super Administrator (Admin)'] = allAdminEnabled;
+          }
 
           rolesRes.roles.forEach((r) => {
             if (r.permissions && r.permissions.length > 0) {
-              permMap[r.roleName] = r.permissions;
-              permMap[`All ${r.designation || r.roleName}`] = r.permissions;
+              const fullPerms = mergeWithDefaultPermissions(r.permissions);
+              permMap[r.roleName] = fullPerms;
+              permMap[`All ${r.designation || r.roleName}`] = fullPerms;
               if (r.appliedPersonId) {
-                permMap[r.appliedPersonId] = r.permissions;
+                permMap[r.appliedPersonId] = fullPerms;
               }
               if (r.appliedPersonName) {
-                permMap[`${r.appliedPersonName} (${r.appliedPersonId})`] = r.permissions;
+                permMap[`${r.appliedPersonName} (${r.appliedPersonId})`] = fullPerms;
               }
             }
           });
@@ -70,38 +75,21 @@ export default function RoleAccessPage() {
         if (usersRes?.success && usersRes.users && usersRes.users.length > 0) {
           const mappedUsers = usersRes.users.map((u, i) => ({
             sNo: i + 1,
+            id: u._id,
             name: u.name,
-            userId: u.userId,
+            userId: u.userid || u.userId,
             designation: u.designation,
-            roleId: u.roleId,
+            roleId: u.roleId || '',
             teamHead: Boolean(u.teamHead),
-            createdDate: new Date(u.createdAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            }),
-            email: u.email,
-            status: u.status || 'Active'
+            createdDate: u.createddate
+              ? new Date(u.createddate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : (u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Nov 23, 2026'),
+            email: u.e_mailid || u.email,
+            status: u.status || 'Active',
+            Access: u.Access || []
           }));
-          const hasAdmin = mappedUsers.some((u) => String(u.userId || '').toLowerCase() === 'admin');
-          const finalUsers = hasAdmin
-            ? mappedUsers
-            : [
-              {
-                sNo: 1,
-                name: 'Super Administrator',
-                userId: 'Admin',
-                designation: 'Admin',
-                roleId: 'R_ID01',
-                teamHead: false,
-                createdDate: 'Jan 1, 2026',
-                email: 'admin@flipibook.com',
-                status: 'Active'
-              },
-              ...mappedUsers.map((u, idx) => ({ ...u, sNo: idx + 2 }))
-            ];
-          setUsersList(finalUsers);
-          saveStoredUsers(finalUsers);
+          setUsersList(mappedUsers);
+          saveStoredUsers(mappedUsers);
         } else {
           setUsersList(getStoredUsers());
         }
@@ -130,8 +118,8 @@ export default function RoleAccessPage() {
     // 1. Roles added via + Add Roles
     rolesList.forEach((r) => {
       const name = (r.name || r.roleName || '').trim();
-      // Ignore plain "Admin" so only "Super Administrator" is shown for admin
-      if (name.toLowerCase() === 'admin') return;
+      // Skip admin variations from dynamic list so "Admin" is placed cleanly at top
+      if (name.toLowerCase() === 'admin' || name.toLowerCase() === 'super administrator' || name.toLowerCase() === 'super admin') return;
       if (name && !list.some((item) => item.toLowerCase() === name.toLowerCase())) {
         list.push(name);
       }
@@ -139,19 +127,19 @@ export default function RoleAccessPage() {
     // 2. Custom designations entered on users
     usersList.forEach((u) => {
       const desig = (u.designation || '').trim();
-      // Ignore plain "Admin" so only "Super Administrator" is shown for admin
-      if (desig.toLowerCase() === 'admin') return;
+      // Skip admin variations from dynamic list so "Admin" is placed cleanly at top
+      if (desig.toLowerCase() === 'admin' || desig.toLowerCase() === 'super administrator' || desig.toLowerCase() === 'super admin') return;
       if (desig && !list.some((item) => item.toLowerCase() === desig.toLowerCase())) {
         list.push(desig);
       }
     });
 
-    // Ensure "Super Administrator" is always included and placed at the top
-    const withoutSuperAdmin = list.filter(
-      (item) => item.toLowerCase() !== 'super administrator' && item.toLowerCase() !== 'admin'
+    // Ensure "Admin" is always included and placed at the top as the Designation
+    const withoutAdmin = list.filter(
+      (item) => item.toLowerCase() !== 'super administrator' && item.toLowerCase() !== 'admin' && item.toLowerCase() !== 'super admin'
     );
 
-    return ['Super Administrator', ...withoutSuperAdmin];
+    return ['Admin', ...withoutAdmin];
   }, [rolesList, usersList]);
 
   const [designation, setDesignation] = useState('');
@@ -168,9 +156,9 @@ export default function RoleAccessPage() {
       desigClean === 'super admin' ||
       desigClean === 'super administrator';
 
-    // 1. If Super Administrator is selected, Apply To should ONLY have Admin
+    // 1. If Super Administrator is selected, Apply To should show Super Administrator
     if (isSuperAdminDesig) {
-      return [{ label: 'Admin', value: 'Admin' }];
+      return [{ label: 'Super Administrator', value: 'Super Administrator' }];
     }
 
     // Filter users assigned to this role or designation
@@ -236,7 +224,8 @@ export default function RoleAccessPage() {
       return;
     }
 
-    // If Admin / Super Administrator is selected, always show all 4 enabled
+    const permMap = getStoredPermissionsMap();
+    const targetKey = applyTo;
     const isSuperAdminTarget =
       String(designation || '').toLowerCase() === 'admin' ||
       String(designation || '').toLowerCase() === 'super admin' ||
@@ -244,15 +233,12 @@ export default function RoleAccessPage() {
       String(applyTo || '').toLowerCase() === 'admin' ||
       String(applyTo || '').toLowerCase().includes('super administrator');
 
-    if (isSuperAdminTarget) {
-      setPermissions(DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: true })));
-      return;
-    }
-
-    const permMap = getStoredPermissionsMap();
-    const targetKey = applyTo;
     if (targetKey && permMap[targetKey]) {
-      setPermissions(permMap[targetKey]);
+      setPermissions(mergeWithDefaultPermissions(permMap[targetKey]));
+    } else if (isSuperAdminTarget && (permMap['Super Administrator'] || permMap['Admin'])) {
+      setPermissions(mergeWithDefaultPermissions(permMap['Super Administrator'] || permMap['Admin']));
+    } else if (isSuperAdminTarget) {
+      setPermissions(DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: true })));
     } else {
       // By default for any target (including "All <Designation>"), set all modules unselected
       setPermissions(DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: false })));
@@ -267,6 +253,10 @@ export default function RoleAccessPage() {
     if (targetKey) {
       const permMap = getStoredPermissionsMap();
       permMap[targetKey] = newPermissions;
+      if (applyTo === 'Super Administrator' || designation === 'Admin') {
+        permMap['Super Administrator'] = newPermissions;
+        permMap['Admin'] = newPermissions;
+      }
       if (applyTo === `All ${designation}`) {
         permMap[designation] = newPermissions;
       }
@@ -334,7 +324,9 @@ export default function RoleAccessPage() {
   const enabledPercentage = Math.round((enabledCount / totalCount) * 100);
 
   // Permissions Card is editable only when both a designation and a target (person/group) are selected
-  const isEditable = Boolean(designation && applyTo);
+  // When Admin is selected, applyTo is automatically "Admin" / "Fist-O"
+  const isAdminSelected = String(designation || '').trim().toLowerCase() === 'admin';
+  const isEditable = Boolean(designation && (isAdminSelected || applyTo));
 
   return (
     <div className="w-full space-y-[1.4vw] font-sans pb-[2vw] text-gray-800">
@@ -397,7 +389,7 @@ export default function RoleAccessPage() {
                   );
                 });
                 if (isSuperAdminDesig) {
-                  setApplyTo('Admin');
+                  setApplyTo('Fist-O');
                 } else if (assigned.length >= 2) {
                   setApplyTo(`All ${val}`);
                 } else if (assigned.length === 1) {
@@ -415,13 +407,19 @@ export default function RoleAccessPage() {
             <span className="text-[0.85vw] font-bold text-[#1e293b]">
               Apply To:
             </span>
-            <AdminDropdown
-              options={applyToOptions}
-              value={applyTo}
-              placeholder="Select Target"
-              onChange={(val) => setApplyTo(val)}
-              width="14vw"
-            />
+            {isAdminSelected ? (
+              <div className="flex items-center px-[0.9vw] py-[0.55vw] bg-[#f8fafc] border border-gray-200 rounded-[0.55vw] text-[0.85vw] font-medium text-gray-700 min-w-[12vw] select-none shadow-2xs">
+                <span>Fist-O</span>
+              </div>
+            ) : (
+              <AdminDropdown
+                options={applyToOptions}
+                value={applyTo}
+                placeholder="Select Target"
+                onChange={(val) => setApplyTo(val)}
+                width="14vw"
+              />
+            )}
           </div>
         </div>
 
@@ -456,7 +454,7 @@ export default function RoleAccessPage() {
               <span className="text-[0.72vw] text-amber-600 bg-amber-50 border border-amber-200 px-[0.6vw] py-[0.15vw] rounded-full font-medium">
                 Please select a Designation above to configure access
               </span>
-            ) : !applyTo ? (
+            ) : (!isAdminSelected && !applyTo) ? (
               <span className="text-[0.72vw] text-blue-600 bg-blue-50 border border-blue-200 px-[0.6vw] py-[0.15vw] rounded-full font-medium">
                 Please select an Apply To target/person to configure permissions
               </span>
