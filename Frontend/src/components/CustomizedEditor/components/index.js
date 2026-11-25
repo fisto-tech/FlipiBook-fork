@@ -2,7 +2,7 @@
  * CustomizedEditor Shared Components Barrel Export
  */
 export { default as PremiumDropdown } from './PremiumDropdown';
-export { default as ColorPallet } from '../../ColorPallet';
+export { ColorPallet } from '../../Color';
 export { default as BottomToolbar } from './BottomToolbar';
 export { default as TransparentSheetUI, TransparentSheetSection } from './TransparentSheetUI';
 export { default as BookmarkStylesPopup, getBookmarkClipPath, getBookmarkBorderRadius } from './BookmarkStylesPopup';

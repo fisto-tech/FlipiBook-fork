@@ -28,7 +28,7 @@ import {
   updateShapeMaskTransform,
   applySvgGradientOrSolid
 } from '../LeftActionMenu/Elements/utils/shapeMaskUtils';
-import { parseGradient } from './ColorPicker';
+import { parseGradient } from '../../Color';
 import { PropertySlider } from './propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 

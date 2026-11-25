@@ -17,7 +17,7 @@ import {
 import { renderQRWithFrame, generateStyledQRImage, drawRoundRect, loadImg, FONT_WEIGHT_MAP } from '../utils/qrFrameRenderer';
 import Color, { handleScrubHelper } from '../../../properties/Color';
 import Effect from '../../../properties/Effect';
-import ColorPicker from '../../../properties/ColorPicker';
+import ColorPicker from '../../../../Color';
 import MediaGalleryPopup from '../../../modals/MediaGalleryPopup';
 import ReplaceMediaModal from '../../../modals/ReplaceMediaModal';
 import { ElementToggle, ElementSlider } from './ElementUIControls';

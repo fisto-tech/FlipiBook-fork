@@ -6,7 +6,7 @@ import {
   Check,
   Loader2
 } from 'lucide-react';
-import ColorPicker from '../../../properties/ColorPicker';
+import ColorPicker from '../../../../Color';
 import Effect from '../../../properties/Effect';
 import { ElementToggle, ElementDropdown } from './ElementUIControls';
 import { getEmbedOverlayHtml } from '../utils/embedElementUtils';

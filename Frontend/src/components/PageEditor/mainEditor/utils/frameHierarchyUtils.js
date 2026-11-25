@@ -70,6 +70,12 @@ export const getDirectChildFrames = (el) => {
       dataType === 'table-frame' ||
       dataType === 'qrcode' ||
       dataType === 'slideshow' ||
+      // Image frames are one element (slots are edited from the properties panel / double-click),
+      // never a container to "enter" — otherwise they get an entered outline with no resize dots.
+      dataType === 'image-frame' ||
+      el.getAttribute('data-is-image-frame') === 'true' ||
+      el.hasAttribute('data-frame-type') ||
+      (el.id && el.id.startsWith('image-frame-')) ||
       (el.id && el.id.startsWith('embed-')) ||
       (el.id && el.id.startsWith('map-'))
     ) {

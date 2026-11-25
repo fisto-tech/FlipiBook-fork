@@ -453,7 +453,10 @@ export const useCanvasKeyboardShortcuts = ({
           if (setCurrentFrameId) setCurrentFrameId(null);
           if (currentFrameIdRef) currentFrameIdRef.current = null;
 
-          document.querySelectorAll('.selection-overlay-layer polygon, [id^="overlay-poly-"], [id^="highlight-overlay-html-"]').forEach(el => el.remove());
+          document.querySelectorAll('.selection-overlay-layer polygon, [id^="overlay-poly-"]').forEach(el => el.remove());
+          // Empty the handle layers — never remove the layers themselves (React-owned; removing them
+          // made every later selection show its box without resize dots).
+          document.querySelectorAll('[id^="highlight-overlay-html-"]').forEach(layer => { layer.replaceChildren(); });
         }
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();

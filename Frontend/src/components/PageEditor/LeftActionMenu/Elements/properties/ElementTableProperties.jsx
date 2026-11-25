@@ -35,7 +35,7 @@ import ExcelJS from 'exceljs';
 import { TableMatrix } from '../helpers/TableMatrix';
 import { normalizeForeignObjectNamespaces } from '../utils/tableElementUtils';
 import Color from '../../../properties/Color';
-import ColorPicker from '../../../properties/ColorPicker';
+import ColorPicker from '../../../../Color';
 import { PropertySlider, handleScrubHelper } from '../../../properties/propertiesShared';
 import {
   fontFamilies,

@@ -16,14 +16,15 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { resolveUploadsPath } from '../../../../../utils/assets/assetUtils';
 import sampleAudio from '../../../../../assets/Audios/bg music1.mp3';
-import ColorPicker, { parseGradient, generateGradientString } from '../../../properties/ColorPicker';
+import ColorPicker, { parseGradient, generateGradientString } from '../../../../Color';
 import { handleScrubHelper } from '../../../properties/Color';
 import Effect from '../../../properties/Effect';
 import {
   AUDIO_TEMPLATES,
   getAudioSvgCode,
   getTemplatePlayIconSvg,
-  getTemplatePauseIconSvg
+  getTemplatePauseIconSvg,
+  fitAudioTitle
 } from '../utils/audioElementUtils';
 
 // Helper to sync live SVG filters on the DOM element for Drop Shadow
@@ -999,7 +1000,7 @@ const ElementAudioProperties = ({
       setAudioName(nameAttr);
       const titleEl = selectedElement.querySelector('.audio-title');
       if (titleEl) {
-        titleEl.textContent = nameAttr.replace(/\.[^/.]+$/, '');
+        fitAudioTitle(titleEl, nameAttr);
       }
     }
 
@@ -1701,7 +1702,7 @@ const ElementAudioProperties = ({
       // Update track title on canvas element if present
       const titleEl = selectedElement.querySelector('.audio-title');
       if (titleEl) {
-        titleEl.textContent = fileName.replace(/\.[^/.]+$/, '');
+        fitAudioTitle(titleEl, fileName);
       }
 
       // Temporary local URL for immediate metadata loading & playback
@@ -2049,7 +2050,7 @@ const ElementAudioProperties = ({
               if (onUpdate) onUpdate();
             }}
             className="w-full cursor-pointer custom-range-slider"
-            style={{ backgroundImage: `linear-gradient(to right, #4D47FF 0%, #4D47FF ${defaultVolume}%, #E2E8F0 ${defaultVolume}%, #E2E8F0 100%)` }}
+            style={{ backgroundImage: `linear-gradient(to right, #EC5137 0%, #EC5137 ${defaultVolume}%, #E2E8F0 ${defaultVolume}%, #E2E8F0 100%)` }}
           />
         </div>
         <div className="w-[3.3vw] h-[2vw] rounded-[0.4vw] border border-gray-300 bg-white flex items-center justify-center text-[0.8vw] font-medium text-gray-700 shadow-2xs shrink-0">

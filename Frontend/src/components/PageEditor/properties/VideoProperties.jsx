@@ -17,7 +17,7 @@ import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentM
 import Color from './Color';
 import CornerRadius from './CornerRadius';
 import Effect from './Effect';
-import { parseGradient } from "./ColorPicker";
+import { parseGradient } from "../../Color";
 import { syncGradient, getEmbedVideoUrl } from '../utils/editorUtils';
 import { formatBytes } from './propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';

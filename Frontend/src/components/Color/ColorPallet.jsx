@@ -1,64 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
+import { createScreenEyeDropper, canPickScreenColor } from '../../utils/screenColorPicker';
+import { hexToHsv, hsvToHex } from './utils/colorUtils';
 
-import { createScreenEyeDropper, canPickScreenColor } from '../utils/screenColorPicker';
-// Helper functions for color conversion
-export const hexToHsv = (hex) => {
-  if (!hex || typeof hex !== "string") return { h: 0, s: 0, v: 100 };
-  let color = hex.trim();
-  if (!color.startsWith("#")) return { h: 0, s: 0, v: 100 };
-  color = color.substring(1);
-  if (color.length === 3)
-    color = color.split("").map((c) => c + c).join("");
-  const r = parseInt(color.substring(0, 2), 16) / 255;
-  const g = parseInt(color.substring(2, 4), 16) / 255;
-  const b = parseInt(color.substring(4, 6), 16) / 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const d = max - min;
-  const s = max === 0 ? 0 : d / max;
-  const v = max;
-  let h = 0;
-
-  if (max !== min) {
-    switch (max) {
-      case r:
-        h = (g - b) / d + (g < b ? 6 : 0);
-        break;
-      case g:
-        h = (b - r) / d + 2;
-        break;
-      case b:
-        h = (r - g) / d + 4;
-        break;
-    }
-    h /= 6;
-  }
-  return { h: h * 360, s: s * 100, v: v * 100 };
-};
-
-export const hsvToHex = ({ h, s, v }) => {
-  s /= 100;
-  v /= 100;
-  const c = v * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = v - c;
-  let r = 0, g = 0, b = 0;
-
-  if (0 <= h && h < 60) { r = c; g = x; b = 0; }
-  else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
-  else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
-  else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
-  else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
-  else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
-
-  const toHex = (n) =>
-    Math.round((n + m) * 255)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-};
+export { hexToHsv, hsvToHex };
 
 export default function ColorPallet({ color = "#000000", onChange, opacity, onOpacityChange, onClose, className, style, inline, smallMode, referenceMin = 0, referenceMax = 100, minLimit = 0, ...props }) {
   const [hsv, setHsv] = useState(() => hexToHsv(color));

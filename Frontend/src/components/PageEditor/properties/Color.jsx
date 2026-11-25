@@ -1,7 +1,13 @@
+/**
+ * Fill & Stroke Properties Inspector (Sidebar Section)
+ * Note: Despite the file name "Color.jsx", this component is the Element Inspector
+ * for Fill, Stroke, Stroke Width, Dash Patterns, and Shadow settings.
+ * It renders sidebar inputs and launches the modal <ColorPicker />.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { createPortal } from 'react-dom';
-import ColorPicker, { parseGradient } from './ColorPicker';
+import ColorPicker, { parseGradient } from '../../Color';
 import { generateGradientString } from "../../CustomizedEditor/AppearanceShared";
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { handleScrubHelper } from './propertiesShared';

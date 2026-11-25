@@ -14,7 +14,7 @@ import Effect from './Effect';
 import ReplaceMediaModal from '../modals/ReplaceMediaModal';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
 import Color from './Color';
-import { parseGradient } from './ColorPicker';
+import { parseGradient } from '../../Color';
 import { formatBytes } from './propertiesShared';
 
 const GifProperties = ({

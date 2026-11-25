@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { resolveUploadsPath } from "../../../../utils/assets/assetUtils";
 import { textureData } from "../../../../data/textureData";
-import ColorPicker from "../../ColorPicker";
+import ColorPicker from "../../../Color";
 import { SliderRow, DualAxisInput } from "../common/PanelInputs";
 
 // Helper to extract all selectable parts and materials recursively

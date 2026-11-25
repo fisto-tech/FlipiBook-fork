@@ -953,34 +953,73 @@ const MainEditor = ({
 
 
 
-  // ── Handle watchdog: a single selection always gets its resize dots ─────────────────────
-  // Insertions (images, uploads), tool switches and page re-renders can wipe the HTML handle layer
-  // after the selection box was drawn. If the box is there but its dots are not, redraw them.
+  // ── Handle watchdog: a single selection ALWAYS gets visible, correctly placed resize dots ────
+  // Insertions, drag-and-drop, tool switches and page re-renders can wipe, hide or strand the HTML
+  // handle layer after the selection box was drawn. Leftover drag flags (dragging-active /
+  // data-dragging) from a gesture that already ended are cleared here instead of blocking the repair.
   useEffect(() => {
     if (!selectedLayerId || activeTopTool !== 'editor') return undefined;
     if (multiSelectedIds && multiSelectedIds.size > 1) return undefined;
     const id = selectedLayerId;
+    const esc = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+    // Elements that legitimately have no 4 corner dots (lines use start/end handles, etc.) would
+    // "fail" forever — after 2 redraws that don't produce healthy handles, stop for this selection.
+    let failedRedraws = 0;
+
+    const handlesHealthy = (box) => {
+      const handles = Array.from(document.querySelectorAll(`[id^="resize-handle-${esc}-"]`));
+      const corners = handles.filter((h) => /-(nw|ne|se|sw)$/.test(h.id));
+      if (corners.length < 4) return false;
+      const b = box.getBoundingClientRect();
+      const slack = 16;
+      return corners.every((h) => {
+        if (!h.isConnected || h.style.display === 'none') return false;
+        const cs = getComputedStyle(h);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return false;
+        const r = h.getBoundingClientRect();
+        if (!r.width || !r.height) return false;
+        const cx = r.left + r.width / 2; const cy = r.top + r.height / 2;
+        // a handle stranded at an old position (element moved / re-rendered) is not healthy
+        return cx >= b.left - slack && cx <= b.right + slack && cy >= b.top - slack && cy <= b.bottom + slack;
+      });
+    };
+
     const check = () => {
       if (nodeEditModeRef.current || window.__isAdjustingShapeImage) return;
       const body = document.body;
-      if (body.classList.contains('dragging-active') || body.classList.contains('shape-adjust-active') ||
-        body.classList.contains('screen-color-picking')) return;
-      if (document.querySelector('[data-dragging="true"]')) return;
+      if (body.classList.contains('shape-adjust-active') || body.classList.contains('screen-color-picking')) return;
+      // A gesture is really in progress → leave it alone. Otherwise drag flags are leftovers: clear them.
+      if (window.__fbePointerDown) return;
+      if (body.classList.contains('dragging-active')) body.classList.remove('dragging-active');
+      document.querySelectorAll('[data-dragging="true"]').forEach((n) => n.removeAttribute('data-dragging'));
+
       const el = document.getElementById(id);
       if (!el || !el.isConnected) return;
       if (isEditingTextRef.current && el.querySelector?.('[data-editing="true"], [contenteditable="true"]')) return;
-      const esc = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
-      const hasBox = document.querySelector(`[id="overlay-poly-selected-${esc}"], [id="overlay-poly-child-selected-${esc}"]`);
-      if (!hasBox) return; // nothing selectable drawn (locked, background, frame…)
-      if (document.querySelector(`[id^="resize-handle-${esc}-"]`)) return;
+      const box = document.querySelector(`[id="overlay-poly-selected-${esc}"], [id="overlay-poly-child-selected-${esc}"]`);
+      if (!box) return; // nothing selectable drawn (locked, background, frame…)
+      if (handlesHealthy(box)) { failedRedraws = 0; return; }
+      if (failedRedraws >= 2) return;
+      failedRedraws += 1;
+      // Broken: drop whatever is left and redraw from scratch
+      document.querySelectorAll(`[id^="resize-handle-${esc}-"]`).forEach((h) => h.remove());
       const fn = drawOverlayHighlightRef.current || drawOverlayHighlight;
       if (typeof fn === 'function') {
         fn(el, el.getAttribute('data-child-selected') === 'true' ? 'child-selected' : 'selected');
       }
     };
-    const timers = [80, 300, 800].map((ms) => setTimeout(check, ms));
-    const iv = setInterval(check, 700);
-    return () => { timers.forEach(clearTimeout); clearInterval(iv); };
+
+    const timers = [60, 250, 700].map((ms) => setTimeout(check, ms));
+    const iv = setInterval(check, 600);
+    // Re-check right after any gesture ends (pointer up, native drop, drag end)
+    const afterGesture = () => requestAnimationFrame(() => setTimeout(check, 30));
+    const evs = ['pointerup', 'mouseup', 'drop', 'dragend'];
+    evs.forEach((t) => window.addEventListener(t, afterGesture, true));
+    return () => {
+      timers.forEach(clearTimeout);
+      clearInterval(iv);
+      evs.forEach((t) => window.removeEventListener(t, afterGesture, true));
+    };
   }, [selectedLayerId, multiSelectedIds, activeTopTool, pages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sync refs and perform page-level DOM highlights ──────────────────────────

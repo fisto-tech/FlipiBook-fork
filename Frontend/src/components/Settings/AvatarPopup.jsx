@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
-import ColorPallet from '../ColorPallet';
+import { ColorPallet } from '../Color';
 import p1 from '../../assets/settings/p1.png';
 import p2 from '../../assets/settings/p2.png';
 import p3 from '../../assets/settings/p3.png';

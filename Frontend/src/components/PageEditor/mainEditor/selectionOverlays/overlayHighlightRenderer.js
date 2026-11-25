@@ -10,14 +10,22 @@ import {
 } from './overlayDomUtils';
 
 // Live pointer state: a drag / text-edit flag that outlived its gesture must never hide the handles.
+// Native drag-and-drop (e.g. dragging an element in from the Elements panel) never fires
+// pointerup — only dragend/drop — so those must end the gesture too, otherwise the editor thinks the
+// mouse is still held and keeps the resize dots hidden. A pointermove with no buttons pressed is the
+// final safety net. The state is mirrored on window.__fbePointerDown for the handle watchdog.
 let pointerIsDown = false;
-if (typeof window !== 'undefined' && !window.__fbeHandlePointerTrack) {
-  window.__fbeHandlePointerTrack = true;
-  window.addEventListener('pointerdown', () => { pointerIsDown = true; }, true);
-  const up = () => { pointerIsDown = false; };
-  window.addEventListener('pointerup', up, true);
-  window.addEventListener('pointercancel', up, true);
+const setPointerDown = (v) => {
+  pointerIsDown = v;
+  if (typeof window !== 'undefined') window.__fbePointerDown = v;
+};
+if (typeof window !== 'undefined' && !window.__fbeHandlePointerTrack2) {
+  window.__fbeHandlePointerTrack2 = true;
+  window.addEventListener('pointerdown', () => setPointerDown(true), true);
+  const up = () => setPointerDown(false);
+  ['pointerup', 'pointercancel', 'mouseup', 'dragend', 'drop'].forEach((t) => window.addEventListener(t, up, true));
   window.addEventListener('blur', up);
+  window.addEventListener('pointermove', (e) => { if (pointerIsDown && e.buttons === 0) setPointerDown(false); }, true);
 }
 const isLiveTextEdit = (el) => !!(el && (el.getAttribute?.('data-editing') === 'true' ||
   el.querySelector?.('[data-editing="true"], [contenteditable="true"]')));

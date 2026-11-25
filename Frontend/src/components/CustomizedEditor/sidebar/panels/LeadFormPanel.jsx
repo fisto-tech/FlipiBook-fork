@@ -4,7 +4,7 @@ import axios from 'axios';
 import { Icon } from '@iconify/react';
 import { Plus, Trash2, Mail, Sliders, ChevronsLeft } from 'lucide-react';
 import PremiumDropdown from '../../components/PremiumDropdown';
-import ColorPallet from '../../../ColorPallet';
+import { ColorPallet } from '../../../Color';
 import { CUSTOM_FONT_FAMILIES } from '../../../../utils/customFonts';
 
 const fontFamilies = [
