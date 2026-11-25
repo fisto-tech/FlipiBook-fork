@@ -68,11 +68,14 @@ export default function ManagementUserPage() {
         ]);
 
         if (rolesRes?.success && rolesRes.roles) {
-          const mappedRoles = rolesRes.roles.map((r) => ({
-            id: r.roleId || r._id,
-            name: r.roleName,
-            designation: r.designation
-          }));
+          const mappedRoles = rolesRes.roles.map((r) => {
+            const roleName = r.Role || r.roleName || r.name || '';
+            return {
+              id: r.roleId || r._id,
+              name: roleName,
+              designation: r.designation || roleName
+            };
+          });
           setRoles(mappedRoles);
         }
 

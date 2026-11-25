@@ -6,6 +6,7 @@ const AdminUser = require("../../../../shared/models/AdminUser");
 const AdminRole = require("../../../../shared/models/AdminRole");
 const RefreshToken = require("../../../../shared/models/RefreshToken");
 const LoginLog = require("../models/loginLog");
+const AdminLog = require("../../../admin-user-service/src/models/AdminLog");
 const SignupOtp = require("../models/signupOtp");
 const {
   generateToken,
@@ -810,7 +811,7 @@ const login = async (req, res) => {
     if (!isMatch) {
       // Record failed login attempt in audit history
       try {
-        await LoginLog.create({
+        const failedPayload = {
           userId: user.userID || (user._id ? `FLIPI${user._id.toString().slice(-4).toUpperCase()}` : 'Admin'),
           userObjectId: user._id,
           emailId: user.emailId,
@@ -824,11 +825,16 @@ const login = async (req, res) => {
           location,
           loginTime: new Date(),
           lastActiveAt: new Date(),
+          lastActiveTime: new Date(),
           status: "EXPIRED",
           isRevoked: true,
           eventType: "FAILED_LOGIN",
           loginMethod: "EMAIL_PASSWORD",
-        });
+        };
+        await LoginLog.create(failedPayload);
+        if (user.isAdmin || adminStaff || isSuperAdminCredential) {
+          await AdminLog.create(failedPayload).catch(() => {});
+        }
       } catch (failedLogErr) {
         console.warn("[Failed Login Log Warning]:", failedLogErr.message);
       }
@@ -861,16 +867,17 @@ const login = async (req, res) => {
 
     // Close any previous active session on this exact same device for this user
     try {
+      const closeFilter = {
+        $or: [
+          { userId: user.userID },
+          { userObjectId: user._id },
+          { emailId: user.emailId.toLowerCase() }
+        ],
+        deviceId: clientDeviceId,
+        status: "ACTIVE"
+      };
       await LoginLog.updateMany(
-        {
-          $or: [
-            { userId: user.userID },
-            { userObjectId: user._id },
-            { emailId: user.emailId.toLowerCase() }
-          ],
-          deviceId: clientDeviceId,
-          status: "ACTIVE"
-        },
+        closeFilter,
         {
           $set: {
             status: "LOGGED_OUT",
@@ -878,13 +885,24 @@ const login = async (req, res) => {
           }
         }
       );
+      if (user.isAdmin || adminStaff || isSuperAdminCredential) {
+        await AdminLog.updateMany(
+          closeFilter,
+          {
+            $set: {
+              status: "LOGGED_OUT",
+              logoutTime: new Date()
+            }
+          }
+        ).catch(() => {});
+      }
     } catch (staleErr) {
       console.warn("[Stale Session Cleanup Warning]:", staleErr.message);
     }
 
     let loginLog = null;
     try {
-      loginLog = await LoginLog.create({
+      const activePayload = {
         _id: sessionObjectId,
         userId: user.userID || (user._id ? `FLIPI${user._id.toString().slice(-4).toUpperCase()}` : 'Admin'),
         userObjectId: user._id,
@@ -899,11 +917,18 @@ const login = async (req, res) => {
         location,
         loginTime: new Date(),
         lastActiveAt: new Date(),
+        lastActiveTime: new Date(),
         status: "ACTIVE",
         isRevoked: false,
         eventType,
         loginMethod: "EMAIL_PASSWORD",
-      });
+      };
+      loginLog = await LoginLog.create(activePayload);
+      if (user.isAdmin || adminStaff || isSuperAdminCredential) {
+        await AdminLog.create(activePayload).catch((aErr) => {
+          console.warn("[AdminLog Insert Warning]:", aErr.message);
+        });
+      }
     } catch (logErr) {
       console.error("[Login Log Error]:", logErr.message);
     }
@@ -1567,6 +1592,14 @@ const logout = async (req, res) => {
             },
             { $set: { logoutTime: new Date(), status: "LOGGED_OUT", isRevoked: true } }
           );
+          await AdminLog.updateMany(
+            {
+              $or: orClauses,
+              $and: [{ $or: sessionMatches }],
+              status: { $in: ["ACTIVE", "active"] },
+            },
+            { $set: { logoutTime: new Date(), status: "LOGGED_OUT", isRevoked: true } }
+          ).catch(() => {});
           updatedCount = resSession.modifiedCount;
         } else if (sessionMatches.length > 0) {
           const resSession = await LoginLog.updateMany(
@@ -1576,6 +1609,13 @@ const logout = async (req, res) => {
             },
             { $set: { logoutTime: new Date(), status: "LOGGED_OUT", isRevoked: true } }
           );
+          await AdminLog.updateMany(
+            {
+              $or: sessionMatches,
+              status: { $in: ["ACTIVE", "active"] },
+            },
+            { $set: { logoutTime: new Date(), status: "LOGGED_OUT", isRevoked: true } }
+          ).catch(() => {});
           updatedCount = resSession.modifiedCount;
         }
       })();

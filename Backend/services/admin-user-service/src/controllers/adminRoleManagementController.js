@@ -16,6 +16,15 @@ const formatPermissionsToAccess = (permissions) => {
 // GET /api/admin/roles
 const getRoles = async (req, res) => {
   try {
+    // Ensure default 'Admin' role document exists in 'adminroles' collection
+    const adminRoleExists = await AdminRole.findOne({ Role: { $regex: /^admin$/i } });
+    if (!adminRoleExists) {
+      await AdminRole.create({
+        Role: 'Admin',
+        createdDate: new Date()
+      }).catch((e) => console.warn('[Ensure Admin Role Warning]:', e.message));
+    }
+
     const roles = await AdminRole.find().sort({ createdAt: 1 }).lean();
     return res.status(200).json({ success: true, roles });
   } catch (err) {
@@ -67,6 +76,18 @@ const updateRolePermissions = async (req, res) => {
       String(appliedPersonName || '').toLowerCase() === 'fist-o';
 
     if (isSuperAdminTarget) {
+      // Also update or ensure Admin entry exists in AdminRole
+      await AdminRole.findOneAndUpdate(
+        { Role: 'Admin' },
+        {
+          $set: {
+            Role: 'Admin',
+            createdDate: new Date()
+          }
+        },
+        { upsert: true, new: true }
+      ).catch(() => { });
+
       const adminUser = await AdminUser.findOne({
         $or: [
           { userid: { $regex: /^admin$/i } },
@@ -114,7 +135,7 @@ const updateRolePermissions = async (req, res) => {
       await AdminUser.updateMany(
         { designation: cleanTarget },
         { $set: { Access: accessList } }
-      ).catch(() => {});
+      ).catch(() => { });
     }
 
     return res.status(200).json({ success: true, role: updatedRole });
@@ -168,7 +189,7 @@ const getAdminUsers = async (req, res) => {
         needsSave = true;
       }
       if (needsSave) {
-        await superAdminExists.save().catch(() => {});
+        await superAdminExists.save().catch(() => { });
       }
     }
 

@@ -36,12 +36,15 @@ export default function RoleAccessPage() {
         ]);
 
         if (rolesRes?.success && rolesRes.roles) {
-          const mappedRoles = rolesRes.roles.map((r) => ({
-            id: r.roleId || r._id,
-            name: r.roleName,
-            designation: r.designation,
-            permissions: r.permissions || []
-          }));
+          const mappedRoles = rolesRes.roles.map((r) => {
+            const roleName = r.Role || r.roleName || r.name || '';
+            return {
+              id: r.roleId || r._id,
+              name: roleName,
+              designation: r.designation || roleName,
+              permissions: r.permissions || []
+            };
+          });
           setRolesList(mappedRoles);
           saveStoredRoles(mappedRoles);
 
@@ -57,10 +60,12 @@ export default function RoleAccessPage() {
           }
 
           rolesRes.roles.forEach((r) => {
+            const roleName = r.Role || r.roleName || r.name || '';
+            const designation = r.designation || roleName;
             if (r.permissions && r.permissions.length > 0) {
               const fullPerms = mergeWithDefaultPermissions(r.permissions);
-              permMap[r.roleName] = fullPerms;
-              permMap[`All ${r.designation || r.roleName}`] = fullPerms;
+              if (roleName) permMap[roleName] = fullPerms;
+              if (designation) permMap[`All ${designation}`] = fullPerms;
               if (r.appliedPersonId) {
                 permMap[r.appliedPersonId] = fullPerms;
               }
