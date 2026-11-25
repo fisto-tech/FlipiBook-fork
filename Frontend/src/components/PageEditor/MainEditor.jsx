@@ -43,6 +43,7 @@ import { executeInlineTranslation } from './utils/inlineTranslationHelper';
 import {
   LeftActionMenu,
   AddElementsModal,
+  ImagesModal,
   IconsModal
 } from './LeftActionMenu';
 import { getTopLevelFrames, hitTest as hitTestExt, isPageRootElement } from './mainEditor/utils/frameHierarchyUtils';
@@ -151,6 +152,7 @@ const MainEditor = ({
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null); // Track which page's menu is open
   const [isElementsModalOpen, setIsElementsModalOpen] = useState(false);
+  const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
   const [isIconsModalOpen, setIsIconsModalOpen] = useState(false);
 
 
@@ -168,6 +170,7 @@ const MainEditor = ({
   useEffect(() => {
     if (isConvertedFlipbook) {
       setIsElementsModalOpen(false);
+      setIsImagesModalOpen(false);
       setIsIconsModalOpen(false);
       if (!pdfDefaultsSetRef.current) {
         if (setActiveTopTool) setActiveTopTool('interaction');
@@ -266,6 +269,7 @@ const MainEditor = ({
     activeTopToolRef.current = activeTopTool;
     if (activeTopTool === 'interaction' || activeTopTool === 'animation') {
       setIsElementsModalOpen(false);
+      setIsImagesModalOpen(false);
       setIsIconsModalOpen(false);
       if (marqueeOverlayRef1.current) {
         marqueeOverlayRef1.current.style.display = 'none';
@@ -1843,18 +1847,38 @@ const getDraggableElement = (target, canvasRoot) => {
               activeMainTool={activeMainTool}
               baseWidth={baseWidth}
               baseHeight={baseHeight}
+              isImagesModalOpen={isImagesModalOpen}
+              onToggleImagesModal={() => {
+                setIsElementsModalOpen(false);
+                setIsIconsModalOpen(false);
+                setIsImagesModalOpen(prev => !prev);
+              }}
+              onCloseImagesModal={() => setIsImagesModalOpen(false)}
               isElementsModalOpen={isElementsModalOpen}
               onToggleElementsModal={() => {
+                setIsImagesModalOpen(false);
                 setIsIconsModalOpen(false);
                 setIsElementsModalOpen(prev => !prev);
               }}
               onCloseElementsModal={() => setIsElementsModalOpen(false)}
               isIconsModalOpen={isIconsModalOpen}
               onToggleIconsModal={() => {
+                setIsImagesModalOpen(false);
                 setIsElementsModalOpen(false);
                 setIsIconsModalOpen(prev => !prev);
               }}
               onCloseIconsModal={() => setIsIconsModalOpen(false)}
+            />
+          )}
+
+          {/* Draggable Images Modal */}
+          {!isPdfMode && (
+            <ImagesModal
+              isOpen={isImagesModalOpen}
+              onClose={() => setIsImagesModalOpen(false)}
+              isRulerEnabled={localRulerEnabled}
+              activePageIndex={activePageIndex}
+              dragConstraintsRef={editorContainerRef}
             />
           )}
 

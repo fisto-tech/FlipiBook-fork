@@ -145,12 +145,75 @@ const pickInApp = (pages) => new Promise((resolve, reject) => {
   gctx.imageSmoothingEnabled = false;
 
   const cursorStyle = document.createElement('style');
-  cursorStyle.textContent = '*{cursor:crosshair !important;}';
+  cursorStyle.id = 'screen-color-picker-cursor-style';
+  cursorStyle.textContent = `
+    [data-editor-canvas="true"],
+    [data-editor-canvas="true"] *:not(.color-picker-container):not(.color-picker-container *):not([data-modal]):not([data-modal] *):not(#stroke-settings-popup):not(#stroke-settings-popup *):not(.z-50):not(.z-50 *):not([data-picker-ui]):not([data-picker-ui] *),
+    .page-svg-container,
+    .page-svg-container * {
+      cursor: crosshair !important;
+    }
+    .color-picker-container,
+    .color-picker-container *,
+    [data-modal],
+    [data-modal] *,
+    #stroke-settings-popup,
+    #stroke-settings-popup *,
+    header,
+    header *,
+    nav,
+    nav *,
+    aside,
+    aside *,
+    .left-action-menu,
+    .left-action-menu *,
+    [data-picker-ui],
+    [data-picker-ui] *,
+    .top-toolbar,
+    .top-toolbar *,
+    [data-top-toolbar],
+    [data-top-toolbar] *,
+    .properties-panel,
+    .properties-panel *,
+    [data-properties-panel],
+    [data-properties-panel] *,
+    .z-50,
+    .z-50 * {
+      cursor: default !important;
+    }
+    button, button *, a, a *, input, input * {
+      cursor: revert !important;
+    }
+  `;
   document.head.appendChild(cursorStyle);
 
   let current = null;
   let pointer = null; // last pointer position (client coords)
   let raf = 0;
+
+  const isUiElement = (el) => {
+    if (!el) return false;
+    if (el.closest('button, input, select, textarea, a') && !el.closest('.page-svg-container')) {
+      return true;
+    }
+    return Boolean(el.closest(
+      '.color-picker-container, [data-color-picker-trigger], .color-box-trigger, ' +
+      '[data-modal="true"], [data-modal], #stroke-settings-popup, [role="dialog"], ' +
+      'header, nav, aside, .left-action-menu, .top-toolbar, [data-top-toolbar], ' +
+      '[data-floating-toolbar], .floating-toolbar, .canvas-bottom-bar, [data-bottom-bar], ' +
+      '[data-ignore-canvas="true"], [data-picker-ui], .properties-panel, [data-properties-panel], .z-50'
+    ));
+  };
+
+  const isOverCanvas = (x, y) => {
+    if (typeof x !== 'number' || typeof y !== 'number') return false;
+    const elements = document.elementsFromPoint(x, y);
+    if (!elements || elements.length === 0) return false;
+    const top = elements.find((n) => !panel.contains(n));
+    if (!top) return false;
+    if (isUiElement(top)) return false;
+    return Boolean(top.closest('.page-svg-container, [data-editor-canvas="true"], [id^="canvas-content-"]'));
+  };
 
   const sampleAt = (x, y) => {
     // Only when the page is really the topmost thing at this point (panels/toolbars may cover it)
@@ -176,12 +239,20 @@ const pickInApp = (pages) => new Promise((resolve, reject) => {
   const render = () => {
     raf = requestAnimationFrame(render);
     if (!pointer) return;
+
+    // Only pick and show loupe on canvas area. Outside canvas: hide loupe and show normal mouse.
+    const inCanvas = isOverCanvas(pointer.x, pointer.y);
+    if (!inCanvas) {
+      panel.style.display = 'none';
+      return;
+    }
+
     if (!dirty && performance.now() > liveUntil) return;
     dirty = false;
     const cell = grid.width / GRID_CELLS;
     const half = Math.floor(GRID_CELLS / 2);
     // Each grid cell is one screen pixel around the pointer: page snapshot where a page is,
-    // otherwise the colour of the UI under that point.
+    // otherwise the colour of the canvas under that point.
     const colorAtScreen = (sx, sy) => {
       const h = sampleAt(sx, sy);
       if (h) {
@@ -238,7 +309,7 @@ const pickInApp = (pages) => new Promise((resolve, reject) => {
   const onMove = (e) => { pointer = { x: e.clientX, y: e.clientY }; dirty = true; };
   const onScrollish = () => { liveUntil = performance.now() + 600; };
   const swallowClick = (e) => { e.preventDefault(); e.stopPropagation(); };
-  const cleanup = () => {
+  const cleanup = (swallowNextClick = true) => {
     cancelAnimationFrame(raf);
     window.removeEventListener('pointermove', onMove, true);
     window.removeEventListener('wheel', onScrollish, { capture: true });
@@ -249,16 +320,25 @@ const pickInApp = (pages) => new Promise((resolve, reject) => {
     window.removeEventListener('contextmenu', onContext, true);
     panel.remove();
     cursorStyle.remove();
-    // swallow the click that follows the picking pointerdown (keeps the colour popup open)
-    window.addEventListener('click', swallowClick, true);
-    setTimeout(() => window.removeEventListener('click', swallowClick, true), 300);
+    if (swallowNextClick) {
+      // swallow the click that follows the picking pointerdown (keeps the colour popup open)
+      window.addEventListener('click', swallowClick, true);
+      setTimeout(() => window.removeEventListener('click', swallowClick, true), 300);
+    }
     active = null;
   };
   const onDown = (e) => {
     if (e.button !== 0) return;
+    pointer = { x: e.clientX, y: e.clientY };
+    const inCanvas = isOverCanvas(pointer.x, pointer.y);
+    if (!inCanvas) {
+      // Clicked outside canvas: cancel eyedropper and allow normal click interaction
+      cleanup(false);
+      reject(new DOMException('Picking cancelled', 'AbortError'));
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
-    pointer = { x: e.clientX, y: e.clientY };
     const hit = sampleAt(pointer.x, pointer.y);
     let rgb;
     if (hit) {
@@ -267,20 +347,20 @@ const pickInApp = (pages) => new Promise((resolve, reject) => {
     } else {
       rgb = domColorAt(pointer.x, pointer.y, panel);
     }
-    cleanup();
+    cleanup(true);
     resolve({ sRGBHex: toHex(rgb[0], rgb[1], rgb[2]) });
   };
   const onKey = (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      cleanup();
+      cleanup(false);
       reject(new DOMException('Picking cancelled', 'AbortError'));
     }
   };
   const onContext = (e) => {
     e.preventDefault();
-    cleanup();
+    cleanup(false);
     reject(new DOMException('Picking cancelled', 'AbortError'));
   };
 
@@ -291,7 +371,7 @@ const pickInApp = (pages) => new Promise((resolve, reject) => {
   window.addEventListener('mousedown', swallowClick, true);
   window.addEventListener('keydown', onKey, true);
   window.addEventListener('contextmenu', onContext, true);
-  active = { cancel: () => { cleanup(); reject(new DOMException('Picking cancelled', 'AbortError')); } };
+  active = { cancel: () => { cleanup(false); reject(new DOMException('Picking cancelled', 'AbortError')); } };
 });
 
 export const canPickScreenColor = () => true;
