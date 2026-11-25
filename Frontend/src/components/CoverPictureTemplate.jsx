@@ -2347,9 +2347,8 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [uploadedImage, setUploadedImage] = useState(settings.coverPicture?.type === 'upload' ? settings.coverPicture.url : null);
   const [originalImage, setOriginalImage] = useState(settings.coverPicture?.type === 'upload' ? settings.coverPicture.url : null);
   const [isCropping, setIsCropping] = useState(false);
-  const previewImgRef = React.useRef(null);
+  const [previewImgRef] = [React.useRef(null)];
   const templatePreviewContainerRef = React.useRef(null);
-  const [isDownloadingCover, setIsDownloadingCover] = useState(false);
   const [rawFile, setRawFile] = useState(null);
   const [imageFixType, setImageFixType] = useState(settings.coverPicture?.fit || 'Fit');
   const [templateFit, setTemplateFit] = useState(settings.coverPicture?.templateFit || settings.coverPicture?.fit || 'Fit');
@@ -2362,11 +2361,11 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   const [text2, setText2] = useState(initialText2);
   const [bgColor, setBgColor] = useState(settings.coverPicture?.bgColor || initialTpl?.defaultBgColor || '#F8FAFC');
   const [bgOpacity, setBgOpacity] = useState(settings.coverPicture?.bgOpacity || 100);
-  const [shadowColor, setShadowColor] = useState(settings.coverPicture?.shadowColor || '#000000');
-  const [shadowOpacity, setShadowOpacity] = useState(settings.coverPicture?.shadowOpacity !== undefined ? settings.coverPicture.shadowOpacity : 0);
-  const [shadowX, setShadowX] = useState(settings.coverPicture?.shadowX || 0);
-  const [shadowY, setShadowY] = useState(settings.coverPicture?.shadowY || 0);
-  const [shadowBlur, setShadowBlur] = useState(settings.coverPicture?.shadowBlur !== undefined ? settings.coverPicture.shadowBlur : 0);
+  const [shadowColor, setShadowColor] = useState(settings.coverPicture?.shadowColor || '#A3A3A3');
+  const [shadowOpacity, setShadowOpacity] = useState(settings.coverPicture?.shadowOpacity !== undefined ? settings.coverPicture.shadowOpacity : 100);
+  const [shadowX, setShadowX] = useState(settings.coverPicture?.shadowX !== undefined ? settings.coverPicture.shadowX : 5);
+  const [shadowY, setShadowY] = useState(settings.coverPicture?.shadowY !== undefined ? settings.coverPicture.shadowY : 5);
+  const [shadowBlur, setShadowBlur] = useState(settings.coverPicture?.shadowBlur !== undefined ? settings.coverPicture.shadowBlur : 25);
   const [logoUrl, setLogoUrl] = useState(settings.coverPicture?.logoUrl || null);
   const [rawLogoFile, setRawLogoFile] = useState(null);
   const logoInputRef = React.useRef(null);
@@ -2414,115 +2413,6 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
 
   const [openSlotDropdown, setOpenSlotDropdown] = useState(null); // index of currently open slot dropdown (0, 1, or 2)
 
-  // Direct download cover image at standard 4:3 high-resolution (1200x900)
-  const handleDownloadCoverImage = async () => {
-    if (isDownloadingCover) return;
-    setIsDownloadingCover(true);
-    try {
-      const bookName = (currentBook?.flipbookName || currentBook?.title || 'flipbook')
-        .replace(/[^a-z0-9_-]/gi, '_');
-
-      if (option === 'upload' && uploadedImage) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          const cvs = document.createElement('canvas');
-          cvs.width = 1200;
-          cvs.height = 900;
-          const ctx = cvs.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, 1200, 900);
-
-          const srcW = img.naturalWidth || img.width || 1200;
-          const srcH = img.naturalHeight || img.height || 900;
-          let renderW = 1200;
-          let renderH = 900;
-          let offsetX = 0;
-          let offsetY = 0;
-
-          if (imageFixType === 'Stretch') {
-            renderW = 1200;
-            renderH = 900;
-          } else if (imageFixType === 'Fill') {
-            const scale = Math.max(1200 / srcW, 900 / srcH);
-            renderW = Math.round(srcW * scale);
-            renderH = Math.round(srcH * scale);
-            offsetX = Math.round((1200 - renderW) / 2);
-            offsetY = Math.round((900 - renderH) / 2);
-          } else {
-            // Fit / Contain
-            const scale = Math.min(1200 / srcW, 900 / srcH);
-            renderW = Math.round(srcW * scale);
-            renderH = Math.round(srcH * scale);
-            offsetX = Math.round((1200 - renderW) / 2);
-            offsetY = Math.round((900 - renderH) / 2);
-          }
-
-          ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
-          cvs.toBlob((blob) => {
-            if (blob) saveAs(blob, `${bookName}_Cover_Picture.png`);
-            setIsDownloadingCover(false);
-          }, 'image/png');
-        };
-        img.onerror = () => {
-          setIsDownloadingCover(false);
-          alert('Could not download image. Please try again.');
-        };
-        img.src = uploadedImage;
-        return;
-      }
-
-      if (option === 'template') {
-        const el = templatePreviewContainerRef.current;
-        if (!el) {
-          setIsDownloadingCover(false);
-          return;
-        }
-
-        const rect = el.getBoundingClientRect();
-        const longestSide = Math.max(rect.width, rect.height) || 800;
-        const scale = Math.max(1.5, 1200 / longestSide);
-
-        const rawCanvas = await html2canvas(el, {
-          scale: scale,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: null
-        });
-
-        if (rawCanvas) {
-          const out = document.createElement('canvas');
-          out.width = 1200;
-          out.height = 900;
-          const ctx = out.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, 1200, 900);
-
-          const srcW = rawCanvas.width;
-          const srcH = rawCanvas.height;
-          const scaleFactor = Math.min(1200 / srcW, 900 / srcH);
-          const rW = Math.round(srcW * scaleFactor);
-          const rH = Math.round(srcH * scaleFactor);
-          const offX = Math.round((1200 - rW) / 2);
-          const offY = Math.round((900 - rH) / 2);
-
-          ctx.drawImage(rawCanvas, 0, 0, srcW, srcH, offX, offY, rW, rH);
-          out.toBlob((blob) => {
-            if (blob) saveAs(blob, `${bookName}_Cover_Picture.png`);
-            setIsDownloadingCover(false);
-          }, 'image/png');
-        } else {
-          setIsDownloadingCover(false);
-        }
-      }
-    } catch (err) {
-      console.error('Error downloading cover:', err);
-      setIsDownloadingCover(false);
-      alert('Failed to generate cover download.');
-    }
-  };
-
   // Automatically scroll container when slot dropdown opens
   useEffect(() => {
     if (openSlotDropdown !== null) {
@@ -2543,22 +2433,43 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
   // Selected pages array (indices or page numbers 1-based)
   const [selectedPages, setSelectedPages] = useState(() => {
     const raw = settings.coverPicture?.selectedPages;
-    if (Array.isArray(raw)) {
-      return raw.slice(0, templateMaxPages);
+    if (Array.isArray(raw) && raw.length > 0) {
+      // If user had existing saved pages, preserve up to templateMaxPages and fill remaining with default consecutive pages if needed
+      const result = raw.slice(0, templateMaxPages);
+      while (result.length < templateMaxPages) {
+        const nextPg = result.length + 1;
+        result.push(pages.length >= nextPg ? nextPg : (pages.length > 0 ? 1 : null));
+      }
+      return result;
     }
-    return [1];
+    // Default to consecutive pages [1, 2, 3] up to templateMaxPages
+    return Array.from({ length: templateMaxPages }, (_, i) => {
+      const pageNum = i + 1;
+      return pages.length >= pageNum ? pageNum : (pages.length > 0 ? 1 : null);
+    });
   });
 
   // Keep selectedPages trimmed or adjusted whenever template changes its maxPages
   useEffect(() => {
     setSelectedPages(prev => {
-      const filtered = (prev || []).filter(p => p !== null && p !== undefined);
-      if (filtered.length === 0) {
-        return [1];
+      const current = Array.isArray(prev) ? prev : [];
+      if (current.length === 0) {
+        return Array.from({ length: templateMaxPages }, (_, i) => {
+          const pageNum = i + 1;
+          return pages.length >= pageNum ? pageNum : (pages.length > 0 ? 1 : null);
+        });
       }
-      return filtered.slice(0, templateMaxPages);
+      if (current.length < templateMaxPages) {
+        const expanded = [...current];
+        while (expanded.length < templateMaxPages) {
+          const nextPg = expanded.length + 1;
+          expanded.push(pages.length >= nextPg ? nextPg : (pages.length > 0 ? 1 : null));
+        }
+        return expanded;
+      }
+      return current.slice(0, templateMaxPages);
     });
-  }, [templateMaxPages]);
+  }, [templateMaxPages, pages.length]);
 
   // Track the most recently selected/interacted page for thumbnail preview display
   const [lastInteractedPage, setLastInteractedPage] = useState(() => {
@@ -2782,17 +2693,6 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
               >
                 <X size="1vw" strokeWidth={2.5} /> Cancel
               </button>
-              {uploadedImage && (
-                <button
-                  onClick={handleDownloadCoverImage}
-                  disabled={isDownloadingCover}
-                  className="px-[1.2vw] py-[0.6vw] border border-gray-300 bg-white rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-[0.4vw] shadow-sm disabled:opacity-50"
-                  title="Download Cover Image (1200x900)"
-                >
-                  {isDownloadingCover ? <Loader size="1vw" className="animate-spin" /> : <Download size="1vw" />}
-                  Download Cover
-                </button>
-              )}
               <button
                 onClick={() => {
                   onSave({
@@ -3094,9 +2994,38 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                                 </>, document.body
                               )}
                             </div>
-                            <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
-                              <span className="text-[0.85vw] font-medium text-[#2563EB] font-mono uppercase">{shadowColor}</span>
-                              <span className="text-[0.85vw] font-medium text-gray-400 font-mono">{shadowOpacity}%</span>
+                            <div className="flex-1 h-[2vw] border border-gray-200 rounded-[0.5vw] flex items-center px-[0.75vw] justify-between bg-white hover:border-indigo-400 focus-within:border-indigo-500 transition-colors shadow-[0_2px_4px_rgba(0,0,0,0.04)]">
+                              <span
+                                onClick={() => setShowShadowColorPicker(true)}
+                                className="text-[0.85vw] font-medium text-[#2563EB] font-mono uppercase cursor-pointer"
+                              >
+                                {shadowColor}
+                              </span>
+                              <div className="flex items-center">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={`${shadowOpacity}%`}
+                                  onFocus={(e) => {
+                                    e.target.value = shadowOpacity.toString();
+                                    e.target.select();
+                                  }}
+                                  onBlur={(e) => {
+                                    let val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                                    if (isNaN(val)) val = 60;
+                                    val = Math.min(Math.max(val, 0), 100);
+                                    setShadowOpacity(val);
+                                  }}
+                                  onChange={(e) => {
+                                    const raw = e.target.value.replace(/[^0-9]/g, '');
+                                    if (raw !== '') {
+                                      const val = Math.min(Math.max(parseInt(raw, 10), 0), 100);
+                                      setShadowOpacity(val);
+                                    }
+                                  }}
+                                  className="w-[3vw] text-right text-[0.85vw] font-medium text-gray-500 font-mono bg-transparent outline-none cursor-text"
+                                />
+                              </div>
                             </div>
                             {window.EyeDropper && (
                               <button
@@ -3234,9 +3163,20 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                                 const pageObj = activeNum && pages[activeNum - 1] ? pages[activeNum - 1] : null;
                                 const pageHtml = pageObj ? normalizePageHtml(pageObj.html || pageObj.content || pageObj.svgString || '', templateFit) : '';
 
+                                const previewAspect = (detectedBookOrientation || '').toLowerCase();
+                                const previewContainerStyle =
+                                  previewAspect === 'landscape'
+                                    ? { width: '8.4vw', height: '5.6vw' }
+                                    : previewAspect === 'square'
+                                      ? { width: '6.2vw', height: '6.2vw' }
+                                      : { width: '5.4vw', height: '7vw' };
+
                                 return (
                                   <>
-                                    <div className="w-[5.4vw] h-[7vw] bg-white border border-gray-300 rounded-[0.45vw] overflow-hidden shadow-xs flex items-center justify-center relative p-[0.2vw]">
+                                    <div
+                                      style={previewContainerStyle}
+                                      className="bg-white border border-gray-300 rounded-[0.45vw] overflow-hidden shadow-xs flex items-center justify-center relative p-[0.2vw] transition-all duration-200"
+                                    >
                                       {pageHtml ? (
                                         <div
                                           className="w-full h-full flex items-center justify-center pointer-events-none overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block"
@@ -3366,21 +3306,12 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
             <p className="text-[0.65vw] text-gray-500 font-medium">
               <span className="text-red-500">*</span> Choose and customize a template, then click "Change Cover" to save as your flipbook cover
             </p>
-            <div className="flex gap-[0.8vw]">
+            <div className="flex items-center gap-[0.8vw]">
               <button
                 onClick={onClose}
-                className="px-[2vw] py-[0.6vw] border border-gray-400 rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-[0.4vw] shadow-sm"
+                className="min-w-[8vw] px-[1.6vw] py-[0.6vw] border border-gray-300 rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-800 hover:bg-gray-50 transition-colors flex items-center justify-center gap-[0.4vw] shadow-xs cursor-pointer"
               >
-                <X size="1vw" strokeWidth={2.5} /> Cancel
-              </button>
-              <button
-                onClick={handleDownloadCoverImage}
-                disabled={isDownloadingCover}
-                className="px-[1.5vw] py-[0.6vw] border border-gray-300 bg-white rounded-[0.5vw] text-[0.8vw] font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-[0.4vw] shadow-sm disabled:opacity-50"
-                title="Download Cover Image (1200x900)"
-              >
-                {isDownloadingCover ? <Loader size="1vw" className="animate-spin" /> : <Download size="1vw" />}
-                Download Cover
+                <X size="0.95vw" strokeWidth={2.5} /> Cancel
               </button>
               <button
                 onClick={() => {
@@ -3430,9 +3361,9 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                   });
                   onClose();
                 }}
-                className="px-[3vw] py-[0.6vw] bg-black text-white rounded-[0.5vw] text-[0.8vw] font-semibold hover:bg-zinc-800 transition-colors flex items-center gap-[0.4vw] shadow-sm"
+                className="min-w-[8vw] px-[1.6vw] py-[0.6vw] bg-black text-white rounded-[0.5vw] text-[0.8vw] font-semibold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-[0.4vw] shadow-xs cursor-pointer"
               >
-                <Check size="1vw" strokeWidth={3} /> Save Changes
+                <Check size="0.95vw" strokeWidth={2.5} /> Save Changes
               </button>
             </div>
           </div>

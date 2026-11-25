@@ -20,6 +20,7 @@ import {
   getAdminRoles,
   getManagementStaffUsers,
   createManagementStaffUser,
+  updateManagementStaffUser,
   updateManagementStaffPassword,
   deleteManagementStaffUser
 } from '../../../services/adminApi';
@@ -31,6 +32,7 @@ export default function ManagementUserPage() {
   const [roles, setRoles] = useState(() => getStoredRoles());
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null); // null = Add mode, object = Edit mode
   const [sortAsc, setSortAsc] = useState(true);
   const [editingUserId, setEditingUserId] = useState(null);
   const [inlinePasswordVal, setInlinePasswordVal] = useState('');
@@ -77,41 +79,22 @@ export default function ManagementUserPage() {
         if (usersRes?.success && usersRes.users && usersRes.users.length > 0) {
           const mappedUsers = usersRes.users.map((u, i) => ({
             sNo: i + 1,
+            id: u._id,
             name: u.name,
-            userId: u.userId,
-            password: u.rawPassword || u.userId,
+            userId: u.userid || u.userId,
+            password: u.rawPassword || u.password || u.userid || u.userId,
             designation: u.designation,
-            roleId: u.roleId,
+            roleId: u.roleId || '',
             teamHead: Boolean(u.teamHead),
-            createdDate: new Date(u.createdAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            }),
-            email: u.email,
-            status: u.status || 'Active'
+            createdDate: u.createddate
+              ? new Date(u.createddate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : (u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Nov 23, 2026'),
+            email: u.e_mailid || u.email,
+            status: u.status || 'Active',
+            Access: u.Access || []
           }));
-          // Ensure Admin is in the list
-          const hasAdmin = mappedUsers.some((u) => String(u.userId || '').toLowerCase() === 'admin');
-          const finalUsers = hasAdmin
-            ? mappedUsers
-            : [
-                {
-                  sNo: 1,
-                  name: 'Super Administrator',
-                  userId: 'Admin',
-                  password: 'Admin@123',
-                  designation: 'Admin',
-                  roleId: 'R_ID01',
-                  teamHead: true,
-                  createdDate: 'Jan 1, 2026',
-                  email: 'admin@flipibook.com',
-                  status: 'Active'
-                },
-                ...mappedUsers.map((u, idx) => ({ ...u, sNo: idx + 2 }))
-              ];
-          setUsers(finalUsers);
-          saveStoredUsers(finalUsers);
+          setUsers(mappedUsers);
+          saveStoredUsers(mappedUsers);
         } else {
           setUsers(getStoredUsers());
         }
@@ -134,18 +117,49 @@ export default function ManagementUserPage() {
     };
   }, []);
 
-  // New User Form State
+  // Deduplicate and filter available roles for selection
+  const availableRoles = React.useMemo(() => {
+    const seen = new Set();
+    const result = [];
+
+    // Filter out duplicate role names, individual person custom roles (e.g., "Role - PersonName"),
+    // and standardize Admin / Super Administrator into a single clear option
+    for (const r of roles) {
+      const cleanName = (r.name || r.roleName || '').trim();
+      if (!cleanName) continue;
+
+      // Skip internal personal custom permission roles if present
+      if (cleanName.includes(' - FLIP_') || (cleanName.includes(' - ') && !cleanName.toLowerCase().includes('admin'))) {
+        continue;
+      }
+
+      const key = cleanName.toLowerCase();
+      // Group any duplicate Admin/Super Administrator entries into one
+      const isSuperAdmin = key === 'admin' || key === 'super admin' || key === 'super administrator';
+      const dedupeKey = isSuperAdmin ? 'admin' : key;
+
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        result.push({
+          id: isSuperAdmin ? 'Admin' : (r.id || r.roleId || r.name),
+          name: isSuperAdmin ? 'Admin' : cleanName,
+          designation: r.designation || cleanName
+        });
+      }
+    }
+
+    return result;
+  }, [roles]);
   const [newUser, setNewUser] = useState({
     name: '',
+    email: '',
+    password: '',
     roleId: '',
     designation: '',
-    password: '',
-    teamHead: false,
     createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    email: '',
     status: 'Active'
   });
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(true);
 
   const nextUserId = generateUserId(users.length + 1);
 
@@ -162,9 +176,73 @@ export default function ManagementUserPage() {
     }
   };
 
-  const handleAddUser = async (e) => {
+  const handleOpenAddModal = () => {
+    setEditingUser(null);
+    setNewUser({
+      name: '',
+      email: '',
+      password: nextUserId,
+      roleId: '',
+      designation: '',
+      createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      status: 'Active'
+    });
+    setShowPassword(true);
+    setShowAddModal(true);
+  };
+
+  const handleOpenEditModal = (userToEdit) => {
+    setEditingUser(userToEdit);
+    const isSuperAdmin =
+      String(userToEdit.userId || '').toLowerCase() === 'admin' ||
+      String(userToEdit.name || '').toLowerCase().includes('super administrator') ||
+      String(userToEdit.designation || '').toLowerCase() === 'admin';
+
+    setNewUser({
+      name: userToEdit.name || '',
+      email: userToEdit.email || '',
+      password: userToEdit.password || '',
+      roleId: isSuperAdmin ? 'Admin' : (userToEdit.roleId || userToEdit.designation || ''),
+      designation: userToEdit.designation || '',
+      createdDate: userToEdit.createdDate || '',
+      status: userToEdit.status || 'Active'
+    });
+    setShowPassword(true);
+    setShowAddModal(true);
+  };
+
+  const handleSaveUser = async (e) => {
     e.preventDefault();
     if (!newUser.name) return;
+
+    if (editingUser) {
+      // Edit / Update existing user
+      const effectivePassword = newUser.password && newUser.password.trim() ? newUser.password.trim() : (editingUser.password || editingUser.userId);
+      const updatedUser = {
+        ...editingUser,
+        ...newUser,
+        password: effectivePassword
+      };
+
+      try {
+        await updateManagementStaffUser(editingUser.userId, {
+          name: newUser.name,
+          email: newUser.email,
+          password: effectivePassword,
+          designation: newUser.designation,
+          roleId: newUser.roleId
+        });
+      } catch (err) {
+        console.error('Update user backend error:', err);
+      }
+
+      const updatedList = users.map((u) => (u.userId === editingUser.userId ? updatedUser : u));
+      setUsers(updatedList);
+      saveStoredUsers(updatedList);
+      setShowAddModal(false);
+      setEditingUser(null);
+      return;
+    }
 
     // Default password to auto-assigned User ID if left blank
     const effectivePassword = newUser.password && newUser.password.trim() ? newUser.password.trim() : nextUserId;
@@ -176,8 +254,7 @@ export default function ManagementUserPage() {
         email: newUser.email,
         password: effectivePassword,
         designation: newUser.designation,
-        roleId: newUser.roleId,
-        teamHead: newUser.teamHead
+        roleId: newUser.roleId
       });
 
       const assignedId = res?.user?.userId || nextUserId;
@@ -209,15 +286,14 @@ export default function ManagementUserPage() {
     setShowAddModal(false);
     setNewUser({
       name: '',
+      email: '',
+      password: '',
       roleId: '',
       designation: '',
-      password: '',
-      teamHead: false,
       createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      email: '',
       status: 'Active'
     });
-    setShowPassword(false);
+    setShowPassword(true);
   };
 
   const filteredUsers = users
@@ -282,7 +358,7 @@ export default function ManagementUserPage() {
             {/* +Add Users Button */}
             <button
               type="button"
-              onClick={() => setShowAddModal(true)}
+              onClick={handleOpenAddModal}
               className="flex items-center gap-[0.4vw] px-[1vw] py-[0.42vw] bg-[#0f172a] hover:bg-slate-800 text-white text-[0.78vw] font-semibold rounded-full shadow-xs transition cursor-pointer"
             >
               <Plus className="w-[0.8vw] h-[0.8vw]" />
@@ -298,10 +374,11 @@ export default function ManagementUserPage() {
             <thead>
               <tr className="bg-[#f8f8f8] text-[#111827] font-semibold border-b border-[#f0f0f0] text-[0.78vw]">
                 <th className="py-[0.55vw] px-[1vw] w-12 text-center font-semibold">S.NO</th>
-                <th className="py-[0.55vw] px-[1vw] font-semibold">User</th>
                 <th className="py-[0.55vw] px-[1vw] font-semibold">User ID</th>
-                <th className="py-[0.55vw] px-[1vw] font-semibold">Password</th>
+                <th className="py-[0.55vw] px-[1vw] font-semibold">Name</th>
                 <th className="py-[0.55vw] px-[1vw] font-semibold">Designation</th>
+                <th className="py-[0.55vw] px-[1vw] font-semibold">Email</th>
+                <th className="py-[0.55vw] px-[1vw] font-semibold">Password</th>
                 <th
                   onClick={() => setSortAsc(!sortAsc)}
                   className="py-[0.55vw] px-[1vw] cursor-pointer hover:text-gray-900 transition select-none font-semibold"
@@ -311,7 +388,6 @@ export default function ManagementUserPage() {
                     <span className="text-blue-600 font-bold">↑</span>
                   </div>
                 </th>
-                <th className="py-[0.55vw] px-[1vw] font-semibold">Email</th>
                 <th className="py-[0.55vw] px-[1vw] text-center font-semibold">Status</th>
                 <th className="py-[0.55vw] px-[1vw] text-center font-semibold">Action</th>
               </tr>
@@ -329,68 +405,16 @@ export default function ManagementUserPage() {
                     {u.sNo}
                   </td>
 
-                  {/* User Name */}
-                  <td className="py-[0.55vw] px-[1vw]">
-                    <span className="font-semibold text-[#111827] group-hover:text-black transition-colors whitespace-nowrap">
-                      {u.name}
-                    </span>
-                  </td>
-
                   {/* User ID in FLIP_AD0001 format */}
                   <td className="py-[0.55vw] px-[1vw] font-mono text-[#4b5563] font-medium whitespace-nowrap">
                     {u.userId}
                   </td>
 
-                  {/* Password Column with direct inline edit */}
-                  <td className="py-[0.55vw] px-[1vw] whitespace-nowrap">
-                    {editingUserId === u.userId ? (
-                      <div className="flex items-center gap-[0.35vw]">
-                        <input
-                          type="text"
-                          autoFocus
-                          value={inlinePasswordVal}
-                          onChange={(e) => setInlinePasswordVal(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveInlinePassword(u.userId);
-                            if (e.key === 'Escape') setEditingUserId(null);
-                          }}
-                          className="bg-white border-2 border-indigo-600 rounded-[0.35vw] px-[0.5vw] py-[0.15vw] text-[0.75vw] font-mono w-[8.5vw] focus:outline-none shadow-xs"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleSaveInlinePassword(u.userId)}
-                          className="p-[0.25vw] rounded hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition cursor-pointer"
-                          title="Save"
-                        >
-                          <Check className="w-[0.8vw] h-[0.8vw]" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingUserId(null)}
-                          className="p-[0.25vw] rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition cursor-pointer"
-                          title="Cancel"
-                        >
-                          <X className="w-[0.8vw] h-[0.8vw]" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-[0.4vw]">
-                        <span className="font-mono bg-gray-100/90 text-gray-700 px-[0.55vw] py-[0.18vw] rounded-[0.35vw] text-[0.72vw] border border-gray-200">
-                          {u.password || u.userId}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingUserId(u.userId);
-                            setInlinePasswordVal(u.password || u.userId);
-                          }}
-                          className="p-[0.25vw] rounded hover:bg-indigo-50 text-indigo-500 hover:text-indigo-700 transition cursor-pointer"
-                          title="Click to edit password directly"
-                        >
-                          <Edit2 className="w-[0.7vw] h-[0.7vw]" />
-                        </button>
-                      </div>
-                    )}
+                  {/* Name */}
+                  <td className="py-[0.55vw] px-[1vw]">
+                    <span className="font-semibold text-[#111827] group-hover:text-black transition-colors whitespace-nowrap">
+                      {u.name}
+                    </span>
                   </td>
 
                   {/* Designation */}
@@ -399,17 +423,7 @@ export default function ManagementUserPage() {
                       <span className="text-[#374151] font-medium whitespace-nowrap">
                         {u.designation || '-'}
                       </span>
-                      {u.teamHead && (
-                        <div className="text-[0.62vw] text-purple-600 font-semibold leading-tight">
-                          Team Head
-                        </div>
-                      )}
                     </div>
-                  </td>
-
-                  {/* Created Date */}
-                  <td className="py-[0.55vw] px-[1vw] text-[#4b5563] whitespace-nowrap">
-                    {u.createdDate}
                   </td>
 
                   {/* Email */}
@@ -421,6 +435,16 @@ export default function ManagementUserPage() {
                     ) : (
                       <span className="text-gray-300">-</span>
                     )}
+                  </td>
+
+                  {/* Password Column */}
+                  <td className="py-[0.55vw] px-[1vw] text-[#4b5563] whitespace-nowrap">
+                    {u.password || u.userId}
+                  </td>
+
+                  {/* Created Date */}
+                  <td className="py-[0.55vw] px-[1vw] text-[#4b5563] whitespace-nowrap">
+                    {u.createdDate}
                   </td>
 
                   {/* Status Badge */}
@@ -436,6 +460,7 @@ export default function ManagementUserPage() {
                       {/* Edit */}
                       <button
                         type="button"
+                        onClick={() => handleOpenEditModal(u)}
                         className="p-[0.2vw] rounded hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition cursor-pointer"
                         title="Edit User"
                       >
@@ -495,19 +520,20 @@ export default function ManagementUserPage() {
             <div className="flex items-center justify-between px-[1.5vw] py-[1.1vw] border-b border-gray-100 bg-[#f8fafc]">
               <div>
                 <h3 className="text-[1.05vw] font-bold text-[#111827]">
-                  Add New User
+                  {editingUser ? 'Update User' : 'Add New User'}
                 </h3>
                 <p className="text-[0.72vw] text-gray-400 mt-[0.1vw]">
-                  Create administrative credentials and assign roles
+                  {editingUser ? 'Update administrative credentials and assigned role' : 'Create administrative credentials and assign roles'}
                 </p>
               </div>
               <span className="text-[0.72vw] font-mono font-semibold px-[0.7vw] py-[0.25vw] rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                {nextUserId}
+                {editingUser ? editingUser.userId : nextUserId}
               </span>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleAddUser} className="p-[1.5vw] space-y-[1.1vw] text-[0.8vw]">
+            <form onSubmit={handleSaveUser} className="p-[1.5vw] space-y-[1.1vw] text-[0.8vw]">
+              {/* 1. Full Name */}
               <div className="space-y-[0.35vw]">
                 <label className="block text-[#334155] font-bold text-[0.8vw]">
                   Full Name <span className="text-red-500">*</span>
@@ -522,50 +548,7 @@ export default function ManagementUserPage() {
                 />
               </div>
 
-              {/* Select Existed Role */}
-              <div className="space-y-[0.35vw]">
-                <label className="block text-[#334155] font-bold text-[0.8vw]">
-                  Select Role <span className="text-gray-400 font-normal">({roles.length} roles available)</span>
-                </label>
-                {roles.length > 0 ? (
-                  <AdminDropdown
-                    options={roles.map((r) => ({
-                      label: r.name,
-                      value: r.id || r.roleId || r.name
-                    }))}
-                    value={newUser.roleId}
-                    placeholder="Select an Existing Role"
-                    onChange={(selId) => {
-                      const matched = roles.find((r) => (r.id || r.roleId || r.name) === selId);
-                      setNewUser({
-                        ...newUser,
-                        roleId: selId,
-                        designation: matched?.designation || newUser.designation
-                      });
-                    }}
-                    width="100%"
-                  />
-                ) : (
-                  <div className="p-[0.7vw] rounded-[0.55vw] bg-amber-50/70 border border-amber-200/60 text-amber-800 text-[0.75vw] flex items-center gap-[0.5vw]">
-                    <ShieldAlert className="w-[0.9vw] h-[0.9vw] text-amber-600 shrink-0" />
-                    <span>No roles created yet. You can create roles under <b>Role Access</b>.</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-[0.35vw]">
-                <label className="block text-[#334155] font-bold text-[0.8vw]">
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  value={newUser.designation}
-                  onChange={(e) => setNewUser({ ...newUser, designation: e.target.value })}
-                  placeholder="e.g. Software Developer"
-                  className="w-full bg-[#f8fafc] border border-gray-200 text-[#1e293b] text-[0.82vw] rounded-[0.55vw] px-[1vw] py-[0.55vw] focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition"
-                />
-              </div>
-
+              {/* 2. Email ID */}
               <div className="space-y-[0.35vw]">
                 <label className="block text-[#334155] font-bold text-[0.8vw]">
                   Email ID
@@ -579,17 +562,17 @@ export default function ManagementUserPage() {
                 />
               </div>
 
-              {/* Password Field */}
+              {/* 3. Password */}
               <div className="space-y-[0.35vw]">
                 <label className="block text-[#334155] font-bold text-[0.8vw]">
-                  Password <span className="text-gray-400 font-normal">(Default: {nextUserId})</span>
+                  Password <span className="text-gray-400 font-normal">({editingUser ? `Current: ${editingUser.password || editingUser.userId}` : `Default: ${nextUserId}`})</span>
                 </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    placeholder={`e.g. ${nextUserId}`}
+                    placeholder={editingUser ? 'Enter new password' : `e.g. ${nextUserId}`}
                     className="w-full bg-[#f8fafc] border border-gray-200 text-[#1e293b] text-[0.82vw] rounded-[0.55vw] pl-[1vw] pr-[2.5vw] py-[0.55vw] focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition"
                   />
                   <button
@@ -606,18 +589,35 @@ export default function ManagementUserPage() {
                 </div>
               </div>
 
-              {/* Team Head Checkbox */}
-              <div className="flex items-center gap-[0.5vw] pt-[0.2vw]">
-                <input
-                  type="checkbox"
-                  id="teamHeadCheck"
-                  checked={newUser.teamHead}
-                  onChange={(e) => setNewUser({ ...newUser, teamHead: e.target.checked })}
-                  className="w-[1vw] h-[1vw] rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 cursor-pointer"
-                />
-                <label htmlFor="teamHeadCheck" className="text-[#334155] font-semibold text-[0.8vw] cursor-pointer select-none">
-                  Assign as Team Head
+              {/* 4. Select Designation */}
+              <div className="space-y-[0.35vw]">
+                <label className="block text-[#334155] font-bold text-[0.8vw]">
+                  Select Designation <span className="text-gray-400 font-normal">({availableRoles.length} available)</span>
                 </label>
+                {availableRoles.length > 0 ? (
+                  <AdminDropdown
+                    options={availableRoles.map((r) => ({
+                      label: r.name,
+                      value: r.id || r.roleId || r.name
+                    }))}
+                    value={newUser.roleId}
+                    placeholder="Select Designation"
+                    onChange={(selId) => {
+                      const matched = availableRoles.find((r) => (r.id || r.roleId || r.name) === selId);
+                      setNewUser({
+                        ...newUser,
+                        roleId: selId,
+                        designation: matched?.name || matched?.designation || newUser.designation
+                      });
+                    }}
+                    width="100%"
+                  />
+                ) : (
+                  <div className="p-[0.7vw] rounded-[0.55vw] bg-amber-50/70 border border-amber-200/60 text-amber-800 text-[0.75vw] flex items-center gap-[0.5vw]">
+                    <ShieldAlert className="w-[0.9vw] h-[0.9vw] text-amber-600 shrink-0" />
+                    <span>No roles created yet. You can create roles under <b>Role Access</b>.</span>
+                  </div>
+                )}
               </div>
 
               {/* Modal Footer */}
@@ -633,7 +633,7 @@ export default function ManagementUserPage() {
                   type="submit"
                   className="bg-[#0f172a] hover:bg-slate-800 text-white text-[0.8vw] font-semibold px-[1.3vw] py-[0.5vw] rounded-[0.5vw] shadow-xs hover:shadow transition cursor-pointer"
                 >
-                  Save User
+                  {editingUser ? 'Update User' : 'Add User'}
                 </button>
               </div>
             </form>

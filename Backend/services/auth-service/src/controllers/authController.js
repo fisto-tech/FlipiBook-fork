@@ -6,7 +6,6 @@ const AdminUser = require("../../../../shared/models/AdminUser");
 const AdminRole = require("../../../../shared/models/AdminRole");
 const RefreshToken = require("../../../../shared/models/RefreshToken");
 const LoginLog = require("../models/loginLog");
-const AdminLoginLog = require("../models/AdminLoginLog");
 const SignupOtp = require("../models/signupOtp");
 const {
   generateToken,
@@ -38,7 +37,7 @@ const markSessionRevokedInRedis = async (sessionId, ttlSeconds = 7 * 24 * 60 * 6
   if (!isAvailable() || !redis || !sessionId) return;
   try {
     await redis.set(`revoked:session:${sessionId}`, "1", "EX", ttlSeconds);
-  } catch (_) {}
+  } catch (_) { }
 };
 
 const getCachedUserProfile = async (userId) => {
@@ -64,7 +63,7 @@ const setCachedUserProfile = async (userId, userDoc, ttlSeconds = 300) => {
       userID: userDoc.userID || ""
     };
     await redis.set(`user:profile:${userId}`, JSON.stringify(payload), "EX", ttlSeconds);
-  } catch (_) {}
+  } catch (_) { }
 };
 
 const purgeCachedUserProfile = async (userId) => {
@@ -72,7 +71,7 @@ const purgeCachedUserProfile = async (userId) => {
   if (!isAvailable() || !redis || !userId) return;
   try {
     await redis.del(`user:profile:${userId}`);
-  } catch (_) {}
+  } catch (_) { }
 };
 
 /**
@@ -770,14 +769,6 @@ const login = async (req, res) => {
       });
     }
 
-    // If AdminStaff exists and there's a User record, ensure user has admin role privileges
-    if (adminStaff && user && typeof user.save === 'function') {
-      if (user.role !== 'admin' || !user.isAdmin) {
-        user.role = 'admin';
-        user.isAdmin = true;
-        await user.save().catch(() => {});
-      }
-    }
 
     // Compare password (allow direct match if isSuperAdminCredential)
     // If user has adminStaff profile, check adminStaff password before complaining about Google Sign-In
@@ -819,50 +810,25 @@ const login = async (req, res) => {
     if (!isMatch) {
       // Record failed login attempt in audit history
       try {
-        if (isSuperAdminCredential || (user.role && user.role.toLowerCase() === 'admin')) {
-          await AdminLoginLog.create({
-            adminId: user.userID || 'Admin',
-            emailOrUserId: identifier,
-            name: user.name || 'Super Administrator',
-            designation: 'Admin',
-            roleId: 'R_ID01',
-            status: 'FAILED',
-            failureReason: 'Invalid credentials',
-            ipAddress,
-            userAgent,
-            device: {
-              browser: browser || '',
-              os: operatingSystem || '',
-              type: deviceType || 'Desktop'
-            },
-            location: {
-              country: location?.country || '',
-              region: location?.region || '',
-              city: location?.city || ''
-            },
-            sessionId: new mongoose.Types.ObjectId().toString()
-          });
-        } else {
-          await LoginLog.create({
-            userId: user.userID || `FLIPI${user._id.toString().slice(-4).toUpperCase()}`,
-            userObjectId: user._id,
-            emailId: user.emailId,
-            sessionId: new mongoose.Types.ObjectId().toString(),
-            deviceId: clientDeviceId,
-            ipAddress,
-            userAgent,
-            browser,
-            operatingSystem,
-            deviceType,
-            location,
-            loginTime: new Date(),
-            lastActiveAt: new Date(),
-            status: "EXPIRED",
-            isRevoked: true,
-            eventType: "FAILED_LOGIN",
-            loginMethod: "EMAIL_PASSWORD",
-          });
-        }
+        await LoginLog.create({
+          userId: user.userID || (user._id ? `FLIPI${user._id.toString().slice(-4).toUpperCase()}` : 'Admin'),
+          userObjectId: user._id,
+          emailId: user.emailId,
+          sessionId: new mongoose.Types.ObjectId().toString(),
+          deviceId: clientDeviceId,
+          ipAddress,
+          userAgent,
+          browser,
+          operatingSystem,
+          deviceType,
+          location,
+          loginTime: new Date(),
+          lastActiveAt: new Date(),
+          status: "EXPIRED",
+          isRevoked: true,
+          eventType: "FAILED_LOGIN",
+          loginMethod: "EMAIL_PASSWORD",
+        });
       } catch (failedLogErr) {
         console.warn("[Failed Login Log Warning]:", failedLogErr.message);
       }
@@ -918,50 +884,26 @@ const login = async (req, res) => {
 
     let loginLog = null;
     try {
-      if (isSuperAdminCredential || (user.role && user.role.toLowerCase() === 'admin')) {
-        loginLog = await AdminLoginLog.create({
-          adminId: user.userID || 'Admin',
-          emailOrUserId: user.emailId || identifier,
-          name: user.name || 'Super Administrator',
-          designation: 'Admin',
-          roleId: 'R_ID01',
-          status: 'SUCCESS',
-          ipAddress,
-          userAgent,
-          device: {
-            browser: browser || '',
-            os: operatingSystem || '',
-            type: deviceType || 'Desktop'
-          },
-          location: {
-            country: location?.country || '',
-            region: location?.region || '',
-            city: location?.city || ''
-          },
-          sessionId
-        });
-      } else {
-        loginLog = await LoginLog.create({
-          _id: sessionObjectId,
-          userId: user.userID || `FLIPI${user._id.toString().slice(-4).toUpperCase()}`,
-          userObjectId: user._id,
-          emailId: user.emailId,
-          sessionId,
-          deviceId: clientDeviceId,
-          ipAddress,
-          userAgent,
-          browser,
-          operatingSystem,
-          deviceType,
-          location,
-          loginTime: new Date(),
-          lastActiveAt: new Date(),
-          status: "ACTIVE",
-          isRevoked: false,
-          eventType,
-          loginMethod: "EMAIL_PASSWORD",
-        });
-      }
+      loginLog = await LoginLog.create({
+        _id: sessionObjectId,
+        userId: user.userID || (user._id ? `FLIPI${user._id.toString().slice(-4).toUpperCase()}` : 'Admin'),
+        userObjectId: user._id,
+        emailId: user.emailId,
+        sessionId,
+        deviceId: clientDeviceId,
+        ipAddress,
+        userAgent,
+        browser,
+        operatingSystem,
+        deviceType,
+        location,
+        loginTime: new Date(),
+        lastActiveAt: new Date(),
+        status: "ACTIVE",
+        isRevoked: false,
+        eventType,
+        loginMethod: "EMAIL_PASSWORD",
+      });
     } catch (logErr) {
       console.error("[Login Log Error]:", logErr.message);
     }
@@ -1018,7 +960,7 @@ const login = async (req, res) => {
           if (matchedRole?.permissions) {
             userPermissions = matchedRole.permissions;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     }
 
@@ -1430,7 +1372,7 @@ const setPasswordWithOtp = async (req, res) => {
     await RefreshToken.updateMany(
       { userId: user._id },
       { $set: { isRevoked: true, revokedAt: new Date() } }
-    ).catch(() => {});
+    ).catch(() => { });
 
     return res.status(200).json({
       success: true,
@@ -1521,7 +1463,7 @@ const resetPassword = async (req, res) => {
     await RefreshToken.updateMany(
       { userId: user._id },
       { $set: { isRevoked: true, revokedAt: new Date() } }
-    ).catch(() => {});
+    ).catch(() => { });
 
     // Revoke any existing active sessions in Redis & DB upon password reset (OWASP standard)
     try {
@@ -1530,7 +1472,7 @@ const resetPassword = async (req, res) => {
         if (s.sessionId) markSessionRevokedInRedis(s.sessionId);
       }
       purgeCachedUserProfile(user._id);
-    } catch (_) {}
+    } catch (_) { }
 
     await LoginLog.updateMany(
       { userId: user.userID, status: "ACTIVE" },
@@ -1678,17 +1620,17 @@ const getUserIdentityQueries = async (user) => {
   if (rawId && mongoose.Types.ObjectId.isValid(rawId)) {
     try {
       dbUser = await User.findById(rawId).select('_id userID emailId');
-    } catch (_) {}
+    } catch (_) { }
   }
   if (!dbUser && rawEmail) {
     try {
       dbUser = await User.findOne({ emailId: rawEmail }).select('_id userID emailId');
-    } catch (_) {}
+    } catch (_) { }
   }
   if (!dbUser && rawUserId) {
     try {
       dbUser = await User.findOne({ userID: rawUserId }).select('_id userID emailId');
-    } catch (_) {}
+    } catch (_) { }
   }
 
   const queries = [];
@@ -1720,7 +1662,7 @@ const getUserIdentityQueries = async (user) => {
         seenObjIds.add(s);
         try {
           queries.push({ userObjectId: new mongoose.Types.ObjectId(s) });
-        } catch (_) {}
+        } catch (_) { }
       }
     }
   };
@@ -1841,7 +1783,7 @@ const verifySession = async (req, res) => {
               const lastActive = session.lastActiveAt ? new Date(session.lastActiveAt).getTime() : 0;
               if (Date.now() - lastActive > 60000) {
                 session.lastActiveAt = new Date();
-                await session.save().catch(() => {});
+                await session.save().catch(() => { });
               }
             }
           } catch (sessionErr) {
@@ -1911,7 +1853,7 @@ const verifySession = async (req, res) => {
 
             if (session && session.status === "ACTIVE") {
               session.lastActiveAt = new Date();
-              await session.save().catch(() => {});
+              await session.save().catch(() => { });
             }
           } catch (sessionErr) {
             console.warn("[Verify Session] Warning checking refresh LoginLog:", sessionErr.message);
@@ -2260,7 +2202,7 @@ const revokeSession = async (req, res) => {
     await RefreshToken.updateMany(
       { sessionId: String(sessionId) },
       { $set: { isRevoked: true, revokedAt: new Date() } }
-    ).catch(() => {});
+    ).catch(() => { });
 
     // Instantly blacklist revoked session in Redis (< 0.5ms)
     if (targetSession.sessionId) {
@@ -2319,7 +2261,7 @@ const revokeOtherSessions = async (req, res) => {
       for (const s of revokedSessions) {
         if (s.sessionId) markSessionRevokedInRedis(s.sessionId);
       }
-    } catch (_) {}
+    } catch (_) { }
 
     const result = await LoginLog.updateMany(filter, {
       $set: {
@@ -2345,7 +2287,7 @@ const revokeOtherSessions = async (req, res) => {
           $set: { isRevoked: true, revokedAt: new Date() },
         });
       }
-    } catch (_) {}
+    } catch (_) { }
 
     return res.status(200).json({
       success: true,
