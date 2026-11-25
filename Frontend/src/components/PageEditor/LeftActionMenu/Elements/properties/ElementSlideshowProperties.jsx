@@ -22,7 +22,7 @@ import NavIconStylesPopup, { NavIconRenderer } from '../popups/NavIconStylesPopu
 import DotStylesPopup, { DotRenderer } from '../popups/DotStylesPopup';
 import { saveToDB, getFromDB } from '../../../../../utils/storage/dbUtils';
 import ColorPicker from '../../../../Color';
-import Color from '../../../properties/Color';
+import Color from '../../../properties/FillStrokeProperties';
 import { ElementToggle, ElementSlider, ElementDropdown } from './ElementUIControls';
 import { update3FrameSlideshow, RingBuffer } from '../utils/slideshowElementUtils';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../../utils/imageOptimizer';

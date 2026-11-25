@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '@iconify/react';
-import { handleScrubHelper } from './Color';
-import Color from './Color';
+import { handleScrubHelper } from './FillStrokeProperties';
+import Color from './FillStrokeProperties';
 import CornerRadius from './CornerRadius';
 import Effect from './Effect';
 import { ElementSlider } from '../LeftActionMenu/Elements/properties/ElementUIControls';

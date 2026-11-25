@@ -13,7 +13,7 @@ import CornerRadius from './CornerRadius';
 import Effect from './Effect';
 import ReplaceMediaModal from '../modals/ReplaceMediaModal';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
-import Color from './Color';
+import Color from './FillStrokeProperties';
 import { parseGradient } from '../../Color';
 import { formatBytes } from './propertiesShared';
 

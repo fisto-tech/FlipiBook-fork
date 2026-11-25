@@ -6,7 +6,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { parseGradient } from '../../Color';
-import Color from './Color';
+import Color from './FillStrokeProperties';
 import CornerRadius from './CornerRadius';
 import Effect from './Effect';
 import ReplaceMediaModal from '../modals/ReplaceMediaModal';

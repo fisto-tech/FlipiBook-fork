@@ -3,7 +3,7 @@ import {
   Trash2,
   Loader2
 } from 'lucide-react';
-import Color from '../../../properties/Color';
+import Color from '../../../properties/FillStrokeProperties';
 import Effect from '../../../properties/Effect';
 import { DEFAULT_FRAME_IMAGE } from '../utils/imageFramingUtils';
 import { updateShapeMaskTransform, updateShapeMaskFilters, updateShapeMaskOpacity, ensurePatternImageNode, applySvgGradientOrSolid } from '../utils/shapeMaskUtils';

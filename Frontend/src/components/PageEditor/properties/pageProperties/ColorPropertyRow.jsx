@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import ColorPicker from '../../../Color';
-import { handleScrubHelper } from '../Color';
+import { handleScrubHelper } from '../FillStrokeProperties';
 
 const ColorPropertyRow = ({
   label,

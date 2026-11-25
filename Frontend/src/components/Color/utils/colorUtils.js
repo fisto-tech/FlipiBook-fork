@@ -4,6 +4,13 @@ export const rgbToHex = (r, g, b) => {
   return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
 };
 
+export const cssColorToHex = (c) => {
+  if (!c) return '';
+  const m = String(c).match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if (!m) return String(c).toUpperCase();
+  return '#' + [m[1], m[2], m[3]].map(n => Number(n).toString(16).padStart(2, '0')).join('').toUpperCase();
+};
+
 export const hexToRgb = (hex) => {
   if (!hex) return { r: 255, g: 255, b: 255, a: 1 };
   let normalized = hex.replace('#', '');

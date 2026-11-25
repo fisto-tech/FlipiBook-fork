@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StrokeWidthInput } from '../../../properties/Color';
+import { StrokeWidthInput } from '../../../properties/FillStrokeProperties';
 import { createPortal } from 'react-dom';
 import {
   Pencil,

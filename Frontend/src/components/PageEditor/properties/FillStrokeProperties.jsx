@@ -7,8 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { createPortal } from 'react-dom';
-import ColorPicker, { parseGradient } from '../../Color';
-import { generateGradientString } from "../../CustomizedEditor/AppearanceShared";
+import ColorPicker, { parseGradient, generateGradientString, cssColorToHex } from '../../Color';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { handleScrubHelper } from './propertiesShared';
 export { handleScrubHelper };
@@ -135,7 +134,7 @@ export const StrokeWidthInput = ({ value, onChange, className = '', min = 0, max
   );
 };
 
-const Color = ({
+const FillStrokeProperties = ({
   openSubSection, setOpenSubSection,
   backgroundColor: externalBackgroundColor, setBackgroundColor: setExternalBackgroundColor,
   activeColorPicker: externalActiveColorPicker, setActiveColorPicker: setExternalActiveColorPicker,
@@ -667,11 +666,7 @@ const Color = ({
   useEffect(() => {
     const elId = textElementId || selectedElement?.id;
     if (!isText || !elId) { setTextColors(null); return undefined; }
-    const toHex = (c) => {
-      const m = String(c).match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
-      if (!m) return String(c).toUpperCase();
-      return '#' + [m[1], m[2], m[3]].map(n => Number(n).toString(16).padStart(2, '0')).join('').toUpperCase();
-    };
+
     const compute = () => {
       const el = document.getElementById(elId);
       if (!el) return;
@@ -702,7 +697,7 @@ const Color = ({
         if (!n.textContent.trim()) continue;
         if (range && !range.intersectsNode(n)) continue;
         if (offsets && (pos <= offsets.start || startPos >= offsets.end)) continue;
-        const hex = toHex(window.getComputedStyle(n.parentElement).color);
+        const hex = cssColorToHex(window.getComputedStyle(n.parentElement).color);
         if (!colors.includes(hex)) colors.push(hex);
         if (colors.length > 6) break;
       }
@@ -2101,4 +2096,4 @@ const Color = ({
     </div>
   );
 };
-export default Color;
+export default FillStrokeProperties;
