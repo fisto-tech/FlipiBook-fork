@@ -747,6 +747,13 @@ const PageEditor = () => {
       if (pageSvg && updated[activePageIndex]) {
         const clone = pageSvg.cloneNode(true);
         clone.querySelectorAll('[data-highlight-id], .frame-boundary, #ghost-layer, .selection-overlay-layer').forEach(e => e.remove());
+        clone.querySelectorAll('[data-anim-run], [data-is-animating]').forEach(e => {
+          e.removeAttribute('data-anim-run');
+          e.removeAttribute('data-is-animating');
+          if (e.style.opacity === '0' && e.getAttribute('data-animation-trigger') === 'While Opening') {
+            e.style.opacity = '';
+          }
+        });
         const serializer = new XMLSerializer();
         const liveHtml = safeSerializeSvg(clone) || serializer.serializeToString(clone);
         updated[activePageIndex] = { ...updated[activePageIndex], html: liveHtml };

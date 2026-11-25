@@ -45,12 +45,12 @@ export const getAnimationScript = (pageNumber) => `  <script>
           { opacity: 1 }, { opacity: 0, offset: 0.25 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.75 }, { opacity: 1 }
         ],
         'head-shake': [
-          { transform: 'perspective(400px) translateX(0px) rotateY(0deg)' },
-          { transform: 'perspective(400px) translateX(-6px) rotateY(-9deg)', offset: 0.065 },
-          { transform: 'perspective(400px) translateX(5px) rotateY(7deg)', offset: 0.185 },
-          { transform: 'perspective(400px) translateX(-3px) rotateY(-5deg)', offset: 0.315 },
-          { transform: 'perspective(400px) translateX(2px) rotateY(3deg)', offset: 0.435 },
-          { transform: 'perspective(400px) translateX(0px) rotateY(0deg)' }
+          { transform: 'translateX(0px) rotate(0deg)' },
+          { transform: 'translateX(-6px) rotate(-5deg)', offset: 0.065 },
+          { transform: 'translateX(5px) rotate(4deg)', offset: 0.185 },
+          { transform: 'translateX(-3px) rotate(-2deg)', offset: 0.315 },
+          { transform: 'translateX(2px) rotate(1deg)', offset: 0.435 },
+          { transform: 'translateX(0px) rotate(0deg)' }
         ],
         'shake-x': [
           { transform: 'translateX(0px)' },
@@ -166,6 +166,105 @@ export const getAnimationScript = (pageNumber) => `  <script>
         return map[name] || 'linear';
       };
 
+      const buildCycledKeyframes = (keyframes, durationMs, delayMs, easing) => {
+        const ease = easing || 'linear';
+        if (!delayMs || delayMs <= 0 || !keyframes || keyframes.length === 0) {
+          return {
+            keyframes: keyframes,
+            timing: {
+              duration: durationMs,
+              delay: delayMs || 0,
+              easing: ease
+            }
+          };
+        }
+
+        const totalCycleDuration = delayMs + durationMs;
+        const delayRatio = Math.max(0.0001, Math.min(0.9999, delayMs / totalCycleDuration));
+        const activeRatio = 1 - delayRatio;
+
+        const n = keyframes.length;
+        const explicitOffsets = keyframes.map(function(kf) {
+          return (typeof kf.offset === 'number' && !isNaN(kf.offset)) ? kf.offset : null;
+        });
+        const normalizedOffsets = keyframes.map(function(kf, i) {
+          if (explicitOffsets[i] !== null) return explicitOffsets[i];
+          return n <= 1 ? 0 : i / (n - 1);
+        });
+
+        const kf0 = Object.assign({}, keyframes[0]);
+        delete kf0.offset;
+        delete kf0.easing;
+
+        const cycled = [
+          Object.assign({}, kf0, { offset: 0, easing: 'linear' }),
+          Object.assign({}, kf0, { offset: delayRatio, easing: keyframes[0].easing || ease })
+        ];
+
+        for (let i = 1; i < n; i++) {
+          const kf = Object.assign({}, keyframes[i]);
+          const origOffset = normalizedOffsets[i];
+          const newOffset = Math.min(1, Math.max(delayRatio, delayRatio + (origOffset * activeRatio)));
+          kf.offset = newOffset;
+          if (i < n - 1 && !kf.easing) {
+            kf.easing = ease;
+          }
+          cycled.push(kf);
+        }
+
+        if (cycled.length > 0) {
+          cycled[cycled.length - 1].offset = 1;
+        }
+
+        return {
+          keyframes: cycled,
+          timing: {
+            duration: totalCycleDuration,
+            delay: 0,
+            easing: 'linear'
+          }
+        };
+      };
+
+      // Slide Distance / Fade options (mirrors PageEditor/Animation/slideDistance.js)
+      const SLIDE_DIRS = { 'slide-up': [0, 1], 'slide-down': [0, -1], 'slide-left': [1, 0], 'slide-right': [-1, 0] };
+      const getSlideFrames = (el, type, settings) => {
+        const dir = SLIDE_DIRS[type];
+        if (!dir || !el) return null;
+        const rawDist = settings && settings.distance;
+        const hasDist = rawDist !== undefined && rawDist !== null && rawDist !== '';
+        const fade = String(settings && settings.fade) !== 'false';
+        if (!hasDist && fade) return null;
+        let local = 100;
+        if (hasDist) {
+          try {
+            let root = el.ownerSVGElement;
+            while (root && root.ownerSVGElement) root = root.ownerSVGElement;
+            const m = el.getScreenCTM && el.getScreenCTM();
+            const k = m ? Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) : 0;
+            if (root && k > 0) {
+              const pr = root.getBoundingClientRect();
+              const er = el.getBoundingClientRect();
+              let screen;
+              if (String(rawDist) === 'edge') {
+                if (type === 'slide-up') screen = pr.bottom - er.top;
+                else if (type === 'slide-down') screen = er.bottom - pr.top;
+                else if (type === 'slide-left') screen = pr.right - er.left;
+                else screen = er.right - pr.left;
+              } else {
+                const pct = Math.max(0, Math.min(100, parseFloat(rawDist) || 0));
+                screen = (pct / 100) * (dir[1] ? pr.height : pr.width);
+              }
+              local = Math.max(0, screen) / k;
+            }
+          } catch (e) {}
+        }
+        const from = { transform: 'translate(' + (dir[0] * local).toFixed(3) + 'px,' + (dir[1] * local).toFixed(3) + 'px)' };
+        const to = { transform: 'translate(0px,0px)' };
+        if (fade) { from.opacity = 0; to.opacity = 1; }
+        return [from, to];
+      };
+
       const runAnim = (el, type, settings) => {
         if (!type || !WAAPI_ANIMATIONS[type] || type === 'none') {
           if (el.__currentAnimation) { el.__currentAnimation.cancel(); el.__currentAnimation = null; }
@@ -182,11 +281,9 @@ export const getAnimationScript = (pageNumber) => `  <script>
         const duration = ((parseFloat(settings && settings.duration || 1)) / (parseFloat(settings && settings.speed || 1))) * 1000;
         const delay = (parseFloat(settings && settings.delay || 0)) * 1000;
         const easing = getWaapiEase(settings && settings.easing || 'Linear');
-        let isLoop = LOOP_ANIMATIONS.includes(type) || !!(settings && settings.isAlways);
         let iterations = 1;
-        if (isLoop) {
-            iterations = Infinity;
-        } else if (settings && settings.repeat) {
+        let isLoop = false;
+        if (settings && settings.repeat) {
             if (settings.repeat === 'Infinite') {
                 iterations = Infinity;
                 isLoop = true;
@@ -195,9 +292,15 @@ export const getAnimationScript = (pageNumber) => `  <script>
             else if (settings.repeat === 'Thrice') iterations = 3;
             else if (settings.repeat === 'None') iterations = 1;
             else {
-                const parsed = parseInt(settings.repeat);
+                const parsed = parseInt(settings.repeat, 10);
                 if (!isNaN(parsed) && parsed > 0) iterations = parsed;
             }
+        } else if ((settings && settings.isAlways) || LOOP_ANIMATIONS.includes(type)) {
+            iterations = Infinity;
+            isLoop = true;
+        }
+        if (iterations === Infinity) {
+            isLoop = true;
         }
         try {
           let cx = 0, cy = 0, useMathOrigin = false;
@@ -210,8 +313,10 @@ export const getAnimationScript = (pageNumber) => `  <script>
               useMathOrigin = true; el.style.transformOrigin = '0 0';
             } catch(e) { el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center'; }
           }
-          if (WAAPI_ANIMATIONS[type][0] && WAAPI_ANIMATIONS[type][0].opacity !== undefined && !isLoop) {
-            el.style.opacity = WAAPI_ANIMATIONS[type][0].opacity;
+          if (el.__currentAnimation) { try { el.__currentAnimation.cancel(); } catch (e) {} }
+          const srcFrames = getSlideFrames(el, type, settings) || WAAPI_ANIMATIONS[type];
+          if (srcFrames[0] && srcFrames[0].opacity !== undefined && !isLoop) {
+            el.style.opacity = srcFrames[0].opacity;
           }
           if (el.__originalTransform === undefined) {
             let baseT = window.getComputedStyle(el).transform;
@@ -237,7 +342,7 @@ export const getAnimationScript = (pageNumber) => `  <script>
             el.__originalTransform = (!baseT || baseT === 'none') ? '' : baseT;
           }
           const baseTransform = el.__originalTransform;
-          const keyframes = WAAPI_ANIMATIONS[type].map(kf => {
+          const keyframes = srcFrames.map(kf => {
             const newKf = Object.assign({}, kf);
             if ((baseTransform || useMathOrigin) && kf.transform) {
               let px = cx, py = cy;
@@ -257,7 +362,14 @@ export const getAnimationScript = (pageNumber) => `  <script>
             }
             return newKf;
           });
-          const anim = el.animate(keyframes, { duration, delay, easing, fill: isLoop ? 'none' : 'forwards', iterations: iterations });
+          const cycledResult = buildCycledKeyframes(keyframes, duration, delay, easing);
+          const anim = el.animate(cycledResult.keyframes, {
+            duration: cycledResult.timing.duration,
+            delay: cycledResult.timing.delay,
+            easing: cycledResult.timing.easing,
+            fill: isLoop ? 'none' : 'forwards',
+            iterations: iterations
+          });
           el.__currentAnimation = anim;
           return anim;
         } catch(e) { console.error('Animation error', e); return null; }
@@ -296,15 +408,27 @@ export const getAnimationScript = (pageNumber) => `  <script>
               delay:    el.getAttribute('data-animation-open-delay'),
               easing:   el.getAttribute('data-animation-open-easing'),
               repeat:   el.getAttribute('data-animation-open-repeat'),
+              distance: el.getAttribute('data-animation-open-distance'),
+              fade: el.getAttribute('data-animation-open-fade'),
               everyVisit: el.getAttribute('data-animation-open-every-visit') !== 'false'
             });
             if (anim) {
-              if (anim.finished) {
+              const rep = el.getAttribute('data-animation-open-repeat');
+              const isInfinite = rep === 'Infinite';
+              if (anim.finished && !isInfinite) {
                 window._openingAnimationPromises.push(anim.finished.catch(() => {}));
               } else {
                 const dur = parseFloat(el.getAttribute('data-animation-open-duration') || 1) * 1000;
                 const del = parseFloat(el.getAttribute('data-animation-open-delay') || 0) * 1000;
-                window._openingAnimationPromises.push(new Promise(res => setTimeout(res, dur + del + 60)));
+                let iter = 1;
+                if (rep === 'Twice') iter = 2;
+                else if (rep === 'Thrice') iter = 3;
+                else if (!isInfinite && rep && rep !== 'None' && rep !== 'Once') {
+                  const p = parseInt(rep, 10);
+                  if (!isNaN(p) && p > 0) iter = Math.min(p, 10);
+                }
+                const singleCycle = dur + del;
+                window._openingAnimationPromises.push(new Promise(res => setTimeout(res, (singleCycle * iter) + 60)));
               }
             }
           }
@@ -319,6 +443,8 @@ export const getAnimationScript = (pageNumber) => `  <script>
             delay:      el.getAttribute('data-animation-interact-delay'),
             easing:     el.getAttribute('data-animation-interact-easing'),
             repeat:     el.getAttribute('data-animation-interact-repeat'),
+            distance: el.getAttribute('data-animation-interact-distance'),
+            fade: el.getAttribute('data-animation-interact-fade'),
             everyVisit: el.getAttribute('data-animation-interact-every-visit') !== 'false',
             isAlways:   action === 'Always'
           };
@@ -395,5 +521,6 @@ export const getAnimationScript = (pageNumber) => `  <script>
     })();
   </script>
 `;
-;
+
+;
 export default getAnimationScript;

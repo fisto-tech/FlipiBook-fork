@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { ArrowLeftRight, Minus, X } from "lucide-react";
 import PremiumDropdown from "./CustomizedEditor/components/PremiumDropdown";
 
+import { createScreenEyeDropper, canPickScreenColor } from '../utils/screenColorPicker';
 // Helper functions for color conversion
 export const rgbToHex = (r, g, b) => {
   return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
@@ -738,8 +739,8 @@ export default function ColorPicker({
               <button
                 type="button"
                 onClick={async () => {
-                  if ('EyeDropper' in window) {
-                    const eyeDropper = new window.EyeDropper();
+                  if (canPickScreenColor()) {
+                    const eyeDropper = createScreenEyeDropper();
                     try {
                       const result = await eyeDropper.open();
                       onChange(result.sRGBHex);
@@ -874,8 +875,8 @@ export default function ColorPicker({
                         <button
                           type="button"
                           onClick={async () => {
-                            if ('EyeDropper' in window) {
-                              const eyeDropper = new window.EyeDropper();
+                            if (canPickScreenColor()) {
+                              const eyeDropper = createScreenEyeDropper();
                               try {
                                 const result = await eyeDropper.open();
                                 onChange(result.sRGBHex);
@@ -1115,8 +1116,8 @@ export default function ColorPicker({
                         <button
                           type="button"
                           onClick={async () => {
-                            if ('EyeDropper' in window) {
-                              const eyeDropper = new window.EyeDropper();
+                            if (canPickScreenColor()) {
+                              const eyeDropper = createScreenEyeDropper();
                               try {
                                 const result = await eyeDropper.open();
                                 updateGradientStop(idx, { color: result.sRGBHex });
@@ -1288,8 +1289,8 @@ export default function ColorPicker({
                       <button
                         type="button"
                         onClick={async () => {
-                          if ('EyeDropper' in window) {
-                            const eyeDropper = new window.EyeDropper();
+                          if (canPickScreenColor()) {
+                            const eyeDropper = createScreenEyeDropper();
                             try {
                               const result = await eyeDropper.open();
                               if (editingStopIndex !== null) {

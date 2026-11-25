@@ -14,6 +14,7 @@ import { Icon } from '@iconify/react';
 // Categories matching editor design
 export const ELEMENT_CATEGORIES = [
   { id: 'recent', name: 'Recent', icon: 'lucide:clock' },
+  { id: 'images', name: 'Images', icon: 'lucide:image' },
   { id: 'shapes', name: 'Shapes', icon: 'lucide:shapes' },
   { id: 'masking', name: 'TypoGrid', icon: 'tabler:mask' },
   { id: 'buttons', name: 'Buttons', icon: 'lucide:mouse-pointer-click' },

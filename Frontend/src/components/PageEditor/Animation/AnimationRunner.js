@@ -1,3 +1,4 @@
+import { getSlideKeyframes } from './slideDistance';
 export const initAnimationRunner = function(doc) {
   // Re-initialization is allowed as doc.write wipes the body but doc object might persist
   doc.__animationRunnerInitialized = true;  const WAAPI_ANIMATIONS = {
@@ -49,12 +50,12 @@ export const initAnimationRunner = function(doc) {
       { opacity: 1 }, { opacity: 0, offset: 0.25 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.75 }, { opacity: 1 },
     ],
     'head-shake': [
-      { transform: 'perspective(400px) translateX(0px) rotateY(0deg)' },
-      { transform: 'perspective(400px) translateX(-6px) rotateY(-9deg)', offset: 0.065 },
-      { transform: 'perspective(400px) translateX(5px) rotateY(7deg)', offset: 0.185 },
-      { transform: 'perspective(400px) translateX(-3px) rotateY(-5deg)', offset: 0.315 },
-      { transform: 'perspective(400px) translateX(2px) rotateY(3deg)', offset: 0.435 },
-      { transform: 'perspective(400px) translateX(0px) rotateY(0deg)' },
+      { transform: 'translateX(0px) rotate(0deg)' },
+      { transform: 'translateX(-6px) rotate(-5deg)', offset: 0.065 },
+      { transform: 'translateX(5px) rotate(4deg)', offset: 0.185 },
+      { transform: 'translateX(-3px) rotate(-2deg)', offset: 0.315 },
+      { transform: 'translateX(2px) rotate(1deg)', offset: 0.435 },
+      { transform: 'translateX(0px) rotate(0deg)' },
     ],
     'shake-x': [
       { transform: 'translateX(0px)' },
@@ -181,6 +182,63 @@ export const initAnimationRunner = function(doc) {
     return map[name] || 'linear';
   };
 
+  const buildCycledKeyframes = (keyframes, durationMs, delayMs, easing = 'linear') => {
+    if (!delayMs || delayMs <= 0 || !keyframes || keyframes.length === 0) {
+      return {
+        keyframes,
+        timing: {
+          duration: durationMs,
+          delay: delayMs || 0,
+          easing
+        }
+      };
+    }
+
+    const totalCycleDuration = delayMs + durationMs;
+    const delayRatio = Math.max(0.0001, Math.min(0.9999, delayMs / totalCycleDuration));
+    const activeRatio = 1 - delayRatio;
+
+    const n = keyframes.length;
+    const explicitOffsets = keyframes.map(kf => (typeof kf.offset === 'number' && !isNaN(kf.offset)) ? kf.offset : null);
+    const normalizedOffsets = keyframes.map((kf, i) => {
+      if (explicitOffsets[i] !== null) return explicitOffsets[i];
+      return n <= 1 ? 0 : i / (n - 1);
+    });
+
+    const kf0 = { ...keyframes[0] };
+    delete kf0.offset;
+    delete kf0.easing;
+
+    const cycled = [
+      { ...kf0, offset: 0, easing: 'linear' },
+      { ...kf0, offset: delayRatio, easing: keyframes[0].easing || easing }
+    ];
+
+    for (let i = 1; i < n; i++) {
+      const kf = { ...keyframes[i] };
+      const origOffset = normalizedOffsets[i];
+      const newOffset = Math.min(1, Math.max(delayRatio, delayRatio + (origOffset * activeRatio)));
+      kf.offset = newOffset;
+      if (i < n - 1 && !kf.easing) {
+        kf.easing = easing;
+      }
+      cycled.push(kf);
+    }
+
+    if (cycled.length > 0) {
+      cycled[cycled.length - 1].offset = 1;
+    }
+
+    return {
+      keyframes: cycled,
+      timing: {
+        duration: totalCycleDuration,
+        delay: 0,
+        easing: 'linear'
+      }
+    };
+  };
+
   const runAnim = (el, type, settings) => {
     if (!type || !WAAPI_ANIMATIONS[type] || type === 'none') {
         if (el.__currentAnimation) {
@@ -198,11 +256,9 @@ export const initAnimationRunner = function(doc) {
     const delay = (parseFloat(settings?.delay || 0)) * 1000;
     const easing = getWaapiEase(settings?.easing || 'Linear');
     let iterations = 1;
-    let isLoop = LOOP_ANIMATIONS.includes(type) || settings?.isAlways;
+    let isLoop = false;
 
-    if (isLoop) {
-        iterations = Infinity;
-    } else if (settings?.repeat) {
+    if (settings?.repeat) {
         if (settings.repeat === 'Infinite') {
             iterations = Infinity;
             isLoop = true;
@@ -212,9 +268,16 @@ export const initAnimationRunner = function(doc) {
         else if (settings.repeat === 'Thrice') iterations = 3;
         else if (settings.repeat === 'None') iterations = 1;
         else {
-            const parsed = parseInt(settings.repeat);
+            const parsed = parseInt(settings.repeat, 10);
             if (!isNaN(parsed) && parsed > 0) iterations = parsed;
         }
+    } else if (settings?.isAlways || LOOP_ANIMATIONS.includes(type)) {
+        iterations = Infinity;
+        isLoop = true;
+    }
+
+    if (iterations === Infinity) {
+        isLoop = true;
     }
 
     try {
@@ -261,7 +324,9 @@ export const initAnimationRunner = function(doc) {
       const baseTransform = el.__originalTransform;
       const shadowCaster = el.previousElementSibling?.classList?.contains('svg-drop-shadow-caster') ? el.previousElementSibling : null;
 
-      const finalKeyframes = WAAPI_ANIMATIONS[type].map(kf => {
+      // Slide animations honour the panel's Distance / Fade options
+      const sourceKeyframes = getSlideKeyframes(el, type, settings) || WAAPI_ANIMATIONS[type];
+      const finalKeyframes = sourceKeyframes.map(kf => {
           const newKf = { ...kf };
           let transformParts = [];
           if (newKf.translate) { transformParts.push(`translate(${String(newKf.translate).split(' ').join(',')})`); delete newKf.translate; }
@@ -272,34 +337,39 @@ export const initAnimationRunner = function(doc) {
           let combinedKfTransform = newKf.transform || '';
           if (transformParts.length > 0) { combinedKfTransform = `${combinedKfTransform} ${transformParts.join(' ')}`.trim(); }
           
-          if (baseTransform || useMathOrigin) {
-              if (combinedKfTransform) {
-                  if (useMathOrigin) {
-                      let px = cx; let py = cy;
-                      if (newKf.transformOrigin) {
-                          const origin = newKf.transformOrigin;
-                          if (origin.includes('left')) px = cachedBBox.x;
-                          if (origin.includes('right')) px = cachedBBox.x + cachedBBox.width;
-                          if (origin.includes('top')) py = cachedBBox.y;
-                          if (origin.includes('bottom')) py = cachedBBox.y + cachedBBox.height;
-                          delete newKf.transformOrigin;
-                      }
-                      newKf.transform = `${baseTransform} translate(${px}px, ${py}px) ${combinedKfTransform} translate(-${px}px, -${py}px)`;
-                  } else {
-                      newKf.transform = `${baseTransform} ${combinedKfTransform}`;
+          if (combinedKfTransform) {
+              if (useMathOrigin) {
+                  let px = cx; let py = cy;
+                  if (newKf.transformOrigin) {
+                      const origin = newKf.transformOrigin;
+                      if (origin.includes('left')) px = cachedBBox.x;
+                      if (origin.includes('right')) px = cachedBBox.x + cachedBBox.width;
+                      if (origin.includes('top')) py = cachedBBox.y;
+                      if (origin.includes('bottom')) py = cachedBBox.y + cachedBBox.height;
+                      delete newKf.transformOrigin;
                   }
+                  newKf.transform = `${baseTransform} translate(${px}px, ${py}px) ${combinedKfTransform} translate(-${px}px, -${py}px)`.trim();
               } else {
-                  newKf.transform = baseTransform;
+                  newKf.transform = `${baseTransform} ${combinedKfTransform}`.trim();
               }
-          } else if (combinedKfTransform) {
-              newKf.transform = combinedKfTransform;
+          } else if (baseTransform) {
+              newKf.transform = baseTransform;
+          } else {
+              delete newKf.transform;
           }
           return newKf;
       });
 
       el.setAttribute('data-is-animating', 'true');
-      const animSettings = { duration, delay, easing, fill: isLoop ? 'none' : 'forwards', iterations };
-      const anim = el.animate(finalKeyframes, animSettings);
+      const { keyframes: cycledKeyframes, timing: cycledTiming } = buildCycledKeyframes(finalKeyframes, duration, delay, easing);
+      const animSettings = {
+        duration: cycledTiming.duration,
+        delay: cycledTiming.delay,
+        easing: cycledTiming.easing,
+        fill: isLoop ? 'none' : 'forwards',
+        iterations
+      };
+      const anim = el.animate(cycledKeyframes, animSettings);
 
       let shadowAnim = null;
       if (shadowCaster) {
@@ -307,7 +377,7 @@ export const initAnimationRunner = function(doc) {
               try { shadowCaster.__currentAnimation.cancel(); } catch(err) {}
           }
           shadowCaster.setAttribute('data-is-animating', 'true');
-          shadowAnim = shadowCaster.animate(finalKeyframes, animSettings);
+          shadowAnim = shadowCaster.animate(cycledKeyframes, animSettings);
       }
 
       const cleanup = () => {
@@ -348,7 +418,9 @@ export const initAnimationRunner = function(doc) {
                    speed: el.getAttribute('data-animation-open-speed'),
                    delay: el.getAttribute('data-animation-open-delay'),
                    easing: el.getAttribute('data-animation-open-easing'),
-                   repeat: el.getAttribute('data-animation-open-repeat')
+                   repeat: el.getAttribute('data-animation-open-repeat'),
+                   distance: el.getAttribute('data-animation-open-distance'),
+                   fade: el.getAttribute('data-animation-open-fade')
                 });
 
                 const hasChanged = el.__lastOpenSettings !== settingsStr;
@@ -359,7 +431,9 @@ export const initAnimationRunner = function(doc) {
                   speed: el.getAttribute('data-animation-open-speed'),
                   delay: el.getAttribute('data-animation-open-delay'),
                   easing: el.getAttribute('data-animation-open-easing'),
-                  repeat: el.getAttribute('data-animation-open-repeat')
+                  repeat: el.getAttribute('data-animation-open-repeat'),
+                  distance: el.getAttribute('data-animation-open-distance'),
+                  fade: el.getAttribute('data-animation-open-fade')
                 });
                 
                 el.__animOpened = true;
@@ -379,7 +453,9 @@ export const initAnimationRunner = function(doc) {
                   speed: el.getAttribute('data-animation-interact-speed'),
                   delay: el.getAttribute('data-animation-interact-delay'),
                   easing: el.getAttribute('data-animation-interact-easing'),
-                  repeat: el.getAttribute('data-animation-interact-repeat')
+                  repeat: el.getAttribute('data-animation-interact-repeat'),
+                  distance: el.getAttribute('data-animation-interact-distance'),
+                  fade: el.getAttribute('data-animation-interact-fade')
                 });
 
                 if (el.__lastAlwaysSettings === settingsStr) return;
@@ -390,6 +466,8 @@ export const initAnimationRunner = function(doc) {
                   delay: el.getAttribute('data-animation-interact-delay'),
                   easing: el.getAttribute('data-animation-interact-easing'),
                   repeat: el.getAttribute('data-animation-interact-repeat'),
+                  distance: el.getAttribute('data-animation-interact-distance'),
+                  fade: el.getAttribute('data-animation-interact-fade'),
                   isAlways: true
                 });
                 el.__lastAlwaysSettings = settingsStr;
@@ -420,7 +498,9 @@ export const initAnimationRunner = function(doc) {
                             speed: el.getAttribute('data-animation-interact-speed'),
                             delay: el.getAttribute('data-animation-interact-delay'),
                             easing: el.getAttribute('data-animation-interact-easing'),
-                            repeat: el.getAttribute('data-animation-interact-repeat')
+                            repeat: el.getAttribute('data-animation-interact-repeat'),
+                            distance: el.getAttribute('data-animation-interact-distance'),
+                            fade: el.getAttribute('data-animation-interact-fade')
                         });
                     });
                 }
@@ -439,7 +519,9 @@ export const initAnimationRunner = function(doc) {
                             speed: el.getAttribute('data-animation-interact-speed'),
                             delay: el.getAttribute('data-animation-interact-delay'),
                             easing: el.getAttribute('data-animation-interact-easing'),
-                            repeat: el.getAttribute('data-animation-interact-repeat')
+                            repeat: el.getAttribute('data-animation-interact-repeat'),
+                            distance: el.getAttribute('data-animation-interact-distance'),
+                            fade: el.getAttribute('data-animation-interact-fade')
                         });
                     });
                 }

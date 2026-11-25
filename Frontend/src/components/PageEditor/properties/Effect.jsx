@@ -6,6 +6,7 @@ import { handleScrubHelper } from './Color';
 import ColorPicker from './ColorPicker';
 import { ElementToggle } from '../LeftActionMenu/Elements/properties/ElementUIControls';
 
+import { createScreenEyeDropper, canPickScreenColor } from '../../../utils/screenColorPicker';
 export const EffectDecimalInput = ({ value, onChange, min, max, className = '' }) => {
   const [localVal, setLocalVal] = useState(() => (value !== undefined && value !== null && !isNaN(value) ? String(value) : '0'));
   const [isFocused, setIsFocused] = useState(false);
@@ -481,9 +482,9 @@ const Effect = ({
                       size="0.85vw"
                       className="text-gray-400 flex-shrink-0 cursor-pointer hover:text-gray-600 transition-colors ml-[0.3vw]"
                       onClick={async () => {
-                        if (!window.EyeDropper) return;
+                        if (!canPickScreenColor()) return;
                         try {
-                          const eyeDropper = new window.EyeDropper();
+                          const eyeDropper = createScreenEyeDropper();
                           const result = await eyeDropper.open();
                           updateAttr(`data-effect-${activeEffectPopupId}-color`, result.sRGBHex);
                         } catch (e) {
