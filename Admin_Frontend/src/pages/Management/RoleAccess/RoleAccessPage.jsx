@@ -93,7 +93,7 @@ export default function RoleAccessPage() {
                 userId: 'Admin',
                 designation: 'Admin',
                 roleId: 'R_ID01',
-                teamHead: true,
+                teamHead: false,
                 createdDate: 'Jan 1, 2026',
                 email: 'admin@flipibook.com',
                 status: 'Active'
@@ -130,6 +130,8 @@ export default function RoleAccessPage() {
     // 1. Roles added via + Add Roles
     rolesList.forEach((r) => {
       const name = (r.name || r.roleName || '').trim();
+      // Ignore plain "Admin" so only "Super Administrator" is shown for admin
+      if (name.toLowerCase() === 'admin') return;
       if (name && !list.some((item) => item.toLowerCase() === name.toLowerCase())) {
         list.push(name);
       }
@@ -137,11 +139,19 @@ export default function RoleAccessPage() {
     // 2. Custom designations entered on users
     usersList.forEach((u) => {
       const desig = (u.designation || '').trim();
+      // Ignore plain "Admin" so only "Super Administrator" is shown for admin
+      if (desig.toLowerCase() === 'admin') return;
       if (desig && !list.some((item) => item.toLowerCase() === desig.toLowerCase())) {
         list.push(desig);
       }
     });
-    return list;
+
+    // Ensure "Super Administrator" is always included and placed at the top
+    const withoutSuperAdmin = list.filter(
+      (item) => item.toLowerCase() !== 'super administrator' && item.toLowerCase() !== 'admin'
+    );
+
+    return ['Super Administrator', ...withoutSuperAdmin];
   }, [rolesList, usersList]);
 
   const [designation, setDesignation] = useState('');
@@ -150,38 +160,55 @@ export default function RoleAccessPage() {
   // Compute dynamic "Apply To" options based on the chosen designation/role
   const applyToOptions = React.useMemo(() => {
     const options = [];
+    if (!designation) return options;
+
+    const desigClean = designation.trim().toLowerCase();
+    const isSuperAdminDesig =
+      desigClean === 'admin' ||
+      desigClean === 'super admin' ||
+      desigClean === 'super administrator';
+
+    // 1. If Super Administrator is selected, Apply To should ONLY have Admin
+    if (isSuperAdminDesig) {
+      return [{ label: 'Admin', value: 'Admin' }];
+    }
 
     // Filter users assigned to this role or designation
     const assignedUsers = usersList.filter((u) => {
-      if (!designation) return false;
-      const desigClean = designation.trim().toLowerCase();
       const matchedRole = rolesList.find((r) => r.id === u.roleId);
       const userRoleName = (matchedRole?.name || u.roleId || '').trim().toLowerCase();
       const userDesig = (u.designation || '').trim().toLowerCase();
+      const userName = (u.name || '').trim().toLowerCase();
+      const isUserAdmin = String(u.userId || '').toLowerCase() === 'admin' || userName.includes('super administrator');
+
+      // If viewing any other designation: NEVER include the Super Admin user
+      if (isUserAdmin) {
+        return false;
+      }
 
       return (
         userRoleName === desigClean ||
         userDesig === desigClean ||
         // Also match variations like "software developer" vs "software development"
-        userDesig.startsWith(desigClean.slice(0, 8)) ||
-        desigClean.startsWith(userDesig.slice(0, 8))
+        (desigClean.length >= 5 && userDesig.startsWith(desigClean.slice(0, 8))) ||
+        (userDesig.length >= 5 && desigClean.startsWith(userDesig.slice(0, 8)))
       );
     });
 
-    // Check if any user in this designation is assigned as a Team Head
-    const hasTeamLeads = assignedUsers.some((u) => u.teamHead);
+    // Check if any user in this designation is assigned as a Team Head (excluding Admin)
+    const hasTeamLeads = assignedUsers.some((u) => Boolean(u.teamHead));
 
-    // 1. Only show "All <Designation>" if there are at least 2 users under this designation
-    if (designation && assignedUsers.length >= 2) {
+    // 2. Only show "All <Designation>" if there are at least 2 users under this designation
+    if (assignedUsers.length >= 2) {
       options.push({ label: `All ${designation}`, value: `All ${designation}` });
     }
 
-    // 2. Only show "Team Leads" if there is actually a user marked as Team Head in this designation
+    // 3. Only show "Team Leads" if there is actually a user marked as Team Head in this designation
     if (hasTeamLeads) {
       options.push({ label: 'Team Leads', value: 'Team Leads' });
     }
 
-    // 3. Add individual user options
+    // 4. Add individual user options
     assignedUsers.forEach((u) => {
       const label = `${u.name} (${u.userId})`;
       options.push({ label, value: u.userId });
@@ -204,9 +231,16 @@ export default function RoleAccessPage() {
 
   // Synchronize permissions state whenever "Apply To" or "Designation" changes
   useEffect(() => {
+    if (!designation || !applyTo) {
+      setPermissions(DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: false })));
+      return;
+    }
+
     // If Admin / Super Administrator is selected, always show all 4 enabled
     const isSuperAdminTarget =
       String(designation || '').toLowerCase() === 'admin' ||
+      String(designation || '').toLowerCase() === 'super admin' ||
+      String(designation || '').toLowerCase() === 'super administrator' ||
       String(applyTo || '').toLowerCase() === 'admin' ||
       String(applyTo || '').toLowerCase().includes('super administrator');
 
@@ -216,26 +250,25 @@ export default function RoleAccessPage() {
     }
 
     const permMap = getStoredPermissionsMap();
-    const targetKey = applyTo || (designation ? `All ${designation}` : null);
+    const targetKey = applyTo;
     if (targetKey && permMap[targetKey]) {
       setPermissions(permMap[targetKey]);
-    } else if (designation && permMap[designation]) {
-      setPermissions(permMap[designation]);
     } else {
+      // By default for any target (including "All <Designation>"), set all modules unselected
       setPermissions(DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: false })));
     }
   }, [applyTo, designation]);
 
   // Persist permission updates directly into storage & MongoDB backend
   const updateAndSavePermissions = async (newPermissions) => {
+    if (!designation || !applyTo) return;
     setPermissions(newPermissions);
-    const targetKey = applyTo || (designation ? `All ${designation}` : null);
+    const targetKey = applyTo;
     if (targetKey) {
       const permMap = getStoredPermissionsMap();
       permMap[targetKey] = newPermissions;
-      if (designation) {
+      if (applyTo === `All ${designation}`) {
         permMap[designation] = newPermissions;
-        permMap[`All ${designation}`] = newPermissions;
       }
       saveStoredPermissionsMap(permMap);
 
@@ -300,6 +333,9 @@ export default function RoleAccessPage() {
   const totalCount = permissions.length;
   const enabledPercentage = Math.round((enabledCount / totalCount) * 100);
 
+  // Permissions Card is editable only when both a designation and a target (person/group) are selected
+  const isEditable = Boolean(designation && applyTo);
+
   return (
     <div className="w-full space-y-[1.4vw] font-sans pb-[2vw] text-gray-800">
       {/* Top Header */}
@@ -332,15 +368,37 @@ export default function RoleAccessPage() {
               onChange={(val) => {
                 setDesignation(val);
                 // Dynamically pick initial default:
+                const desigClean = (val || '').trim().toLowerCase();
+                const isSuperAdminDesig =
+                  desigClean === 'admin' ||
+                  desigClean === 'super admin' ||
+                  desigClean === 'super administrator';
+
                 const assigned = usersList.filter((u) => {
                   const matchedRole = rolesList.find((r) => r.id === u.roleId);
-                  const userRoleName = matchedRole?.name || u.roleId || '';
+                  const userRoleName = (matchedRole?.name || u.roleId || '').trim().toLowerCase();
+                  const userDesig = (u.designation || '').trim().toLowerCase();
+                  const userName = (u.name || '').trim().toLowerCase();
+                  const isUserAdmin = String(u.userId || '').toLowerCase() === 'admin' || userName.includes('super administrator');
+
+                  if (isSuperAdminDesig) {
+                    return isUserAdmin || userDesig === 'admin' || userRoleName === 'admin';
+                  }
+
+                  if (isUserAdmin) {
+                    return false;
+                  }
+
                   return (
-                    userRoleName.toLowerCase() === val.toLowerCase() ||
-                    (u.designation || '').toLowerCase() === val.toLowerCase()
+                    userRoleName === desigClean ||
+                    userDesig === desigClean ||
+                    (desigClean.length >= 5 && userDesig.startsWith(desigClean.slice(0, 8))) ||
+                    (userDesig.length >= 5 && desigClean.startsWith(userDesig.slice(0, 8)))
                   );
                 });
-                if (assigned.length >= 2) {
+                if (isSuperAdminDesig) {
+                  setApplyTo('Admin');
+                } else if (assigned.length >= 2) {
                   setApplyTo(`All ${val}`);
                 } else if (assigned.length === 1) {
                   setApplyTo(assigned[0].userId);
@@ -381,7 +439,7 @@ export default function RoleAccessPage() {
       </div>
 
       {/* Permissions Card */}
-      <div className={`w-full bg-white rounded-[0.8vw] border border-gray-100 shadow-xs p-[1.6vw] space-y-[1.4vw] transition-opacity duration-200 ${!designation ? 'opacity-60' : 'opacity-100'
+      <div className={`w-full bg-white rounded-[0.8vw] border border-gray-100 shadow-xs p-[1.6vw] space-y-[1.4vw] transition-opacity duration-200 ${!isEditable ? 'opacity-60' : 'opacity-100'
         }`}>
         {/* Section Header */}
         <div className="flex items-center justify-between">
@@ -394,18 +452,22 @@ export default function RoleAccessPage() {
             <span className="bg-[#f1f5f9] text-[#475569] text-[0.72vw] font-semibold px-[0.6vw] py-[0.2vw] rounded-full border border-gray-200">
               {enabledCount} / {totalCount} Enabled ({enabledPercentage}%)
             </span>
-            {!designation && (
+            {!designation ? (
               <span className="text-[0.72vw] text-amber-600 bg-amber-50 border border-amber-200 px-[0.6vw] py-[0.15vw] rounded-full font-medium">
                 Please select a Designation above to configure access
               </span>
-            )}
+            ) : !applyTo ? (
+              <span className="text-[0.72vw] text-blue-600 bg-blue-50 border border-blue-200 px-[0.6vw] py-[0.15vw] rounded-full font-medium">
+                Please select an Apply To target/person to configure permissions
+              </span>
+            ) : null}
           </div>
 
           {/* Quick action buttons */}
           <div className="flex items-center gap-[0.6vw]">
             <button
               type="button"
-              disabled={!designation}
+              disabled={!isEditable}
               onClick={handleEnableAll}
               className="text-[#2563eb] hover:bg-blue-50/70 border border-[#bfdbfe] disabled:opacity-40 disabled:cursor-not-allowed text-[0.75vw] font-semibold px-[0.9vw] py-[0.35vw] rounded-[0.45vw] transition cursor-pointer"
             >
@@ -413,7 +475,7 @@ export default function RoleAccessPage() {
             </button>
             <button
               type="button"
-              disabled={!designation}
+              disabled={!isEditable}
               onClick={handleDisableAll}
               className="text-[#475569] hover:bg-gray-100/70 border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-[0.75vw] font-semibold px-[0.9vw] py-[0.35vw] rounded-[0.45vw] transition cursor-pointer"
             >
@@ -421,7 +483,7 @@ export default function RoleAccessPage() {
             </button>
             <button
               type="button"
-              disabled={!designation || isSaving}
+              disabled={!isEditable || isSaving}
               onClick={handleExplicitSave}
               className={`flex items-center gap-[0.35vw] text-[0.75vw] font-semibold px-[1.1vw] py-[0.35vw] rounded-[0.45vw] shadow-xs transition cursor-pointer ${savedSuccess
                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -449,17 +511,17 @@ export default function RoleAccessPage() {
             <div
               key={perm.id}
               onClick={() => {
-                if (designation) {
+                if (isEditable) {
                   handleToggle(perm.id);
                 }
               }}
-              className={`group border border-gray-100 rounded-[0.7vw] p-[1.1vw] flex items-center justify-between transition shadow-2xs ${designation
+              className={`group border border-gray-100 rounded-[0.7vw] p-[1.1vw] flex items-center justify-between transition shadow-2xs ${isEditable
                 ? 'hover:border-gray-200 bg-[#fafafa]/50 hover:bg-white cursor-pointer'
                 : 'bg-gray-50/60 cursor-not-allowed'
                 }`}
             >
               <div className="space-y-[0.2vw] pr-[0.8vw]">
-                <h3 className={`text-[0.88vw] font-bold transition ${designation ? 'text-[#334155] group-hover:text-black' : 'text-gray-400'
+                <h3 className={`text-[0.88vw] font-bold transition ${isEditable ? 'text-[#334155] group-hover:text-black' : 'text-gray-400'
                   }`}>
                   {perm.name}
                 </h3>
@@ -470,11 +532,11 @@ export default function RoleAccessPage() {
 
               {/* iOS style toggle switch */}
               <div
-                className={`w-[2.6vw] h-[1.45vw] flex items-center rounded-full p-[0.18vw] transition-colors duration-200 ease-in-out shrink-0 ${perm.enabled && designation ? 'bg-[#2563eb]' : 'bg-[#e2e8f0]'
+                className={`w-[2.6vw] h-[1.45vw] flex items-center rounded-full p-[0.18vw] transition-colors duration-200 ease-in-out shrink-0 ${perm.enabled && isEditable ? 'bg-[#2563eb]' : 'bg-[#e2e8f0]'
                   }`}
               >
                 <div
-                  className={`bg-white w-[1.1vw] h-[1.1vw] rounded-full shadow-xs transform transition-transform duration-200 ease-in-out ${perm.enabled && designation ? 'translate-x-[1.15vw]' : 'translate-x-0'
+                  className={`bg-white w-[1.1vw] h-[1.1vw] rounded-full shadow-xs transform transition-transform duration-200 ease-in-out ${perm.enabled && isEditable ? 'translate-x-[1.15vw]' : 'translate-x-0'
                     }`}
                 />
               </div>

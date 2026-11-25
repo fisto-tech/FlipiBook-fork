@@ -135,7 +135,7 @@ export const DEFAULT_ADMIN_USER = {
   password: 'Admin@123',
   designation: 'Admin',
   roleId: 'R_ID01',
-  teamHead: true,
+  teamHead: false,
   createdDate: 'Jan 1, 2026',
   email: 'admin@flipibook.com',
   status: 'Active'

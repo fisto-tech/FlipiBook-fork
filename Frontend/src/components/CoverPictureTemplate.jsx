@@ -3163,9 +3163,20 @@ export const CoverPicturePopup = ({ onClose, onSave, onPreview, settings, pages 
                                 const pageObj = activeNum && pages[activeNum - 1] ? pages[activeNum - 1] : null;
                                 const pageHtml = pageObj ? normalizePageHtml(pageObj.html || pageObj.content || pageObj.svgString || '', templateFit) : '';
 
+                                const previewAspect = (detectedBookOrientation || '').toLowerCase();
+                                const previewContainerStyle =
+                                  previewAspect === 'landscape'
+                                    ? { width: '8.4vw', height: '5.6vw' }
+                                    : previewAspect === 'square'
+                                      ? { width: '6.2vw', height: '6.2vw' }
+                                      : { width: '5.4vw', height: '7vw' };
+
                                 return (
                                   <>
-                                    <div className="w-[5.4vw] h-[7vw] bg-white border border-gray-300 rounded-[0.45vw] overflow-hidden shadow-xs flex items-center justify-center relative p-[0.2vw]">
+                                    <div
+                                      style={previewContainerStyle}
+                                      className="bg-white border border-gray-300 rounded-[0.45vw] overflow-hidden shadow-xs flex items-center justify-center relative p-[0.2vw] transition-all duration-200"
+                                    >
                                       {pageHtml ? (
                                         <div
                                           className="w-full h-full flex items-center justify-center pointer-events-none overflow-hidden [&_svg]:w-full [&_svg]:h-full [&_svg]:block"

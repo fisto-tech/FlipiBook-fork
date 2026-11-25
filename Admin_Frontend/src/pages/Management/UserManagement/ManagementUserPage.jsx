@@ -103,7 +103,7 @@ export default function ManagementUserPage() {
                   password: 'Admin@123',
                   designation: 'Admin',
                   roleId: 'R_ID01',
-                  teamHead: true,
+                  teamHead: false,
                   createdDate: 'Jan 1, 2026',
                   email: 'admin@flipibook.com',
                   status: 'Active'
@@ -399,7 +399,7 @@ export default function ManagementUserPage() {
                       <span className="text-[#374151] font-medium whitespace-nowrap">
                         {u.designation || '-'}
                       </span>
-                      {u.teamHead && (
+                      {u.teamHead && String(u.userId || '').toLowerCase() !== 'admin' && (
                         <div className="text-[0.62vw] text-purple-600 font-semibold leading-tight">
                           Team Head
                         </div>

@@ -157,7 +157,7 @@ const getAdminUsers = async (req, res) => {
         email: 'admin@flipibook.com',
         designation: 'Admin',
         roleId: 'R_ID01',
-        teamHead: true,
+        teamHead: false,
         password: 'Admin@123',
         rawPassword: 'Admin@123',
         status: 'Active'
