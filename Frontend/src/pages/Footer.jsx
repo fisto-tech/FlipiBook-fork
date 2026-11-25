@@ -124,8 +124,8 @@ export default function Footer() {
 
                 {/* Column 3: Contact Info (aligned under LinkedIn) */}
                 <div className="flex flex-col space-y-2.5 sm:space-y-3 lg:space-y-[0.48vw]">
-                  <a href="mailto:info@flipibook-o.com" className="hover:text-white  transition-colors break-words sm:break-normal">
-                    info@flipibook-o.com
+                  <a href="mailto:info@flipibook.com" className="hover:text-white  transition-colors break-words sm:break-normal">
+                    info@flipibook.com
                   </a>
                   <a href="tel:+917530025147" className="hover:text-white  transition-colors whitespace-nowrap">
                     +91 75300 25147
@@ -197,7 +197,14 @@ export default function Footer() {
 
           {/* Copyright Left */}
           <div className="font-normal text-white/80 leading-relaxed">
-            Copyright © 2026 <a href="https://fist-o.com/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white/90 font-normal hover:text-[#EC5137] transition-colors cursor-pointer">Fisto Tech Private Limited</a>. All Rights Reserved.
+            Copyright{' '}
+            <Icon
+              icon="mdi:copyright"
+              aria-label="©"
+              role="img"
+              className="inline-block align-[-0.15em] w-[1.15em] h-[1.15em] text-white/90"
+            />{' '}
+            {new Date().getFullYear()} <a href="https://fist-o.com/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white/90 font-normal hover:text-[#EC5137] transition-colors cursor-pointer">Fisto Tech Private Limited</a>. All Rights Reserved.
           </div>
 
           {/* Legal Links Right */}
