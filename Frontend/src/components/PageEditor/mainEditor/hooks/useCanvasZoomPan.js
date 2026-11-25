@@ -364,11 +364,37 @@ export const useCanvasZoomPan = ({
       }
     };
 
+    // Popups (colour pickers etc.) put an invisible full-screen click-catcher over the canvas
+    // to close on outside click. It swallows wheel events, so scroll / shift+scroll / zoom stop
+    // working while a picker is open. Forward wheel events that land on such a transparent
+    // layer (and are over the canvas) to the canvas handler. Real modals (tinted/blurred
+    // backdrops) are not affected.
+    const isTransparentClickCatcher = (node) => {
+      if (!node || node === document.body || node === document.documentElement || el.contains(node)) return false;
+      const cs = window.getComputedStyle(node);
+      if (cs.position !== 'fixed') return false;
+      const r = node.getBoundingClientRect();
+      if (r.width < window.innerWidth * 0.9 || r.height < window.innerHeight * 0.9) return false;
+      const bg = cs.backgroundColor || '';
+      const transparentBg = bg === 'transparent' || /rgba?\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(bg);
+      const noBlur = !cs.backdropFilter || cs.backdropFilter === 'none';
+      return transparentBg && noBlur && (cs.backgroundImage === 'none' || !cs.backgroundImage);
+    };
+    const handleWindowWheel = (e) => {
+      if (el.contains(e.target)) return; // the canvas handles its own events
+      const r = el.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+      if (!isTransparentClickCatcher(e.target)) return;
+      handleWheel(e);
+    };
+
     el.addEventListener('wheel', handleWheel, { passive: false, capture: true });
     el.addEventListener('mousedown', handleMouseDown, { capture: true });
+    window.addEventListener('wheel', handleWindowWheel, { passive: false });
     return () => {
       el.removeEventListener('wheel', handleWheel, { capture: true });
       el.removeEventListener('mousedown', handleMouseDown, { capture: true });
+      window.removeEventListener('wheel', handleWindowWheel);
     };
   }, [currentPanRef, currentZoomRef, editorContainerRef, lastWheelTimeRef, pan, setPan, setZoom, suppressClickRef, wheelRafRef, zoom, zoomContainerRef]);
 

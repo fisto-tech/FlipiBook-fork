@@ -3015,19 +3015,8 @@ const getPreviewCard = async (req, res) => {
     const protocol = protoHeader.split(',')[0].trim();
     const origin = `${protocol}://${host}`;
 
-    const vis = book.Customized_Settings?.Visibility || book.share || {};
-    const rawAcc = String(vis.access || vis.type || 'public').toLowerCase();
-    const accessPrefix =
-      (rawAcc.includes('private') && !rawAcc.includes('protect')) || rawAcc === 'private'
-        ? 'share=private'
-        : rawAcc.includes('password') || rawAcc.includes('protect')
-        ? 'share=password'
-        : rawAcc.includes('invite')
-        ? 'share=invite'
-        : 'share=public';
-
     const clientOrigin = (process.env.CLIENT_URL || origin).replace(/\/+$/, '');
-    const canonicalShareUrl = `${clientOrigin}/${accessPrefix}/${shareId}`;
+    const canonicalShareUrl = `${clientOrigin}/share/${shareId}`;
 
     const bookTitle = (book.flipbookName || 'Interactive Flipbook').trim();
     const docInfo = book.Customized_Settings?.FlipbookInfo || {};

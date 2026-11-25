@@ -4539,7 +4539,23 @@ exports.translateCloneBook = async (req, res) => {
       return res.status(404).json({ success: false, message: "Original flipbook not found" });
     }
 
-    const newBookName = (customName || `[${tgt_name || tgt_lang}] ${existing.flipbookName}`).trim();
+    const baseNewBookName = (customName || `[${tgt_name || tgt_lang}] ${existing.flipbookName}`).trim();
+    let newBookName = baseNewBookName;
+    try {
+      const existingBooks = await Flipbook.find(userQuery).select("flipbookName").lean();
+      const existingNames = new Set(existingBooks.map((eb) => (eb.flipbookName || "").trim().toLowerCase()));
+      if (existingNames.has(newBookName.toLowerCase())) {
+        let counter = 1;
+        let testName = `${baseNewBookName} (${counter})`;
+        while (existingNames.has(testName.toLowerCase())) {
+          counter++;
+          testName = `${baseNewBookName} (${counter})`;
+        }
+        newBookName = testName;
+      }
+    } catch (nameErr) {
+      console.warn("[Translation] Error checking existing book names:", nameErr.message);
+    }
     const newVId = crypto.randomBytes(8).toString("hex");
     const jobId = `trans_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
     const totalPages = existing.pages ? existing.pages.length : 0;
@@ -4634,7 +4650,24 @@ exports.translateCloneBook = async (req, res) => {
           fs.mkdirSync(targetPagesDir, { recursive: true });
         }
 
+        // Copy webp_page and thumbnail folders if they exist
         const sourcePagesDir = path.join(wsBookDir, "pages");
+        const sourceWebpDir = path.join(sourcePagesDir, "webp_page");
+        if (fs.existsSync(sourceWebpDir)) {
+          const targetWebpDir = path.join(targetPagesDir, "webp_page");
+          if (!fs.existsSync(targetWebpDir)) {
+            fs.mkdirSync(targetWebpDir, { recursive: true });
+          }
+          copyDirSyncRecursive(sourceWebpDir, targetWebpDir);
+        }
+        const sourceThumbsDir = path.join(sourcePagesDir, "thumbnails");
+        if (fs.existsSync(sourceThumbsDir)) {
+          const targetThumbsDir = path.join(targetPagesDir, "thumbnails");
+          if (!fs.existsSync(targetThumbsDir)) {
+            fs.mkdirSync(targetThumbsDir, { recursive: true });
+          }
+          copyDirSyncRecursive(sourceThumbsDir, targetThumbsDir);
+        }
         const translationUrl = process.env.TRANSLATION_SERVICE_URL || "http://127.0.0.1:8010/translate/page";
 
         // Translate each page's SVG
@@ -4705,6 +4738,19 @@ exports.translateCloneBook = async (req, res) => {
           }
         }
 
+        // Mirror target book directory across alternate roots (e.g. default <-> My_Flipbooks)
+        try {
+          const parentFolder = path.basename(userBaseDir);
+          const booksRoot = path.dirname(userBaseDir);
+          const altFolder = parentFolder === "default" ? "My_Flipbooks" : "default";
+          const altTargetBookDir = path.join(booksRoot, altFolder, newBookName);
+          if (fs.existsSync(path.join(booksRoot, altFolder))) {
+            copyDirSyncRecursive(targetBookDir, altTargetBookDir);
+          }
+        } catch (mirrorErr) {
+          console.warn("[Translation] Mirror directory error:", mirrorErr.message);
+        }
+
         // Clone Flipbook metadata in MongoDB
         const cloneData = existing.toObject();
         delete cloneData._id;
@@ -4759,6 +4805,57 @@ exports.getTranslationStatus = async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: "Error checking translation status" });
+  }
+};
+
+/**
+ * POST /api/myflipibook/translate-text
+ * Translates an inline text snippet or list of texts via IndicTrans2 microservice
+ */
+exports.translateTextSnippet = async (req, res) => {
+  try {
+    const { text, texts, src_lang = "eng_Latn", tgt_lang = "tam_Taml" } = req.body;
+    const inputTexts = texts || (text ? [text] : []);
+    if (!inputTexts.length) {
+      return res.status(400).json({ success: false, message: "No text provided for translation" });
+    }
+
+    const microserviceBase = (process.env.TRANSLATION_SERVICE_URL || "http://127.0.0.1:8010/translate/page")
+      .replace(/\/translate\/page\/?$/, "");
+    const translationUrl = `${microserviceBase}/translate`;
+
+    const response = await fetch(translationUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        texts: inputTexts,
+        src_lang,
+        tgt_lang
+      }),
+      signal: AbortSignal.timeout(60000)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(response.status).json({
+        success: false,
+        message: `Translation service error: ${errText.slice(0, 200)}`
+      });
+    }
+
+    const data = await response.json();
+    const translations = data.translations || [];
+    return res.json({
+      success: true,
+      translations,
+      translatedText: translations[0] || "",
+      src_lang,
+      tgt_lang,
+      time_taken_ms: data.time_taken_ms
+    });
+  } catch (err) {
+    console.error("[Translation] translateTextSnippet error:", err);
+    return res.status(500).json({ success: false, message: err.message || "Failed to translate text" });
   }
 };
 

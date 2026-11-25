@@ -96,9 +96,8 @@ const ShelfBookSlot = ({
 
   const handleOpen = () => {
     const targetShareId = book?.shareId || book?.v_id;
-    const rawAcc = String(book?.access || 'public').toLowerCase();
     if (targetShareId) {
-      window.open(`/share=${rawAcc}/${targetShareId}`, '_blank');
+      window.open(`/share/${targetShareId}`, '_blank');
     }
   };
 

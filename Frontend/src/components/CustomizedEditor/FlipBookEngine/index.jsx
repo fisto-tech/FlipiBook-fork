@@ -353,7 +353,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
   const isInteractiveHtml = useCallback((rawHtml) => {
     if (!rawHtml || typeof rawHtml !== "string") return false;
-    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|data-scrollable=["']true|class=["'][^"']*interactive|<a\s+href/i.test(
+    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|data-scrollable=["']true|class=["'][^"']*interactive|<a\s+href|data-animation|data-text-effect/i.test(
       rawHtml,
     );
   }, []);
