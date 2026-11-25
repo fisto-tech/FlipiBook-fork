@@ -1,15 +1,20 @@
+// Core dependencies and environment configuration (local -> Backend/.env -> cwd)
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+
 const express = require('express');
 const cors = require('cors');
-const os = require('os');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
+// Express app initialization and reverse-proxy trust setting
 const app = express();
 app.set('trust proxy', true);
+
+// Gateway port and downstream microservice base URLs
 const PORT = process.env.GATEWAY_PORT || process.env.PORT || 8000;
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://127.0.0.1:5001';
 const MYFLIPIBOOK_SERVICE_URL = process.env.MYFLIPIBOOK_SERVICE_URL || 'http://127.0.0.1:5002';
@@ -18,11 +23,14 @@ const PDF_EDITOR_SERVICE_URL = process.env.PDF_EDITOR_SERVICE_URL || 'http://127
 const CUSTOMIZED_EDITOR_SERVICE_URL = process.env.CUSTOMIZED_EDITOR_SERVICE_URL || 'http://127.0.0.1:5005';
 const THREED_EDITOR_SERVICE_URL = process.env.THREED_EDITOR_SERVICE_URL || 'http://127.0.0.1:5006';
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://127.0.0.1:5007';
-const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://127.0.0.1:5008';
-const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://127.0.0.1:5009';
-const ADMIN_3D_SERVICE_URL = process.env.ADMIN_3D_SERVICE_URL || 'http://127.0.0.1:5011';
+const APP_SERVICE_URL = process.env.APP_SERVICE_URL || 'http://127.0.0.1:5008';
+const ADMIN_USER_SERVICE_URL = process.env.ADMIN_USER_SERVICE_URL || 'http://127.0.0.1:5009';
 
-// Global Middleware
+// ============================================================================
+// 1. CORS & ORIGIN VALIDATION
+// ============================================================================
+
+// Static allowlist of frontend and gateway origins
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
@@ -32,6 +40,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL
 ].filter(Boolean);
 
+// Allow listed origins, local loopback ports, and *.flipibook.com / *.sslip.io subdomains
 const isAllowedOrigin = (origin) => {
   if (!origin) return true; // Server-to-server, curl, health probes
   if (allowedOrigins.includes(origin)) return true;
@@ -41,21 +50,23 @@ const isAllowedOrigin = (origin) => {
   return false;
 };
 
+// Apply CORS middleware with credentials and range/etag headers exposed
 app.use(cors({
-  origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) {
-      return callback(null, true);
-    }
-    return callback(null, false);
-  },
+  origin: (origin, callback) => callback(null, isAllowedOrigin(origin)),
   credentials: true,
   exposedHeaders: ['Content-Length', 'Content-Range', 'ETag', 'Accept-Ranges']
 }));
 
+// ============================================================================
+// 2. STATIC STORAGE, ASSET FALLBACKS & TEMPLATE BOOKS
+// ============================================================================
+
+// Root directory for user uploads and generated flipbook assets
 const storageRoot = process.env.STORAGE_PATH
   ? path.resolve(process.env.STORAGE_PATH)
   : path.resolve(__dirname, '../../storage');
 
+// Send a static file with 1-day cache and CORS/range headers
 const sendStaticFile = (res, filePath) => {
   return res.sendFile(filePath, {
     maxAge: '1d',
@@ -66,8 +77,7 @@ const sendStaticFile = (res, filePath) => {
   });
 };
 
-// Static storage serving with fallback across user folder aliases (e.g. FLIPI0001 vs sanitizedEmail)
-// Cache top directories in memory with a 60-second TTL to avoid crawling disk on every missing asset/404
+// In-memory 60s cache of top-level storage directories to avoid repeated disk crawls
 let cachedTopDirs = null;
 let lastDirsFetch = 0;
 const getCachedTopDirs = async () => {
@@ -83,8 +93,11 @@ const getCachedTopDirs = async () => {
   return cachedTopDirs;
 };
 
+// Resolve /storage and /uploads requests across legacy folder aliases, in-flight pages, and nested assets
 const storageStaticMiddleware = async (req, res, next) => {
-  let relPath = decodeURIComponent(req.path.replace(/^\/+/, ''));
+  const relPath = decodeURIComponent(req.path.replace(/^\/+/, ''));
+
+  // Normalize legacy casing, environment prefixes, and renamed folders
   const candidateRelPaths = [
     relPath,
     relPath.replace(/^(?:testing|production)[/\\]/i, ''),
@@ -95,59 +108,44 @@ const storageStaticMiddleware = async (req, res, next) => {
     relPath.replace(/\/(?:Profile|profile)\//g, '/userdetails/profile/').replace(/\/(?:Company_logo|company_logo)\//g, '/userdetails/company_logo/')
   ];
 
+  // 1. Direct path & My_Flipbooks -> books fallback
   for (const candRel of new Set(candidateRelPaths)) {
     const directPath = path.join(storageRoot, candRel);
     try {
       const stat = await fs.promises.stat(directPath).catch(() => null);
-      if (stat && stat.isFile()) {
-        return sendStaticFile(res, directPath);
-      }
+      if (stat && stat.isFile()) return sendStaticFile(res, directPath);
     } catch (e) {}
 
-    // Seamless fallback for requests referencing My_Flipbooks -> check books
     if (candRel.includes('My_Flipbooks')) {
-      const booksRelPath = candRel.replace('My_Flipbooks', 'books');
-      const booksDirectPath = path.join(storageRoot, booksRelPath);
+      const booksDirectPath = path.join(storageRoot, candRel.replace('My_Flipbooks', 'books'));
       try {
         const bStat = await fs.promises.stat(booksDirectPath).catch(() => null);
-        if (bStat && bStat.isFile()) {
-          return sendStaticFile(res, booksDirectPath);
-        }
+        if (bStat && bStat.isFile()) return sendStaticFile(res, booksDirectPath);
       } catch (e) {}
     }
   }
 
+  // 2. Search across top-level user directories (e.g. FLIPI0001)
   const parts = relPath.split(/[/\\]/);
   try {
     const topDirs = await getCachedTopDirs();
     for (const d of topDirs) {
-      // 1. Try prepending topDir directly (e.g. storageRoot/FLIPI0002/books/default/ewe/pages/88.webp)
       const candDirect = path.join(storageRoot, d, relPath);
       const candDirectStat = await fs.promises.stat(candDirect).catch(() => null);
-      if (candDirectStat && candDirectStat.isFile()) {
-        return sendStaticFile(res, candDirect);
-      }
+      if (candDirectStat && candDirectStat.isFile()) return sendStaticFile(res, candDirect);
 
-      // 2. If relPath has a prefix that matches or doesn't match topDir, try stripping the first segment
       if (parts.length > 1) {
-        const restOfPath = parts.slice(1).join(path.sep);
-        const candidatePath = path.join(storageRoot, d, restOfPath);
+        const candidatePath = path.join(storageRoot, d, parts.slice(1).join(path.sep));
         const candStat = await fs.promises.stat(candidatePath).catch(() => null);
-        if (candStat && candStat.isFile()) {
-          return sendStaticFile(res, candidatePath);
-        }
+        if (candStat && candStat.isFile()) return sendStaticFile(res, candidatePath);
       }
     }
   } catch (e) {}
 
-  // Fast-Stream In-Flight Page Waiter:
-  // If the request is for a book page (e.g. /storage/.../books/:folderName/:bookName/pages/webp_page/:pageNum.(webp|json))
-  // and the page is currently being generated by the background worker, wait up to 8s instead of returning 404!
+  // 3. Fast-stream waiter for book pages currently being generated by background workers
   const bookPageMatch = relPath.match(/books[/\\](?:[^/\\]+[/\\])?([^/\\]+)[/\\]pages[/\\](?:webp_page[/\\])?(\d+)\.(webp|json)$/i);
   if (bookPageMatch) {
-    const bookId = bookPageMatch[1];
-    const pageNum = bookPageMatch[2];
-    const ext = bookPageMatch[3];
+    const [, bookId, pageNum, ext] = bookPageMatch;
     const fileName = `${pageNum}.${ext}`;
 
     try {
@@ -163,28 +161,28 @@ const storageStaticMiddleware = async (req, res, next) => {
         ...topDirs.map(d => path.join(storageRoot, d, 'books', 'default', bookId, 'pages'))
       ];
 
-      // Fuzzy-match bookId against actual disk directories (handles v_id typos/mismatches between MongoDB and fs)
+      // Fuzzy-match bookId against disk directories (>=85% char overlap, length +/-2)
       for (const td of topDirs) {
         const booksDir = path.join(storageRoot, td, 'books');
         if (fs.existsSync(booksDir)) {
           try {
             const bookDirs = fs.readdirSync(booksDir);
             for (const bd of bookDirs) {
-              // Exact match already covered above; do fuzzy: same length ±1 and ≥85% char overlap
               if (bd !== bookId && Math.abs(bd.length - bookId.length) <= 2) {
                 const shorter = bd.length < bookId.length ? bd : bookId;
-                const longer  = bd.length < bookId.length ? bookId : bd;
+                const longer = bd.length < bookId.length ? bookId : bd;
                 let matches = 0;
                 for (let ci = 0; ci < shorter.length; ci++) if (shorter[ci] === longer[ci]) matches++;
                 if (matches / longer.length >= 0.85) {
-                  const fuzzyDirWebp = path.join(booksDir, bd, 'pages', 'webp_page');
-                  if (fs.existsSync(fuzzyDirWebp)) candidatePagesDirs.push(fuzzyDirWebp);
-                  const fuzzyDir = path.join(booksDir, bd, 'pages');
-                  if (fs.existsSync(fuzzyDir)) candidatePagesDirs.push(fuzzyDir);
-                  const fuzzyDirDefWebp = path.join(booksDir, 'default', bd, 'pages', 'webp_page');
-                  if (fs.existsSync(fuzzyDirDefWebp)) candidatePagesDirs.push(fuzzyDirDefWebp);
-                  const fuzzyDirDef = path.join(booksDir, 'default', bd, 'pages');
-                  if (fs.existsSync(fuzzyDirDef)) candidatePagesDirs.push(fuzzyDirDef);
+                  const fuzzyCandidates = [
+                    path.join(booksDir, bd, 'pages', 'webp_page'),
+                    path.join(booksDir, bd, 'pages'),
+                    path.join(booksDir, 'default', bd, 'pages', 'webp_page'),
+                    path.join(booksDir, 'default', bd, 'pages')
+                  ];
+                  for (const fc of fuzzyCandidates) {
+                    if (fs.existsSync(fc)) candidatePagesDirs.push(fc);
+                  }
                 }
               }
             }
@@ -192,66 +190,49 @@ const storageStaticMiddleware = async (req, res, next) => {
         }
       }
 
-      let targetPagesDir = null;
-      for (const pDir of candidatePagesDirs) {
-        if (fs.existsSync(pDir)) {
-          targetPagesDir = pDir;
-          break;
-        }
-      }
-
+      const targetPagesDir = candidatePagesDirs.find(pDir => fs.existsSync(pDir)) || null;
       if (targetPagesDir) {
         const targetFilePath = path.join(targetPagesDir, fileName);
         const startTime = Date.now();
         while (Date.now() - startTime < 1500) {
-          if (fs.existsSync(targetFilePath)) {
-            return sendStaticFile(res, targetFilePath);
-          }
+          if (fs.existsSync(targetFilePath)) return sendStaticFile(res, targetFilePath);
           await new Promise(r => setTimeout(r, 150));
         }
-        if (fs.existsSync(targetFilePath)) {
-          return sendStaticFile(res, targetFilePath);
-        }
-        // In-flight extraction: return 404 with no-cache so client retries cleanly without connection stalls
+        if (fs.existsSync(targetFilePath)) return sendStaticFile(res, targetFilePath);
+
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         return res.status(404).json({ error: 'Page asset still generating', pageNum, inProgress: true });
       }
     } catch (e) {}
   }
 
-  // Fallback for flipbook assets where relative navigation (e.g. ../assets/) skipped the book folder
+  // 4. Fallback scan for relative ../assets/ requests missing the book folder prefix
   const assetMatch = relPath.match(/assets[/\\](Image|video|gif|audio|3D_Model|download)[/\\]([^/\\]+)$/i);
   if (assetMatch) {
-    const assetSub = assetMatch[1];
     const assetFile = assetMatch[2];
     try {
       const topDirs = fs.readdirSync(storageRoot);
-      for (const d of topDirs) {
-        const bookDirs = [
-          path.join(storageRoot, d, 'books')
-        ];
-        for (const userFlipbooksDir of bookDirs) {
-          if (fs.existsSync(userFlipbooksDir)) {
-            const scanForFile = (dir, depth = 0) => {
-              if (depth > 6) return null;
-              try {
-                const entries = fs.readdirSync(dir, { withFileTypes: true });
-                for (const ent of entries) {
-                  const full = path.join(dir, ent.name);
-                  if (ent.isFile() && ent.name.toLowerCase() === assetFile.toLowerCase()) {
-                    return full;
-                  }
-                  if (ent.isDirectory()) {
-                    const found = scanForFile(full, depth + 1);
-                    if (found) return found;
-                  }
-                }
-              } catch (e) {}
-              return null;
-            };
-            const found = scanForFile(userFlipbooksDir);
-            if (found) return sendStaticFile(res, found);
+      const scanForFile = (dir, depth = 0) => {
+        if (depth > 6) return null;
+        try {
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+          for (const ent of entries) {
+            const full = path.join(dir, ent.name);
+            if (ent.isFile() && ent.name.toLowerCase() === assetFile.toLowerCase()) return full;
+            if (ent.isDirectory()) {
+              const found = scanForFile(full, depth + 1);
+              if (found) return found;
+            }
           }
+        } catch (e) {}
+        return null;
+      };
+
+      for (const d of topDirs) {
+        const userBooksDir = path.join(storageRoot, d, 'books');
+        if (fs.existsSync(userBooksDir)) {
+          const found = scanForFile(userBooksDir);
+          if (found) return sendStaticFile(res, found);
         }
       }
     } catch (e) {}
@@ -260,6 +241,7 @@ const storageStaticMiddleware = async (req, res, next) => {
   next();
 };
 
+// Shared express.static options with CORS and range headers
 const staticConfig = {
   maxAge: '1d',
   setHeaders: (res) => {
@@ -270,6 +252,7 @@ const staticConfig = {
   }
 };
 
+// Mount storage, uploads, and page-editor template static directories
 app.use('/storage', storageStaticMiddleware);
 app.use('/storage', express.static(storageRoot, staticConfig));
 app.use('/uploads', storageStaticMiddleware);
@@ -278,7 +261,7 @@ app.use('/uploads', express.static(storageRoot, staticConfig));
 const templateAssetsRoot = path.resolve(__dirname, '../../services/page-editor-service/src/assets');
 app.use('/assets', express.static(templateAssetsRoot, staticConfig));
 
-// Dynamic Template Books API
+// List built-in SVG template books from page-editor-service assets
 app.get('/api/templates/books', async (req, res) => {
   try {
     const templatesDir = path.join(templateAssetsRoot, 'Templates');
@@ -295,23 +278,16 @@ app.get('/api/templates/books', async (req, res) => {
         const files = await fs.promises.readdir(folderPath);
         const svgFiles = files
           .filter(f => f.toLowerCase().endsWith('.svg'))
-          .sort((a, b) => {
-            const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
-            const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
-            return numA - numB;
-          });
+          .sort((a, b) => (parseInt(a.replace(/\D/g, ''), 10) || 0) - (parseInt(b.replace(/\D/g, ''), 10) || 0));
 
-        const id = folder.name.toLowerCase();
         const pages = svgFiles.map(f => `/assets/Templates/${folder.name}/${f}`);
-        const thumbnail = pages.length > 0 ? pages[0] : '';
-
         return {
-          id,
+          id: folder.name.toLowerCase(),
           folder: folder.name,
           title: folder.name === 'Interior_Book' ? 'Corporate Modern' : folder.name === 'Mobile_Book' ? 'Mobile App & Tech Showcase' : folder.name.replace(/_/g, ' '),
           category: folder.name === 'Interior_Book' ? 'Industrial' : 'Product Catalog',
           pagesCount: svgFiles.length,
-          thumbnail,
+          thumbnail: pages.length > 0 ? pages[0] : '',
           pages,
           isMultiPageBook: svgFiles.length > 1
         };
@@ -325,11 +301,16 @@ app.get('/api/templates/books', async (req, res) => {
   }
 });
 
+// Return 404 JSON for unmatched /storage or /uploads paths
 app.use(['/storage', '/uploads'], (req, res) => {
   res.status(404).json({ success: false, message: `Asset not found: ${req.path}` });
 });
 
-// Health Check
+// ============================================================================
+// 3. GATEWAY HEALTH ENDPOINTS
+// ============================================================================
+
+// Basic gateway liveness check
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'UP',
@@ -338,7 +319,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Instance Check
+// Instance hostname check for load-balanced deployments
 app.get('/health/instance', (req, res) => {
   res.status(200).json({
     status: 'UP',
@@ -348,164 +329,103 @@ app.get('/health/instance', (req, res) => {
   });
 });
 
-// Proxy /api/auth requests to Auth Service
-app.use(
-  '/api/auth',
-  createProxyMiddleware({
-    target: `${AUTH_SERVICE_URL}/api/auth`,
+// ============================================================================
+// 4. PROXY HELPER & SHARED MIDDLEWARE FACTORY
+// ============================================================================
+
+// Forward original client IP headers to downstream microservices
+const forwardClientIp = (proxyReq, req) => {
+  const clientIp =
+    req.headers['cf-connecting-ip'] ||
+    req.headers['x-real-ip'] ||
+    (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
+    req.socket?.remoteAddress ||
+    req.ip;
+
+  if (clientIp) {
+    proxyReq.setHeader('x-client-ip', clientIp);
+    proxyReq.setHeader('x-real-ip', clientIp);
+  }
+};
+
+// Build a standardized http-proxy-middleware instance with IP forwarding and 502 error handling
+const createServiceProxy = ({ target, serviceName, unavailableMessage, timeout, pathRewrite, ignoreAbortErrors = false }) => {
+  const config = {
+    target,
     changeOrigin: true,
     xfwd: true,
     cookieDomainRewrite: '',
     cookiePathRewrite: '/',
     on: {
-      proxyReq: (proxyReq, req) => {
-        // Forward real public client IP to internal microservices
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
+      proxyReq: forwardClientIp,
       error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to auth-service:', err.message);
+        if (ignoreAbortErrors && (req.aborted || err.code === 'ECONNRESET' || err.message === 'socket hang up')) {
+          return;
+        }
+        console.error(`[API Gateway] Proxy error to ${serviceName} (${req.originalUrl}):`, err.message);
         if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Auth Service unavailable. Please ensure auth service is running.'
-          });
+          res.status(502).json({ success: false, message: unavailableMessage });
         }
       }
     }
-  })
-);
+  };
 
-// Proxy PDF / Office conversion & inspection routes to PDF Editor Service (port 5004)
-const isPdfConversionRoute = (pathname) => {
-  return /^\/api\/flipbook\/(convert-pdf-inkscape|convert-office-to-pdf|inspect-document|export-vector-pdf|inkscape-status|office-status|check-inkscape|check-libreoffice)(\/|$|\?)/i.test(pathname);
+  if (timeout) {
+    config.timeout = timeout;
+    config.proxyTimeout = timeout;
+  }
+  if (pathRewrite) {
+    config.pathRewrite = pathRewrite;
+  }
+
+  return createProxyMiddleware(config);
 };
 
-const pdfConversionProxy = createProxyMiddleware({
+// ============================================================================
+// 5. MICROSERVICE PROXY ROUTES
+// ============================================================================
+
+// Auth Service (port 5001) - login, register, tokens, OTP, and OAuth
+app.use('/api/auth', createServiceProxy({
+  target: `${AUTH_SERVICE_URL}/api/auth`,
+  serviceName: 'auth-service',
+  unavailableMessage: 'Auth Service unavailable. Please ensure auth service is running.'
+}));
+
+// Specialized /api/flipbook sub-route interceptors (evaluated before general /api/flipbook proxy)
+const isPdfConversionRoute = (pathname) =>
+  /^\/api\/flipbook\/(convert-pdf-inkscape|convert-office-to-pdf|inspect-document|export-vector-pdf|inkscape-status|office-status|check-inkscape|check-libreoffice)(\/|$|\?)/i.test(pathname);
+
+const isPageEditorRoute = (pathname) =>
+  /^\/api\/flipbook\/(save-page|save-pages-batch|get-page|rename-page|delete-page|upload-asset|upload-3d-model|delete-asset|get-gallery-assets|rename-gallery-asset|delete-gallery-asset|use-gallery-asset|inline-svgs|resolve-map-url)(\/|$|\?)/i.test(pathname);
+
+const isCustomizedEditorRoute = (pathname) =>
+  /^\/api\/flipbook\/(public|preview-image|preview-card|update-settings|reset-settings|branding|background|book-appearance|appearance|transparent-sheet|upload-customized-asset|delete-customized-asset|background-assets|copy-theme-asset|submit-lead|get-leads|leads|verify-credential|send-visibility-otp|verify-visibility-otp|customized-settings|customized_settings)(\/|$|\?)/i.test(pathname);
+
+const pdfConversionProxy = createServiceProxy({
   target: PDF_EDITOR_SERVICE_URL,
-  changeOrigin: true,
-  xfwd: true,
-  timeout: 300000,
-  proxyTimeout: 300000,
-  cookieDomainRewrite: '',
-  cookiePathRewrite: '/',
-  on: {
-    proxyReq: (proxyReq, req) => {
-      const clientIp =
-        req.headers['cf-connecting-ip'] ||
-        req.headers['x-real-ip'] ||
-        (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-        req.socket?.remoteAddress ||
-        req.ip;
-
-      if (clientIp) {
-        proxyReq.setHeader('x-client-ip', clientIp);
-        proxyReq.setHeader('x-real-ip', clientIp);
-      }
-    },
-    error: (err, req, res) => {
-      console.error(`[API Gateway] Proxy error to pdf-editor-service for ${req.originalUrl}:`, err.message);
-      if (!res.headersSent) {
-        res.status(502).json({
-          success: false,
-          message: 'PDF Editor Service unavailable. Please ensure pdf-editor-service is running.'
-        });
-      }
-    }
-  }
+  serviceName: 'pdf-editor-service',
+  unavailableMessage: 'PDF Editor Service unavailable. Please ensure pdf-editor-service is running.',
+  timeout: 300000
 });
 
-// Proxy Page Editor routes to Page Editor Service (port 5003)
-const isPageEditorRoute = (pathname) => {
-  return /^\/api\/flipbook\/(save-page|save-pages-batch|get-page|rename-page|delete-page|upload-asset|upload-3d-model|delete-asset|get-gallery-assets|rename-gallery-asset|delete-gallery-asset|use-gallery-asset|inline-svgs|resolve-map-url)(\/|$|\?)/i.test(pathname);
-};
-
-const pageEditorProxy = createProxyMiddleware({
+const pageEditorProxy = createServiceProxy({
   target: PAGE_EDITOR_SERVICE_URL,
-  changeOrigin: true,
-  xfwd: true,
-  timeout: 300000,
-  proxyTimeout: 300000,
-  cookieDomainRewrite: '',
-  cookiePathRewrite: '/',
-  on: {
-    proxyReq: (proxyReq, req) => {
-      const clientIp =
-        req.headers['cf-connecting-ip'] ||
-        req.headers['x-real-ip'] ||
-        (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-        req.socket?.remoteAddress ||
-        req.ip;
-
-      if (clientIp) {
-        proxyReq.setHeader('x-client-ip', clientIp);
-        proxyReq.setHeader('x-real-ip', clientIp);
-      }
-    },
-    error: (err, req, res) => {
-      console.error(`[API Gateway] Proxy error to page-editor-service for ${req.originalUrl}:`, err.message);
-      if (!res.headersSent) {
-        res.status(502).json({
-          success: false,
-          message: 'Page Editor Service unavailable. Please ensure page editor service is running.'
-        });
-      }
-    }
-  }
+  serviceName: 'page-editor-service',
+  unavailableMessage: 'Page Editor Service unavailable. Please ensure page editor service is running.',
+  timeout: 300000
 });
 
-// Proxy Customized Editor routes to Customized Editor Service (port 5005)
-const isCustomizedEditorRoute = (pathname) => {
-  return /^\/api\/flipbook\/(public|preview-image|preview-card|update-settings|reset-settings|branding|background|book-appearance|appearance|transparent-sheet|upload-customized-asset|delete-customized-asset|background-assets|copy-theme-asset|submit-lead|get-leads|leads|verify-credential|send-visibility-otp|verify-visibility-otp|customized-settings|customized_settings)(\/|$|\?)/i.test(pathname);
-};
-
-const customizedEditorProxy = createProxyMiddleware({
+const customizedEditorProxy = createServiceProxy({
   target: CUSTOMIZED_EDITOR_SERVICE_URL,
-  changeOrigin: true,
-  xfwd: true,
+  serviceName: 'customized-editor-service',
+  unavailableMessage: 'Customized Editor Service unavailable. Please ensure customized-editor-service is running.',
   timeout: 300000,
-  proxyTimeout: 300000,
-  cookieDomainRewrite: '',
-  cookiePathRewrite: '/',
-  pathRewrite: (path) => path.replace(/^\/api\/flipbook/, '/api/customized-editor'),
-  on: {
-    proxyReq: (proxyReq, req) => {
-      const clientIp =
-        req.headers['cf-connecting-ip'] ||
-        req.headers['x-real-ip'] ||
-        (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-        req.socket?.remoteAddress ||
-        req.ip;
-
-      if (clientIp) {
-        proxyReq.setHeader('x-client-ip', clientIp);
-        proxyReq.setHeader('x-real-ip', clientIp);
-      }
-    },
-    error: (err, req, res) => {
-      console.error(`[API Gateway] Proxy error to customized-editor-service for ${req.originalUrl}:`, err.message);
-      if (!res.headersSent) {
-        res.status(502).json({
-          success: false,
-          message: 'Customized Editor Service unavailable. Please ensure customized-editor-service is running.'
-        });
-      }
-    }
-  }
+  pathRewrite: (p) => p.replace(/^\/api\/flipbook/, '/api/customized-editor')
 });
 
+// Route crawler /share/* previews and /api/flipbook editor sub-routes to their owning services
 app.use((req, res, next) => {
-  // Crawler / Social Preview interceptor for /share=* or /share/* routes
-  // Catches bots (WhatsApp, Facebook, Twitterbot, LinkedInBot, etc.) and routes them to rich OpenGraph preview card
   const shareMatch = req.path.match(/^\/share(?:=([^\/]+)|\/([^\/]+))?\/([a-zA-Z0-9_-]+)/i);
   if (shareMatch) {
     const shareId = shareMatch[3] || shareMatch[2] || shareMatch[1];
@@ -517,767 +437,179 @@ app.use((req, res, next) => {
     }
   }
 
-  if (isPdfConversionRoute(req.path) || isPdfConversionRoute(req.originalUrl)) {
-    return pdfConversionProxy(req, res, next);
-  }
-  if (isPageEditorRoute(req.path) || isPageEditorRoute(req.originalUrl)) {
-    return pageEditorProxy(req, res, next);
-  }
-  if (isCustomizedEditorRoute(req.path) || isCustomizedEditorRoute(req.originalUrl)) {
-    return customizedEditorProxy(req, res, next);
-  }
+  if (isPdfConversionRoute(req.path) || isPdfConversionRoute(req.originalUrl)) return pdfConversionProxy(req, res, next);
+  if (isPageEditorRoute(req.path) || isPageEditorRoute(req.originalUrl)) return pageEditorProxy(req, res, next);
+  if (isCustomizedEditorRoute(req.path) || isCustomizedEditorRoute(req.originalUrl)) return customizedEditorProxy(req, res, next);
   next();
 });
 
-// Proxy /api/analytics requests to MyFlipibook Service
-app.use(
-  '/api/analytics',
-  createProxyMiddleware({
-    target: `${MYFLIPIBOOK_SERVICE_URL}/api/analytics`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+// MyFlipibook Service (port 5002) - flipbooks, analytics, user settings, explore, and bookshelves
+app.use('/api/analytics', createServiceProxy({
+  target: `${MYFLIPIBOOK_SERVICE_URL}/api/analytics`,
+  serviceName: 'myflipibook-service',
+  unavailableMessage: 'Analytics Service unavailable.',
+  timeout: 300000
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to myflipibook-service for analytics:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Analytics Service unavailable.'
-          });
-        }
-      }
-    }
-  })
-);
+app.use('/api/flipbook', createServiceProxy({
+  target: `${MYFLIPIBOOK_SERVICE_URL}/api/flipbook`,
+  serviceName: 'myflipibook-service',
+  unavailableMessage: 'MyFlipibook Service unavailable. Please ensure myflipibook service is running.',
+  timeout: 300000
+}));
 
-// Proxy /api/flipbook requests to MyFlipibook Service
-app.use(
-  '/api/flipbook',
-  createProxyMiddleware({
-    target: `${MYFLIPIBOOK_SERVICE_URL}/api/flipbook`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+app.use('/api/myflipibook', createServiceProxy({
+  target: `${MYFLIPIBOOK_SERVICE_URL}/api/myflipibook`,
+  serviceName: 'myflipibook-service',
+  unavailableMessage: 'MyFlipibook Service unavailable. Please ensure myflipibook service is running.',
+  timeout: 300000
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to myflipibook-service for flipbook:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'MyFlipibook Service unavailable. Please ensure myflipibook service is running.'
-          });
-        }
-      }
-    }
-  })
-);
+app.use('/api/usersetting', createServiceProxy({
+  target: `${MYFLIPIBOOK_SERVICE_URL}/api/usersetting`,
+  serviceName: 'myflipibook-service',
+  unavailableMessage: 'MyFlipibook Service unavailable. Please ensure myflipibook service is running.'
+}));
 
-// Proxy /api/myflipibook requests to MyFlipibook Service
-app.use(
-  '/api/myflipibook',
-  createProxyMiddleware({
-    target: `${MYFLIPIBOOK_SERVICE_URL}/api/myflipibook`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+app.use('/api/explore', createServiceProxy({
+  target: `${MYFLIPIBOOK_SERVICE_URL}/api/explore`,
+  serviceName: 'myflipibook-service',
+  unavailableMessage: 'Explore Service unavailable. Please ensure myflipibook service is running.',
+  timeout: 300000
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to myflipibook-service for myflipibook:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'MyFlipibook Service unavailable. Please ensure myflipibook service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
-// Proxy /api/usersetting requests to MyFlipibook Service
-app.use(
-  '/api/usersetting',
-  createProxyMiddleware({
-    target: `${MYFLIPIBOOK_SERVICE_URL}/api/usersetting`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to myflipibook-service for usersetting:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'MyFlipibook Service unavailable. Please ensure myflipibook service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
-// Proxy /api/explore requests to MyFlipibook Service
-app.use(
-  '/api/explore',
-  createProxyMiddleware({
-    target: `${MYFLIPIBOOK_SERVICE_URL}/api/explore`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to myflipibook-service for explore:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Explore Service unavailable. Please ensure myflipibook service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
-// Proxy Bookshelf endpoints to MyFlipibook Service
+// Bookshelf endpoints mounted under /api/profile/* -> MyFlipibook Service
 ['/my-shelf-books', '/add-to-shelf', '/remove-from-shelf', '/delete-shelf', '/update-shelf-order', '/update-shelf-design'].forEach((shelfEndpoint) => {
-  app.use(
-    `/api/profile${shelfEndpoint}`,
-    createProxyMiddleware({
-      target: `${MYFLIPIBOOK_SERVICE_URL}/api/profile${shelfEndpoint}`,
-      changeOrigin: true,
-      xfwd: true,
-      timeout: 300000,
-      proxyTimeout: 300000,
-      cookieDomainRewrite: '',
-      cookiePathRewrite: '/',
-      on: {
-        proxyReq: (proxyReq, req) => {
-          const clientIp =
-            req.headers['cf-connecting-ip'] ||
-            req.headers['x-real-ip'] ||
-            (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-            req.socket?.remoteAddress ||
-            req.ip;
-
-          if (clientIp) {
-            proxyReq.setHeader('x-client-ip', clientIp);
-            proxyReq.setHeader('x-real-ip', clientIp);
-          }
-        },
-        error: (err, req, res) => {
-          console.error('[API Gateway] Proxy error to myflipibook-service for shelf:', err.message);
-          if (!res.headersSent) {
-            res.status(502).json({
-              success: false,
-              message: 'Bookshelf Service unavailable. Please ensure myflipibook service is running.'
-            });
-          }
-        }
-      }
-    })
-  );
+  app.use(`/api/profile${shelfEndpoint}`, createServiceProxy({
+    target: `${MYFLIPIBOOK_SERVICE_URL}/api/profile${shelfEndpoint}`,
+    serviceName: 'myflipibook-service',
+    unavailableMessage: 'Bookshelf Service unavailable. Please ensure myflipibook service is running.',
+    timeout: 300000
+  }));
 });
 
-// Also proxy dedicated /api/shelf route to MyFlipibook Service
-app.use(
-  '/api/shelf',
-  createProxyMiddleware({
-    target: `${MYFLIPIBOOK_SERVICE_URL}/api/shelf`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/'
-  })
-);
+app.use('/api/shelf', createProxyMiddleware({
+  target: `${MYFLIPIBOOK_SERVICE_URL}/api/shelf`,
+  changeOrigin: true,
+  xfwd: true,
+  timeout: 300000,
+  proxyTimeout: 300000,
+  cookieDomainRewrite: '',
+  cookiePathRewrite: '/'
+}));
 
-// Proxy /api/profile requests to User Service
-app.use(
-  '/api/profile',
-  createProxyMiddleware({
-    target: `${USER_SERVICE_URL}/api/profile`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+// Page Editor Service (port 5003) - direct page editor endpoints
+app.use('/api/page-editor', createServiceProxy({
+  target: `${PAGE_EDITOR_SERVICE_URL}/api/page-editor`,
+  serviceName: 'page-editor-service',
+  unavailableMessage: 'Page Editor Service unavailable. Please ensure page editor service is running.'
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to user-service for profile:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Profile Service unavailable. Please ensure user-service is running.'
-          });
-        }
-      }
-    }
-  })
-);
+// PDF Editor Service (port 5004) - direct PDF conversion endpoints
+app.use('/api/pdf-editor', createServiceProxy({
+  target: `${PDF_EDITOR_SERVICE_URL}/api/pdf-editor`,
+  serviceName: 'pdf-editor-service',
+  unavailableMessage: 'PDF Editor Service unavailable. Please ensure pdf editor service is running.'
+}));
 
+// Customized Editor Service (port 5005) - viewer customization, branding, and leads
+app.use('/api/customized-editor', createServiceProxy({
+  target: `${CUSTOMIZED_EDITOR_SERVICE_URL}/api/customized-editor`,
+  serviceName: 'customized-editor-service',
+  unavailableMessage: 'Customized Editor Service unavailable. Please ensure customized-editor-service is running.',
+  timeout: 300000,
+  ignoreAbortErrors: true
+}));
 
-// Proxy /api/page-editor requests to Page Editor Service
-app.use(
-  '/api/page-editor',
-  createProxyMiddleware({
-    target: `${PAGE_EDITOR_SERVICE_URL}/api/page-editor`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+// 3D Editor Service (port 5006) - 3D models, textures, presets, and static HDRI/texture assets
+app.use('/api/3d-models', createServiceProxy({
+  target: `${THREED_EDITOR_SERVICE_URL}/api/3d-models`,
+  serviceName: 'threed-editor-service',
+  unavailableMessage: '3D Editor Service unavailable. Please ensure threed-editor-service is running.',
+  timeout: 300000
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to page-editor-service:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Page Editor Service unavailable. Please ensure page editor service is running.'
-          });
-        }
-      }
-    }
-  })
-);
+app.use('/api/textures', createServiceProxy({
+  target: `${THREED_EDITOR_SERVICE_URL}/api/textures`,
+  serviceName: 'threed-editor-service',
+  unavailableMessage: '3D Editor Service unavailable. Please ensure threed-editor-service is running.',
+  timeout: 300000
+}));
 
-// Proxy /api/pdf-editor requests to PDF Editor Service
-app.use(
-  '/api/pdf-editor',
-  createProxyMiddleware({
-    target: `${PDF_EDITOR_SERVICE_URL}/api/pdf-editor`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+app.use('/api/presets', createServiceProxy({
+  target: `${THREED_EDITOR_SERVICE_URL}/api/presets`,
+  serviceName: 'threed-editor-service',
+  unavailableMessage: '3D Editor Service unavailable. Please ensure threed-editor-service is running.',
+  timeout: 300000
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to pdf-editor-service:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'PDF Editor Service unavailable. Please ensure pdf editor service is running.'
-          });
-        }
-      }
-    }
-  })
-);
+app.use('/hdri', createProxyMiddleware({
+  target: `${THREED_EDITOR_SERVICE_URL}/hdri`,
+  changeOrigin: true,
+  xfwd: true,
+  cookieDomainRewrite: '',
+  cookiePathRewrite: '/'
+}));
 
-// Proxy /api/customized-editor requests to Customized Editor Service
-app.use(
-  '/api/customized-editor',
-  createProxyMiddleware({
-    target: `${CUSTOMIZED_EDITOR_SERVICE_URL}/api/customized-editor`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+app.use('/textures', createProxyMiddleware({
+  target: `${THREED_EDITOR_SERVICE_URL}/textures`,
+  changeOrigin: true,
+  xfwd: true,
+  cookieDomainRewrite: '',
+  cookiePathRewrite: '/'
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        if (req.aborted || err.code === 'ECONNRESET' || err.message === 'socket hang up') {
-          return;
-        }
-        console.error('[API Gateway] Proxy error to customized-editor-service:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Customized Editor Service unavailable. Please ensure customized-editor-service is running.'
-          });
-        }
-      }
-    }
-  })
-);
+// Payment Service (port 5007) - plans, subscriptions, and payment webhooks
+app.use('/api/payment', createServiceProxy({
+  target: `${PAYMENT_SERVICE_URL}/api/payment`,
+  serviceName: 'payment-services',
+  unavailableMessage: 'Payment Service unavailable. Please ensure payment service is running.'
+}));
 
-// Proxy /api/3d-models requests to 3D Editor Service
-app.use(
-  '/api/3d-models',
-  createProxyMiddleware({
-    target: `${THREED_EDITOR_SERVICE_URL}/api/3d-models`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+// App Service (port 5008) - user profiles, accounts, community forum, and support tickets
+app.use('/api/profile', createServiceProxy({
+  target: `${APP_SERVICE_URL}/api/profile`,
+  serviceName: 'app-service',
+  unavailableMessage: 'Profile Service unavailable. Please ensure app-service is running.',
+  timeout: 300000
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
+app.use('/api/user', createServiceProxy({
+  target: `${APP_SERVICE_URL}/api/user`,
+  serviceName: 'app-service',
+  unavailableMessage: 'User Service unavailable. Please ensure app-service is running.'
+}));
 
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to threed-editor-service for 3d-models:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: '3D Editor Service unavailable. Please ensure threed-editor-service is running.'
-          });
-        }
-      }
-    }
-  })
-);
+app.use('/api/users', createServiceProxy({
+  target: `${APP_SERVICE_URL}/api/users`,
+  serviceName: 'app-service',
+  unavailableMessage: 'User Service unavailable. Please ensure app-service is running.'
+}));
 
-// Proxy /api/textures requests to 3D Editor Service
-app.use(
-  '/api/textures',
-  createProxyMiddleware({
-    target: `${THREED_EDITOR_SERVICE_URL}/api/textures`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+app.use('/api/forum', createServiceProxy({
+  target: `${APP_SERVICE_URL}/api/forum`,
+  serviceName: 'app-service',
+  unavailableMessage: 'Forum Service unavailable. Please ensure app-service is running.'
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to threed-editor-service for textures:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: '3D Editor Service unavailable. Please ensure threed-editor-service is running.'
-          });
-        }
-      }
-    }
-  })
-);
+app.use('/api/tickets', createServiceProxy({
+  target: `${APP_SERVICE_URL}/api/tickets`,
+  serviceName: 'app-service',
+  unavailableMessage: 'Support Ticket Service unavailable. Please ensure app-service is running.'
+}));
 
-// Proxy /api/presets requests to 3D Editor Service
-app.use(
-  '/api/presets',
-  createProxyMiddleware({
-    target: `${THREED_EDITOR_SERVICE_URL}/api/presets`,
-    changeOrigin: true,
-    xfwd: true,
-    timeout: 300000,
-    proxyTimeout: 300000,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
+// Admin User Service (port 5009) - admin dashboard, moderation, and analytics
+app.use('/api/admin', createServiceProxy({
+  target: `${ADMIN_USER_SERVICE_URL}/api/admin`,
+  serviceName: 'admin-user-service',
+  unavailableMessage: 'Admin Service unavailable. Please ensure admin-user-service is running.'
+}));
 
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to threed-editor-service for presets:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: '3D Editor Service unavailable. Please ensure threed-editor-service is running.'
-          });
-        }
-      }
-    }
-  })
-);
+// ============================================================================
+// 6. SERVER STARTUP & PROCESS ERROR HANDLERS
+// ============================================================================
 
-// Proxy /hdri static requests to 3D Editor Service
-app.use(
-  '/hdri',
-  createProxyMiddleware({
-    target: `${THREED_EDITOR_SERVICE_URL}/hdri`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/'
-  })
-);
-
-// Proxy /textures static requests to 3D Editor Service
-app.use(
-  '/textures',
-  createProxyMiddleware({
-    target: `${THREED_EDITOR_SERVICE_URL}/textures`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/'
-  })
-);
-
-// Proxy /api/payment requests to Payment Service (port 5007)
-app.use(
-  '/api/payment',
-  createProxyMiddleware({
-    target: `${PAYMENT_SERVICE_URL}/api/payment`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to payment-services:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Payment Service unavailable. Please ensure payment service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
-// Proxy /api/user requests to User Service (port 5008)
-app.use(
-  '/api/user',
-  createProxyMiddleware({
-    target: `${USER_SERVICE_URL}/api/user`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to user-service (/api/user):', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'User Service unavailable. Please ensure user service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
-// Proxy /api/users requests to User Service (port 5008)
-app.use(
-  '/api/users',
-  createProxyMiddleware({
-    target: `${USER_SERVICE_URL}/api/users`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to user-service (/api/users):', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'User Service unavailable. Please ensure user service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
-// Proxy /api/forum requests to User Service (port 5008)
-app.use(
-  '/api/forum',
-  createProxyMiddleware({
-    target: `${USER_SERVICE_URL}/api/forum`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to user-service (/api/forum):', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Forum Service unavailable. Please ensure user service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
-// Proxy /api/tickets requests to User Service (port 5008)
-app.use(
-  '/api/tickets',
-  createProxyMiddleware({
-    target: `${USER_SERVICE_URL}/api/tickets`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to user-service (/api/tickets):', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Support Ticket Service unavailable. Please ensure user service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
-// Proxy /api/admin requests to Admin Service (port 5009)
-app.use(
-  '/api/admin',
-  createProxyMiddleware({
-    target: `${ADMIN_SERVICE_URL}/api/admin`,
-    changeOrigin: true,
-    xfwd: true,
-    cookieDomainRewrite: '',
-    cookiePathRewrite: '/',
-    on: {
-      proxyReq: (proxyReq, req) => {
-        const clientIp =
-          req.headers['cf-connecting-ip'] ||
-          req.headers['x-real-ip'] ||
-          (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
-          req.socket?.remoteAddress ||
-          req.ip;
-
-        if (clientIp) {
-          proxyReq.setHeader('x-client-ip', clientIp);
-          proxyReq.setHeader('x-real-ip', clientIp);
-        }
-      },
-      error: (err, req, res) => {
-        console.error('[API Gateway] Proxy error to admin-service:', err.message);
-        if (!res.headersSent) {
-          res.status(502).json({
-            success: false,
-            message: 'Admin Service unavailable. Please ensure admin service is running.'
-          });
-        }
-      }
-    }
-  })
-);
-
+// Start HTTP gateway and log active route mappings
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[API Gateway] Running on http://localhost:${PORT}`);
   console.log(`[API Gateway] Routing /api/auth -> ${AUTH_SERVICE_URL}`);
@@ -1293,15 +625,16 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[API Gateway] Routing /hdri -> ${THREED_EDITOR_SERVICE_URL}`);
   console.log(`[API Gateway] Routing /textures -> ${THREED_EDITOR_SERVICE_URL}`);
   console.log(`[API Gateway] Routing /api/payment -> ${PAYMENT_SERVICE_URL}`);
-  console.log(`[API Gateway] Routing /api/user -> ${USER_SERVICE_URL}`);
-  console.log(`[API Gateway] Routing /api/forum -> ${USER_SERVICE_URL}`);
-  console.log(`[API Gateway] Routing /api/admin -> ${ADMIN_SERVICE_URL}`);
+  console.log(`[API Gateway] Routing /api/user -> ${APP_SERVICE_URL}`);
+  console.log(`[API Gateway] Routing /api/forum -> ${APP_SERVICE_URL}`);
+  console.log(`[API Gateway] Routing /api/admin -> ${ADMIN_USER_SERVICE_URL}`);
 });
 
+// Log uncaught process-level errors without crashing silently
 process.on('uncaughtException', (err) => {
   console.error('[CRITICAL] Uncaught exception in api-gateway:', err);
 });
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   console.error('[CRITICAL] Unhandled rejection in api-gateway:', reason);
 });
 
