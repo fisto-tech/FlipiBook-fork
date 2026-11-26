@@ -10,7 +10,7 @@ import {
   PENCIL_CURSOR,
   PEN_CURSOR,
   SHAPE_CURSOR,
-  TYPE_CURSOR,
+  TEXT_TOOL_CURSOR,
   svgGlobalStyles
 } from '../utils/constants';
 import { normalizeForeignObjectNamespaces, healTableElementNode } from '../../LeftActionMenu/Elements/utils/tableElementUtils';
@@ -151,7 +151,7 @@ export const CanvasViewport = ({
                     : (activeMainTool === 'pen'
                         ? (selectedPenTool === 'pencil' ? PENCIL_CURSOR : PEN_CURSOR)
                         : (activeMainTool === 'type'
-                            ? TYPE_CURSOR
+                            ? TEXT_TOOL_CURSOR
                             : (activeMainTool === 'hand' ? 'grab' : undefined)))),
             }}
           >
@@ -214,7 +214,7 @@ export const CanvasViewport = ({
                         return (
                           <div
                             className={`absolute inset-0 w-full h-full overflow-visible flex items-center justify-center ${isPopupEditor ? 'bg-transparent' : 'bg-white'}`}
-                            style={{ cursor: (isEditingTextRef?.current ? TYPE_CURSOR : (isPencilActive ? PENCIL_CURSOR : (isPenToolActive ? PEN_CURSOR : (isShapeActive ? SHAPE_CURSOR : (isTypeActive ? TYPE_CURSOR : 'default'))))) }}
+                            style={{ cursor: (isEditingTextRef?.current ? 'default' : (isPencilActive ? PENCIL_CURSOR : (isPenToolActive ? PEN_CURSOR : (isShapeActive ? SHAPE_CURSOR : (isTypeActive ? TEXT_TOOL_CURSOR : 'default'))))) }}
                           >
                             {pageHtml && (
                               <div
@@ -622,29 +622,6 @@ export const CanvasViewport = ({
                                   strokeLinejoin="miter"
                                 />
                               </svg>
-                            )}
-
-                            {isPageEmpty && (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none bg-transparent opacity-60">
-                                <div className="text-center text-[#B0B5C1] text-[0.85vw] font-normal leading-snug mb-[0.8vw]">
-                                  Ready-made templates<br />are available for a quicker start
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onOpenTemplateModal(displayIndex);
-                                  }}
-                                  className="text-[#5145F6] hover:text-[#3B2DD6] text-[0.85vw] font-medium mb-[0.8vw] pointer-events-auto cursor-pointer underline underline-offset-4 decoration-1"
-                                >
-                                  Add Templates
-                                </button>
-                                <div className="text-[#B0B5C1] text-[0.85vw] mb-[0.8vw] font-normal">
-                                  (or)
-                                </div>
-                                <div className="text-[#D1D5DB] text-[0.85vw] font-normal">
-                                  Create your own Design
-                                </div>
-                              </div>
                             )}
                           </div>
                         );

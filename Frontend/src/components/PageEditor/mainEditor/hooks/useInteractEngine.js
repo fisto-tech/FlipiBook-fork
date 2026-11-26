@@ -1851,6 +1851,9 @@ export const useInteractEngine = ({
                           div.classList.remove('flipbook-text-scrollbar');
                           div.style.setProperty('overflow', 'visible', 'important');
                         }
+                        window.dispatchEvent(new CustomEvent('text-sizing-mode-changed', {
+                          detail: { elementId: el.id, mode: 'auto-height' }
+                        }));
                       } else if (['nw', 'ne', 'sw', 'se'].includes(dir)) {
                         el.setAttribute('data-sizing-mode', 'fixed');
                         el.setAttribute('data-auto-wrap', 'true');
@@ -1872,12 +1875,18 @@ export const useInteractEngine = ({
                   div.style.setProperty('min-height', '0px', 'important');
 
                   if (!isScrollable) {
-                    if (dir === 'e' || dir === 'w') {
+                    if ((dir === 'e' || dir === 'w') && el.getAttribute('data-sizing-mode') !== 'fixed') {
                       // Resize width -> Auto height (Can shrink).
                       // Apply the new width FIRST so wrapping is measured at the size being dragged to;
                       // otherwise the height lags one step and the centered text is clipped top & bottom.
                       el.setAttribute('width', adjustedWidth);
                       adjustedHeight = Math.max(10, div.scrollHeight + 4);
+                    } else if (dir === 'e' || dir === 'w') {
+                      // Fixed mode -> keep box height fixed; allow text to overflow outside the box
+                      el.setAttribute('width', adjustedWidth);
+                      el.style.setProperty('overflow', 'visible', 'important');
+                      div.style.setProperty('overflow', 'visible', 'important');
+                      adjustedHeight = finalHeight;
                     } else if ((dir === 'n' || dir === 's') && el.getAttribute('data-sizing-mode') !== 'fixed') {
                       // Resize height -> adjust width to match new height, keeping text inside
                       let minW = 10;
