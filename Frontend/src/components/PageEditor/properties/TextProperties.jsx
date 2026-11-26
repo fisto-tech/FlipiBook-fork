@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Color from './FillStrokeProperties';
 import Effect from './controls/Effect';
 import { applyStyleToActiveTextSelection, safeSerializeSvg } from '../utils/editorUtils';
+import { applyStyleToCharacterRange, getSelectionCharacterOffsets, setSelectionCharacterOffsets } from '../utils/vectorTextRuns';
+import { createOrUpdateSvgPatternGradient } from '../../Color/utils/colorUtils';
 
 import { Icon } from '@iconify/react';
 import {
@@ -281,62 +283,57 @@ const syncGradient = (doc, element, baseAttr) => {
   Array.from(defs.querySelectorAll(`[id^="${gradIdPrefix}"]`)).forEach(oldGrad => oldGrad.remove());
 
   const gradId = `${gradIdPrefix}-${Math.random().toString(36).substr(2, 4)}`;
-  let gradEl = null;
+  const normGradType = String(gradType || 'linear').toLowerCase();
 
-  const svgGradType = (gradType === 'angular' || gradType === 'diamond') ? (gradType === 'angular' ? 'linear' : 'radial') : gradType;
-
-  if (gradEl && gradEl.tagName.toLowerCase() !== `${svgGradType}gradient`.toLowerCase()) {
-    gradEl.remove();
-    gradEl = null;
-  }
-
-  if (!gradEl) {
-    gradEl = ownerDoc.createElementNS("http://www.w3.org/2000/svg", `${svgGradType}Gradient`);
-    gradEl.id = gradId;
-    // Calculate angle for linear gradients
-    if (svgGradType === 'linear') {
-      const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
-      // Convert angle to SVG coordinates (0 deg is horizontal left-to-right)
-      const angleRad = (angle * Math.PI) / 180;
-      const x1 = Math.round(50 - Math.cos(angleRad) * 50) + '%';
-      const y1 = Math.round(50 - Math.sin(angleRad) * 50) + '%';
-      const x2 = Math.round(50 + Math.cos(angleRad) * 50) + '%';
-      const y2 = Math.round(50 + Math.sin(angleRad) * 50) + '%';
-
-      gradEl.setAttribute('x1', x1);
-      gradEl.setAttribute('y1', y1);
-      gradEl.setAttribute('x2', x2);
-      gradEl.setAttribute('y2', y2);
-    } else {
-      const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '50');
-      gradEl.setAttribute('cx', '50%');
-      gradEl.setAttribute('cy', '50%');
-      gradEl.setAttribute('r', radius + '%');
-    }
-    defs.appendChild(gradEl);
-  } else if (svgGradType === 'linear') {
-    // Update existing linear gradient angle
-    const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
-    const angleRad = (angle * Math.PI) / 180;
-    gradEl.setAttribute('x1', Math.round(50 - Math.cos(angleRad) * 50) + '%');
-    gradEl.setAttribute('y1', Math.round(50 - Math.sin(angleRad) * 50) + '%');
-    gradEl.setAttribute('x2', Math.round(50 + Math.cos(angleRad) * 50) + '%');
-    gradEl.setAttribute('y2', Math.round(50 + Math.sin(angleRad) * 50) + '%');
+  if (normGradType === 'angular' || normGradType === 'diamond') {
+    createOrUpdateSvgPatternGradient({
+      doc: ownerDoc,
+      defs,
+      gradId,
+      type: normGradType,
+      stops,
+      angle: parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0'),
+      radius: parseFloat(element.getAttribute(`${baseAttr}-radius`) || '100'),
+    });
   } else {
-    const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '50');
-    gradEl.setAttribute('cx', '50%');
-    gradEl.setAttribute('cy', '50%');
-    gradEl.setAttribute('r', radius + '%');
-  }
+    let gradEl = null;
+    const svgGradType = normGradType === 'radial' ? 'radial' : 'linear';
 
-  while (gradEl.firstChild) gradEl.removeChild(gradEl.firstChild);
-  stops.forEach(s => {
-    const stop = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "stop");
-    stop.setAttribute('offset', `${s.offset}%`);
-    stop.setAttribute('stop-color', s.color);
-    stop.setAttribute('stop-opacity', (s.opacity !== undefined && s.opacity !== null) ? s.opacity : 1);
-    gradEl.appendChild(stop);
-  });
+    if (!gradEl) {
+      gradEl = ownerDoc.createElementNS("http://www.w3.org/2000/svg", `${svgGradType}Gradient`);
+      gradEl.id = gradId;
+      // Calculate angle for linear gradients
+      if (svgGradType === 'linear') {
+        const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
+        // Convert angle to SVG coordinates (0 deg is horizontal left-to-right)
+        const angleRad = (angle * Math.PI) / 180;
+        const x1 = Math.round(50 - Math.cos(angleRad) * 50) + '%';
+        const y1 = Math.round(50 - Math.sin(angleRad) * 50) + '%';
+        const x2 = Math.round(50 + Math.cos(angleRad) * 50) + '%';
+        const y2 = Math.round(50 + Math.sin(angleRad) * 50) + '%';
+
+        gradEl.setAttribute('x1', x1);
+        gradEl.setAttribute('y1', y1);
+        gradEl.setAttribute('x2', x2);
+        gradEl.setAttribute('y2', y2);
+      } else {
+        const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '50');
+        gradEl.setAttribute('cx', '50%');
+        gradEl.setAttribute('cy', '50%');
+        gradEl.setAttribute('r', radius + '%');
+      }
+      defs.appendChild(gradEl);
+    }
+
+    while (gradEl.firstChild) gradEl.removeChild(gradEl.firstChild);
+    stops.forEach(s => {
+      const stop = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop.setAttribute('offset', `${s.offset}%`);
+      stop.setAttribute('stop-color', s.color);
+      stop.setAttribute('stop-opacity', (s.opacity !== undefined && s.opacity !== null) ? s.opacity : 1);
+      gradEl.appendChild(stop);
+    });
+  }
 
   const finalUrl = `url(#${gradId})`;
   element.setAttribute(baseAttr, finalUrl);
@@ -1104,6 +1101,7 @@ const TextProperties = ({
   // Refs
   const [activePanel, setActivePanel] = useState(null);
   const [showFontDropdown, setShowFontDropdown] = useState(false);
+
   const [showFontSizeDropdown, setShowFontSizeDropdown] = useState(false);
   const [showWeightDropdown, setShowWeightDropdown] = useState(false);
   const [showBorderStyleDropdown, setShowBorderStyleDropdown] = useState(false);
@@ -1161,6 +1159,109 @@ const TextProperties = ({
     const elWithId = selectedElement.id ? selectedElement : selectedElement.closest('[id]');
     return elWithId?.id;
   }, [selectedElement]);
+
+  /* ── Live font preview (Figma-style): hovering a font in the list previews it on the selected text,
+   *    with the selection box hidden. Purely visual — nothing is saved; leaving the list restores the
+   *    original font, clicking applies it through updateStyle as before.
+   *    Each previewed node keeps its original inline font in data-fp-orig / data-fp-prio so autosave
+   *    (which serializes the live canvas) writes the real font, never the preview. */
+  const fontPreviewRef = useRef(null);
+  // Selected characters of the text box (same rules as applyStyleToActiveTextSelection), or null = whole box
+  const getFontPreviewRange = (fo) => {
+    const contentDiv = fo.querySelector('[contenteditable="true"]') || fo.querySelector('.flipbook-text-scrollbar') || fo.firstElementChild;
+    if (!contentDiv) return null;
+    const editing = fo.getAttribute('data-editing') === 'true';
+    let r = editing ? getSelectionCharacterOffsets(contentDiv) : null;
+    const saved = editing ? window.__savedTextSelection : window.__lastTextSelection;
+    if ((!r || r.start === r.end) && saved && saved.elementId === fo.id) r = saved;
+    if (!r || r.start === r.end) return null;
+    return { contentDiv, start: r.start, end: r.end, editing };
+  };
+  // Preview CSS for each previewable property (font family / size / weight)
+  const PREVIEW_CSS = {
+    fontFamily: { css: 'font-family', val: (v) => `'${v}', sans-serif` },
+    fontSize: { css: 'font-size', val: (v) => `${parseFloat(v)}pt` },
+    fontWeight: {
+      css: 'font-weight',
+      val: (v) => ({ thin: '100', light: '300', normal: '400', medium: '500', semibold: '600', bold: '700', extrabold: '800', black: '900' }[normalizeToTailwindWeight(v)] || '400'),
+    },
+  };
+  const endFontPreview = useCallback(() => {
+    const st = fontPreviewRef.current;
+    if (!st) return;
+    if (st.range) {
+      // Selected-text preview: put the original markup back and re-select the same characters
+      const { contentDiv, html, start, end, editing } = st.range;
+      contentDiv.innerHTML = html;
+      contentDiv.removeAttribute('data-fp-html');
+      if (editing) { try { setSelectionCharacterOffsets(contentDiv, start, end); } catch { /* ignore */ } }
+    } else {
+      st.nodes.forEach(({ el, value, priority }) => {
+        if (value) el.style.setProperty(st.css, value, priority || '');
+        else el.style.removeProperty(st.css);
+        el.removeAttribute('data-fp-orig');
+        el.removeAttribute('data-fp-prio');
+        el.removeAttribute('data-fp-prop');
+      });
+    }
+    fontPreviewRef.current = null;
+    document.body.classList.remove('pe-font-previewing');
+    if (st.rootId) window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: st.rootId } }));
+  }, []);
+  /** Hover preview (Figma-style) of fontFamily / fontSize / fontWeight on the selected letters, or the whole box. */
+  const startStylePreview = useCallback((prop, value) => {
+    const root = selectedLayerId ? document.getElementById(selectedLayerId) : null;
+    const def = PREVIEW_CSS[prop];
+    if (!root || !def) return;
+    if (prop === 'fontFamily') loadGoogleFont(value);
+    const ensurePreviewStyle = () => {
+      if (!document.getElementById('pe-font-preview-style')) {
+        const st = document.createElement('style');
+        st.id = 'pe-font-preview-style';
+        st.textContent = 'body.pe-font-previewing [id^="highlight-overlay-"], body.pe-font-previewing [id^="overlay-poly-"], body.pe-font-previewing [id^="overlay-path-"], body.pe-font-previewing .resize-handle { opacity: 0 !important; transition: none !important; }';
+        document.head.appendChild(st);
+      }
+      document.body.classList.add('pe-font-previewing');
+    };
+    let cur = fontPreviewRef.current;
+    if (cur && (cur.rootId !== selectedLayerId || cur.prop !== prop)) { endFontPreview(); cur = null; }
+    if (!cur) {
+      const range = getFontPreviewRange(root);
+      if (range) {
+        const html = range.contentDiv.innerHTML;
+        range.contentDiv.setAttribute('data-fp-html', html); // autosave writes this, never the preview
+        cur = { rootId: selectedLayerId, prop, css: def.css, nodes: [], range: { ...range, html } };
+      } else {
+        const SKIP = new Set(['defs', 'clippath', 'filter', 'mask', 'pattern', 'lineargradient', 'radialgradient', 'stop', 'style', 'script', 'image', 'use', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline']);
+        const nodes = [root, ...root.querySelectorAll('*')]
+          .filter(n => !SKIP.has(n.tagName.toLowerCase()))
+          .map(el => {
+            const v = el.style.getPropertyValue(def.css);
+            const priority = el.style.getPropertyPriority(def.css);
+            el.setAttribute('data-fp-prop', def.css);
+            el.setAttribute('data-fp-orig', v || '');
+            el.setAttribute('data-fp-prio', priority || '');
+            return { el, value: v, priority };
+          });
+        cur = { rootId: selectedLayerId, prop, css: def.css, nodes };
+      }
+      fontPreviewRef.current = cur;
+      ensurePreviewStyle();
+    }
+    if (cur.range) {
+      cur.range.contentDiv.innerHTML = cur.range.html;
+      applyStyleToCharacterRange(cur.range.contentDiv, cur.range.start, cur.range.end, prop, prop === 'fontSize' ? `${parseFloat(value)}pt` : value);
+    } else {
+      const cssVal = def.val(value);
+      cur.nodes.forEach(({ el }) => el.style.setProperty(def.css, cssVal, 'important'));
+    }
+  }, [selectedLayerId, endFontPreview]);
+  const startFontPreview = useCallback((font) => startStylePreview('fontFamily', font), [startStylePreview]);
+  // Never leave a preview behind: dropdown closed, selection changed, or panel unmounted
+  useEffect(() => {
+    if (!showFontDropdown && !showFontSizeDropdown && !showWeightDropdown) endFontPreview();
+  }, [showFontDropdown, showFontSizeDropdown, showWeightDropdown, endFontPreview]);
+  useEffect(() => () => endFontPreview(), [selectedLayerId, endFontPreview]);
 
   // Sync scrollable state from element
   useEffect(() => {
@@ -3275,11 +3376,23 @@ const TextProperties = ({
       }
     };
 
+    const handleSizingModeChanged = (e) => {
+      if (!e.detail?.elementId || e.detail.elementId === selectedLayerId) {
+        if (e.detail?.mode) {
+          setSizingMode(e.detail.mode);
+        } else {
+          syncFromCanvas();
+        }
+      }
+    };
+
     document.addEventListener('selectionchange', handleSelectionChange);
+    window.addEventListener('text-sizing-mode-changed', handleSizingModeChanged);
 
     return () => {
       if (selectionTimeout) clearTimeout(selectionTimeout);
       document.removeEventListener('selectionchange', handleSelectionChange);
+      window.removeEventListener('text-sizing-mode-changed', handleSizingModeChanged);
       observer?.disconnect();
       if (commitTimerRef.current) {
         clearTimeout(commitTimerRef.current);
@@ -3341,6 +3454,7 @@ const TextProperties = ({
         <div className="relative flex-[1.6]" ref={dropdownRef}>
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()} // keep the selected text selected
             onClick={() => setShowFontDropdown(!showFontDropdown)}
             className="w-full h-[2.1vw] px-[0.7vw] flex items-center justify-between border border-gray-300 rounded-[0.45vw] bg-white hover:border-gray-400 shadow-2xs transition-colors cursor-pointer"
           >
@@ -3351,14 +3465,17 @@ const TextProperties = ({
           </button>
           {showFontDropdown && (
             <>
-              <div className="fixed inset-0 z-[90]" onClick={() => setShowFontDropdown(false)} />
-              <div className="absolute left-0 top-full mt-[0.35vw] w-full bg-white border border-gray-200 rounded-[0.5vw] shadow-xl max-h-[14vw] overflow-y-auto py-[0.25vw] z-[100] [&::-webkit-scrollbar]:w-[0.25vw] [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full animate-in fade-in zoom-in-95 duration-150">
+              <div className="fixed inset-0 z-[90]" onClick={() => { endFontPreview(); setShowFontDropdown(false); }} />
+              <div onMouseLeave={endFontPreview} className="absolute left-0 top-full mt-[0.35vw] w-full bg-white border border-gray-200 rounded-[0.5vw] shadow-xl max-h-[14vw] overflow-y-auto py-[0.25vw] z-[100] [&::-webkit-scrollbar]:w-[0.25vw] [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full animate-in fade-in zoom-in-95 duration-150">
                 {availableFontFamilies.map(font => {
                   const isSelected = font.toLowerCase() === (fontFamily || '').toLowerCase();
                   return (
                     <div
                       key={font}
+                      onMouseEnter={() => startFontPreview(font)}
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
+                        endFontPreview(); // restore the real font first, then apply normally (saved + undo)
                         loadGoogleFont(font);
                         updateStyle('fontFamily', font);
                         setShowFontDropdown(false);
@@ -3417,17 +3534,21 @@ const TextProperties = ({
             <ChevronDown
               size="0.8vw"
               className={`text-gray-400 cursor-pointer flex-shrink-0 transition-transform ${showFontSizeDropdown ? 'rotate-180' : ''}`}
+              onMouseDown={(e) => e.preventDefault()} // keep the selected text selected
               onClick={() => setShowFontSizeDropdown(!showFontSizeDropdown)}
             />
           </div>
           {showFontSizeDropdown && (
             <>
-              <div className="fixed inset-0 z-[90]" onClick={() => setShowFontSizeDropdown(false)} />
-              <div className="absolute right-0 top-full mt-[0.35vw] w-full bg-white border border-gray-200 rounded-[0.5vw] shadow-xl max-h-[14vw] overflow-y-auto py-[0.25vw] z-[100] [&::-webkit-scrollbar]:w-[0.25vw] [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full animate-in fade-in zoom-in-95 duration-150">
+              <div className="fixed inset-0 z-[90]" onClick={() => { endFontPreview(); setShowFontSizeDropdown(false); }} />
+              <div onMouseLeave={endFontPreview} className="absolute right-0 top-full mt-[0.35vw] w-full bg-white border border-gray-200 rounded-[0.5vw] shadow-xl max-h-[14vw] overflow-y-auto py-[0.25vw] z-[100] [&::-webkit-scrollbar]:w-[0.25vw] [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full animate-in fade-in zoom-in-95 duration-150">
                 {[6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 96, 120].map(size => (
                   <div
                     key={size}
+                    onMouseEnter={() => startStylePreview('fontSize', size)}
+                    onMouseDown={(e) => e.preventDefault()} // keep the selected text selected
                     onClick={() => {
+                      endFontPreview(); // restore first, then apply normally (saved + undo)
                       setFontSize(size);
                       updateStyle('fontSize', `${size}pt`);
                       setShowFontSizeDropdown(false);
@@ -3450,6 +3571,7 @@ const TextProperties = ({
         <div className="relative flex-1" ref={weightRef}>
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()} // keep the selected text selected
             onClick={() => setShowWeightDropdown(!showWeightDropdown)}
             className="w-full h-[2.1vw] px-[0.6vw] flex items-center justify-between border border-gray-300 rounded-[0.45vw] bg-white hover:border-gray-400 shadow-2xs transition-colors cursor-pointer"
           >
@@ -3458,12 +3580,15 @@ const TextProperties = ({
           </button>
           {showWeightDropdown && (
             <>
-              <div className="fixed inset-0 z-[90]" onClick={() => setShowWeightDropdown(false)} />
-              <div className="absolute left-0 top-full mt-[0.35vw] w-full bg-white border border-gray-200 rounded-[0.5vw] shadow-xl max-h-[14vw] overflow-y-auto py-[0.25vw] z-[100] [&::-webkit-scrollbar]:w-[0.25vw] [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full animate-in fade-in zoom-in-95 duration-150">
+              <div className="fixed inset-0 z-[90]" onClick={() => { endFontPreview(); setShowWeightDropdown(false); }} />
+              <div onMouseLeave={endFontPreview} className="absolute left-0 top-full mt-[0.35vw] w-full bg-white border border-gray-200 rounded-[0.5vw] shadow-xl max-h-[14vw] overflow-y-auto py-[0.25vw] z-[100] [&::-webkit-scrollbar]:w-[0.25vw] [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full animate-in fade-in zoom-in-95 duration-150">
                 {fontWeights.map(w => (
                   <div
                     key={w.value}
+                    onMouseEnter={() => startStylePreview('fontWeight', w.value)}
+                    onMouseDown={(e) => e.preventDefault()} // keep the selected text selected
                     onClick={() => {
+                      endFontPreview(); // restore first, then apply normally (saved + undo)
                       updateStyle('fontWeight', w.value);
                       setShowWeightDropdown(false);
                     }}

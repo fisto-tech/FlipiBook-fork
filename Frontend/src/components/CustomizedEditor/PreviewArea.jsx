@@ -1183,7 +1183,16 @@ const PreviewArea = React.memo(({
 
     // BOOK page index — what the counter, page input, thumbnails and progress bar use
     const onPageClick = useCallback((index) => {
-        bookRef.current?.pageFlip()?.turnToPage(index);
+        if (index === undefined || index === null || isNaN(index)) return;
+        const target = Math.max(0, parseInt(index, 10));
+        try {
+            const flip = bookRef.current?.pageFlip();
+            if (flip) {
+                flip.turnToPage(target);
+            }
+        } catch (e) {
+            console.warn('Page navigation failed', e);
+        }
     }, []);
 
     // Listen to page navigation events sent from the page iframe
@@ -1661,9 +1670,9 @@ const PreviewArea = React.memo(({
                 if (!iframe.contentDocument) return;
                 const container = iframe.contentDocument.getElementById('flipbook-watermark-container');
                 const img = iframe.contentDocument.getElementById('flipbook-watermark-img');
+                const ws = watermarkSettings;
 
                 if (container && img) {
-                    const ws = watermarkSettings;
                     const opacity = (ws?.opacity ?? 100) / 100;
                     const wmType = ws?.type || 'Fit';
                     const isFullPage = wmType === 'Fill' || wmType === 'Stretch';
@@ -1757,6 +1766,11 @@ const PreviewArea = React.memo(({
                     }
 
                     container.style.opacity = opacity;
+                    container.style.display = ws?.src ? 'block' : 'none';
+
+                    if (img.src !== ws?.src) {
+                        img.src = ws?.src || '';
+                    }
 
                     const scale = (ws?.scale ?? 100) / 100;
                     const rotate = ws?.rotate ?? 0;
@@ -1781,6 +1795,30 @@ const PreviewArea = React.memo(({
                     img.style.objectFit = objectFit;
                     img.style.transform = `scale(${scale}) rotate(${rotate}deg)`;
                     img.style.filter = filterStr;
+                } else if (ws?.src && iframe.contentDocument?.body) {
+                    const opacity = (ws?.opacity ?? 100) / 100;
+                    const scale = (ws?.scale ?? 100) / 100;
+                    const rotate = ws?.rotate ?? 0;
+                    const posX = ws?.positionX ?? 0;
+                    const posY = ws?.positionY ?? 0;
+                    const offset = '4%';
+                    let positionStyle = `bottom: ${offset}; right: ${offset};`;
+                    switch (ws?.position) {
+                        case 'Top Left': positionStyle = `top: ${offset}; left: ${offset};`; break;
+                        case 'Top Right': positionStyle = `top: ${offset}; right: ${offset};`; break;
+                        case 'Bottom Left': positionStyle = `bottom: ${offset}; left: ${offset};`; break;
+                        case 'Center': positionStyle = `top: 50%; left: 50%;`; break;
+                        default: break;
+                    }
+                    const transformStr = ws?.position === 'Center'
+                        ? `translate(calc(-50% + ${posX}%), calc(-50% + ${posY}))`
+                        : `translate(${posX}%, ${posY}%)`;
+
+                    const newDiv = iframe.contentDocument.createElement('div');
+                    newDiv.id = 'flipbook-watermark-container';
+                    newDiv.style.cssText = `position: absolute; z-index: 9999; pointer-events: none; opacity: ${opacity}; width: 15%; height: auto; ${positionStyle} transform: ${transformStr}; display: block;`;
+                    newDiv.innerHTML = `<img id="flipbook-watermark-img" src="${ws.src}" style="width: 100%; height: auto; object-fit: contain; transform: scale(${scale}) rotate(${rotate}deg); transform-origin: center center;" />`;
+                    iframe.contentDocument.body.appendChild(newDiv);
                 }
             } catch { }
         });
