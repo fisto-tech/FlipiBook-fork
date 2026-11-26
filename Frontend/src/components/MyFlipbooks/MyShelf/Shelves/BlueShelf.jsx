@@ -7,7 +7,7 @@ import blueshelfwood from '../../../../assets/Bookshelf/blueshelf/blueshelfwood.
 import bluedecor from '../../../../assets/Bookshelf/blueshelf/bluedecor.webp';
 import blueLamp from '../../../../assets/Bookshelf/blueshelf/Lamp.png';
 import blueBookWithPot from '../../../../assets/Bookshelf/blueshelf/bookwithpot.png';
-import blueSwitch from '../../../../assets/Bookshelf/blueshelf/switch.png';
+import PullRopeSwitch from './PullRopeSwitch';
 
 // ============================================================================
 // MANUAL PERCENTAGE ADJUSTMENT CONFIGURATION FOR BLUE SHELF (8 BOOKS)
@@ -109,15 +109,14 @@ const BlueShelf = ({
 
                 {/* Books & Slots Container (Adjustable via BLUE_SHELF_CONFIG above) */}
                 <div
-                  className={`absolute inset-x-0 flex items-end justify-center pointer-events-auto ${
-                    paddedBooks.some((_, bIdx) => {
-                      const bookIndex = i * booksPerRow + bIdx;
-                      return (
-                        (hoveredInfoId && (hoveredInfoId.includes(`blue-shelf-info-${bookIndex}`) || hoveredInfoId.includes(`fs-blue-shelf-${i}`) || hoveredInfoId.includes(`-${bookIndex}`))) ||
-                        (openMenuId && (openMenuId.includes(`blue-shelf-${bookIndex}`) || openMenuId.includes(`fs-blue-shelf-${i}`)))
-                      );
-                    }) ? 'z-[90]' : 'z-20'
-                  }`}
+                  className={`absolute inset-x-0 flex items-end justify-center pointer-events-auto ${paddedBooks.some((_, bIdx) => {
+                    const bookIndex = i * booksPerRow + bIdx;
+                    return (
+                      (hoveredInfoId && (hoveredInfoId.includes(`blue-shelf-info-${bookIndex}`) || hoveredInfoId.includes(`fs-blue-shelf-${i}`) || hoveredInfoId.includes(`-${bookIndex}`))) ||
+                      (openMenuId && (openMenuId.includes(`blue-shelf-${bookIndex}`) || openMenuId.includes(`fs-blue-shelf-${i}`)))
+                    );
+                  }) ? 'z-[90]' : 'z-20'
+                    }`}
                   style={{
                     bottom: cfg.bottom || '51.8%',
                     gap: cfg.gap || '1.2vw',
@@ -195,28 +194,19 @@ const BlueShelf = ({
         })}
       </div>
 
-      {/* 2. Wall Light Switch on right side */}
-      {showLightSwitch && (
-        <div
-          onClick={() => {
+      {/* 2. Smooth Pull-Rope Light Switch on right side */}
+      {showLightSwitch && decors?.lamp !== false && (
+        <PullRopeSwitch
+          isOn={Boolean(decors?.lights)}
+          onToggle={() => {
             if (typeof setDecors === 'function') {
               setDecors(prev => ({ ...prev, lights: !prev.lights }));
             }
           }}
-          className="absolute pointer-events-auto cursor-pointer z-30 transition-transform duration-150 active:scale-95 hover:scale-105 group"
-          style={{
-            right: '4.2%',
-            top: '12.0%',
-            width: '2.8%'
-          }}
-          title={decors?.lights ? "Turn Lights Off" : "Turn Lights On"}
-        >
-          <img
-            src={blueSwitch}
-            alt="Switch"
-            className="w-full h-auto block drop-shadow-md transition-all duration-200 opacity-100"
-          />
-        </div>
+          right="4.2%"
+          top="0%"
+          ropeLength={isFs ? 92 : 76}
+        />
       )}
 
       {/* 3. Credenza Base along the bottom (bluedecor.webp) with Lamp and Pots */}
