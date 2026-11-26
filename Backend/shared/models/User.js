@@ -29,9 +29,28 @@ const userSchema = new mongoose.Schema(
       default: '',
       index: true
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true
+    },
     isDeleted: {
       type: Boolean,
-      default: false
+      default: false,
+      index: true
+    },
+    deletedAt: {
+      type: Date,
+      default: null
+    },
+    scheduledPermanentDeleteAt: {
+      type: Date,
+      default: null,
+      index: true
+    },
+    deletionReason: {
+      type: String,
+      default: ''
     },
     otp: {
       code: {

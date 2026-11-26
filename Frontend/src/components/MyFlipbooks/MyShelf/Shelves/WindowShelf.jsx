@@ -8,7 +8,7 @@ import windowShelfBase from '../../../../assets/Bookshelf/window_shelf/base.png'
 import windowShelfPlank from '../../../../assets/Bookshelf/window_shelf/shelf.png';
 import windowShelfPlant from '../../../../assets/Bookshelf/window_shelf/plant.png';
 import windowShelfLight from '../../../../assets/Bookshelf/window_shelf/light.png';
-import windowShelfSwitch from '../../../../assets/Bookshelf/window_shelf/switch.png';
+import PullRopeSwitch from './PullRopeSwitch';
 
 // ============================================================================
 // MANUAL PERCENTAGE ADJUSTMENT CONFIGURATION FOR WINDOW SHELF
@@ -216,26 +216,19 @@ const WindowShelf = ({
 
       {/* 3b. Light Switch on Right Side of Pendant Lights */}
       {showLightSwitch && decors?.lightFixture !== false && (
-        <div
-          onClick={() => {
+        <PullRopeSwitch
+          variant="window"
+          isOn={Boolean(decors?.lights)}
+          onToggle={() => {
             if (typeof setDecors === 'function') {
               setDecors(prev => ({ ...prev, lights: !prev.lights }));
             }
           }}
-          className="absolute pointer-events-auto cursor-pointer z-30 transition-transform duration-150 active:scale-95 hover:scale-105 group"
-          style={{
-            right: '2.5%',
-            top: '12.0%',
-            width: '3.2%'
-          }}
-          title={decors?.lights ? "Turn Lights Off" : "Turn Lights On"}
-        >
-          <img
-            src={windowShelfSwitch}
-            alt="Switch"
-            className="w-full h-auto block drop-shadow-md transition-all duration-200 opacity-100"
-          />
-        </div>
+          right="2.5%"
+          top="0%"
+          ropeLength={isFs ? 92 : 76}
+          zIndex={30}
+        />
       )}
 
       {/* 4. White Wall Floating Shelf */}

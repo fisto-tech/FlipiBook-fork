@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import ShapeProperties from './ShapeProperties';
-import { getPenDefaults, setPenDefaults } from '../utils/penDefaults';
+import ShapeProperties from '../ShapeProperties';
+import { getPenDefaults, setPenDefaults } from '../../utils/penDefaults';
 
 /**
  * Shown while the Pen tool is active and nothing is selected: how to draw, plus the

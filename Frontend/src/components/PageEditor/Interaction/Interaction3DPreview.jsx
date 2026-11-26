@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
-import { CustomQRCode } from '../properties/Model3DEditor';
+import { CustomQRCode } from './Model3DEditor';
 import ColorPicker from '../../Color';
 import Hotspot3DOverlay from '../../ThreedEditor/Components/Hotspot3DOverlay';
 import axios from 'axios';

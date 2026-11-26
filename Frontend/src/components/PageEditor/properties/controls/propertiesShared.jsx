@@ -3,7 +3,7 @@
  * Common shared utility functions and UI components for editor properties panels.
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { ElementSlider } from '../LeftActionMenu/Elements/properties/ElementUIControls';
+import { ElementSlider } from '../../LeftActionMenu/Elements/properties/ElementUIControls';
 
 /**
  * Common horizontal scrub helper for dragging to change numbers.

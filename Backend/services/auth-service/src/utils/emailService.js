@@ -37,7 +37,7 @@ const createTransporter = () => {
  */
 const sendOtpEmail = async (toEmail, otp) => {
   const transporter = createTransporter();
-  const senderEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@flipibook.com';
+  const senderEmail = process.env.EMAIL_FROM || 'noreply@flipibook.com';
   const fromHeader = process.env.EMAIL_FROM_NAME
     ? `"${process.env.EMAIL_FROM_NAME}" <${senderEmail}>`
     : `"Flipbook" <${senderEmail}>`;

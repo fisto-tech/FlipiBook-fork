@@ -11,10 +11,10 @@ import {
 import * as LucideIcons from 'lucide-react';
 import ColorPicker, { parseGradient, generateGradientString } from '../../../../Color';
 import { IconsModal } from '../../Icons';
-import Effect from '../../../properties/Effect';
-import CornerRadius from '../../../properties/CornerRadius';
+import Effect from '../../../properties/controls/Effect';
+import CornerRadius from '../../../properties/controls/CornerRadius';
 import { ElementToggle, ElementDropdown, ElementSlider } from './ElementUIControls';
-import { handleScrubHelper } from '../../../properties/propertiesShared';
+import { handleScrubHelper } from '../../../properties/controls/propertiesShared';
 import { BUTTON_TEMPLATES } from '../utils/buttonElementUtils';
 import { CUSTOM_FONT_FAMILIES } from '../../../../../utils/customFonts';
 

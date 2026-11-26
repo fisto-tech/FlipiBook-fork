@@ -33,7 +33,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { normalizeForeignObjectNamespaces } from '../LeftActionMenu/Elements/utils/tableElementUtils';
 
 import { readIconPaint } from '../utils/iconPaint';
-import PenDefaultsPanel from '../properties/PenDefaultsPanel';
+import PenDefaultsPanel from '../properties/controls/PenDefaultsPanel';
 const RightSidebar = ({
   isDoublePage,
   setIsDoublePage,

@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import WhiteAttachedCurve from './WhiteAttachedCurve';
 import BookInfoModal from './BookInfoModal';
 import RatingsPanel from './RatingsPanel';
+import CreatorProfileModal from '../CreatorProfileModal';
 import { AVATAR_COLORS, getAvatarBg, checkInviteAutoExpired } from './shareViewUtils';
 
 const ShareViewBook = () => {
@@ -41,6 +42,7 @@ const ShareViewBook = () => {
 
     // Sidebar Modals & Panels State
     const [isBookInfoOpen, setIsBookInfoOpen] = useState(false);
+    const [isCreatorProfileOpen, setIsCreatorProfileOpen] = useState(false);
     const [isRatingsOpen, setIsRatingsOpen] = useState(false);
     const [editingRatingId, setEditingRatingId] = useState(null);
     const [ratingForm, setRatingForm] = useState({ name: '', rating: 0, review: '' });
@@ -1144,6 +1146,11 @@ const ShareViewBook = () => {
                         <span className="text-[0.7vw] font-medium text-[#2F296D] text-center leading-tight">Book<br />Info</span>
                     </button>
                     <div className="w-[60%] h-[1px] bg-gray-100 pointer-events-none"></div>
+                    <button onClick={() => { setIsRatingsOpen(false); setIsBookInfoOpen(false); setIsCreatorProfileOpen(true); }} className="flex flex-col items-center gap-[0.2vw] hover:bg-slate-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full">
+                        <Icon icon="lucide:circle-user" className="w-[1.2vw] h-[1.2vw] text-[#2F296D]" />
+                        <span className="text-[0.7vw] font-medium text-[#2F296D] text-center leading-tight">Profile</span>
+                    </button>
+                    <div className="w-[60%] h-[1px] bg-gray-100 pointer-events-none"></div>
                     <button onClick={() => setIsRatingsOpen(true)} className="flex flex-col items-center gap-[0.2vw] hover:bg-slate-50 py-[0.2vw] px-[0.4vw] rounded-xl group transition-all cursor-pointer w-full">
                         <div className="relative">
                             <Icon icon="iconamoon:star-light" className="w-[1.2vw] h-[1.2vw] text-yellow-500" />
@@ -1186,6 +1193,21 @@ const ShareViewBook = () => {
                 totalRatings={totalRatings}
                 renderStars={renderStars}
                 formatDisplayDate={formatDisplayDate}
+            />
+
+            <CreatorProfileModal
+                isOpen={isCreatorProfileOpen}
+                onClose={() => setIsCreatorProfileOpen(false)}
+                creator={{
+                    emailId: bookData?.userEmail || bookData?.emailId || bookData?.meta?.userEmail || '',
+                    userEmail: bookData?.userEmail || bookData?.emailId || bookData?.meta?.userEmail || '',
+                    name: bookData?.authorName || bookData?.creatorName || bookData?.Customized_Settings?.FlipbookInfo?.author || '',
+                    displayName: bookData?.authorName || bookData?.creatorName || bookData?.Customized_Settings?.FlipbookInfo?.author || '',
+                    picture: bookData?.authorPicture || null,
+                    avatarBgColor: bookData?.authorBgColor || undefined,
+                    shareId: shareId || bookData?.Customized_Settings?.Visibility?.shareId || bookData?.Visibility?.shareId,
+                    v_id: bookData?.v_id
+                }}
             />
 
             <RatingsPanel

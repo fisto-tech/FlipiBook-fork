@@ -7,10 +7,10 @@ import {
   Loader2
 } from 'lucide-react';
 import ColorPicker from '../../../../Color';
-import Effect from '../../../properties/Effect';
+import Effect from '../../../properties/controls/Effect';
 import { ElementToggle, ElementDropdown } from './ElementUIControls';
 import { getEmbedOverlayHtml } from '../utils/embedElementUtils';
-import { handleScrubHelper } from '../../../properties/propertiesShared';
+import { handleScrubHelper } from '../../../properties/controls/propertiesShared';
 
 const SectionHeader = ({ title, rightElement }) => (
   <div className="flex items-center gap-[0.8vw]">

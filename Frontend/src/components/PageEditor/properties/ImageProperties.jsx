@@ -7,12 +7,12 @@ import {
 } from 'lucide-react';
 import { parseGradient } from '../../Color';
 import Color from './FillStrokeProperties';
-import CornerRadius from './CornerRadius';
-import Effect from './Effect';
+import CornerRadius from './controls/CornerRadius';
+import Effect from './controls/Effect';
 import ReplaceMediaModal from '../modals/ReplaceMediaModal';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
 import { useAuth } from '../../../context/AuthContext';
-import { formatBytes } from './propertiesShared';
+import { formatBytes } from './controls/propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
 const ImageProperties = ({

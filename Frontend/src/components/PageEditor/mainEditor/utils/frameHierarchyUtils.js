@@ -1,4 +1,4 @@
-import { isElementCropped } from '../../properties/Crop';
+import { isElementCropped } from '../../properties/controls/Crop';
 import { getVisualBBox } from './geometryUtils';
 
 /**
