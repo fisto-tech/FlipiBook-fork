@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { createPortal } from 'react-dom';
 import ColorPicker, { parseGradient, generateGradientString, cssColorToHex } from '../../Color';
+import { createOrUpdateSvgPatternGradient } from '../../Color/utils/colorUtils';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { handleScrubHelper } from './controls/propertiesShared';
 export { handleScrubHelper };
@@ -339,43 +340,65 @@ const FillStrokeProperties = ({
               const gradEl = gradId && svgRoot ? svgRoot.querySelector(`#${gradId}`) : null;
               if (gradEl) {
                 const parsed = parseGradient(backgroundColor.fill);
-                const existingStops = Array.from(gradEl.querySelectorAll('stop'));
+                const parsedType = parsed?.type?.toLowerCase();
+                const isTargetSpecial = parsedType === 'angular' || parsedType === 'diamond';
+                const isCurrentPattern = gradEl.tagName.toLowerCase() === 'pattern';
 
-                const isTargetLinear = parsed?.type?.toLowerCase() === 'linear';
-                const isCurrentLinear = gradEl.tagName.toLowerCase() === 'lineargradient';
-
-                if (parsed && isTargetLinear === isCurrentLinear && parsed.stops.length > 0 && parsed.stops.length === existingStops.length) {
-                  // Same stop count and same type — just update colors and angle/radius in-place (fastest path, no React cycle)
-                  parsed.stops.forEach((ns, i) => {
-                    existingStops[i].setAttribute('stop-color', ns.color);
-                    existingStops[i].setAttribute('stop-opacity', (ns.opacity !== undefined ? ns.opacity / 100 : 1).toString());
+                if (parsed && isTargetSpecial && isCurrentPattern && parsed.stops.length > 0) {
+                  createOrUpdateSvgPatternGradient({
+                    doc: el.ownerDocument || document,
+                    defs: svgRoot.querySelector('defs'),
+                    gradId,
+                    existingEl: gradEl,
+                    type: parsedType,
+                    stops: parsed.stops,
+                    angle: parsed.angle || 0,
+                    radius: parsed.radius || 100,
                   });
-
-                  // Update angle/radius
-                  if (parsed.type.toLowerCase() === 'linear') {
-                    const angleRad = ((parsed.angle || 0) * Math.PI) / 180;
-                    const dx = Math.sin(angleRad) * 50;
-                    const dy = -Math.cos(angleRad) * 50;
-                    gradEl.setAttribute('x1', Math.round(50 - dx) + '%');
-                    gradEl.setAttribute('y1', Math.round(50 - dy) + '%');
-                    gradEl.setAttribute('x2', Math.round(50 + dx) + '%');
-                    gradEl.setAttribute('y2', Math.round(50 + dy) + '%');
-                  } else {
-                    const radius = parsed.radius || 50;
-                    gradEl.setAttribute('r', radius + '%');
-                    gradEl.setAttribute('cx', '50%');
-                    gradEl.setAttribute('cy', '50%');
-                  }
-
                   fillLayer.setAttribute('fill-opacity', (backgroundColor.fillOpacity / 100).toString());
-
-                  // Only skip onUpdate and data-fill-color during active drag to prevent lag.
-                  // If it's a preset click or drag has finished, we must sync state!
                   if (!isDraggingRef.current) {
                     el.setAttribute('data-fill-color', backgroundColor.fill);
                   }
-
                   fillFastPathDone = true;
+                } else {
+                  const existingStops = Array.from(gradEl.querySelectorAll('stop'));
+
+                  const isTargetLinear = parsedType === 'linear';
+                  const isCurrentLinear = gradEl.tagName.toLowerCase() === 'lineargradient';
+
+                  if (parsed && !isTargetSpecial && !isCurrentPattern && isTargetLinear === isCurrentLinear && parsed.stops.length > 0 && parsed.stops.length === existingStops.length) {
+                    // Same stop count and same type — just update colors and angle/radius in-place (fastest path, no React cycle)
+                    parsed.stops.forEach((ns, i) => {
+                      existingStops[i].setAttribute('stop-color', ns.color);
+                      existingStops[i].setAttribute('stop-opacity', (ns.opacity !== undefined ? ns.opacity / 100 : 1).toString());
+                    });
+
+                    // Update angle/radius
+                    if (parsedType === 'linear') {
+                      const angleRad = ((parsed.angle || 0) * Math.PI) / 180;
+                      const dx = Math.sin(angleRad) * 50;
+                      const dy = -Math.cos(angleRad) * 50;
+                      gradEl.setAttribute('x1', Math.round(50 - dx) + '%');
+                      gradEl.setAttribute('y1', Math.round(50 - dy) + '%');
+                      gradEl.setAttribute('x2', Math.round(50 + dx) + '%');
+                      gradEl.setAttribute('y2', Math.round(50 + dy) + '%');
+                    } else {
+                      const radius = parsed.radius || 50;
+                      gradEl.setAttribute('r', radius + '%');
+                      gradEl.setAttribute('cx', '50%');
+                      gradEl.setAttribute('cy', '50%');
+                    }
+
+                    fillLayer.setAttribute('fill-opacity', (backgroundColor.fillOpacity / 100).toString());
+
+                    // Only skip onUpdate and data-fill-color during active drag to prevent lag.
+                    // If it's a preset click or drag has finished, we must sync state!
+                    if (!isDraggingRef.current) {
+                      el.setAttribute('data-fill-color', backgroundColor.fill);
+                    }
+
+                    fillFastPathDone = true;
+                  }
                 }
               }
             }

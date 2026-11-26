@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Color from './FillStrokeProperties';
 import Effect from './controls/Effect';
 import { applyStyleToActiveTextSelection, safeSerializeSvg } from '../utils/editorUtils';
+import { createOrUpdateSvgPatternGradient } from '../../Color/utils/colorUtils';
 
 import { Icon } from '@iconify/react';
 import {
@@ -281,62 +282,57 @@ const syncGradient = (doc, element, baseAttr) => {
   Array.from(defs.querySelectorAll(`[id^="${gradIdPrefix}"]`)).forEach(oldGrad => oldGrad.remove());
 
   const gradId = `${gradIdPrefix}-${Math.random().toString(36).substr(2, 4)}`;
-  let gradEl = null;
+  const normGradType = String(gradType || 'linear').toLowerCase();
 
-  const svgGradType = (gradType === 'angular' || gradType === 'diamond') ? (gradType === 'angular' ? 'linear' : 'radial') : gradType;
-
-  if (gradEl && gradEl.tagName.toLowerCase() !== `${svgGradType}gradient`.toLowerCase()) {
-    gradEl.remove();
-    gradEl = null;
-  }
-
-  if (!gradEl) {
-    gradEl = ownerDoc.createElementNS("http://www.w3.org/2000/svg", `${svgGradType}Gradient`);
-    gradEl.id = gradId;
-    // Calculate angle for linear gradients
-    if (svgGradType === 'linear') {
-      const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
-      // Convert angle to SVG coordinates (0 deg is horizontal left-to-right)
-      const angleRad = (angle * Math.PI) / 180;
-      const x1 = Math.round(50 - Math.cos(angleRad) * 50) + '%';
-      const y1 = Math.round(50 - Math.sin(angleRad) * 50) + '%';
-      const x2 = Math.round(50 + Math.cos(angleRad) * 50) + '%';
-      const y2 = Math.round(50 + Math.sin(angleRad) * 50) + '%';
-
-      gradEl.setAttribute('x1', x1);
-      gradEl.setAttribute('y1', y1);
-      gradEl.setAttribute('x2', x2);
-      gradEl.setAttribute('y2', y2);
-    } else {
-      const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '50');
-      gradEl.setAttribute('cx', '50%');
-      gradEl.setAttribute('cy', '50%');
-      gradEl.setAttribute('r', radius + '%');
-    }
-    defs.appendChild(gradEl);
-  } else if (svgGradType === 'linear') {
-    // Update existing linear gradient angle
-    const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
-    const angleRad = (angle * Math.PI) / 180;
-    gradEl.setAttribute('x1', Math.round(50 - Math.cos(angleRad) * 50) + '%');
-    gradEl.setAttribute('y1', Math.round(50 - Math.sin(angleRad) * 50) + '%');
-    gradEl.setAttribute('x2', Math.round(50 + Math.cos(angleRad) * 50) + '%');
-    gradEl.setAttribute('y2', Math.round(50 + Math.sin(angleRad) * 50) + '%');
+  if (normGradType === 'angular' || normGradType === 'diamond') {
+    createOrUpdateSvgPatternGradient({
+      doc: ownerDoc,
+      defs,
+      gradId,
+      type: normGradType,
+      stops,
+      angle: parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0'),
+      radius: parseFloat(element.getAttribute(`${baseAttr}-radius`) || '100'),
+    });
   } else {
-    const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '50');
-    gradEl.setAttribute('cx', '50%');
-    gradEl.setAttribute('cy', '50%');
-    gradEl.setAttribute('r', radius + '%');
-  }
+    let gradEl = null;
+    const svgGradType = normGradType === 'radial' ? 'radial' : 'linear';
 
-  while (gradEl.firstChild) gradEl.removeChild(gradEl.firstChild);
-  stops.forEach(s => {
-    const stop = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "stop");
-    stop.setAttribute('offset', `${s.offset}%`);
-    stop.setAttribute('stop-color', s.color);
-    stop.setAttribute('stop-opacity', (s.opacity !== undefined && s.opacity !== null) ? s.opacity : 1);
-    gradEl.appendChild(stop);
-  });
+    if (!gradEl) {
+      gradEl = ownerDoc.createElementNS("http://www.w3.org/2000/svg", `${svgGradType}Gradient`);
+      gradEl.id = gradId;
+      // Calculate angle for linear gradients
+      if (svgGradType === 'linear') {
+        const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
+        // Convert angle to SVG coordinates (0 deg is horizontal left-to-right)
+        const angleRad = (angle * Math.PI) / 180;
+        const x1 = Math.round(50 - Math.cos(angleRad) * 50) + '%';
+        const y1 = Math.round(50 - Math.sin(angleRad) * 50) + '%';
+        const x2 = Math.round(50 + Math.cos(angleRad) * 50) + '%';
+        const y2 = Math.round(50 + Math.sin(angleRad) * 50) + '%';
+
+        gradEl.setAttribute('x1', x1);
+        gradEl.setAttribute('y1', y1);
+        gradEl.setAttribute('x2', x2);
+        gradEl.setAttribute('y2', y2);
+      } else {
+        const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '50');
+        gradEl.setAttribute('cx', '50%');
+        gradEl.setAttribute('cy', '50%');
+        gradEl.setAttribute('r', radius + '%');
+      }
+      defs.appendChild(gradEl);
+    }
+
+    while (gradEl.firstChild) gradEl.removeChild(gradEl.firstChild);
+    stops.forEach(s => {
+      const stop = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop.setAttribute('offset', `${s.offset}%`);
+      stop.setAttribute('stop-color', s.color);
+      stop.setAttribute('stop-opacity', (s.opacity !== undefined && s.opacity !== null) ? s.opacity : 1);
+      gradEl.appendChild(stop);
+    });
+  }
 
   const finalUrl = `url(#${gradId})`;
   element.setAttribute(baseAttr, finalUrl);
