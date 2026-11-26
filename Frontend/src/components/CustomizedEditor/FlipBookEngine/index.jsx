@@ -1451,13 +1451,17 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       duration: typeof flipTime === "number" && flipTime > 50 ? flipTime : 850,
       acceleration: true,
       gradients: true,
-      cornerSize: 100,
+      cornerSize: useMouseEvents ? 100 : 0,
       elevation: 50,
       pages: totalPages,
       page: initPage,
       autoCenter: false,
       when: {
         start: (e, pageObject, corner) => {
+          if (!useMouseEvents && corner) {
+            e.preventDefault();
+            return false;
+          }
           if (corner) lastPeelRef.current = pageObject || null;
           if (corner) {
             // Warm the pages about to be revealed as soon as a corner drag begins
@@ -1632,8 +1636,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       },
     });
 
-    if (!useMouseEvents) $book.turn("disable", true);
-
+    // When useMouseEvents is false, we prevent corner drag & peeling via cornerSize: 0 and start event cancellation
+    // rather than calling $book.turn("disable", true), which would disable manual buttons and programmatic navigation.
     [initPage, initPage + 1, initPage + 2].forEach((p) => preloadPageToDom(p));
     markUnderSheetRef.current();
 

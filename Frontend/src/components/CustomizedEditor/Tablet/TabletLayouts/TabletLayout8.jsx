@@ -403,9 +403,7 @@ const TabletLayout8 = ({
 
                     {/* Block 3: Actions */}
                     <div className="flex items-center gap-[1.5cqw]">
-                        {(settings?.brandingProfile?.profile ?? true) && (
-                            <ToolbarBtn icon="fluent:person-24-filled" onClick={() => setShowProfilePopup(!showProfilePopup)} bg={primaryColor} />
-                        )}
+
                         {(settings?.shareExport?.share ?? true) && (
                             <ToolbarBtn icon="mage:share-fill" onClick={() => {
                                 setShowTOCMemo?.(false);

@@ -470,15 +470,6 @@ const Sidebar = ({
               hasDropdown={false}
             />
 
-            <SidebarItem
-              id="section-statistic"
-              icon="famicons:analytics"
-              label="Analytics"
-              isActive={activeSubView === "statistic"}
-              onClick={() => setActiveSubView("statistic")}
-              hasDropdown={false}
-            />
-
             <div className="w-[calc(100%-2vw)] h-[1px] bg-gray-200 mx-[1vw] my-[0.5vh]"></div>
 
             <SidebarItem

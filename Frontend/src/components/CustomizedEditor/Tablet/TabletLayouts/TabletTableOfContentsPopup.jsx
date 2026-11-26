@@ -179,11 +179,12 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
     }
 
     if (isLayout7) {
-        const bgColor = getLayoutColor('toc-bg', '#555555');
+        const headerBg = getLayoutColor('toolbar-bg', '#555555');
+        const headerTextColor = getLayoutColor('toolbar-text-main', '#FFFFFF');
         const textColor = getLayoutColor('toc-text', '#555555');
 
         return (
-            <div className="absolute inset-0 z-50 pointer-events-none flex items-end justify-start pb-[14%] pl-[24%]">
+            <div className="absolute inset-0 z-50 pointer-events-none flex items-end justify-start pb-[9%] pl-[24%]">
                 <div className="absolute inset-0 pointer-events-auto" onClick={(e) => { e.stopPropagation(); onClose(); }} />
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -193,8 +194,8 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Header */}
-                    <div className="flex-none px-[1.5cqw] py-[1cqw]" style={{ backgroundColor: bgColor }}>
-                        <h2 className="text-[1.3cqw] font-bold text-white tracking-wide">
+                    <div className="flex-none px-[1.5cqw] py-[1cqw]" style={{ backgroundColor: headerBg }}>
+                        <h2 className="text-[1.3cqw] font-bold tracking-wide" style={{ color: headerTextColor }}>
                             Table of Contents
                         </h2>
                     </div>
@@ -254,10 +255,10 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
 
     return (
         <div
-            className={(isLayout2 || isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6)
+            className={(isLayout2 || isLayout3 || isLayout4 || isLayout5 || isLayout6)
                 ? "absolute inset-0 pointer-events-none"
-                : "absolute inset-0 z-50 pointer-events-auto flex items-end justify-start pb-[8cqw] pl-[2cqw]"}
-            style={(isLayout2 || isLayout3 || isLayout4 || isLayout5 || isLayout6) ? { zIndex: 100 } : {}}
+                : "absolute inset-0 z-[1000] pointer-events-auto flex items-end justify-start pb-[8cqw] pl-[2cqw]"}
+            style={(isLayout2 || isLayout3 || isLayout4 || isLayout5 || isLayout6) ? { zIndex: 1000 } : { zIndex: 1000 }}
         >
 
 
@@ -269,7 +270,7 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
 
             <div
                 className={isLayout6
-                    ? "absolute left-[6.8cqw] bottom-[7.5%] top-[10cqw] w-[26cqw] bg-[#F5F6F8] rounded-t-[1.5cqw] shadow-[-4px_0_24px_rgba(0,0,0,0.15)] flex flex-col pointer-events-auto z-10"
+                    ? "absolute left-[5.5cqw] top-1/2 -translate-y-1/2 w-[26cqw] rounded-[1.5cqw] shadow-[0_8px_30px_rgba(0,0,0,0.2)] flex flex-col pointer-events-auto z-10 backdrop-blur-md border border-white/20"
                     : isLayout5
                         ? "absolute bottom-[11cqh] left-[41cqw] w-[26cqw] min-h-[16cqw] max-h-[60cqw] bg-white rounded-[1.2cqw] shadow-[0_1cqw_3cqw_rgba(0,0,0,0.1)] flex flex-col pointer-events-auto p-[2cqw] z-10"
                         : isLayout6 ? "absolute right-0 top-0 bottom-0 w-[25cqw] bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.15)] flex flex-col pointer-events-auto z-10" : isLayout6 ? "absolute right-0 top-0 bottom-0 w-[26cqw] bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.15)] flex flex-col pointer-events-auto z-10" : isLayout4 ? "absolute left-0 top-0 bottom-0 w-[25cqw] bg-white shadow-[4px_0_24px_rgba(0,0,0,0.15)] flex flex-col pointer-events-auto z-10"
@@ -279,8 +280,8 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
                                     ? "absolute top-[9%] left-[30cqw] w-[25cqw] max-h-[60cqw] rounded-[1cqw] shadow-[0_2cqw_5cqw_rgba(0,0,0,0.3)] overflow-hidden flex flex-col pointer-events-auto p-[1.5cqw] border-[4px] border-white/80"
                                     : "relative w-[26cqw] max-h-[70cqw] rounded-[1.5cqw] shadow-[0_1cqw_4cqw_rgba(0,0,0,0.2)] overflow-hidden flex flex-col z-10"
                 }
-                style={(isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6)
-                    ? { backgroundColor: getLayoutColor('toc-bg', isLayout6 ? '#F3F4F6' : '#FFFFFF') }
+                style={(isLayout3 || isLayout4 || isLayout5 || isLayout6)
+                    ? { backgroundColor: isLayout6 ? getLayoutColorAlpha('toc-bg', '85, 85, 85', 0.6) : getLayoutColor('toolbar-bg', '#555555') }
                     : isLayout2
                         ? { backgroundColor: 'rgba(var(--toc-bg-rgb, 98, 95, 162), 0.95)', backdropFilter: 'blur(12px)' }
                         : { backgroundColor: `rgba(var(--toc-bg-rgb, 87, 92, 156), 0.9)`, backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.15)' }
@@ -292,13 +293,13 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
                 )}
                 <div className={isLayout5 ? "flex items-center justify-between mb-[1.5cqw]" : (isLayout4 || isLayout6 || isLayout6) ? "flex items-center justify-between p-[2cqw] pb-[1cqw]" : isLayout3 ? "mb-[1.5cqw]" : isLayout2 ? "flex items-center mb-[1.5cqw]" : "flex-none text-center mb-[1cqw] pt-[2cqw]"}>
                     <h2
-                        className={isLayout5 ? "text-[1.5cqw] font-bold" : (isLayout4 || isLayout6 || isLayout6) ? "text-[1.8cqw] font-bold" : isLayout3 ? "text-[1.3cqw] font-bold" : isLayout2 ? "text-[1.4cqw] font-bold text-white mr-[1cqw]" : "text-[1.8cqw] font-bold mb-[1cqw] text-white px-[2cqw]"}
-                        style={(isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6) ? { color: getLayoutColor('toc-text', '#555555') } : {}}
+                        className={isLayout5 ? "text-[1.5cqw] font-bold" : (isLayout4 || isLayout6) ? "text-[1.8cqw] font-bold" : isLayout3 ? "text-[1.3cqw] font-bold" : isLayout2 ? "text-[1.4cqw] font-bold text-white mr-[1cqw]" : "text-[1.8cqw] font-bold mb-[1cqw] text-white px-[2cqw]"}
+                        style={(isLayout3 || isLayout4 || isLayout5) ? { color: getLayoutColor('toc-text', '#555555') } : isLayout6 ? { color: getLayoutColor('toolbar-text-main', '#FFFFFF') } : {}}
                     >
                         Table of Contents
                     </h2>
-                    {(isLayout4 || isLayout6 || isLayout6) && (
-                        <button onClick={onClose} className="transition-colors hover:opacity-70" style={{ color: getLayoutColor('toc-text', '#555555') }}>
+                    {(isLayout4 || isLayout6) && (
+                        <button onClick={onClose} className="transition-colors hover:opacity-70" style={{ color: isLayout6 ? getLayoutColor('toolbar-text-main', '#FFFFFF') : getLayoutColor('toc-text', '#555555') }}>
                             <Icon icon="lucide:x" className="w-[2cqw] h-[2cqw]" />
                         </button>
                     )}
@@ -310,19 +311,19 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
                         )
                     )}
                 </div>
-                {(isLayout4 || isLayout6 || isLayout6) && <div className="h-[1px] w-full mb-[1.5cqw]" style={{ backgroundColor: getLayoutColorAlpha('toc-text', '85,85,85', 0.1) }}></div>}
+                {(isLayout4 || isLayout6 || isLayout6) && <div className="h-[1px] w-full mb-[1.5cqw]" style={{ backgroundColor: isLayout6 ? 'rgba(255, 255, 255, 0.15)' : getLayoutColorAlpha('toc-text', '85,85,85', 0.1) }}></div>}
 
                 {addSearch && (
                     <div className={isLayout5 ? "relative mb-[2cqw] w-full flex-none" : (isLayout4 || isLayout6 || isLayout6) ? "relative mb-[2cqw] px-[2cqw] flex-none" : isLayout3 ? "flex items-center mb-[1.5cqw] w-full" : isLayout2 ? "relative mb-[2cqw]" : "relative mb-[2cqw] px-[2cqw] flex-none"}>
                         <Icon
                             icon="lucide:search"
                             className={isLayout5 ? "absolute left-[1.2cqw] top-1/2 -translate-y-1/2 w-[1.2cqw] h-[1.2cqw]" : (isLayout4 || isLayout6 || isLayout6) ? "absolute left-[2.8cqw] top-1/2 -translate-y-1/2 w-[1.4cqw] h-[1.4cqw]" : isLayout3 ? "flex-shrink-0 w-[1.1cqw] h-[1.1cqw] ml-[0.2cqw]" : isLayout2 ? "absolute left-[0.8cqw] top-1/2 -translate-y-1/2 w-[1.1cqw] h-[1.1cqw] text-white/70" : "absolute left-[3.2cqw] top-1/2 -translate-y-1/2 w-[1.5cqw] h-[1.5cqw] text-white/60"}
-                            style={(isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6) ? { color: getLayoutColor('toc-text', '#A3A6C4'), opacity: 0.6 } : {}}
+                            style={isLayout6 ? { color: getLayoutColor('toolbar-text-main', '#FFFFFF'), opacity: 0.6 } : (isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6) ? { color: getLayoutColor('toc-text', '#A3A6C4'), opacity: 0.6 } : {}}
                         />
                         {(isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6) && (
                             <style>{`
                                 .tablet-toc-search::placeholder {
-                                    color: ${getLayoutColor('toc-text', '#A3A6C4')} !important;
+                                    color: ${isLayout6 ? getLayoutColor('toolbar-text-main', '#FFFFFF') : getLayoutColor('toc-text', '#A3A6C4')} !important;
                                     opacity: 0.6;
                                 }
                             `}</style>
@@ -334,13 +335,15 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className={isLayout5
                                 ? "tablet-toc-search w-full rounded-[0.6cqw] pl-[3.2cqw] pr-[1cqw] py-[0.8cqw] text-[1.2cqw] outline-none transition-colors border"
-                                : (isLayout4 || isLayout6 || isLayout6) ? "tablet-toc-search w-full rounded-[0.5cqw] pl-[3cqw] pr-[1cqw] py-[0.8cqw] text-[1.3cqw] outline-none border transition-colors bg-white/50"
+                                : (isLayout4 || isLayout6 || isLayout6) ? "tablet-toc-search w-full rounded-[0.5cqw] pl-[3cqw] pr-[1cqw] py-[0.8cqw] text-[1.3cqw] outline-none border transition-colors bg-white/10"
                                     : isLayout3
                                         ? "tablet-toc-search flex-1 min-w-0 pl-[0.5cqw] pr-[0.8cqw] py-[0.5cqw] text-[0.9cqw] outline-none bg-transparent font-medium leading-tight"
                                         : isLayout2
                                             ? "w-full rounded-[0.8cqw] pl-[2.8cqw] pr-[0.8cqw] py-[0.6cqw] text-[1cqw] outline-none transition-colors placeholder:text-white/50 text-white"
                                             : "w-full rounded-full pl-[4cqw] pr-[1.5cqw] py-[0.8cqw] text-[1.4cqw] outline-none border transition-colors placeholder:text-white/50 text-white"}
-                            style={(isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6)
+                            style={isLayout6
+                                ? { color: getLayoutColor('toolbar-text-main', '#FFFFFF'), borderColor: 'rgba(255, 255, 255, 0.15)' }
+                                : (isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6)
                                 ? { color: getLayoutColor('toc-text', '#555555'), backgroundColor: (isLayout5 || isLayout6 || isLayout6) ? getLayoutColorAlpha('toc-text', '85,85,85', 0.05) : undefined, borderColor: (isLayout4 || isLayout5 || isLayout6 || isLayout6) ? getLayoutColorAlpha('toc-text', '85,85,85', 0.2) : undefined }
                                 : isLayout2
                                     ? { backgroundColor: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.3)', boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.1)' }
@@ -403,11 +406,11 @@ const TabletTableOfContentsPopup = ({ onClose, onNavigate: onNavigateEditorPage,
                             </React.Fragment>
                         ))
                     ) : (
-                        <div className={isLayout6 ? "flex flex-col items-center justify-center py-[10cqw] select-none font-bold opacity-60" : isLayout6 ? "flex flex-col items-center justify-center py-[10cqw] select-none font-bold" : isLayout5 ? "flex flex-col items-center justify-center py-[4cqw] select-none font-medium" : isLayout4 ? "flex flex-col items-center justify-center py-[10cqw] select-none font-medium" : isLayout3 ? "flex flex-col items-center justify-center py-[2cqw] select-none font-medium" : isLayout2 ? "flex flex-col items-center justify-center py-[2cqw] opacity-70 select-none text-white font-bold tracking-wide" : "flex flex-col items-center justify-center py-[4cqw] opacity-60 select-none text-white font-semibold"} style={(isLayout3 || isLayout4 || isLayout5 || isLayout6 || isLayout6) ? { color: getLayoutColor('toc-text', '#555555'), opacity: (isLayout6 ? 0.6 : 0.7) } : {}}>
+                        <div className={isLayout6 ? "flex flex-col items-center justify-center py-[10cqw] select-none font-bold" : isLayout5 ? "flex flex-col items-center justify-center py-[4cqw] select-none font-medium" : isLayout4 ? "flex flex-col items-center justify-center py-[10cqw] select-none font-medium" : isLayout3 ? "flex flex-col items-center justify-center py-[2cqw] select-none font-medium" : isLayout2 ? "flex flex-col items-center justify-center py-[2cqw] opacity-70 select-none text-white font-bold tracking-wide" : "flex flex-col items-center justify-center py-[4cqw] opacity-60 select-none text-white font-semibold"} style={isLayout6 ? { color: getLayoutColor('toolbar-text-main', '#FFFFFF'), opacity: 0.6 } : (isLayout3 || isLayout4 || isLayout5) ? { color: getLayoutColor('toc-text', '#555555'), opacity: 0.7 } : {}}>
                             {isLayout6 && (
-                                <Icon icon="fa6-solid:list" className="w-[4cqw] h-[4cqw] mb-[2cqw] opacity-40" />
+                                <Icon icon="fluent:text-bullet-list-24-filled" className="w-[4cqw] h-[4cqw] mb-[2cqw] opacity-40" />
                             )}
-                            <span className={(isLayout6 || isLayout6) ? "text-[1.4cqw]" : isLayout5 ? "text-[1.2cqw]" : isLayout4 ? "text-[1.4cqw]" : isLayout3 ? "text-[1.1cqw]" : isLayout2 ? "text-[1cqw]" : "text-[1.4cqw]"} style={isLayout2 ? { textShadow: '0 1px 2px rgba(0,0,0,0.2)' } : {}}>
+                            <span className={(isLayout6) ? "text-[1.4cqw]" : isLayout5 ? "text-[1.2cqw]" : isLayout4 ? "text-[1.4cqw]" : isLayout3 ? "text-[1.1cqw]" : isLayout2 ? "text-[1cqw]" : "text-[1.4cqw]"} style={isLayout2 ? { textShadow: '0 1px 2px rgba(0,0,0,0.2)' } : {}}>
                                 {isLayout5 ? 'No content' : 'No Table of Contents'}
                             </span>
                         </div>
