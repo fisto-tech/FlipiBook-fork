@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Lock, Unlock } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { getVisualBBox } from '../mainEditor/utils/geometryUtils';
-import { handleScrubHelper } from './Color';
+import { handleScrubHelper } from './FillStrokeProperties';
 
 export const DimensionInput = ({ targetId, targetAttr, value, readOnly, onChange, className }) => {
   const [localVal, setLocalVal] = useState('');

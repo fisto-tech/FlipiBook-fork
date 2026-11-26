@@ -5,8 +5,8 @@ import { getSvgImageEl, syncGradient } from '../utils/editorUtils';
 import {
   ChevronDown,
 } from 'lucide-react';
-import { parseGradient } from './ColorPicker';
-import Color from './Color';
+import { parseGradient } from '../../Color';
+import Color from './FillStrokeProperties';
 import CornerRadius from './CornerRadius';
 import Effect from './Effect';
 import ReplaceMediaModal from '../modals/ReplaceMediaModal';

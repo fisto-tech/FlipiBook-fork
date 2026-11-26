@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { X, Search } from 'lucide-react';
@@ -7,7 +6,6 @@ import { ELEMENT_CATEGORIES, searchElementCatalog, getElementItemById } from './
 import { useRulerState, useElementInsertion, useCanvasDropListener } from './hooks';
 import { CategorySidebarList, ElementGridCard } from './components';
 
-import PixabayImagesPanel from './components/PixabayImagesPanel';
 const RECENT_ELEMENTS_STORAGE_KEY = 'flipibook_recent_elements';
 const MAX_RECENT_ELEMENTS = 24;
 
@@ -43,110 +41,8 @@ export const AddElementsModal = ({
   const [selectedCategory, setSelectedCategory] = useState('shapes');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Initial viewport coordinates for fixed portal positioning
-  const [modalPos, setModalPos] = useState({ x: 100, y: 70 });
-
   // Synchronized ruler state custom hook
   const [rulerActive] = useRulerState(isRulerEnabled);
-
-  // Dynamic drag constraints covering the full browser viewport (above layer, sidebar, top toolbar)
-  const [dragConstraints, setDragConstraints] = useState({
-    top: -50,
-    left: -200,
-    right: 1200,
-    bottom: 600,
-  });
-
-  // Calculate initial viewport position when modal opens next to the "Add Elements" button (below navbar)
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const nav = document.querySelector('nav');
-    const navbarBottom = nav ? nav.getBoundingClientRect().bottom : Math.round(window.innerHeight * 0.07);
-    const minAllowedTop = navbarBottom + 8;
-
-    const elementsBtn = document.querySelector('button[title="Add Elements"]');
-    const container = dragConstraintsRef?.current;
-    let initialX = 100;
-    let initialY = minAllowedTop + 10;
-
-    if (elementsBtn) {
-      const btnRect = elementsBtn.getBoundingClientRect();
-      initialX = Math.round(btnRect.right + 12);
-      initialY = Math.max(minAllowedTop, Math.round(btnRect.top));
-    } else if (container) {
-      const cRect = container.getBoundingClientRect();
-      initialX = Math.round(cRect.left + (rulerActive ? window.innerWidth * 0.062 : window.innerWidth * 0.05));
-      initialY = Math.max(minAllowedTop, Math.round(cRect.top + (rulerActive ? window.innerWidth * 0.022 : window.innerWidth * 0.01)));
-    }
-
-    setModalPos({ x: initialX, y: initialY });
-  }, [isOpen, rulerActive, dragConstraintsRef]);
-
-  // Compute travel constraints relative to modal's initial position across full window
-  const updateDragConstraints = useCallback(() => {
-    const modal = modalRef.current;
-    if (!modal) return;
-
-    const mRect = modal.getBoundingClientRect();
-
-    // Get current transform offset if already dragged
-    let currentX = 0;
-    let currentY = 0;
-    try {
-      const transform = window.getComputedStyle(modal).transform;
-      if (transform && transform !== 'none') {
-        const MatrixClass = window.DOMMatrixReadOnly || window.DOMMatrix || window.WebKitCSSMatrix;
-        if (MatrixClass) {
-          const matrix = new MatrixClass(transform);
-          currentX = matrix.m41;
-          currentY = matrix.m42;
-        }
-      }
-    } catch {
-      // fallback
-    }
-
-    // Modal's initial un-transformed position on screen
-    const baseLeft = mRect.left - currentX;
-    const baseTop = mRect.top - currentY;
-    const mWidth = mRect.width || 380;
-
-    // Detect navbar bottom boundary so modal never enters/covers the navbar
-    const nav = document.querySelector('nav');
-    const navbarBottom = nav ? nav.getBoundingClientRect().bottom : Math.round(window.innerHeight * 0.07);
-    const minAllowedTop = navbarBottom + 8;
-
-    // Up: can move up only until minAllowedTop (stops below Navbar, can float over Top Toolbar)
-    const maxUp = minAllowedTop - baseTop;
-    // Left: can move left to 10px from screen left (above Layer Sidebar)
-    const maxLeft = -(baseLeft - 10);
-    // Right: can move right across full window (above RightSidebar)
-    const maxRight = Math.max(50, window.innerWidth - baseLeft - mWidth - 10);
-    // Down: can move down until header remains accessible
-    const maxDown = Math.max(50, window.innerHeight - baseTop - 60);
-
-    setDragConstraints({
-      top: Math.min(0, maxUp),
-      left: Math.min(0, maxLeft),
-      right: maxRight,
-      bottom: maxDown,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const frameId = requestAnimationFrame(() => {
-      updateDragConstraints();
-    });
-
-    window.addEventListener('resize', updateDragConstraints);
-    return () => {
-      cancelAnimationFrame(frameId);
-      window.removeEventListener('resize', updateDragConstraints);
-    };
-  }, [isOpen, modalPos, updateDragConstraints]);
 
   const [recentElementIds, setRecentElementIds] = useState(getStoredRecentElementIds);
   const [isDraggingElement, setIsDraggingElement] = useState(false);
@@ -343,9 +239,17 @@ export const AddElementsModal = ({
     dragControls.start(e);
   };
 
-  if (typeof document === 'undefined') return null;
+  if (!isOpen) return null;
 
-  return createPortal(
+  const defaultPosition = {
+    left: rulerActive ? '6.2vw' : '5vw',
+    top: rulerActive ? '2.2vw' : '1vw',
+    right: 'auto',
+  };
+
+  const defaultClasses = 'absolute z-50 bg-white rounded-[0.75vw] border border-gray-300 shadow-[0_12px_45px_rgba(0,0,0,0.14)] flex flex-col overflow-hidden select-none transition-[left,top] duration-300 ease-in-out';
+
+  return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -356,7 +260,7 @@ export const AddElementsModal = ({
           dragControls={dragControls}
           dragMomentum={false}
           dragElastic={0}
-          dragConstraints={dragConstraints}
+          dragConstraints={dragConstraintsRef}
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{
             opacity: isDraggingElement ? 0 : 1,
@@ -364,18 +268,17 @@ export const AddElementsModal = ({
           }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{
-            duration: isDraggingElement ? 0.28 : 0.24,
-            ease: [0.16, 1, 0.3, 1],
+            duration: isDraggingElement ? 0.28 : 0.18,
+            ease: 'easeOut',
           }}
           data-modal="true"
-          className="fixed z-[9999] bg-white rounded-[0.75vw] border border-gray-300 shadow-[0_12px_45px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden select-none"
+          className={defaultClasses}
           style={{
             width: '28.5vw',
             minWidth: '420px',
-            height: '75vh',
-            maxHeight: 'calc(100vh - 40px)',
-            left: modalPos.x,
-            top: modalPos.y,
+            height: '68vh',
+            maxHeight: '640px',
+            ...defaultPosition,
             pointerEvents: isDraggingElement ? 'none' : 'auto',
           }}
           onPointerDown={(e) => e.stopPropagation()}
@@ -426,7 +329,7 @@ export const AddElementsModal = ({
                 <Search size="0.95vw" className="absolute left-[0.75vw] text-gray-400" />
                 <input
                   type="text"
-                  placeholder={selectedCategory === 'images' ? 'Search free images (Pixabay)...' : 'Search Elements...'}
+                  placeholder="Search Elements..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onPointerDown={(e) => e.stopPropagation()}
@@ -451,9 +354,7 @@ export const AddElementsModal = ({
               onWheel={(e) => e.stopPropagation()}
               className="flex-1 overflow-y-auto p-[0.6vw] flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden hover:[scrollbar-width:thin] hover:[&::-webkit-scrollbar]:block custom-scrollbar transition-all duration-200"
             >
-              {selectedCategory === 'images' ? (
-                <PixabayImagesPanel query={searchQuery} pageIndex={activePageIndex} />
-              ) : groupedBySubtopic ? (
+              {groupedBySubtopic ? (
                 <div className="flex flex-col gap-[2vh]">
                   {groupedBySubtopic.map(({ title, items }) => (
                     <div key={title} className="flex flex-col">
@@ -523,8 +424,7 @@ export const AddElementsModal = ({
           </div>
         </motion.div>
       )}
-    </AnimatePresence>,
-    document.body
+    </AnimatePresence>
   );
 };
 

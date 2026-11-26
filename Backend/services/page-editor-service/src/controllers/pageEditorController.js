@@ -277,42 +277,105 @@ const getPixabayKey = () => {
 };
 const pixabayCache = new Map();
 const PIXABAY_TTL = 24 * 60 * 60 * 1000;
+let pixabayRateLimitedUntil = 0;
+
+const findFallbackPixabayData = (cacheKey, q, orientation) => {
+  if (pixabayCache.has(cacheKey)) {
+    return pixabayCache.get(cacheKey).data;
+  }
+  const cleanQ = (q || '').toLowerCase();
+  for (const [key, val] of pixabayCache.entries()) {
+    if (cleanQ && key.startsWith(`v3|${cleanQ}|`) && val?.data?.hits?.length) {
+      return val.data;
+    }
+  }
+  // Fallback to any cached popular results
+  for (const [, val] of pixabayCache.entries()) {
+    if (val?.data?.hits?.length) {
+      return val.data;
+    }
+  }
+  return null;
+};
+
 const cdnSize = (previewURL, size) => (
   /^https:\/\/cdn\.pixabay\.com\/.+_150\.(jpe?g|png)$/i.test(previewURL || '')
     ? previewURL.replace(/_150\.(jpe?g|png)$/i, `_${size}.$1`) : null
 );
 
 const searchPixabay = async (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 100);
+  const page = Math.max(1, Math.min(50, parseInt(req.query.page, 10) || 1));
+  const perPage = Math.max(3, Math.min(60, parseInt(req.query.per_page, 10) || 30));
+  const reqOrientation = String(req.query.orientation || 'all').toLowerCase();
+  const orientation = ['all', 'horizontal', 'vertical', 'square'].includes(reqOrientation) ? reqOrientation : 'all';
+  const cacheKey = `v3|${q.toLowerCase()}|${page}|${perPage}|${orientation}`;
+
   try {
     const key = getPixabayKey();
     if (!key) return res.status(503).json({ success: false, message: 'Pixabay API key is not configured (PIXBAY_API)' });
-    const q = String(req.query.q || '').trim().slice(0, 100);
-    const page = Math.max(1, Math.min(50, parseInt(req.query.page, 10) || 1));
-    const perPage = Math.max(3, Math.min(60, parseInt(req.query.per_page, 10) || 30));
-    const orientation = ['all', 'horizontal', 'vertical'].includes(req.query.orientation) ? req.query.orientation : 'all';
-    const cacheKey = `v2|${q.toLowerCase()}|${page}|${perPage}|${orientation}`;
+
+    // Check memory cache first (TTL 24h)
     const hit = pixabayCache.get(cacheKey);
     if (hit && Date.now() - hit.at < PIXABAY_TTL) return res.status(200).json(hit.data);
 
+    // If Pixabay is currently cooling down from a 429 rate limit
+    if (pixabayRateLimitedUntil > Date.now()) {
+      const fallback = findFallbackPixabayData(cacheKey, q, orientation);
+      if (fallback) {
+        return res.status(200).json({ ...fallback, rateLimited: true, stale: true });
+      }
+      return res.status(429).json({
+        success: false,
+        rateLimited: true,
+        hits: [],
+        message: 'Pixabay is busy right now. Please wait a few moments before trying again.',
+      });
+    }
+
+    const pixabayOrientation = orientation === 'square' ? 'all' : orientation;
+    const apiPerPage = orientation === 'square' ? Math.min(100, perPage * 2) : perPage;
     const params = new URLSearchParams({
-      key, q, page: String(page), per_page: String(perPage), image_type: 'photo',
-      orientation, safesearch: 'true', order: q ? 'popular' : 'latest',
+      key, q, page: String(page), per_page: String(apiPerPage), image_type: 'photo',
+      orientation: pixabayOrientation, safesearch: 'true', order: q ? 'popular' : 'latest',
     });
+
     const body = await new Promise((resolve, reject) => {
       https.get(`https://pixabay.com/api/?${params.toString()}`, (resp) => {
         let d = '';
         resp.setEncoding('utf8');
         resp.on('data', (c) => { d += c; });
-        resp.on('end', () => (resp.statusCode === 200 ? resolve(d) : reject(new Error(`Pixabay ${resp.statusCode}`))));
+        resp.on('end', () => {
+          if (resp.statusCode === 200) {
+            resolve(d);
+          } else if (resp.statusCode === 429) {
+            const retryAfter = parseInt(resp.headers['retry-after'], 10) || 60;
+            pixabayRateLimitedUntil = Date.now() + (Math.min(retryAfter, 120) * 1000);
+            const err = new Error('Pixabay 429');
+            err.statusCode = 429;
+            reject(err);
+          } else {
+            reject(new Error(`Pixabay ${resp.statusCode}`));
+          }
+        });
         resp.on('error', reject);
       }).on('error', reject).setTimeout(10000, function onTimeout() { this.destroy(new Error('timeout')); });
     });
+
     const json = JSON.parse(body);
+    let rawHits = json.hits || [];
+    if (orientation === 'square') {
+      rawHits = rawHits.filter((h) => {
+        const ratio = (h.imageWidth && h.imageHeight) ? (h.imageWidth / h.imageHeight) : 1;
+        return ratio >= 0.75 && ratio <= 1.33;
+      });
+    }
+
     const data = {
       success: true,
-      total: json.totalHits || 0,
+      total: orientation === 'square' ? Math.round((json.totalHits || 0) * 0.4) : (json.totalHits || 0),
       page,
-      hits: (json.hits || []).map((h) => ({
+      hits: rawHits.map((h) => ({
         id: h.id,
         tags: h.tags,
         width: h.imageWidth,
@@ -329,6 +392,19 @@ const searchPixabay = async (req, res) => {
     pixabayCache.set(cacheKey, { at: Date.now(), data });
     return res.status(200).json(data);
   } catch (error) {
+    if (error.statusCode === 429 || error.message?.includes('429')) {
+      console.warn('[Page Editor Controller] Pixabay rate limit (429) hit. Active until:', new Date(pixabayRateLimitedUntil).toLocaleTimeString());
+      const fallback = findFallbackPixabayData(cacheKey, q, orientation);
+      if (fallback) {
+        return res.status(200).json({ ...fallback, rateLimited: true, stale: true });
+      }
+      return res.status(429).json({
+        success: false,
+        rateLimited: true,
+        hits: [],
+        message: 'Pixabay is receiving too many requests right now. Please wait a few moments.',
+      });
+    }
     console.error('[Page Editor Controller] searchPixabay error:', error.message);
     return res.status(502).json({ success: false, message: 'Image search failed' });
   }

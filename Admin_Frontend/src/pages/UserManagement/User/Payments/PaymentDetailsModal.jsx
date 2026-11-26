@@ -5,32 +5,32 @@ export default function PaymentDetailsModal({ transaction, onClose }) {
   if (!transaction) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-[1vw]">
-      <div className="bg-white rounded-[1vw] shadow-2xl border border-gray-100 w-[38vw] max-w-[95vw] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="p-[1.6vw] space-y-[1.4vw]">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-[680px] max-w-[95vw] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="p-8 space-y-7">
           {/* Modal Header */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-[0.9vw]">
-              <div className="w-[2.4vw] h-[2.4vw] rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-[#ef4444] shrink-0">
-                <Receipt size="1.2vw" />
+          <div className="flex items-center justify-between pb-5 border-b border-gray-100">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-[#ec5137] shrink-0">
+                <Receipt size={26} />
               </div>
               <div>
-                <h3 className="text-[1vw] font-semibold text-gray-900 leading-tight">
+                <h3 className="text-xl font-bold text-gray-900 leading-snug">
                   Transaction Details
                 </h3>
-                <p className="text-[0.7vw] text-gray-400 mt-[0.1vw]">
+                <p className="text-sm text-gray-400 mt-1">
                   {transaction.id} · {transaction.date}
                 </p>
               </div>
             </div>
 
             <span
-              className={`inline-flex items-center text-[0.7vw] font-semibold px-[0.7vw] py-[0.2vw] rounded-full ${
+              className={`inline-flex items-center text-sm font-semibold px-4 py-1.5 rounded-full border ${
                 transaction.status === 'Success'
-                  ? 'text-[#16a34a] bg-[#f0fdf4]'
+                  ? 'text-[#16a34a] bg-[#f0fdf4] border-[#bbf7d0]'
                   : transaction.status === 'Pending'
-                  ? 'text-[#d97706] bg-[#fef3c7]'
-                  : 'text-[#ef4444] bg-[#fee2e2]'
+                  ? 'text-[#d97706] bg-[#fef3c7] border-[#fde68a]'
+                  : 'text-[#ef4444] bg-[#fee2e2] border-[#fecaca]'
               }`}
             >
               {transaction.status}
@@ -38,75 +38,75 @@ export default function PaymentDetailsModal({ transaction, onClose }) {
           </div>
 
           {/* Transaction Basic Information */}
-          <div className="grid grid-cols-2 gap-x-[1.5vw] gap-y-[0.8vw] text-[0.7vw] pt-[0.2vw]">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm pt-1">
             <div>
-              <span className="block text-[0.7vw] text-gray-400">Payment For</span>
-              <span className="font-semibold text-gray-900">{transaction.paymentFor}</span>
+              <span className="block text-gray-400 mb-1 font-medium text-xs">Payment For</span>
+              <span className="font-semibold text-gray-900 text-base">{transaction.paymentFor}</span>
             </div>
             <div>
-              <span className="block text-[0.7vw] text-gray-400">Payment Method</span>
-              <span className="font-semibold text-gray-900">{transaction.method}</span>
+              <span className="block text-gray-400 mb-1 font-medium text-xs">Payment Method</span>
+              <span className="font-semibold text-gray-900 text-base">{transaction.method}</span>
             </div>
             <div>
-              <span className="block text-[0.7vw] text-gray-400">Payment Amount</span>
-              <span className="font-semibold text-gray-900">{transaction.amount || '₹8,000'}</span>
+              <span className="block text-gray-400 mb-1 font-medium text-xs">Payment Amount</span>
+              <span className="font-semibold text-gray-900 text-base">{transaction.amount || '₹8,000'}</span>
             </div>
             <div>
-              <span className="block text-[0.7vw] text-gray-400">Payment Date</span>
-              <span className="font-semibold text-gray-900">{transaction.paymentDate || '11 Nov 2026'}</span>
+              <span className="block text-gray-400 mb-1 font-medium text-xs">Payment Date</span>
+              <span className="font-semibold text-gray-900 text-base">{transaction.paymentDate || '11 Nov 2026'}</span>
             </div>
           </div>
 
           {/* Refund Information Section (Shown for Refunded or all with details) */}
-          <div className="space-y-[0.8vw] pt-[0.4vw]">
+          <div className="space-y-4 pt-3 border-t border-gray-100">
             <div className="flex items-center justify-between">
-              <h4 className="text-[0.8vw] font-semibold text-[#ef4444]">
+              <h4 className="text-base font-bold text-[#ec5137] uppercase tracking-wide">
                 Refund Information
               </h4>
-              <span className="inline-flex items-center text-[0.7vw] font-semibold text-[#16a34a] bg-[#f0fdf4] px-[0.6vw] py-[0.15vw] rounded-full">
+              <span className="inline-flex items-center text-xs font-semibold text-[#16a34a] bg-[#f0fdf4] border border-[#bbf7d0] px-3 py-1 rounded-full">
                 {transaction.refundStatus || 'Completed'}
               </span>
             </div>
 
-            <div className="text-[0.7vw]">
-              <span className="block text-[0.7vw] text-gray-400">Refund Amount</span>
-              <span className="text-[1vw] font-semibold text-[#16a34a]">
+            <div className="text-sm">
+              <span className="block text-gray-400 mb-1 font-medium text-xs">Refund Amount</span>
+              <span className="text-xl font-bold text-[#16a34a]">
                 {transaction.refundAmount || '₹8,000'}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-[1.5vw] gap-y-[0.8vw] text-[0.7vw]">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Refund ID</span>
-                <span className="font-semibold text-gray-900">{transaction.refundId || 'REF001'}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Refund ID</span>
+                <span className="font-semibold text-gray-900 text-base">{transaction.refundId || 'REF001'}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Refund Date</span>
-                <span className="font-semibold text-gray-900">{transaction.refundDate || '12 Nov 2026'}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Refund Date</span>
+                <span className="font-semibold text-gray-900 text-base">{transaction.refundDate || '12 Nov 2026'}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Refund Method</span>
-                <span className="font-semibold text-gray-900">{transaction.refundMethod || 'Original UPI'}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Refund Method</span>
+                <span className="font-semibold text-gray-900 text-base">{transaction.refundMethod || 'Original UPI'}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Refund Type</span>
-                <span className="font-semibold text-gray-900">{transaction.refundType || 'Full Refund'}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Refund Type</span>
+                <span className="font-semibold text-gray-900 text-base">{transaction.refundType || 'Full Refund'}</span>
               </div>
             </div>
 
-            <div className="text-[0.7vw] pt-[0.2vw]">
-              <span className="block text-[0.7vw] text-gray-400">Refund Reason</span>
-              <span className="font-semibold text-gray-900">{transaction.refundReason || 'Project Cancelled'}</span>
+            <div className="text-sm pt-1">
+              <span className="block text-gray-400 mb-1 font-medium text-xs">Refund Reason</span>
+              <span className="font-semibold text-gray-900 text-base">{transaction.refundReason || 'Project Cancelled'}</span>
             </div>
           </div>
 
           {/* Close Button Bottom Right */}
-          <div className="flex justify-end pt-[0.4vw]">
+          <div className="flex justify-end pt-4 border-t border-gray-100">
             <button
               onClick={onClose}
-              className="inline-flex items-center gap-[0.35vw] text-[0.8vw] font-semibold text-gray-700 bg-white border border-gray-200/90 hover:bg-gray-50 px-[1.1vw] py-[0.45vw] rounded-[0.4vw] shadow-xs transition cursor-pointer"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-900 px-6 py-2.5 rounded-xl shadow-sm transition cursor-pointer"
             >
-              <X size="0.8vw" className="text-gray-500" />
+              <X size={18} className="text-gray-500" />
               <span>Close</span>
             </button>
           </div>

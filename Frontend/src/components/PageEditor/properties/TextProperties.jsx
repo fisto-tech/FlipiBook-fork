@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import Color from './Color';
+import Color from './FillStrokeProperties';
 import Effect from './Effect';
 import { applyStyleToActiveTextSelection, safeSerializeSvg } from '../utils/editorUtils';
 

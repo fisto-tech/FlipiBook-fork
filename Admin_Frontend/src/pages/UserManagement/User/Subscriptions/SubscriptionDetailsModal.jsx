@@ -5,51 +5,51 @@ export default function SubscriptionDetailsModal({ subscription, onClose }) {
   if (!subscription) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-[1vw]">
-      <div className="bg-white rounded-[1vw] shadow-2xl border border-gray-100 w-[38vw] max-w-[95vw] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="p-[1.6vw] space-y-[1.4vw]">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[3px] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-[680px] max-w-[95vw] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="p-8 space-y-7">
           {/* Modal Header */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-[0.9vw]">
-              <div className="w-[2.4vw] h-[2.4vw] rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-[#ef4444] shrink-0">
-                <Repeat size="1.2vw" />
+          <div className="flex items-center justify-between pb-5 border-b border-gray-100">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-[#ec5137] shrink-0">
+                <Repeat size={26} />
               </div>
               <div>
-                <h3 className="text-[1vw] font-semibold text-gray-900 leading-tight">
+                <h3 className="text-xl font-bold text-gray-900 leading-snug">
                   Subscription Details
                 </h3>
-                <p className="text-[0.7vw] text-gray-400 mt-[0.1vw]">
-                  {subscription.id} · {subscription.planDisplay}
+                <p className="text-sm text-gray-400 mt-1">
+                  {subscription.id} · {subscription.planDisplay || subscription.plan}
                 </p>
               </div>
             </div>
 
-            <span className="inline-flex items-center text-[0.7vw] font-semibold text-[#16a34a] bg-[#f0fdf4] px-[0.7vw] py-[0.2vw] rounded-full">
+            <span className="inline-flex items-center text-sm font-semibold text-[#16a34a] bg-[#f0fdf4] border border-[#bbf7d0] px-4 py-1.5 rounded-full">
               {subscription.status}
             </span>
           </div>
 
           {/* Plan Information Section */}
-          <div className="space-y-[0.8vw]">
-            <h4 className="text-[0.8vw] font-semibold text-[#ef4444]">
+          <div className="space-y-4">
+            <h4 className="text-base font-bold text-[#ec5137] uppercase tracking-wide">
               Plan Information
             </h4>
-            <div className="grid grid-cols-2 gap-x-[1.5vw] gap-y-[0.8vw] text-[0.7vw]">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Plan Name</span>
-                <span className="font-semibold text-gray-900">{subscription.plan}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Plan Name</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.plan}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Billing Cycle</span>
-                <span className="font-semibold text-gray-900">{subscription.duration}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Billing Cycle</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.duration}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Payment Amount</span>
-                <span className="font-semibold text-gray-900">{subscription.paymentAmount}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Payment Amount</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.paymentAmount}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Subscription Status</span>
-                <span className="inline-flex items-center text-[0.7vw] font-semibold text-[#16a34a] bg-[#f0fdf4] px-[0.6vw] py-[0.15vw] rounded-full mt-[0.1vw]">
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Subscription Status</span>
+                <span className="inline-flex items-center text-xs font-semibold text-[#16a34a] bg-[#f0fdf4] border border-[#bbf7d0] px-3 py-1 rounded-full mt-0.5">
                   {subscription.status}
                 </span>
               </div>
@@ -57,58 +57,58 @@ export default function SubscriptionDetailsModal({ subscription, onClose }) {
           </div>
 
           {/* Subscription Period Section */}
-          <div className="space-y-[0.8vw]">
-            <h4 className="text-[0.8vw] font-semibold text-[#ef4444]">
+          <div className="space-y-4 pt-1">
+            <h4 className="text-base font-bold text-[#ec5137] uppercase tracking-wide">
               Subscription Period
             </h4>
-            <div className="grid grid-cols-2 gap-x-[1.5vw] gap-y-[0.8vw] text-[0.7vw]">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Start Date</span>
-                <span className="font-semibold text-gray-900">{subscription.startDate}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Start Date</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.startDate}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">End Date</span>
-                <span className="font-semibold text-gray-900">{subscription.endDate}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">End Date</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.endDate}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Next Renewal Date</span>
-                <span className="font-semibold text-gray-900">{subscription.nextRenewalDate}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Next Renewal Date</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.nextRenewalDate}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Auto Renewal</span>
-                <span className="font-semibold text-gray-900">{subscription.autoRenewal}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Auto Renewal</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.autoRenewal}</span>
               </div>
             </div>
           </div>
 
           {/* Payment Information Section */}
-          <div className="space-y-[0.8vw]">
-            <h4 className="text-[0.8vw] font-semibold text-[#ef4444]">
+          <div className="space-y-4 pt-1">
+            <h4 className="text-base font-bold text-[#ec5137] uppercase tracking-wide">
               Payment Information
             </h4>
-            <div className="grid grid-cols-2 gap-x-[1.5vw] gap-y-[0.8vw] text-[0.7vw]">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Transaction ID</span>
-                <span className="font-semibold text-gray-900">{subscription.transactionId}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Transaction ID</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.transactionId}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Payment Method</span>
-                <span className="font-semibold text-gray-900">{subscription.paymentMethod}</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Payment Method</span>
+                <span className="font-semibold text-gray-900 text-base">{subscription.paymentMethod}</span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Payment Status</span>
-                <span className="inline-flex items-center text-[0.7vw] font-semibold text-[#16a34a] bg-[#f0fdf4] px-[0.6vw] py-[0.15vw] rounded-full mt-[0.1vw]">
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Payment Status</span>
+                <span className="inline-flex items-center text-xs font-semibold text-[#16a34a] bg-[#f0fdf4] border border-[#bbf7d0] px-3 py-1 rounded-full mt-0.5">
                   {subscription.paymentStatus}
                 </span>
               </div>
               <div>
-                <span className="block text-[0.7vw] text-gray-400">Invoice</span>
-                <div className="flex items-center gap-[0.4vw] mt-[0.1vw]">
-                  <span className="inline-flex items-center gap-[0.2vw] text-red-500 font-semibold">
-                    <FileText size="0.75vw" />
-                    <span className="text-[0.7vw]">Invoice</span>
+                <span className="block text-gray-400 mb-1 font-medium text-xs">Invoice</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="inline-flex items-center gap-1.5 text-red-500 font-semibold text-sm">
+                    <FileText size={18} />
+                    <span>Invoice</span>
                   </span>
-                  <button className="text-[0.7vw] text-[#2563eb] hover:underline font-semibold cursor-pointer">
+                  <button className="text-sm text-[#2563eb] hover:underline font-semibold cursor-pointer">
                     View
                   </button>
                 </div>
@@ -117,12 +117,12 @@ export default function SubscriptionDetailsModal({ subscription, onClose }) {
           </div>
 
           {/* Close Button Bottom Right */}
-          <div className="flex justify-end pt-[0.4vw]">
+          <div className="flex justify-end pt-4 border-t border-gray-100">
             <button
               onClick={onClose}
-              className="inline-flex items-center gap-[0.35vw] text-[0.8vw] font-semibold text-gray-700 bg-white border border-gray-200/90 hover:bg-gray-50 px-[1.1vw] py-[0.45vw] rounded-[0.4vw] shadow-xs transition cursor-pointer"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-900 px-6 py-2.5 rounded-xl shadow-sm transition cursor-pointer"
             >
-              <X size="0.8vw" className="text-gray-500" />
+              <X size={18} className="text-gray-500" />
               <span>Close</span>
             </button>
           </div>

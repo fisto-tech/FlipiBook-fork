@@ -166,10 +166,8 @@ export default function ActivityTab({ user }) {
             <tr className="bg-[#f8f8f8] text-[0.8vw] font-semibold text-[#111827] border-b border-[#f0f0f0]">
               <th className="py-[0.95vw] px-[1.4vw] font-semibold">Date & Time</th>
               <th className="py-[0.95vw] px-[1.1vw] font-semibold">Activity Type</th>
-              <th className="py-[0.95vw] px-[1.1vw] font-semibold">Description</th>
               <th className="py-[0.95vw] px-[1.1vw] font-semibold">Performed By</th>
               <th className="py-[0.95vw] px-[1.1vw] font-semibold text-center">Status</th>
-              <th className="py-[0.95vw] px-[1.4vw] font-semibold text-center">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#f5f5f5] text-[0.8vw] font-normal">
@@ -177,8 +175,7 @@ export default function ActivityTab({ user }) {
               .filter(
                 (act) =>
                   act.activityType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  act.performedBy.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  act.description.toLowerCase().includes(searchQuery.toLowerCase())
+                  act.performedBy.toLowerCase().includes(searchQuery.toLowerCase())
               )
               .map((act) => (
                 <tr key={act.id} className="group hover:bg-[#fafafa] transition-colors duration-150">
@@ -187,9 +184,6 @@ export default function ActivityTab({ user }) {
                   </td>
                   <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {act.activityType}
-                  </td>
-                  <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
-                    {act.description}
                   </td>
                   <td className="py-[0.95vw] px-[1.1vw] text-[#4b5563] group-hover:text-black transition-colors">
                     {act.performedBy}
@@ -208,25 +202,6 @@ export default function ActivityTab({ user }) {
                         {act.status}
                       </span>
                     )}
-                  </td>
-                  <td className="py-[0.95vw] px-[1.4vw] text-center">
-                    <button
-                      onClick={() => {}}
-                      className="inline-flex items-center gap-[0.35vw] px-[1vw] py-[0.38vw] rounded-[0.55vw] bg-[#feeeeb] text-[#ec5137] hover:bg-[#fedbd5] transition text-[0.7vw] font-medium cursor-pointer"
-                    >
-                      <span>View</span>
-                      <svg
-                        className="w-[0.78vw] h-[0.78vw] text-[#ec5137] stroke-[2.2]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="7" y1="17" x2="17" y2="7" />
-                        <polyline points="7 7 17 7 17 17" />
-                      </svg>
-                    </button>
                   </td>
                 </tr>
               ))}

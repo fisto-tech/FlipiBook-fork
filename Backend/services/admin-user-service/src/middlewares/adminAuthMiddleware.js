@@ -1,4 +1,5 @@
 const User = require('../../../../shared/models/User');
+const AdminUser = require('../models/AdminUser');
 const AdminLog = require('../models/AdminLog');
 const { verifyToken } = require('../utils/jwtHelper');
 
@@ -37,11 +38,16 @@ const verifyAdmin = async (req, res, next) => {
     }
 
     const cleanEmail = String(email).trim().toLowerCase();
-    const user = await User.findOne({
+    let user = await User.findOne({
       $or: [{ emailId: cleanEmail }, { email: cleanEmail }]
     });
 
-    if (!user) {
+    const adminStaff = await AdminUser.findOne({
+      $or: [{ email: cleanEmail }, { userId: decoded?.userId || email }],
+      isDeleted: { $ne: true }
+    });
+
+    if (!user && !adminStaff) {
       // If user doesn't exist yet but is running in development mode
       if (isDev) {
         req.admin = { emailId: cleanEmail, role: 'admin', name: 'Dev Admin' };
@@ -53,10 +59,9 @@ const verifyAdmin = async (req, res, next) => {
       });
     }
 
-    if (user.role !== 'admin' && user.role !== 'moderator' && user.role !== 'staff' && !user.isAdmin) {
+    if (user && user.role !== 'admin' && user.role !== 'moderator' && user.role !== 'staff' && !user.isAdmin && !adminStaff) {
       if (isDev) {
-        // In local development, automatically promote the logged-in dev user to admin role
-        await User.updateOne({ _id: user._id }, { $set: { role: 'admin', isAdmin: true } });
+        // In local development, attach dev admin context to req without altering User document
         req.admin = {
           id: user._id,
           userID: user.userID,
@@ -73,11 +78,11 @@ const verifyAdmin = async (req, res, next) => {
     }
 
     req.admin = {
-      id: user._id,
-      userID: user.userID,
-      emailId: user.emailId,
-      name: user.name || 'Administrator',
-      role: user.role
+      id: user?._id || adminStaff?._id,
+      userID: user?.userID || adminStaff?.userId,
+      emailId: user?.emailId || adminStaff?.email || cleanEmail,
+      name: user?.name || adminStaff?.name || 'Administrator',
+      role: adminStaff?.designation || user?.role || 'admin'
     };
 
     next();

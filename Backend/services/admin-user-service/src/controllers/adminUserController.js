@@ -19,7 +19,10 @@ const listUsers = async (req, res) => {
       sort = 'newest'
     } = req.query;
 
-    const filter = {};
+    const filter = {
+      role: { $nin: ['admin', 'superadmin', 'Super Admin'] },
+      userID: { $nin: ['Admin', 'admin'], $not: /^FLIP_AD/i }
+    };
 
     if (role && role !== 'all') {
       filter.role = role;

@@ -33,6 +33,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { normalizeForeignObjectNamespaces } from '../LeftActionMenu/Elements/utils/tableElementUtils';
 
 import { readIconPaint } from '../utils/iconPaint';
+import PenDefaultsPanel from '../properties/PenDefaultsPanel';
 const RightSidebar = ({
   isDoublePage,
   setIsDoublePage,
@@ -1571,6 +1572,11 @@ const RightSidebar = ({
                         </>
                       )}
                     </div>
+                  </div>
+                ) : activeMainTool === 'pen' && !isPdfProject ? (
+                  /* Pen tool active, nothing selected: pen tips + paint for the next path */
+                  <div className="flex flex-col p-[1.5vw] gap-[1.5vw]">
+                    <PenDefaultsPanel activePageIndex={activePageIndex} activeMainTool={activeMainTool} />
                   </div>
                 ) : (
                   /* Page Properties (Default View) */

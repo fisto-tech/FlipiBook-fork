@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { ElementDropdown, ElementSlider } from './ElementUIControls';
-import ColorPicker from '../../../../ColorPicker';
+import ColorPicker from '../../../../Color';
 import { IconsModal } from '../../Icons';
 import {
   MOTION_GRAPHIC_TEMPLATES,

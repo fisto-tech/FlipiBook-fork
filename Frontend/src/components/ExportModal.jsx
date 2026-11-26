@@ -7,7 +7,7 @@ import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import html2canvas from 'html2canvas';
 import domtoimage from 'dom-to-image-more';
-import ColorPicker, { default as TemplateColorPicker } from './ColorPicker';
+import ColorPicker, { default as TemplateColorPicker } from './Color';
 import { getAssetBaseUrl, getSupabaseBaseUrl } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
 import { prepareExportSvg } from './PageEditor/utils/exportPageRenderer';

@@ -208,4 +208,49 @@ export const delete3DMaterial = async (id) => {
   return res.data;
 };
 
+// ── Admin Roles & Management Staff (Stored in MongoDB) ────────────────────
+export const getAdminRoles = async () => {
+  const res = await api.get('/api/admin/roles');
+  return res.data;
+};
+
+export const createAdminRole = async (roleData) => {
+  const res = await api.post('/api/admin/roles', roleData);
+  return res.data;
+};
+
+export const updateAdminRolePermissions = async (targetKey, permissions, extraData = {}) => {
+  const res = await api.put('/api/admin/roles/permissions', {
+    targetKey,
+    permissions,
+    ...extraData
+  });
+  return res.data;
+};
+
+export const getManagementStaffUsers = async () => {
+  const res = await api.get('/api/admin/management-users');
+  return res.data;
+};
+
+export const createManagementStaffUser = async (userData) => {
+  const res = await api.post('/api/admin/management-users', userData);
+  return res.data;
+};
+
+export const updateManagementStaffUser = async (id, userData) => {
+  const res = await api.put(`/api/admin/management-users/${id}`, userData);
+  return res.data;
+};
+
+export const updateManagementStaffPassword = async (id, password) => {
+  const res = await api.patch(`/api/admin/management-users/${id}/password`, { password });
+  return res.data;
+};
+
+export const deleteManagementStaffUser = async (id) => {
+  const res = await api.delete(`/api/admin/management-users/${id}`);
+  return res.data;
+};
+
 export default api;

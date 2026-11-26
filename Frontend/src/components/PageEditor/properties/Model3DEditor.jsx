@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import { ChevronDown, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCodeStyling from 'qr-code-styling';
-import ColorPicker from './ColorPicker';
+import ColorPicker from '../../Color';
 import axios from 'axios';
 
 export const CustomQRCode = React.forwardRef(({ 

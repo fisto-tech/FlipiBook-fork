@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StrokeWidthInput } from '../../../properties/Color';
+import { StrokeWidthInput } from '../../../properties/FillStrokeProperties';
 import { createPortal } from 'react-dom';
 import {
   Pencil,
@@ -9,7 +9,7 @@ import {
   Plus
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import ColorPicker, { parseGradient, generateGradientString } from '../../../../ColorPicker';
+import ColorPicker, { parseGradient, generateGradientString } from '../../../../Color';
 import { IconsModal } from '../../Icons';
 import Effect from '../../../properties/Effect';
 import CornerRadius from '../../../properties/CornerRadius';
@@ -230,6 +230,9 @@ const lightenColor = (col, amount = 0.3) => {
   return `#${toHex(lr)}${toHex(lg)}${toHex(lb)}`;
 };
 
+// Bump when the button layout rules change: every button is re-laid-out once on its next selection.
+const BUTTON_LAYOUT_VERSION = '2';
+
 export const getRoundedPathD = (x, y, w, h, tl, tr, br, bl) => {
   const maxR = Math.max(0, Math.min(w / 2, h / 2));
   const clamp = (r) => Math.max(0, Math.min(Number(r) || 0, maxR));
@@ -276,14 +279,23 @@ export const ButtonEditor = ({
   onUpdate
 }) => {
   // Resolve active button element
+  // Always edit the LIVE button on the canvas. Every edit saves the page, and a canvas re-render can
+  // replace the button node; the `selectedElement` reference we were handed then points at a detached
+  // copy, so further edits (text width, background size…) changed nothing visible.
+  const BUTTON_SELECTOR = '[data-is-element-button="true"], [data-type="button"], g[id^="button-"]';
   const resolveTargetElement = () => {
-    if (selectedElement && typeof selectedElement.getAttribute === 'function') {
-      return selectedElement.closest?.('[data-is-element-button="true"], [data-type="button"], g[id^="button-"]') || selectedElement;
+    const toButton = (n) => n?.closest?.(BUTTON_SELECTOR) || n;
+    if (selectedElement?.isConnected && typeof selectedElement.getAttribute === 'function') {
+      return toButton(selectedElement);
     }
-    const targetId = selectedElementProps?.buttonId || selectedLayerId;
     const editorDoc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
-    const base = (targetId ? editorDoc.getElementById(targetId) : null) || (targetId ? document.getElementById(targetId) : null);
-    return base?.closest?.('[data-is-element-button="true"], [data-type="button"], g[id^="button-"]') || base;
+    const staleButton = selectedElement && typeof selectedElement.getAttribute === 'function' ? toButton(selectedElement) : null;
+    const ids = [staleButton?.id, selectedElement?.id, selectedElementProps?.buttonId, selectedLayerId].filter(Boolean);
+    for (const id of ids) {
+      const live = editorDoc.getElementById(id) || document.getElementById(id);
+      if (live?.isConnected) return toButton(live);
+    }
+    return staleButton;
   };
 
   const currentElement = resolveTargetElement();
@@ -447,7 +459,7 @@ export const ButtonEditor = ({
     let cleanFF = 'Poppins';
     let parsedFs = 14;
     if (textEl) {
-      setButtonText(textEl.textContent || 'Button');
+      setButtonText(textEl.textContent ?? '');
 
       const ff = textEl.style.fontFamily || textEl.getAttribute('font-family') || '';
       if (ff) {
@@ -694,10 +706,13 @@ export const ButtonEditor = ({
     const curW = rectEl ? parseFloat(rectEl.getAttribute('width') || 0) : 0;
     const curH = rectEl ? parseFloat(rectEl.getAttribute('height') || 0) : 0;
 
-    // Only update dimensions on load if text was hidden or corrupted (never force shrink valid buttons)
-    if (textWasHidden && textEl) {
+    // Re-layout on load when the text was hidden/corrupted, or ONCE for any button (every preset, and
+    // buttons made before the current layout rules) not yet laid out by them. Afterwards inserting a
+    // preset and editing it use exactly the same geometry, so nothing jumps on the first change.
+    const needsLayoutUpgrade = el.getAttribute('data-layout-version') !== BUTTON_LAYOUT_VERSION;
+    if ((textWasHidden || needsLayoutUpgrade) && textEl) {
       updateButtonDimensions(
-        textEl.textContent || buttonText || 'Button',
+        textEl.textContent ?? '',
         parsedFs || 14,
         cleanFF,
         currentHasIcon,
@@ -708,8 +723,11 @@ export const ButtonEditor = ({
         savedPlacement,
         loadedRadius,
         savedIconColor,
-        savedIconBgColor
+        savedIconBgColor,
+        false,
+        !textWasHidden // normalisation keeps the preset's icon artwork
       );
+      el.setAttribute('data-layout-version', BUTTON_LAYOUT_VERSION);
       syncButtonToCanvas();
     }
 
@@ -967,10 +985,13 @@ export const ButtonEditor = ({
     currentPlacement = iconPlacement,
     currentRadius = radius,
     currentIconColor = iconColor,
-    currentIconBgColor = iconBgColor
+    currentIconBgColor = iconBgColor,
+    isFontReloadPass = false,
+    preserveIconMarkup = false
   ) => {
     const el = resolveTargetElement();
     if (!el) return;
+    const relayoutArgs = [textVal, currentFontSize, currentFontFamily, hasIconVal, currentIconName, currentIconHtml, currentIconViewBox, currentIconGap, currentPlacement, currentRadius, currentIconColor, currentIconBgColor];
 
     const textEl = el.querySelector('text') || (el.tagName?.toLowerCase() === 'text' ? el : null);
     const rectEl = el.querySelector('rect.btn-bg') || el.querySelector('rect') || (el.tagName?.toLowerCase() === 'rect' ? el : null);
@@ -979,26 +1000,50 @@ export const ButtonEditor = ({
     // Compute dynamic gap proportional to font size (e.g. 12pt -> 14px, 16pt -> 18px, 22pt -> 26px)
     const effectiveGap = Math.max(12, Math.round(currentFontSize * 1.15));
 
-    // Estimate text width accurately using off-screen canvas if possible
+    // Font size the text ACTUALLY renders at, in px (templates use unitless px, the panel writes "pt")
+    const rawFs = (textEl.style?.fontSize || textEl.getAttribute('font-size') || `${currentFontSize}`).trim();
+    const fsNum = parseFloat(rawFs) || currentFontSize;
+    const fontPx = /pt$/i.test(rawFs) ? fsNum * (4 / 3) : fsNum;
+    const weightVal = textEl.getAttribute('font-weight') || textEl.style?.fontWeight || fontWeight || '600';
+
+    // Measure the rendered text (exact, in the button's own coordinate units). The previous canvas
+    // estimate used a 1.33x size and the fallback font while a web font (e.g. Bangers) was still
+    // loading, so the button grew too wide and the text sat off-centre.
     let measuredWidth = 0;
     try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      ctx.font = `${fontWeight || '600'} ${Math.round(currentFontSize * 1.33)}px ${currentFontFamily}, sans-serif`;
-      measuredWidth = ctx.measureText(textVal).width;
+      if (typeof textEl.getComputedTextLength === 'function' && textEl.isConnected) {
+        measuredWidth = textEl.getComputedTextLength();
+      }
     } catch (_) { }
 
     if (!measuredWidth || measuredWidth < 10) {
       try {
-        if (typeof textEl.getComputedTextLength === 'function' && textEl.getComputedTextLength() > 0) {
-          measuredWidth = textEl.getComputedTextLength();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = `${weightVal} ${fontPx}px ${currentFontFamily}, sans-serif`;
+        measuredWidth = ctx.measureText(textVal).width;
+      } catch (_) { }
+    }
+
+    // Web font not loaded yet → measured with the fallback font. Re-run once when it is ready.
+    if (!isFontReloadPass && document.fonts && currentFontFamily) {
+      const fontSpec = `${weightVal} ${Math.round(fontPx)}px "${String(currentFontFamily).replace(/["']/g, '')}"`;
+      try {
+        if (!document.fonts.check(fontSpec)) {
+          document.fonts.load(fontSpec).then(() => {
+            updateButtonDimensions(...relayoutArgs, true, preserveIconMarkup);
+            syncButtonToCanvas();
+          }).catch(() => { });
         }
       } catch (_) { }
     }
 
-    if (!measuredWidth || measuredWidth < 10) {
+    const hasText = String(textVal || '').trim().length > 0;
+    if (!hasText) {
+      measuredWidth = 0;
+    } else if (!measuredWidth) {
       const charRatio = currentFontFamily.toLowerCase().includes('banger') ? 0.6 : 0.58;
-      measuredWidth = (textVal.length || 1) * (currentFontSize * charRatio);
+      measuredWidth = textVal.length * (fontPx * charRatio);
     }
 
     const iconSize = Math.max(12, Math.round(currentFontSize));
@@ -1019,22 +1064,45 @@ export const ButtonEditor = ({
       ? Math.max(iconSize, badgeRadius * 2)
       : iconSize;
 
+    // No gap when there is no text to separate from the icon
     const totalContentWidth = hasIconVal
-      ? measuredWidth + effectiveGap + effectiveIconWidth
+      ? measuredWidth + (hasText ? effectiveGap : 0) + effectiveIconWidth
       : measuredWidth;
 
     const btnTemplate = el.getAttribute('data-button-template');
     const isBadgeTemplate = (btnTemplate === 'white-pill-badge' || btnTemplate === 'social-badge' || btnTemplate === 'lavender-badge');
 
-    // Horizontal & Vertical padding: comfortable default matching design templates (min 20px, 12px)
-    const horizPad = Math.max(20, Math.round(currentFontSize * 1.25));
-    const vertPad = Math.max(12, Math.round(currentFontSize * 0.8));
+    // Padding scales with the rendered font; at template size (12px text) this reproduces the
+    // original 42px-high templates exactly instead of growing on every property change.
+    const horizPad = Math.max(20, Math.round(fontPx * 1.25));
+    const vertPad = Math.max(10, Math.round(fontPx * 0.6));
 
-    // Baseline minimum template size (140px width x 42px height)
-    const minW = isBadgeTemplate ? 146 : 138;
     const minH = 42;
-    const newButtonWidth = Math.max(minW, Math.round(totalContentWidth + horizPad * 2));
-    const newButtonHeight = Math.max(minH, Math.round(Math.max(currentFontSize, hasIconVal ? Math.max(iconSize, (hasIconBg || badgeEl) ? badgeRadius * 2 : 0) : 0) + vertPad * 2));
+    const textBlockH = Math.round(fontPx * 1.25);
+    // Badge templates size their circle FROM the height, so the badge must not push the height up.
+    // Standard buttons with an icon background need room for that circle plus a small inset.
+    const iconBlockH = hasIconVal
+      ? (isBadgeTemplate ? 0 : ((hasIconBg || badgeEl) ? badgeRadius * 2 + 14 : iconSize + vertPad * 2))
+      : 0;
+    const newButtonHeight = Math.max(minH, textBlockH + vertPad * 2, iconBlockH);
+
+    // Badge templates: circle concentric with the rounded end, text centred in the remaining space
+    const badgeR = Math.max(10, Math.round(newButtonHeight / 2 - 7));
+    const badgeGap = Math.max(10, Math.round(fontPx));
+    // Width follows the content. Never narrower than tall (so it stays a pill / circle, not a sliver).
+    const minW = newButtonHeight;
+    const hasAccentBlock = ['like-chevron', 'upload-ribbon', 'lemon-ribbon', 'rect-badge', 'angled-slice', 'diagonal-pastel'].includes(btnTemplate);
+    let newButtonWidth;
+    if (hasIconVal && !hasText) {
+      // Icon-only button: badge templates become a circle; others a square-ish button around the icon
+      newButtonWidth = isBadgeTemplate
+        ? newButtonHeight
+        : Math.max(minW, Math.round(effectiveIconWidth + vertPad * 2), hasAccentBlock ? 56 : 0);
+    } else if (isBadgeTemplate && hasIconVal) {
+      newButtonWidth = Math.max(minW, Math.round(newButtonHeight / 2 + badgeR + badgeGap + measuredWidth + horizPad));
+    } else {
+      newButtonWidth = Math.max(minW, Math.round(totalContentWidth + horizPad * 2));
+    }
 
     const rectX = parseFloat(rectEl.getAttribute('x') || 0);
     const rectY = parseFloat(rectEl.getAttribute('y') || 0);
@@ -1217,7 +1285,14 @@ export const ButtonEditor = ({
       } else {
         svgMarkup = `<svg width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="${currentIconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
       }
-      iconWrap.innerHTML = svgMarkup;
+      const existingIconSvg = iconWrap.querySelector('svg');
+      if (preserveIconMarkup && existingIconSvg) {
+        // One-time preset normalisation: keep the preset's own icon artwork, only size it
+        existingIconSvg.setAttribute('width', String(iconSize));
+        existingIconSvg.setAttribute('height', String(iconSize));
+      } else {
+        iconWrap.innerHTML = svgMarkup;
+      }
 
       const centerY = rectY + newButtonHeight / 2;
       let iconX, iconY, textX, textY, badgeCenterX;
@@ -1304,24 +1379,26 @@ export const ButtonEditor = ({
         }
       } else if ((btnTemplate === 'white-pill-badge' || btnTemplate === 'social-badge' || btnTemplate === 'lavender-badge') && (badgeCircle || (badgeEl && badgeEl.tagName?.toLowerCase() === 'circle'))) {
         const circleEl = badgeCircle || badgeEl;
-        const bRadius = Math.max(10, Math.round(newButtonHeight / 2 - 4));
-        const badgeDiameter = bRadius * 2;
-        const totalBadgeContentWidth = badgeDiameter + effectiveGap + measuredWidth;
-        const startX = rectX + (newButtonWidth - totalBadgeContentWidth) / 2;
+        const bRadius = badgeR;
+        const endInset = newButtonHeight / 2; // circle centre sits on the pill's rounded end
 
-        if (placement === 'Left') {
-          badgeCenterX = startX + bRadius;
-          iconX = badgeCenterX - iconSize / 2;
-          iconY = centerY - iconSize / 2;
-          textX = startX + badgeDiameter + effectiveGap + measuredWidth / 2;
-          textY = centerY;
+        if (!hasText) {
+          badgeCenterX = rectX + newButtonWidth / 2;
+          textX = badgeCenterX;
+        } else if (placement === 'Left') {
+          badgeCenterX = rectX + endInset;
+          const textStart = badgeCenterX + bRadius + badgeGap;
+          const textEnd = rectX + newButtonWidth - horizPad;
+          textX = (textStart + textEnd) / 2;
         } else {
-          textX = startX + measuredWidth / 2;
-          textY = centerY;
-          badgeCenterX = startX + measuredWidth + effectiveGap + bRadius;
-          iconX = badgeCenterX - iconSize / 2;
-          iconY = centerY - iconSize / 2;
+          badgeCenterX = rectX + newButtonWidth - endInset;
+          const textStart = rectX + horizPad;
+          const textEnd = badgeCenterX - bRadius - badgeGap;
+          textX = (textStart + textEnd) / 2;
         }
+        iconX = badgeCenterX - iconSize / 2;
+        iconY = centerY - iconSize / 2;
+        textY = centerY;
         circleEl.setAttribute('cx', badgeCenterX.toString());
         circleEl.setAttribute('cy', centerY.toString());
         circleEl.setAttribute('r', bRadius.toString());
@@ -1488,6 +1565,7 @@ export const ButtonEditor = ({
     if (textEl) {
       textEl.setAttribute('font-weight', val);
       textEl.style.fontWeight = val;
+      updateButtonDimensions(buttonText, fontSize, fontFamily, hasIcon, iconName, iconHtml, iconViewBox, iconGap, iconPlacement, radius, iconColor, iconBgColor);
       syncButtonToCanvas();
     }
   };
@@ -2311,13 +2389,15 @@ export const ButtonEditor = ({
               <div className="relative w-[10vw]">
                 <button
                   type="button"
+                  disabled={!String(buttonText || '').trim()}
+                  title={!String(buttonText || '').trim() ? 'Add button text to choose the icon placement' : undefined}
                   onClick={() => setShowPlacementDropdown(!showPlacementDropdown)}
-                  className="w-full h-[2.1vw] px-[0.7vw] flex items-center justify-between border border-gray-300 rounded-[0.45vw] bg-white hover:border-gray-400 shadow-2xs transition-colors cursor-pointer"
+                  className={`w-full h-[2.1vw] px-[0.7vw] flex items-center justify-between border border-gray-300 rounded-[0.45vw] shadow-2xs transition-colors ${!String(buttonText || '').trim() ? 'bg-gray-50 opacity-50 cursor-not-allowed' : 'bg-white hover:border-gray-400 cursor-pointer'}`}
                 >
                   <span className="text-[0.8vw] text-gray-800 font-medium">{iconPlacement}</span>
                   <ChevronDown size="0.75vw" className={`text-gray-400 transition-transform ${showPlacementDropdown ? 'rotate-180' : ''}`} />
                 </button>
-                {showPlacementDropdown && (
+                {showPlacementDropdown && String(buttonText || '').trim() && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowPlacementDropdown(false)} />
                     <div className="absolute left-0 top-full mt-[0.3vw] w-full bg-white border border-gray-200 rounded-[0.45vw] shadow-xl py-[0.25vw] z-40 animate-in fade-in zoom-in-95 duration-150">
