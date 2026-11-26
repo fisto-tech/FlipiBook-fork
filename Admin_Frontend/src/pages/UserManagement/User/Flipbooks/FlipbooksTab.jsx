@@ -607,8 +607,8 @@ export default function FlipbooksTab({
         {/* Title & Counters */}
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-[1vw] font-semibold text-gray-900">Flipbooks</h2>
-            <p className="text-[0.7vw] text-gray-400 mt-[0.1vw]">All flipbooks created by this user.</p>
+            <h2 className="text-[1.2vw] font-semibold text-gray-900 tracking-tight leading-none">Flipbooks</h2>
+            <p className="text-[0.85vw] text-gray-400 mt-[0.35vw] leading-tight">All flipbooks created by this user.</p>
           </div>
 
           <div className="flex items-center gap-[0.6vw]">

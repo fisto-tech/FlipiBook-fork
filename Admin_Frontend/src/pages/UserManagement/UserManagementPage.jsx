@@ -108,7 +108,7 @@ export default function UserManagementPage() {
       {/* Top Header with User Management and Right Profile Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[1.8vw] font-bold text-[#111827] tracking-tight leading-tight">
+          <h1 className="text-[1.8vw] font-semibold text-[#111827] tracking-tight leading-tight">
             User Management
           </h1>
           <p className="text-[0.78vw] text-[#9ca3af] font-medium mt-[0.2vw]">
@@ -125,7 +125,7 @@ export default function UserManagementPage() {
         {/* Total Users */}
         <div className="bg-white rounded-[16px] p-[1.3vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex items-center justify-between">
           <div>
-            <h2 className="text-[2.2vw] font-bold text-[#000000] leading-none tracking-tight">
+            <h2 className="text-[2.2vw] font-semibold text-[#000000] leading-none tracking-tight">
               {stats.totalUsers}
             </h2>
             <p className="text-[0.88vw] font-semibold text-[#f87171] mt-[0.6vw]">
@@ -145,7 +145,7 @@ export default function UserManagementPage() {
         {/* New Users */}
         <div className="bg-white rounded-[16px] p-[1.3vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex items-center justify-between">
           <div>
-            <h2 className="text-[2.2vw] font-bold text-[#000000] leading-none tracking-tight">
+            <h2 className="text-[2.2vw] font-semibold text-[#000000] leading-none tracking-tight">
               {stats.newUsers}
             </h2>
             <p className="text-[0.88vw] font-semibold text-[#3b82f6] mt-[0.6vw]">
@@ -165,7 +165,7 @@ export default function UserManagementPage() {
         {/* Active Accounts */}
         <div className="bg-white rounded-[16px] p-[1.3vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex items-center justify-between">
           <div>
-            <h2 className="text-[2.2vw] font-bold text-[#000000] leading-none tracking-tight">
+            <h2 className="text-[2.2vw] font-semibold text-[#000000] leading-none tracking-tight">
               {stats.activeAccounts}
             </h2>
             <p className="text-[0.88vw] font-semibold text-[#22c55e] mt-[0.6vw]">
@@ -184,7 +184,7 @@ export default function UserManagementPage() {
         {/* Suspended Accounts */}
         <div className="bg-white rounded-[16px] p-[1.3vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex items-center justify-between">
           <div>
-            <h2 className="text-[2.2vw] font-bold text-[#000000] leading-none tracking-tight">
+            <h2 className="text-[2.2vw] font-semibold text-[#000000] leading-none tracking-tight">
               {stats.suspendedAccounts}
             </h2>
             <p className="text-[0.88vw] font-semibold text-[#ef4444] mt-[0.6vw]">

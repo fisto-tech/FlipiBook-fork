@@ -15,7 +15,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose }) {
                 <Repeat size={26} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug">
+                <h3 className="text-xl font-semibold text-gray-900 leading-snug">
                   Subscription Details
                 </h3>
                 <p className="text-sm text-gray-400 mt-1">
@@ -31,7 +31,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose }) {
 
           {/* Plan Information Section */}
           <div className="space-y-4">
-            <h4 className="text-base font-bold text-[#ec5137] uppercase tracking-wide">
+            <h4 className="text-base font-semibold text-[#ec5137] uppercase tracking-wide">
               Plan Information
             </h4>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
@@ -58,7 +58,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose }) {
 
           {/* Subscription Period Section */}
           <div className="space-y-4 pt-1">
-            <h4 className="text-base font-bold text-[#ec5137] uppercase tracking-wide">
+            <h4 className="text-base font-semibold text-[#ec5137] uppercase tracking-wide">
               Subscription Period
             </h4>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
@@ -83,7 +83,7 @@ export default function SubscriptionDetailsModal({ subscription, onClose }) {
 
           {/* Payment Information Section */}
           <div className="space-y-4 pt-1">
-            <h4 className="text-base font-bold text-[#ec5137] uppercase tracking-wide">
+            <h4 className="text-base font-semibold text-[#ec5137] uppercase tracking-wide">
               Payment Information
             </h4>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">

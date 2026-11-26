@@ -387,7 +387,7 @@ export default function ManagementUserPage() {
       {/* Top Header */}
       <div className="flex items-center justify-between pb-[0.3vw] border-b border-gray-100">
         <div>
-          <h1 className="text-[1.6vw] font-bold text-[#111827] tracking-tight leading-tight">
+          <h1 className="text-[1.6vw] font-semibold text-[#111827] tracking-tight leading-tight">
             User Details
           </h1>
           <p className="text-[0.72vw] text-[#9ca3af] font-medium mt-[0.15vw]">
@@ -403,7 +403,7 @@ export default function ManagementUserPage() {
         <div className="flex flex-wrap items-center justify-between gap-[0.8vw] mb-[0.7vw]">
           {/* Active Users Heading */}
           <div className="flex items-center gap-[0.5vw]">
-            <h2 className="text-[0.95vw] font-bold text-[#111827]">
+            <h2 className="text-[0.95vw] font-semibold text-[#111827]">
               Active Users <span className="text-gray-400 font-normal">({filteredUsers.length})</span>
             </h2>
           </div>
@@ -452,7 +452,7 @@ export default function ManagementUserPage() {
                 >
                   <div className="flex items-center gap-1">
                     <span>Created Date</span>
-                    <span className="text-blue-600 font-bold">↑</span>
+                    <span className="text-blue-600 font-semibold">↑</span>
                   </div>
                 </th>
                 <th className="py-[0.55vw] px-[1vw] text-center font-semibold">Status</th>
@@ -595,7 +595,7 @@ export default function ManagementUserPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-[1.5vw] py-[1.1vw] border-b border-gray-100 bg-[#f8fafc] rounded-t-[1vw]">
               <div>
-                <h3 className="text-[1.05vw] font-bold text-[#111827]">
+                <h3 className="text-[1.05vw] font-semibold text-[#111827]">
                   {editingUser ? 'Update User' : 'Add New User'}
                 </h3>
                 <p className="text-[0.72vw] text-gray-400 mt-[0.1vw]">
@@ -611,7 +611,7 @@ export default function ManagementUserPage() {
             <form onSubmit={handleSaveUser} className="p-[1.5vw] space-y-[1.1vw] text-[0.8vw]">
               {/* 1. Full Name */}
               <div className="space-y-[0.35vw]">
-                <label className="block text-[#334155] font-bold text-[0.8vw]">
+                <label className="block text-[#334155] font-semibold text-[0.8vw]">
                   Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -626,7 +626,7 @@ export default function ManagementUserPage() {
 
               {/* 2. Email ID */}
               <div className="space-y-[0.35vw]">
-                <label className="block text-[#334155] font-bold text-[0.8vw]">
+                <label className="block text-[#334155] font-semibold text-[0.8vw]">
                   Email ID
                 </label>
                 <input
@@ -640,7 +640,7 @@ export default function ManagementUserPage() {
 
               {/* 3. Password */}
               <div className="space-y-[0.35vw]">
-                <label className="block text-[#334155] font-bold text-[0.8vw]">
+                <label className="block text-[#334155] font-semibold text-[0.8vw]">
                   Password {editingUser ? <span className="text-gray-400 font-normal">(Leave blank to keep current)</span> : <span className="text-red-500">*</span>}
                 </label>
                 <div className="relative">
@@ -677,7 +677,7 @@ export default function ManagementUserPage() {
 
               {/* 4. Select Designation */}
               <div className={`space-y-[0.35vw] transition-all duration-200 ${isDesignationOpen ? 'pb-[7.5vw]' : 'pb-0'}`}>
-                <label className="block text-[#334155] font-bold text-[0.8vw]">
+                <label className="block text-[#334155] font-semibold text-[0.8vw]">
                   Select Designation <span className="text-gray-400 font-normal">({availableRoles.length} available)</span>
                 </label>
                 {availableRoles.length > 0 ? (

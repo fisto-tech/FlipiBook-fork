@@ -98,8 +98,8 @@ export default function ActivityTab({ user }) {
       <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.2vw] shadow-xs space-y-[1vw]">
         {/* Title */}
         <div>
-          <h2 className="text-[1vw] font-semibold text-gray-900">All Activities</h2>
-          <p className="text-[0.7vw] text-gray-400 mt-[0.1vw]">
+          <h2 className="text-[1.2vw] font-semibold text-gray-900 tracking-tight leading-none">All Activities</h2>
+          <p className="text-[0.85vw] text-gray-400 mt-[0.35vw] leading-tight">
             All Payment transactions by this user.
           </p>
         </div>

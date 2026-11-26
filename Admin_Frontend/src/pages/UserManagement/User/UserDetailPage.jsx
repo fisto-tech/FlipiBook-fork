@@ -176,7 +176,7 @@ export default function UserDetailPage() {
                     className={`w-full h-full flex items-center justify-center text-white ${avatarSrc ? 'hidden' : 'flex'}`}
                     style={{ backgroundColor: avatarBgColor }}
                   >
-                    <span className="text-white text-[1.5vw] font-bold select-none">
+                    <span className="text-white text-[1.5vw] font-semibold select-none">
                       {initialLetter}
                     </span>
                   </div>

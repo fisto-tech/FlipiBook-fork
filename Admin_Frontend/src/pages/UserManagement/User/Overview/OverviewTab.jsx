@@ -37,8 +37,8 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
     <div className="space-y-[1.2vw]">
       {/* Overview Section Heading */}
       <div>
-        <h2 className="text-[1vw] font-semibold text-gray-900 tracking-tight">User Overview</h2>
-        <p className="text-[0.7vw] text-gray-400 mt-[0.1vw]">
+        <h2 className="text-[1.2vw] font-semibold text-gray-900 tracking-tight leading-none">User Overview</h2>
+        <p className="text-[0.85vw] text-gray-400 mt-[0.35vw] leading-tight">
           Account summary and platform usage at a glance.
         </p>
       </div>
@@ -49,7 +49,7 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
         <div className="bg-white rounded-[16px] p-[1.2vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex flex-col justify-between h-[8.5vw]">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[1.8vw] font-bold text-[#000000] leading-none">
+              <span className="text-[1.8vw] font-semibold text-[#000000] leading-none">
                 {flipbooksCount}
               </span>
               <p className="text-[0.8vw] font-semibold text-[#ec5137] mt-[0.4vw]">
@@ -69,7 +69,7 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
         <div className="bg-white rounded-[16px] p-[1.2vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex flex-col justify-between h-[8.5vw]">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[1.8vw] font-bold text-[#000000] leading-none">
+              <span className="text-[1.8vw] font-semibold text-[#000000] leading-none">
                 {totalViews}
               </span>
               <p className="text-[0.8vw] font-semibold text-[#0284c7] mt-[0.4vw]">
@@ -89,7 +89,7 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
         <div className="bg-white rounded-[16px] p-[1.2vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex flex-col justify-between h-[8.5vw]">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[1.8vw] font-bold text-[#000000] leading-none">
+              <span className="text-[1.8vw] font-semibold text-[#000000] leading-none">
                 {requests3DCount}
               </span>
               <p className="text-[0.8vw] font-semibold text-[#a855f7] mt-[0.4vw]">
@@ -109,7 +109,7 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
         <div className="bg-white rounded-[16px] p-[1.2vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex flex-col justify-between h-[8.5vw]">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[1.8vw] font-bold text-[#000000] leading-none">
+              <span className="text-[1.8vw] font-semibold text-[#000000] leading-none">
                 {totalPayments}
               </span>
               <p className="text-[0.8vw] font-semibold text-[#16a34a] mt-[0.4vw]">

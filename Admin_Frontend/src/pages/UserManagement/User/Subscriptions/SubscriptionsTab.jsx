@@ -93,8 +93,8 @@ export default function SubscriptionsTab({ user }) {
         {/* Title & Counters */}
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-[1vw] font-semibold text-gray-900">Subscription History</h2>
-            <p className="text-[0.7vw] text-gray-400 mt-[0.1vw]">All subscription history by this user.</p>
+            <h2 className="text-[1.2vw] font-semibold text-gray-900 tracking-tight leading-none">Subscription History</h2>
+            <p className="text-[0.85vw] text-gray-400 mt-[0.35vw] leading-tight">All subscription history by this user.</p>
           </div>
 
           <div className="flex items-center gap-[0.6vw]">

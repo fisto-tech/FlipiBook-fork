@@ -15,7 +15,7 @@ export default function PaymentDetailsModal({ transaction, onClose }) {
                 <Receipt size={26} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900 leading-snug">
+                <h3 className="text-xl font-semibold text-gray-900 leading-snug">
                   Transaction Details
                 </h3>
                 <p className="text-sm text-gray-400 mt-1">
@@ -60,7 +60,7 @@ export default function PaymentDetailsModal({ transaction, onClose }) {
           {/* Refund Information Section (Shown for Refunded or all with details) */}
           <div className="space-y-4 pt-3 border-t border-gray-100">
             <div className="flex items-center justify-between">
-              <h4 className="text-base font-bold text-[#ec5137] uppercase tracking-wide">
+              <h4 className="text-base font-semibold text-[#ec5137] uppercase tracking-wide">
                 Refund Information
               </h4>
               <span className="inline-flex items-center text-xs font-semibold text-[#16a34a] bg-[#f0fdf4] border border-[#bbf7d0] px-3 py-1 rounded-full">
@@ -70,7 +70,7 @@ export default function PaymentDetailsModal({ transaction, onClose }) {
 
             <div className="text-sm">
               <span className="block text-gray-400 mb-1 font-medium text-xs">Refund Amount</span>
-              <span className="text-xl font-bold text-[#16a34a]">
+              <span className="text-xl font-semibold text-[#16a34a]">
                 {transaction.refundAmount || '₹8,000'}
               </span>
             </div>

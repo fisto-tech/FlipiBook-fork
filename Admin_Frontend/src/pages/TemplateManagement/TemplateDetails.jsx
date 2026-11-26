@@ -56,7 +56,7 @@ export default function TemplateDetails() {
         {/* Title Header with Status Badge */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-[1.7vw] font-bold text-[#111827] tracking-tight leading-tight">
+            <h1 className="text-[1.7vw] font-semibold text-[#111827] tracking-tight leading-tight">
               Product Catalogue
             </h1>
             <p className="text-[0.76vw] text-gray-500 mt-[0.25vw]">
@@ -72,10 +72,10 @@ export default function TemplateDetails() {
         {/* Section 01: Template Preview */}
         <div>
           <div className="flex items-center gap-[0.45vw] mb-[1vw]">
-            <span className="text-[0.78vw] font-bold text-[#f87171] bg-[#fef2f2] px-[0.4vw] py-[0.1vw] rounded-[0.25vw]">
+            <span className="text-[0.78vw] font-semibold text-[#f87171] bg-[#fef2f2] px-[0.4vw] py-[0.1vw] rounded-[0.25vw]">
               01
             </span>
-            <h2 className="text-[1vw] font-bold text-[#f87171]">
+            <h2 className="text-[1vw] font-semibold text-[#f87171]">
               Template Preview
             </h2>
           </div>
@@ -113,7 +113,7 @@ export default function TemplateDetails() {
                             <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
                           </svg>
                         </div>
-                        <span className="text-[0.48vw] font-bold text-gray-800 leading-tight">
+                        <span className="text-[0.48vw] font-semibold text-gray-800 leading-tight">
                           {item.title}
                         </span>
                         <span className="text-[0.4vw] text-gray-400 leading-tight">
@@ -161,11 +161,11 @@ export default function TemplateDetails() {
                       { num: '05', title: 'Contact Us', desc: 'Reservations, locations & catering' }
                     ].map((row) => (
                       <div key={row.num} className="flex items-start gap-[0.6vw]">
-                        <span className="text-[0.85vw] font-serif font-bold text-[#b45309]">
+                        <span className="text-[0.85vw] font-serif font-semibold text-[#b45309]">
                           {row.num}
                         </span>
                         <div>
-                          <p className="text-[0.65vw] font-bold text-gray-900 leading-tight">
+                          <p className="text-[0.65vw] font-semibold text-gray-900 leading-tight">
                             {row.title}
                           </p>
                           <p className="text-[0.45vw] text-gray-500 leading-tight">
@@ -229,10 +229,10 @@ export default function TemplateDetails() {
         {/* Section 02: Template Information */}
         <div>
           <div className="flex items-center gap-[0.45vw] mb-[0.9vw]">
-            <span className="text-[0.78vw] font-bold text-[#f87171] bg-[#fef2f2] px-[0.4vw] py-[0.1vw] rounded-[0.25vw]">
+            <span className="text-[0.78vw] font-semibold text-[#f87171] bg-[#fef2f2] px-[0.4vw] py-[0.1vw] rounded-[0.25vw]">
               02
             </span>
-            <h2 className="text-[1vw] font-bold text-[#f87171]">
+            <h2 className="text-[1vw] font-semibold text-[#f87171]">
               Template Information
             </h2>
           </div>
@@ -284,10 +284,10 @@ export default function TemplateDetails() {
         {/* Section 03: Review Information */}
         <div>
           <div className="flex items-center gap-[0.45vw] mb-[0.9vw]">
-            <span className="text-[0.78vw] font-bold text-[#f87171] bg-[#fef2f2] px-[0.4vw] py-[0.1vw] rounded-[0.25vw]">
+            <span className="text-[0.78vw] font-semibold text-[#f87171] bg-[#fef2f2] px-[0.4vw] py-[0.1vw] rounded-[0.25vw]">
               03
             </span>
-            <h2 className="text-[1vw] font-bold text-[#f87171]">
+            <h2 className="text-[1vw] font-semibold text-[#f87171]">
               Review Information
             </h2>
           </div>
@@ -336,7 +336,7 @@ export default function TemplateDetails() {
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </div>
-          <h3 className="text-[1.05vw] font-bold text-[#eb4b36]">
+          <h3 className="text-[1.05vw] font-semibold text-[#eb4b36]">
             Setup Publishing Preferences
           </h3>
         </div>
@@ -422,7 +422,7 @@ export default function TemplateDetails() {
                     </svg>
                   </div>
                   <div>
-                    <h4 className="text-[0.85vw] font-bold text-gray-900 leading-tight">
+                    <h4 className="text-[0.85vw] font-semibold text-gray-900 leading-tight">
                       Free Plan
                     </h4>
                     <p className="text-[0.68vw] text-gray-400 mt-[0.1vw]">
@@ -462,7 +462,7 @@ export default function TemplateDetails() {
                     </svg>
                   </div>
                   <div>
-                    <h4 className="text-[0.85vw] font-bold text-gray-900 leading-tight">
+                    <h4 className="text-[0.85vw] font-semibold text-gray-900 leading-tight">
                       Pro Plan
                     </h4>
                     <p className="text-[0.68vw] text-gray-400 mt-[0.1vw]">
@@ -502,7 +502,7 @@ export default function TemplateDetails() {
                     </svg>
                   </div>
                   <div>
-                    <h4 className="text-[0.85vw] font-bold text-gray-900 leading-tight">
+                    <h4 className="text-[0.85vw] font-semibold text-gray-900 leading-tight">
                       Premium Plan
                     </h4>
                     <p className="text-[0.68vw] text-gray-400 mt-[0.1vw]">

@@ -54,8 +54,8 @@ export default function ProfileDetailsTab({ user, profile }) {
     <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[2vw] shadow-xs space-y-[1.8vw] font-sans">
       {/* Title & Subtitle */}
       <div>
-        <h2 className="text-[1.3vw] font-semibold text-gray-900 tracking-tight leading-none">Profile Details</h2>
-        <p className="text-[0.9vw] text-gray-400 mt-[0.35vw] leading-tight">
+        <h2 className="text-[1.2vw] font-semibold text-gray-900 tracking-tight leading-none">Profile Details</h2>
+        <p className="text-[0.85vw] text-gray-400 mt-[0.35vw] leading-tight">
           User's personal and professional information.
         </p>
       </div>
