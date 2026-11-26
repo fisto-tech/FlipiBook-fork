@@ -142,34 +142,12 @@ export default function ManagementUserPage() {
           setUsers(mappedUsers);
           saveStoredUsers(mappedUsers);
         } else {
-          // If backend returned empty or was unreachable, fallback to localStorage;
-          // if localStorage is also empty, seed with the default Super Admin from seed.js
+          // If backend returned empty or was unreachable, fallback to localStorage
           const stored = getStoredUsers();
           if (stored && stored.length > 0) {
             setUsers(stored);
           } else {
-            const defaultSeedUser = [
-              {
-                sNo: 1,
-                id: 'default_admin',
-                userId: 'FLIP_ADMIN01',
-                name: 'Fist-O',
-                designation: 'Super Admin',
-                email: 'adminflipibook2026@gmail.com',
-                password: 'Admin@123',
-                createdDate: 'Nov 26, 2026',
-                status: 'Active',
-                Access: [
-                  { Dashboard: 1 },
-                  { '3D Editor Assets': 1 },
-                  { 'User Management': 1 },
-                  { 'Template Management': 1 },
-                  { Management: 1 }
-                ]
-              }
-            ];
-            setUsers(defaultSeedUser);
-            saveStoredUsers(defaultSeedUser);
+            setUsers([]);
           }
         }
       } catch (err) {
