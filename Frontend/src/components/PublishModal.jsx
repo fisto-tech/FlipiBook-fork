@@ -1,4 +1,4 @@
-import { renderTemplateBooks, getShadowRgba, TemplatePreview, COVER_TEMPLATES } from './FlipbookInfoModal';
+import { renderTemplateBooks, getShadowRgba, TemplatePreview, COVER_TEMPLATES, detectFlipbookOrientation } from './FlipbookInfoModal';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronDown, Plus, Info, Upload } from 'lucide-react';
@@ -58,15 +58,35 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
     currentBook?.meta?.coverPicture ||
     null;
 
+  const detectedOrient = detectFlipbookOrientation ? detectFlipbookOrientation(currentBook, currentBook?.pages || []) : 'portrait';
   const tplId = typeof rawCp?.selectedTemplate === 'object' && rawCp?.selectedTemplate
     ? rawCp.selectedTemplate.id
-    : Number(rawCp?.selectedTemplate || rawCp?.templateId || 1);
-  const initialTemplate = COVER_TEMPLATES.find(t => t.id === tplId) || COVER_TEMPLATES[0];
+    : Number(rawCp?.selectedTemplate || rawCp?.templateId || 0);
+
+  const foundInitial = COVER_TEMPLATES.find(t => t.id === tplId);
+  const initialTemplate = (foundInitial && (foundInitial.orientation || 'portrait').toLowerCase() === (detectedOrient || 'portrait').toLowerCase())
+    ? foundInitial
+    : (COVER_TEMPLATES.find(t => (t.orientation || 'portrait').toLowerCase() === (detectedOrient || 'portrait').toLowerCase()) || COVER_TEMPLATES[0]);
+
+  const resolvedText1 = rawCp?.text1 || initialTemplate?.defaultText1 || 'Name of the Book';
+  const resolvedText2 = rawCp?.text2 || initialTemplate?.defaultText2 || '“Turn every page into an experience”';
 
   const coverPicture = rawCp ? {
     ...rawCp,
-    selectedTemplate: initialTemplate
-  } : null;
+    type: rawCp.type || (rawCp.url ? 'upload' : 'template'),
+    selectedTemplate: initialTemplate,
+    text1: resolvedText1,
+    text2: resolvedText2,
+    bgColor: rawCp.bgColor || rawCp.selectedTemplate?.defaultBgColor || initialTemplate?.defaultBgColor || '#F8FAFC'
+  } : {
+    type: 'template',
+    url: '',
+    selectedTemplate: initialTemplate,
+    text1: resolvedText1,
+    text2: resolvedText2,
+    bgColor: initialTemplate?.defaultBgColor || '#F8FAFC',
+    fit: 'Fit'
+  };
 
   const handleAddTag = () => {
     if (tags.length >= 5) {
@@ -196,14 +216,7 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
           <div className="flex flex-col justify-between gap-[0.9vw]">
             {/* Book Preview Image Card */}
             <div className="relative rounded-[0.9vw] bg-gray-50 w-full aspect-[4/3] flex items-center justify-center shadow-inner overflow-hidden border border-gray-200/50">
-              {coverPicture?.type === 'template' ? (
-                <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
-                  <TemplatePreview
-                    {...coverPicture}
-                    pages={currentBook?.pages || []}
-                  />
-                </div>
-              ) : coverPicture?.url ? (
+              {coverPicture?.url ? (
                 <img
                   src={coverPicture.url}
                   alt="Flipbook Cover"
@@ -216,28 +229,13 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="relative w-[14vw] h-[15vw] flex items-center justify-center">
-                  <div className="absolute w-[10vw] h-[13.5vw] bg-gradient-to-br from-orange-500 to-amber-600 rounded-[0.6vw] shadow-xl transform -rotate-6 border border-orange-400 p-[0.7vw] flex flex-col justify-between text-white">
-                    <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85">HARD.COVER</span>
-                    <div>
-                      <h3 className="text-[0.85vw] font-black leading-tight">Hard.Cover Book</h3>
-                      <p className="text-[0.6vw] opacity-90 mt-[0.1vw]">Free .psd Mockup</p>
-                    </div>
-                  </div>
-                  <div className="absolute w-[10vw] h-[13.5vw] bg-gradient-to-br from-amber-600 to-orange-500 rounded-[0.6vw] shadow-2xl transform rotate-6 border border-amber-400 p-[0.7vw] flex flex-col justify-between text-white">
-                    <span className="text-[0.7vw] font-bold tracking-widest uppercase opacity-85">HARD.COVER</span>
-                    <div>
-                      <h3 className="text-[0.85vw] font-black leading-tight">Hard.Cover Book</h3>
-                      <p className="text-[0.6vw] opacity-90 mt-[0.1vw]">Free .psd Mockup</p>
-                    </div>
-                  </div>
+                <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
+                  <TemplatePreview
+                    {...(coverPicture || {})}
+                    pages={currentBook?.pages || []}
+                  />
                 </div>
               )}
-
-              {/* Pages Badge */}
-              <div className="absolute bottom-[0.6vw] right-[0.6vw] bg-white/90 backdrop-blur-md px-[0.6vw] py-[0.25vw] rounded-[0.4vw] text-[0.7vw] font-bold text-gray-800 shadow-xs border border-white/50">
-                {pageCount} Pages
-              </div>
             </div>
 
             {/* Bottom Input Group */}

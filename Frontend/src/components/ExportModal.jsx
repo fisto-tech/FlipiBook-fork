@@ -2322,7 +2322,7 @@ const ExportModal = ({
           if (coverCanvas) {
             const coverData = coverCanvas.toDataURL('image/png');
             const coverSvg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${coverCanvas.width}" height="${coverCanvas.height}" viewBox="0 0 ${coverCanvas.width} ${coverCanvas.height}"><image href="${coverData}" width="${coverCanvas.width}" height="${coverCanvas.height}"/></svg>`;
-            folder.file(`00_Cover_Picture.svg`, new Blob([coverSvg], { type: 'image/svg+xml;charset=utf-8' }));
+            folder.file(`CoverPicture.svg`, new Blob([coverSvg], { type: 'image/svg+xml;charset=utf-8' }));
           }
 
           for (const idx of indices) {
@@ -2373,7 +2373,7 @@ const ExportModal = ({
             coverCanvas.toBlob((b) => resolve(b), mime, 0.95);
           });
           if (coverBlob) {
-            folder.file(`00_Cover_Picture.${ext}`, coverBlob);
+            folder.file(`CoverPicture.${ext}`, coverBlob);
           }
         }
 
