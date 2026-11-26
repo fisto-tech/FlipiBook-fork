@@ -116,9 +116,6 @@ export default function ManagementUserPage() {
           const mappedUsers = usersRes.users.map((u, i) => {
             const uid = u.userid || u.userId;
             const pwd = u.password;
-            const isBcrypt = typeof pwd === 'string' && pwd.startsWith('$2b$');
-            const isAdminUser = String(uid || '').toUpperCase() === 'ADMIN' || String(u.designation || '').toLowerCase() === 'admin';
-            const defaultPassword = isAdminUser ? 'Admin@123' : uid;
             const rawDesignation = String(u.designation || '').trim();
             const resolvedDesignation = currentRolesMap.get(rawDesignation) || u.designation;
 
@@ -127,7 +124,7 @@ export default function ManagementUserPage() {
               id: u._id,
               name: u.name,
               userId: uid,
-              password: (!pwd || isBcrypt) ? defaultPassword : pwd,
+              password: pwd || '',
               designation: resolvedDesignation,
               roleId: u.roleId || '',
               teamHead: Boolean(u.teamHead),
@@ -518,9 +515,7 @@ export default function ManagementUserPage() {
 
                   {/* Password Column */}
                   <td className="py-[0.55vw] px-[1vw] text-[#4b5563] whitespace-nowrap font-mono text-[0.75vw]">
-                    {u.password && !u.password.startsWith('$2b$')
-                      ? u.password
-                      : (String(u.userId || '').toUpperCase() === 'ADMIN' ? 'Admin@123' : u.userId)}
+                    {u.password || ''}
                   </td>
 
                   {/* Created Date */}

@@ -70,7 +70,7 @@ adminUserSchema.pre('save', async function () {
 
   // Ensure default password is set if empty
   if (!this.password) {
-    this.password = String(this.userId || '').toUpperCase() === 'ADMIN' ? 'Admin@123' : this.userId;
+    this.password = 'Admin@123';
   }
 });
 

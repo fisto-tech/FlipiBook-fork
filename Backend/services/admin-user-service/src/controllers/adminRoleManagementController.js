@@ -198,30 +198,28 @@ const getAdminUsers = async (req, res) => {
     // Auto-normalize existing documents:
     // 1. Move lowercase userid -> userId, e_mailid -> email
     // 2. Remove legacy duplicate fields ($unset userid and e_mailid)
-    // 3. Normalize password to plain readable defaults
     try {
       const allUsers = await AdminUser.find({ isDeleted: { $ne: true } });
       for (const u of allUsers) {
         const uid = u.userId || u.userid;
         const uEmail = u.email || u.e_mailid;
-        const isBcrypt = typeof u.password === 'string' && u.password.startsWith('$2b$');
-        const plainDefault = String(uid || '').toUpperCase() === 'ADMIN' ? 'Admin@123' : uid;
-        const passwordToSet = (!u.password || isBcrypt) ? plainDefault : u.password;
 
-        await AdminUser.collection.updateOne(
-          { _id: u._id },
-          {
-            $set: {
-              userId: uid,
-              email: uEmail,
-              password: passwordToSet
-            },
-            $unset: {
-              userid: "",
-              e_mailid: ""
+        const updateFields = {};
+        if (uid) updateFields.userId = uid;
+        if (uEmail) updateFields.email = uEmail;
+
+        if (Object.keys(updateFields).length > 0) {
+          await AdminUser.collection.updateOne(
+            { _id: u._id },
+            {
+              $set: updateFields,
+              $unset: {
+                userid: "",
+                e_mailid: ""
+              }
             }
-          }
-        );
+          );
+        }
       }
     } catch (normErr) {
       console.warn('[getAdminUsers normalize error]:', normErr.message);
