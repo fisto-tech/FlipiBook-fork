@@ -12,14 +12,15 @@ import {
 } from 'lucide-react';
 import CustomScrollbar from '../../CustomScrollbar';
 
+import { getSlideKeyframes, SLIDE_DIRS, SLIDE_DISTANCE_PRESETS } from './slideDistance';
 /* -------------------------------------------------------------------------- */
 /*                                CONSTANTS                                   */
 /* -------------------------------------------------------------------------- */
 
 const ANIMATION_VARIANTS = {
   'none': {},
-  'fade-in': { initial: { opacity: 0 }, animate: { opacity: 1 } },
-  'fade-out': { initial: { opacity: 1 }, animate: { opacity: 0 } },
+  'fade-in': { animate: { opacity: [0, 1, 0] }, transition: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' } },
+  'fade-out': { animate: { opacity: [1, 0, 1] }, transition: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' } },
   'slide-up': { initial: { y: 100, opacity: 0 }, animate: { y: 0, opacity: 1 } },
   'slide-down': { initial: { y: -100, opacity: 0 }, animate: { y: 0, opacity: 1 } },
   'slide-left': { initial: { x: 100, opacity: 0 }, animate: { x: 0, opacity: 1 } },
@@ -126,12 +127,12 @@ const EXTRA_WAAPI_ANIMATIONS = {
     { opacity: 1 }, { opacity: 0, offset: 0.25 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.75 }, { opacity: 1 },
   ],
   'head-shake': [
-    { transform: 'perspective(400px) translateX(0px) rotateY(0deg)' },
-    { transform: 'perspective(400px) translateX(-6px) rotateY(-9deg)', offset: 0.065 },
-    { transform: 'perspective(400px) translateX(5px) rotateY(7deg)', offset: 0.185 },
-    { transform: 'perspective(400px) translateX(-3px) rotateY(-5deg)', offset: 0.315 },
-    { transform: 'perspective(400px) translateX(2px) rotateY(3deg)', offset: 0.435 },
-    { transform: 'perspective(400px) translateX(0px) rotateY(0deg)' },
+    { transform: 'translateX(0px) rotate(0deg)' },
+    { transform: 'translateX(-6px) rotate(-5deg)', offset: 0.065 },
+    { transform: 'translateX(5px) rotate(4deg)', offset: 0.185 },
+    { transform: 'translateX(-3px) rotate(-2deg)', offset: 0.315 },
+    { transform: 'translateX(2px) rotate(1deg)', offset: 0.435 },
+    { transform: 'translateX(0px) rotate(0deg)' },
   ],
   'shake-x': [
     { transform: 'translateX(0px)' },
@@ -245,7 +246,7 @@ const EXTRA_LOOP_TRANSITION = (duration) => ({ repeat: Infinity, duration });
 
 const EXTRA_ANIMATION_VARIANTS = {
   'flash': { animate: { opacity: [1, 0, 1, 0, 1] }, transition: EXTRA_LOOP_TRANSITION(1.5) },
-  'head-shake': { animate: { x: [0, -6, 5, -3, 2, 0], rotateY: [0, -9, 7, -5, 3, 0] }, transition: EXTRA_LOOP_TRANSITION(1.2) },
+  'head-shake': { animate: { x: [0, -6, 5, -3, 2, 0], rotate: [0, -5, 4, -2, 1, 0] }, transition: EXTRA_LOOP_TRANSITION(1.2) },
   'shake-x': { animate: { x: [0, -8, 8, -8, 8, -8, 8, 0] }, transition: EXTRA_LOOP_TRANSITION(0.9) },
   'shake-y': { animate: { y: [0, -8, 8, -8, 8, -8, 8, 0] }, transition: EXTRA_LOOP_TRANSITION(0.9) },
   'jack-in-the-box': { initial: { scale: 0.1, rotate: 30, opacity: 0 }, animate: { scale: 1, rotate: 0, opacity: 1 } },
@@ -498,6 +499,63 @@ const isTextElement = (el) => {
 /*                                SUB-COMPONENTS                              */
 /* -------------------------------------------------------------------------- */
 
+export const buildCycledKeyframes = (keyframes, durationMs, delayMs, easing = 'linear') => {
+  if (!delayMs || delayMs <= 0 || !keyframes || keyframes.length === 0) {
+    return {
+      keyframes,
+      timing: {
+        duration: durationMs,
+        delay: delayMs || 0,
+        easing
+      }
+    };
+  }
+
+  const totalCycleDuration = delayMs + durationMs;
+  const delayRatio = Math.max(0.0001, Math.min(0.9999, delayMs / totalCycleDuration));
+  const activeRatio = 1 - delayRatio;
+
+  const n = keyframes.length;
+  const explicitOffsets = keyframes.map(kf => (typeof kf.offset === 'number' && !isNaN(kf.offset)) ? kf.offset : null);
+  const normalizedOffsets = keyframes.map((kf, i) => {
+    if (explicitOffsets[i] !== null) return explicitOffsets[i];
+    return n <= 1 ? 0 : i / (n - 1);
+  });
+
+  const kf0 = { ...keyframes[0] };
+  delete kf0.offset;
+  delete kf0.easing;
+
+  const cycled = [
+    { ...kf0, offset: 0, easing: 'linear' },
+    { ...kf0, offset: delayRatio, easing: keyframes[0].easing || easing }
+  ];
+
+  for (let i = 1; i < n; i++) {
+    const kf = { ...keyframes[i] };
+    const origOffset = normalizedOffsets[i];
+    const newOffset = Math.min(1, Math.max(delayRatio, delayRatio + (origOffset * activeRatio)));
+    kf.offset = newOffset;
+    if (i < n - 1 && !kf.easing) {
+      kf.easing = easing;
+    }
+    cycled.push(kf);
+  }
+
+  if (cycled.length > 0) {
+    cycled[cycled.length - 1].offset = 1;
+  }
+
+  return {
+    keyframes: cycled,
+    timing: {
+      duration: totalCycleDuration,
+      delay: 0,
+      easing: 'linear'
+    }
+  };
+};
+
 const SliderControl = React.memo(({ label, value, onChange, onCommit, min = 0, max = 10, step = 0.1, unit = '' }) => {
   const [localVal, setLocalVal] = React.useState(value);
   const commitTimeoutRef = React.useRef(null);
@@ -606,22 +664,27 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
     delay: parseFloat(primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-delay`)) || 0,
     duration: parseFloat(primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-duration`)) || 1,
     easing: primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-easing`) || 'Linear',
-    repeat: primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-repeat`) || 'None',
-    everyVisit: primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-every-visit`) !== 'false'
+    repeat: primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-repeat`) || (action === 'Always' ? 'Infinite' : 'None'),
+    everyVisit: primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-every-visit`) !== 'false',
+    distance: primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-distance`) || '',
+    fade: primaryElement.getAttribute(`data-animation-${getPrefix(trigger)}-fade`) !== 'false'
   });
 
   React.useEffect(() => {
     const t = primaryElement.getAttribute('data-animation-trigger') || 'While Opening';
+    const a = primaryElement.getAttribute('data-animation-action') || 'Click';
     const p = getPrefix(t);
     setTrigger(t);
-    setAction(primaryElement.getAttribute('data-animation-action') || 'Click');
+    setAction(a);
     setSettings({
       type: primaryElement.getAttribute(`data-animation-${p}-type`) || 'none',
       delay: parseFloat(primaryElement.getAttribute(`data-animation-${p}-delay`)) || 0,
       duration: parseFloat(primaryElement.getAttribute(`data-animation-${p}-duration`)) || 1,
       easing: primaryElement.getAttribute(`data-animation-${p}-easing`) || 'Linear',
-      repeat: primaryElement.getAttribute(`data-animation-${p}-repeat`) || 'None',
-      everyVisit: primaryElement.getAttribute(`data-animation-${p}-every-visit`) !== 'false'
+      repeat: primaryElement.getAttribute(`data-animation-${p}-repeat`) || (a === 'Always' ? 'Infinite' : 'None'),
+      everyVisit: primaryElement.getAttribute(`data-animation-${p}-every-visit`) !== 'false',
+      distance: primaryElement.getAttribute(`data-animation-${p}-distance`) || '',
+      fade: primaryElement.getAttribute(`data-animation-${p}-fade`) !== 'false'
     });
   }, [primaryElement]);
 
@@ -771,8 +834,82 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
     setShowTriggerSelector(false);
   };
 
+  const handleUnifiedTriggerChange = (option) => {
+    if (option === 'While Opening') {
+      handleTriggerChange('While Opening');
+    } else {
+      const oldPrefix = getPrefix(trigger);
+      setTrigger('On Page');
+      setAction(option);
+
+      const nextRepeat = option === 'Always'
+        ? (settings.repeat && settings.repeat !== 'None' ? settings.repeat : 'Infinite')
+        : (settings.repeat || 'None');
+
+      setSettings(prev => ({
+        ...prev,
+        type: primaryElement.getAttribute('data-animation-interact-type') || prev.type || 'none',
+        delay: parseFloat(primaryElement.getAttribute('data-animation-interact-delay')) || prev.delay || 0,
+        duration: parseFloat(primaryElement.getAttribute('data-animation-interact-duration')) || prev.duration || 1,
+        easing: primaryElement.getAttribute('data-animation-interact-easing') || prev.easing || 'Linear',
+        repeat: nextRepeat,
+        everyVisit: primaryElement.getAttribute('data-animation-interact-every-visit') !== 'false'
+      }));
+
+      targetList.forEach(el => {
+        let target = el;
+        if (target && !document.body.contains(target)) {
+          const id = target.id || target.getAttribute('data-name');
+          const activePage = document.querySelector('.active-page-outline') || document.querySelector('.page-svg-container');
+          const fresh = activePage?.querySelector(`[id="${id}"], [data-name="${id}"]`) || document.getElementById(id);
+          if (fresh) target = fresh;
+        }
+
+        const currentNewType = target.getAttribute('data-animation-interact-type');
+        if (!currentNewType || currentNewType === 'none') {
+          const oldType = target.getAttribute(`data-animation-${oldPrefix}-type`);
+          if (oldType && oldType !== 'none') {
+            ['type', 'delay', 'duration', 'easing', 'repeat', 'every-visit'].forEach(k => {
+              const attrName = `data-animation-interact-${k}`;
+              const val = target.getAttribute(`data-animation-${oldPrefix}-${k}`);
+              if (val) {
+                target.setAttribute(attrName, val);
+                if (onUpdate) onUpdate(target.id || target.getAttribute('data-name'), attrName, val);
+              }
+            });
+          }
+        }
+
+        target.setAttribute('data-animation-trigger', 'On Page');
+        target.setAttribute('data-animation-action', option);
+        target.setAttribute('data-animation-interact-repeat', nextRepeat);
+        target.setAttribute('data-animation-intent', 'true');
+
+        if (option === 'Click' || option === 'Hover') {
+          target.style.pointerEvents = 'auto';
+          if (option === 'Click') target.style.cursor = 'pointer';
+        } else {
+          target.style.pointerEvents = '';
+          target.style.cursor = '';
+        }
+
+        if (onUpdate) {
+          const id = target.id || target.getAttribute('data-name');
+          onUpdate(id, 'data-animation-trigger', 'On Page');
+          onUpdate(id, 'data-animation-action', option);
+          onUpdate(id, 'data-animation-interact-repeat', nextRepeat);
+          onUpdate(id, 'data-animation-intent', 'true');
+        }
+      });
+    }
+    setShowTriggerSelector(false);
+  };
+
   const handleActionChange = (newAction) => {
     setAction(newAction);
+    if (newAction === 'Always' && (!settings.repeat || settings.repeat === 'None')) {
+      updateSetting('repeat', 'Infinite');
+    }
     targetList.forEach(el => {
       let target = el;
       if (target && !document.body.contains(target)) {
@@ -969,51 +1106,31 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
       <div className="flex gap-[0.6vw]">
         <div className="flex-1 relative">
           <button
-            onClick={(e) => { e.stopPropagation(); setShowTriggerSelector(!showTriggerSelector); setShowActionSelector(false); }}
+            onClick={(e) => { e.stopPropagation(); setShowTriggerSelector(!showTriggerSelector); }}
             className="w-full h-[2vw] flex items-center justify-between px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs text-[0.8vw] font-semibold text-gray-700 hover:border-gray-400 focus:border-[#EC5137] transition-all group"
           >
-            <span className="text-[0.8vw] font-semibold text-gray-700 truncate">{trigger}</span>
+            <span className="text-[0.8vw] font-semibold text-gray-700 truncate">
+              {trigger === 'While Opening' ? 'While Opening' : (action || 'Always')}
+            </span>
             <ArrowRightLeft size="0.75vw" className="text-gray-400 group-hover:rotate-180 transition-transform duration-500" />
           </button>
           {showTriggerSelector && (
             <div className="absolute top-full left-0 w-full mt-[0.3vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl z-30 py-[0.25vw] overflow-hidden animate-in fade-in zoom-in-95">
-              {['While Opening', 'On Page'].map(t => (
-                <button
-                  key={t}
-                  onClick={() => handleTriggerChange(t)}
-                  className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${trigger === t ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {t}
-                </button>
-              ))}
+              {['While Opening', 'Click', 'Hover', 'Always'].map(opt => {
+                const isSelected = trigger === 'While Opening' ? opt === 'While Opening' : action === opt;
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => handleUnifiedTriggerChange(opt)}
+                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${isSelected ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
-
-        {trigger === 'On Page' && (
-          <div className="flex-1 relative">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowActionSelector(!showActionSelector); setShowTriggerSelector(false); }}
-              className="w-full h-[2vw] flex items-center justify-between px-[0.7vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs text-[0.8vw] font-semibold text-gray-700 hover:border-gray-400 focus:border-[#EC5137] transition-all group"
-            >
-              <span className="text-[0.8vw] font-semibold text-gray-700 truncate">{action}</span>
-              <ArrowRightLeft size="0.75vw" className="text-gray-400 group-hover:rotate-180 transition-transform duration-500" />
-            </button>
-            {showActionSelector && (
-              <div className="absolute top-full left-0 w-full mt-[0.3vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl z-30 py-[0.25vw] overflow-hidden animate-in fade-in zoom-in-95">
-                {['Click', 'Hover', 'Always'].map(a => (
-                  <button
-                    key={a}
-                    onClick={() => handleActionChange(a)}
-                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${action === a ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    {a}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         <button
           onClick={(e) => {
@@ -1091,6 +1208,64 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
         </div>
       </div>
 
+      {/* Slide Distance & Fade (Slide Up / Down / Left / Right only) */}
+      {SLIDE_DIRS[settings.type] && (() => {
+        const isEdge = String(settings.distance) === 'edge';
+        const pctVal = isEdge || settings.distance === '' ? 20 : (parseFloat(settings.distance) || 0);
+        const fromLabel = { 'slide-up': 'below', 'slide-down': 'above', 'slide-left': 'the right', 'slide-right': 'the left' }[settings.type];
+        return (
+          <div className="flex flex-col gap-[0.55vw]">
+            <div className="flex items-center justify-between">
+              <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Distance :</span>
+              <span className="text-[0.68vw] text-gray-400">comes in from {fromLabel}</span>
+            </div>
+            <div className="grid grid-cols-4 gap-[0.35vw]">
+              {SLIDE_DISTANCE_PRESETS.map((p) => {
+                const active = p.value === 'edge' ? isEdge : (!isEdge && settings.distance !== '' && Math.round(parseFloat(settings.distance)) === p.value);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => updateSetting('distance', p.value, true)}
+                    className={`h-[1.9vw] rounded-[0.45vw] border text-[0.7vw] font-medium transition-all cursor-pointer ${active
+                      ? 'border-[#EC5137] bg-[#EC5137]/8 text-[#EC5137]'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'}`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+            {!isEdge && (
+              <SliderControl
+                label="Custom"
+                value={pctVal}
+                min={0}
+                max={100}
+                step={1}
+                unit="%"
+                onChange={(v) => updateSetting('distance', v, false)}
+                onCommit={(v) => updateSetting('distance', v, true)}
+              />
+            )}
+            {settings.distance === '' && (
+              <span className="text-[0.66vw] text-gray-400 -mt-[0.2vw]">Default distance — pick a preset or drag to customise (% of page size).</span>
+            )}
+            <label className="flex items-center justify-between cursor-pointer select-none mt-[0.1vw]">
+              <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Fade in while sliding</span>
+              <button
+                type="button"
+                onClick={() => updateSetting('fade', !settings.fade, true)}
+                className={`w-[2vw] h-[1.1vw] rounded-full p-[0.15vw] transition-colors cursor-pointer ${settings.fade ? 'bg-[#EC5137]' : 'bg-gray-200'}`}
+                aria-pressed={settings.fade}
+              >
+                <span className={`block w-[0.8vw] h-[0.8vw] bg-white rounded-full shadow transition-transform ${settings.fade ? 'translate-x-[0.9vw]' : 'translate-x-0'}`} />
+              </button>
+            </label>
+          </div>
+        );
+      })()}
+
       {/* Easing Dropdown */}
       <div className="flex items-center justify-between">
         <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Easing Effects :</span>
@@ -1150,47 +1325,95 @@ const SingleAnimationEditor = ({ element, elements, onUpdate, onDelete, onOpenGa
       </div>
 
       {/* Repeat Dropdown */}
-      {trigger === 'On Page' && action !== 'Always' && (
-        <div className="flex items-center justify-between">
-          <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Repeat :</span>
-          <div className="relative">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowRepeatSelector(!showRepeatSelector); setShowEasingSelector(false); }}
-              className="flex items-center justify-between px-[0.7vw] h-[2vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:border-gray-400 focus:border-[#EC5137] transition-all group w-[8.8vw]"
-            >
-              <span className="text-[0.8vw] font-medium text-gray-700 truncate">
-                {['None', 'Once', 'Twice', 'Thrice', 'Infinite'].includes(settings.repeat || 'None') ? (settings.repeat || 'None') : `${settings.repeat} times`}
-              </span>
-              <ChevronDown size="0.85vw" className={`text-gray-400 transition-transform duration-200 ${showRepeatSelector ? 'rotate-180' : ''}`} />
-            </button>
-            {showRepeatSelector && (
-              <div className="absolute bottom-full left-0 w-full mb-[0.3vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl z-30 py-[0.25vw] max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95">
-                {['None', 'Once', 'Twice', 'Thrice', 'Infinite'].map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => { updateSetting('repeat', opt); setShowRepeatSelector(false); }}
-                    className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${settings.repeat === opt ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-                <div className="px-[0.8vw] py-[0.4vw] flex items-center justify-center gap-[0.4vw] border-t border-gray-100 mt-[0.2vw]" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="Custom"
-                    className="w-[3.5vw] h-[1.8vw] border border-gray-200 rounded-[0.3vw] px-[0.4vw] text-[0.75vw] text-center text-gray-700 outline-none focus:border-[#EC5137] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    value={!['None', 'Once', 'Twice', 'Thrice', 'Infinite'].includes(settings.repeat || 'None') ? (settings.repeat || '') : ''}
-                    onChange={(e) => updateSetting('repeat', e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') setShowRepeatSelector(false); }}
-                  />
-                  <span className="text-[0.75vw] text-gray-500 font-medium">times</span>
-                </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[0.82vw] font-medium text-gray-800 leading-none">Repeat :</span>
+        <div className="relative">
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowRepeatSelector(!showRepeatSelector); setShowEasingSelector(false); }}
+            className="flex items-center justify-between px-[0.7vw] h-[2vw] bg-white border border-gray-300 rounded-[0.4vw] shadow-2xs hover:border-gray-400 focus:border-[#EC5137] transition-all group w-[8.8vw]"
+          >
+            <span className="text-[0.8vw] font-medium text-gray-700 truncate">
+              {['None', 'Once', 'Twice', 'Thrice', 'Infinite'].includes(settings.repeat || (action === 'Always' ? 'Infinite' : 'None')) ? (settings.repeat || (action === 'Always' ? 'Infinite' : 'None')) : `${settings.repeat} times`}
+            </span>
+            <ChevronDown size="0.85vw" className={`text-gray-400 transition-transform duration-200 ${showRepeatSelector ? 'rotate-180' : ''}`} />
+          </button>
+          {showRepeatSelector && (
+            <div className="absolute bottom-full left-0 w-full mb-[0.3vw] bg-white border border-gray-100 rounded-[0.5vw] shadow-2xl z-30 py-[0.25vw] max-h-[14vw] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95">
+              {['None', 'Once', 'Twice', 'Thrice', 'Infinite'].map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => {
+                    updateSetting('repeat', opt);
+                    setShowRepeatSelector(false);
+                    setTimeout(() => {
+                      targetList.forEach(target => {
+                        const targetId = target.id || target.getAttribute('data-name');
+                        const safeId = (window.CSS && CSS.escape) ? CSS.escape(targetId || '') : (targetId || '');
+                        const liveEl = (targetId && (document.querySelector(`.page-svg-container [id="${safeId}"]`) || document.querySelector(`.page-svg-container [data-name="${safeId}"]`))) ||
+                          (targetId && document.getElementById(targetId)) ||
+                          target;
+
+                        if (!liveEl) return;
+                        const t = liveEl.getAttribute('data-animation-trigger') || trigger || 'While Opening';
+                        const p = t === 'While Opening' ? 'open' : 'interact';
+                        const animType = (settings.type && settings.type !== 'none')
+                          ? settings.type
+                          : liveEl.getAttribute(`data-animation-${p}-type`) || 'fade-in';
+
+                        if (typeof previewAnimation === 'function') {
+                          previewAnimation(null, animType, {
+                            ...settings,
+                            repeat: opt,
+                            delay: 0
+                          }, liveEl, elements ? true : false);
+                        }
+                      });
+                    }, 120);
+                  }}
+                  className={`w-full text-left px-[0.8vw] py-[0.45vw] text-[0.8vw] font-medium transition-colors ${settings.repeat === opt ? 'text-[#EC5137] bg-gray-50 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {opt}
+                </button>
+              ))}
+              <div className="px-[0.8vw] py-[0.4vw] flex items-center justify-center gap-[0.4vw] border-t border-gray-100 mt-[0.2vw]" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Custom"
+                  className="w-[3.5vw] h-[1.8vw] border border-gray-200 rounded-[0.3vw] px-[0.4vw] text-[0.75vw] text-center text-gray-700 outline-none focus:border-[#EC5137] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  value={!['None', 'Once', 'Twice', 'Thrice', 'Infinite'].includes(settings.repeat || 'None') ? (settings.repeat || '') : ''}
+                  onChange={(e) => updateSetting('repeat', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setShowRepeatSelector(false);
+                      const customVal = e.target.value;
+                      if (customVal) {
+                        setTimeout(() => {
+                          targetList.forEach(target => {
+                            const targetId = target.id || target.getAttribute('data-name');
+                            const safeId = (window.CSS && CSS.escape) ? CSS.escape(targetId || '') : (targetId || '');
+                            const liveEl = (targetId && (document.querySelector(`.page-svg-container [id="${safeId}"]`) || document.querySelector(`.page-svg-container [data-name="${safeId}"]`))) ||
+                              (targetId && document.getElementById(targetId)) ||
+                              target;
+                            if (!liveEl) return;
+                            const t = liveEl.getAttribute('data-animation-trigger') || trigger || 'While Opening';
+                            const p = t === 'While Opening' ? 'open' : 'interact';
+                            const animType = (settings.type && settings.type !== 'none') ? settings.type : liveEl.getAttribute(`data-animation-${p}-type`) || 'fade-in';
+                            if (typeof previewAnimation === 'function') {
+                              previewAnimation(null, animType, { ...settings, repeat: customVal, delay: 0 }, liveEl, elements ? true : false);
+                            }
+                          });
+                        }, 120);
+                      }
+                    }
+                  }}
+                />
+                <span className="text-[0.75vw] text-gray-500 font-medium">times</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Bottom Actions */}
       <div className="flex flex-col pt-[0.2vw] mt-[0.6vw] border-t border-gray-100 gap-[0.4vw]">
@@ -1454,7 +1677,8 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
       previewCleanupRef.current = [];
     }
 
-    const keyframes = WAAPI_ANIMATIONS[type];
+    // Slide animations honour the Distance / Fade options
+    const keyframes = (target && getSlideKeyframes(target, type, settings)) || WAAPI_ANIMATIONS[type];
     if (!type || !keyframes || keyframes.length === 0) return;
 
     // Helper: Map Easing
@@ -1473,6 +1697,20 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
     const duration = (parseFloat(settings?.duration || 1)) * 1000;
     const delay = (parseFloat(settings?.delay || 0)) * 1000;
     const easing = getWaapiEase(settings?.easing || 'Linear');
+
+    // Resolve preview iterations from repeat setting
+    let iterations = 1;
+    if (settings?.repeat) {
+      if (settings.repeat === 'Twice') iterations = 2;
+      else if (settings.repeat === 'Thrice') iterations = 3;
+      else if (settings.repeat === 'Infinite') iterations = Infinity;
+      else if (settings.repeat === 'Once' || settings.repeat === 'None') iterations = 1;
+      else {
+        const parsed = parseInt(settings.repeat, 10);
+        if (!isNaN(parsed) && parsed > 0) iterations = Math.min(parsed, 10);
+      }
+    }
+
     let cx = 0, cy = 0;
     let useMathOrigin = false;
     let cachedBBox = { x: 0, y: 0, width: 0, height: 0 };
@@ -1491,8 +1729,16 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
     }
 
     try {
-      // Cancel previous on this specific target
-      if (target.__currentAnimation) {
+      // Toggle-off: if user explicitly clicked preview and an infinite animation is running on this target, stop it
+      if (e && target.__currentAnimation && target.__currentAnimation.playState === 'running') {
+        const isRunningInfinite = target.__currentAnimation.effect?.getTiming?.().iterations === Infinity;
+        try { target.__currentAnimation.cancel(); } catch { }
+        target.__currentAnimation = null;
+        target.removeAttribute('data-is-animating');
+        if (isRunningInfinite && iterations === Infinity) {
+          return;
+        }
+      } else if (target.__currentAnimation) {
         try { target.__currentAnimation.cancel(); } catch { }
       }
 
@@ -1512,6 +1758,9 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
                 }
               }
             } catch { }
+            if (!baseTransform || baseTransform === 'none') {
+              baseTransform = transformAttr;
+            }
           }
         }
         target.__originalTransform = (!baseTransform || baseTransform === 'none') ? '' : baseTransform;
@@ -1547,42 +1796,38 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
           combinedKfTransform = `${combinedKfTransform} ${transformParts.join(' ')}`.trim();
         }
 
-        if (baseTransform || useMathOrigin) {
-          if (combinedKfTransform) {
-            if (useMathOrigin) {
-              let px = cx;
-              let py = cy;
-              if (newKf.transformOrigin) {
-                const origin = newKf.transformOrigin;
-                if (origin.includes('left')) px = cachedBBox.x;
-                if (origin.includes('right')) px = cachedBBox.x + cachedBBox.width;
-                if (origin.includes('top')) py = cachedBBox.y;
-                if (origin.includes('bottom')) py = cachedBBox.y + cachedBBox.height;
-                delete newKf.transformOrigin;
-              }
-              newKf.transform = `${baseTransform} translate(${px}px, ${py}px) ${combinedKfTransform} translate(-${px}px, -${py}px)`;
-            } else {
-              newKf.transform = `${baseTransform} ${combinedKfTransform}`;
+        if (combinedKfTransform) {
+          if (useMathOrigin) {
+            let px = cx;
+            let py = cy;
+            if (newKf.transformOrigin) {
+              const origin = newKf.transformOrigin;
+              if (origin.includes('left')) px = cachedBBox.x;
+              if (origin.includes('right')) px = cachedBBox.x + cachedBBox.width;
+              if (origin.includes('top')) py = cachedBBox.y;
+              if (origin.includes('bottom')) py = cachedBBox.y + cachedBBox.height;
+              delete newKf.transformOrigin;
             }
+            newKf.transform = `${baseTransform} translate(${px}px, ${py}px) ${combinedKfTransform} translate(-${px}px, -${py}px)`.trim();
           } else {
-            newKf.transform = baseTransform;
+            newKf.transform = `${baseTransform} ${combinedKfTransform}`.trim();
           }
-        } else if (combinedKfTransform) {
-          newKf.transform = combinedKfTransform;
+        } else if (baseTransform) {
+          newKf.transform = baseTransform;
+        } else {
+          delete newKf.transform;
         }
 
         return newKf;
       });
 
-      // Force preview to play exactly once, ignoring repeat/loop settings
-      let iterations = 1;
-
       target.setAttribute('data-is-animating', 'true');
-      const anim = target.animate(finalKeyframes, {
-        duration,
-        delay,
-        easing,
-        fill: 'none',
+      const { keyframes: cycledKeyframes, timing: cycledTiming } = buildCycledKeyframes(finalKeyframes, duration, delay, easing);
+      const anim = target.animate(cycledKeyframes, {
+        duration: cycledTiming.duration,
+        delay: cycledTiming.delay,
+        easing: cycledTiming.easing,
+        fill: iterations === Infinity ? 'none' : 'forwards',
         iterations
       });
 
@@ -1605,13 +1850,10 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
       target.__currentAnimation = anim;
       previewCleanupRef.current.push(cleanup);
 
-      let previewTime;
-      if (iterations === Infinity) {
-        previewTime = Math.max(duration + delay + 500, 3000); // Let it loop for a bit
-      } else {
-        previewTime = (duration * iterations) + delay + 500; // Hold for 500ms after all repeats
+      if (iterations !== Infinity) {
+        const previewTime = (cycledTiming.duration * iterations) + 500; // Hold for 500ms after all repeats
+        setTimeout(cleanup, previewTime);
       }
-      setTimeout(cleanup, previewTime);
 
     } catch (err) {
       console.error("Preview error:", err);
@@ -1702,12 +1944,18 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
   }, []);
 
   const handleGlobalPreview = () => {
-    if (previewCleanupRef.current.length > 0) {
+    if (isPreviewing || previewCleanupRef.current.length > 0) {
       previewCleanupRef.current.forEach(cancel => cancel());
       previewCleanupRef.current = [];
+      stopTextPreview();
+      if (isPreviewing) {
+        setIsPreviewing(false);
+        return;
+      }
     }
 
     let maxT = 0;
+    let hasInfinite = false;
     animatableElements.forEach(el => {
       const trigger = el.getAttribute('data-animation-trigger') || 'While Opening';
       const prefix = trigger === 'While Opening' ? 'open' : 'interact';
@@ -1716,15 +1964,26 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
       if (type && type !== 'none') {
         const duration = parseFloat(el.getAttribute(`data-animation-${prefix}-duration`)) || 1;
         const delay = parseFloat(el.getAttribute(`data-animation-${prefix}-delay`)) || 0;
+        const repeat = el.getAttribute(`data-animation-${prefix}-repeat`) || 'None';
         const speed = 1;
-        const total = (duration / speed) + delay;
+        let iters = 1;
+        if (repeat === 'Infinite') {
+          hasInfinite = true;
+        } else if (repeat === 'Twice') iters = 2;
+        else if (repeat === 'Thrice') iters = 3;
+        else if (repeat !== 'None' && repeat !== 'Once') {
+          const p = parseInt(repeat, 10);
+          if (!isNaN(p) && p > 0) iters = p;
+        }
+        const total = ((duration / speed) + delay) * iters;
         if (total > maxT) maxT = total;
 
         const settings = {
           delay,
           duration,
           speed,
-          easing: el.getAttribute(`data-animation-${prefix}-easing`) || 'Linear'
+          easing: el.getAttribute(`data-animation-${prefix}-easing`) || 'Linear',
+          repeat
         };
         previewAnimation(null, type, settings, el, true);
       }
@@ -1738,8 +1997,8 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
       stopTextPreview();
     }
 
-    if (maxT > 0) {
-      setPreviewMaxTime(maxT);
+    if (maxT > 0 || hasInfinite) {
+      setPreviewMaxTime(hasInfinite ? Math.max(maxT, 3) : maxT);
       setIsPreviewing(true);
       setPreviewKey(prev => prev + 1);
     }
@@ -1750,11 +2009,16 @@ const AnimationPanel = ({ selectedElement, selectedLayerId, setSelectedLayerId, 
     const id = idStr || el?.id || '';
     const name = el?.getAttribute?.('data-name') || '';
     const dataType = el?.getAttribute?.('data-type') || '';
+    if (dataType && ['icon', 'shape', 'button', 'text', 'image', 'video', 'audio', 'qrcode', 'table', 'table-frame', 'embed', 'embed-frame', 'map', 'slideshow', 'hotspot', 'decorator', 'group'].includes(dataType)) {
+      return false;
+    }
     if (dataType === 'frame') return true;
     if (el?.tagName?.toLowerCase() === 'svg') return true;
     if (/^(page|slide)\s*\d+/i.test(name) || name === 'Overlay') return true;
     if (/^(page|slide)-/i.test(id) || id === 'Overlay') return true;
-    if (el?.parentElement?.tagName?.toLowerCase() === 'svg' && el?.tagName?.toLowerCase() === 'g') return true;
+    if (el?.parentElement?.tagName?.toLowerCase() === 'svg' && el?.tagName?.toLowerCase() === 'g') {
+      return !dataType && !id.startsWith('icon-') && !id.startsWith('shape-') && !id.startsWith('text-') && !id.startsWith('image-');
+    }
     return false;
   };
 

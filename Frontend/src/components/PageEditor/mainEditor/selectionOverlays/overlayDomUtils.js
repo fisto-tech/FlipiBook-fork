@@ -85,7 +85,22 @@ export const getHtmlOverlayForElement = (el) => {
   const container = el.closest('.page-svg-container');
   if (!container) return null;
   const pageIdx = container.getAttribute('data-page-index');
-  return document.getElementById(`highlight-overlay-html-${pageIdx}`);
+  const existing = document.getElementById(`highlight-overlay-html-${pageIdx}`);
+  if (existing) return existing;
+
+  // Self-heal: the handle layer is a React-rendered div. If any code removed it from the DOM, React
+  // never puts it back, and every selection after that shows its box but NO resize dots. Recreate it
+  // with the same id / classes, right after the page's SVG selection layer.
+  const svgLayer = document.getElementById(`highlight-overlay-${pageIdx}`);
+  if (!svgLayer || !svgLayer.parentNode) return null;
+  const layer = document.createElement('div');
+  layer.id = `highlight-overlay-html-${pageIdx}`;
+  layer.className = 'absolute inset-0 w-full h-full z-30 transition-opacity duration-200 opacity-100';
+  layer.style.overflow = 'visible';
+  layer.style.pointerEvents = 'none';
+  layer.style.zIndex = '30';
+  svgLayer.parentNode.insertBefore(layer, svgLayer.nextSibling);
+  return layer;
 };
 
 export const getRotatingCursor = (dir, rotation) => {

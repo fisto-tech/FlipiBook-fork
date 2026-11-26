@@ -1,5 +1,6 @@
 import React from 'react';
-import { Share2, Download, Heart, Trash2 } from 'lucide-react';
+import { Share2, Download, Heart, Trash2, Languages } from 'lucide-react';
+import { useTranslation } from '../../context/TranslationContext';
 
 export default function FlipbookActionMenu({
     activeBookMenu,
@@ -13,6 +14,8 @@ export default function FlipbookActionMenu({
     handleRemoveFromRecent,
     handleTrashBookClick
 }) {
+    const { openTranslateModal } = useTranslation();
+
     if (!activeBookMenu) return null;
 
     const isRecentView = activeFolder === 'Recent Book' || activeFolder === 'Recent';
@@ -37,6 +40,18 @@ export default function FlipbookActionMenu({
                     transform: menuPosition.isDropup ? 'translate(-100%, -100%)' : 'translate(-100%, 0)'
                 }}
             >
+                {/* Translate to Indian Language Option */}
+                <button
+                    onClick={() => {
+                        setActiveBookMenu(null);
+                        openTranslateModal(book);
+                    }}
+                    className="w-full flex items-center gap-[0.5vw] px-[0.75vw] py-[0.625vw] text-[0.75vw] font-medium text-gray-700 hover:bg-[#ea543a] hover:text-white transition-colors border-b border-gray-100 group cursor-pointer"
+                >
+                    <Languages size="0.9vw" className="text-[#ea543a] group-hover:text-white transition-colors" />
+                    <span>Translate Book</span>
+                </button>
+
                 {/* Share Option */}
                 <button
                     onClick={() => {

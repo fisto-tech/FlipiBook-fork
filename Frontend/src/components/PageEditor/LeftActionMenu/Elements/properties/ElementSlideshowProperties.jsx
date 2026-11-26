@@ -21,8 +21,8 @@ import PremiumDropdown from '../../../../CustomizedEditor/components/PremiumDrop
 import NavIconStylesPopup, { NavIconRenderer } from '../popups/NavIconStylesPopup';
 import DotStylesPopup, { DotRenderer } from '../popups/DotStylesPopup';
 import { saveToDB, getFromDB } from '../../../../../utils/storage/dbUtils';
-import ColorPicker from '../../../../ColorPicker';
-import Color from '../../../properties/Color';
+import ColorPicker from '../../../../Color';
+import Color from '../../../properties/FillStrokeProperties';
 import { ElementToggle, ElementSlider, ElementDropdown } from './ElementUIControls';
 import { update3FrameSlideshow, RingBuffer } from '../utils/slideshowElementUtils';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../../utils/imageOptimizer';

@@ -12,7 +12,7 @@ import plantLightPlant from '../../../../assets/Bookshelf/plant-light/plant.png'
 import plantLightDecor from '../../../../assets/Bookshelf/plant-light/decor.png';
 import plantLightLeaf from '../../../../assets/Bookshelf/plant-light/leaf.png';
 import plantLightLamp from '../../../../assets/Bookshelf/plant-light/lamp.png';
-import plantLightSwitch from '../../../../assets/Bookshelf/plant-light/switch.png';
+import PullRopeSwitch from './PullRopeSwitch';
 
 // ============================================================================
 // PLANT LIGHT SHELF CONFIGURATION - Adjust percentages easily here!
@@ -113,27 +113,20 @@ const PlantLightShelf = ({
                     </div>
 
                     {/* Wall Light Switch in top-right */}
-                    {showLightSwitch && (
-                      <div
-                        onClick={() => {
-                          if (typeof setDecors === 'function') {
-                            setDecors(prev => ({ ...prev, lights: !prev.lights }));
-                          }
-                        }}
-                        className="absolute pointer-events-auto cursor-pointer z-35 transition-transform duration-150 active:scale-95 hover:scale-105 group"
-                        style={{
-                          right: '4.5%',
-                          top: '9.0%',
-                          width: '2.5%'
-                        }}
-                        title={decors?.lights ? "Turn Lights Off" : "Turn Lights On"}
-                      >
-                        <img
-                          src={plantLightSwitch}
-                          alt="Switch"
-                          className="w-full h-auto block drop-shadow-md transition-all duration-200"
-                        />
-                      </div>
+                    {showLightSwitch && decors?.lamp !== false && (
+                      <PullRopeSwitch
+          variant="plant"
+          isOn={Boolean(decors?.lights)}
+          onToggle={() => {
+            if (typeof setDecors === 'function') {
+              setDecors(prev => ({ ...prev, lights: !prev.lights }));
+            }
+          }}
+          right="4.5%"
+          top="0%"
+          ropeLength={isFs ? 92 : 76}
+          zIndex={35}
+        />
                     )}
 
                     {/* Shelf 1 (Top Tier Plank): spans from left 8.25% to right 100% */}
@@ -255,16 +248,16 @@ const PlantLightShelf = ({
                                     setAddBookSearch('');
                                     setShowAddBookModal(true);
                                   }}
-                                  className="w-full h-full rounded-[6px] border border-dashed border-amber-900/30 hover:border-amber-900/60 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer group bg-amber-500/10 hover:bg-amber-500/20 backdrop-blur-[1px] shadow-sm"
+                                  className="w-full h-full rounded-[6px] border border-dashed border-white/60 hover:border-white transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer group bg-white/10 hover:bg-white/20 backdrop-blur-[1px] shadow-sm"
                                   title="Add Book"
                                 >
-                                  <div className="relative flex items-center justify-center text-amber-950 transition-transform group-hover:scale-110">
-                                    <Icon icon="mdi:book-open-outline" className="w-5 h-5 text-amber-900/90" />
-                                    <span className="absolute -bottom-1 -right-1 text-[10px] font-black text-amber-950 leading-none">
+                                  <div className="relative flex items-center justify-center text-white transition-transform group-hover:scale-110">
+                                    <Icon icon="mdi:book-open-outline" className="w-5 h-5 text-white/90" />
+                                    <span className="absolute -bottom-1 -right-1 text-[10px] font-black text-white leading-none">
                                       +
                                     </span>
                                   </div>
-                                  <span className="text-[9px] font-medium text-amber-950/90 group-hover:text-amber-950 tracking-wide">
+                                  <span className="text-[9px] font-medium text-white/90 group-hover:text-white tracking-wide">
                                     Add Book
                                   </span>
                                 </div>

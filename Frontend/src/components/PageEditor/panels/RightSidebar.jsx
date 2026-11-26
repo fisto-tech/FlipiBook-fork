@@ -33,6 +33,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { normalizeForeignObjectNamespaces } from '../LeftActionMenu/Elements/utils/tableElementUtils';
 
 import { readIconPaint } from '../utils/iconPaint';
+import PenDefaultsPanel from '../properties/controls/PenDefaultsPanel';
 const RightSidebar = ({
   isDoublePage,
   setIsDoublePage,
@@ -1572,6 +1573,11 @@ const RightSidebar = ({
                       )}
                     </div>
                   </div>
+                ) : activeMainTool === 'pen' && !isPdfProject ? (
+                  /* Pen tool active, nothing selected: pen tips + paint for the next path */
+                  <div className="flex flex-col p-[1.5vw] gap-[1.5vw]">
+                    <PenDefaultsPanel activePageIndex={activePageIndex} activeMainTool={activeMainTool} />
+                  </div>
                 ) : (
                   /* Page Properties (Default View) */
                   <PageProperties
@@ -1616,7 +1622,8 @@ const RightSidebar = ({
               setSelectedLayerId={setSelectedLayerId}
               selectedElement={(() => {
                 if (!selectedLayerId) return null;
-                const container = document.querySelector(`.page-svg-container [id="${selectedLayerId}"]`);
+                const safeId = (window.CSS && CSS.escape) ? CSS.escape(selectedLayerId) : selectedLayerId;
+                const container = document.querySelector(`.page-svg-container [id="${safeId}"]`);
                 const el = container || document.getElementById(selectedLayerId) || null;
                 if (!el) return null;
                 const name = el.getAttribute('data-name') || '';

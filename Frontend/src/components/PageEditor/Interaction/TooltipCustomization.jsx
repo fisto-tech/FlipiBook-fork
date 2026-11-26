@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import ColorPicker from '../properties/ColorPicker';
+import ColorPicker from '../../Color';
 import { ChevronLeft, ChevronRight, AlignLeft, AlignCenter, AlignRight, AlignJustify, Bold, Italic, List, ListOrdered, Minus, ChevronDown, PencilLine } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { motion } from 'framer-motion';

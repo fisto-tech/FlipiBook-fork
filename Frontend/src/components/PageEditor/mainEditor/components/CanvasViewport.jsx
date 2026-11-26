@@ -17,6 +17,7 @@ import { normalizeForeignObjectNamespaces, healTableElementNode } from '../../Le
 import { applyTrimViewToSvg } from '../utils/trimViewUtils';
 import { DEFAULT_FRAME_IMAGE } from '../../LeftActionMenu/Elements/utils/imageFramingUtils';
 
+import { insertPixabayImage } from '../../LeftActionMenu/Images';
 export const CanvasViewport = ({
   zoomContainerRef,
   pan = { x: 0, y: 0 },
@@ -478,6 +479,9 @@ export const CanvasViewport = ({
                                           dropSize
                                         }
                                       }));
+                                    } else if (data.type === 'pixabay' && data.url) {
+                                      insertPixabayImage({ url: data.url, name: data.name, pageIndex: displayIndex, dropPoint, targetShapeId })
+                                        .catch((err) => console.warn('[CanvasViewport] Pixabay insert failed:', err));
                                     } else if (data.type === 'image' || data.type === 'upload' || data.url) {
                                       window.dispatchEvent(new CustomEvent('add-image-to-editor', {
                                         detail: {

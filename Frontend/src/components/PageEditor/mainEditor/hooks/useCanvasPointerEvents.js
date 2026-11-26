@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/purity, react-hooks/immutability */
 import { useEffect, useRef, useCallback } from 'react';
+import { applyPenDefaults } from '../../utils/penDefaults';
 import {
   pathToDCombo,
   getPaperSegments, getPaperCurves, cleanPaperPathData, mergeMeetingNodes, applyHandleDrag, deleteSelectedNodeOrHandle
@@ -911,10 +912,12 @@ export const useCanvasPointerEvents = ({
         path.setAttribute('data-type', 'vector-path');
         path.setAttribute('fill', 'none');
         path.setAttribute('stroke', '#000000');
-        path.setAttribute('stroke-width', '1');
+        path.setAttribute('stroke-width', '1.5');
         path.setAttribute('stroke-linecap', 'round');
         path.setAttribute('stroke-linejoin', 'round');
         path.setAttribute('shape-rendering', 'geometricPrecision');
+        path.setAttribute('vector-effect', 'non-scaling-stroke'); // stroke stays the same when resized (like shapes)
+        applyPenDefaults(path);
         path.setAttribute('d', `M ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`);
 
         parentEl.appendChild(path);
@@ -956,10 +959,12 @@ export const useCanvasPointerEvents = ({
           pathEl.setAttribute('data-name', 'Vector Path');
           pathEl.setAttribute('fill', 'none');
           pathEl.setAttribute('stroke', '#000000');
-          pathEl.setAttribute('stroke-width', '1');
+          pathEl.setAttribute('stroke-width', '1.5');
           pathEl.setAttribute('stroke-linecap', 'round');
           pathEl.setAttribute('stroke-linejoin', 'round');
           pathEl.setAttribute('shape-rendering', 'geometricPrecision');
+          pathEl.setAttribute('vector-effect', 'non-scaling-stroke'); // stroke stays the same when resized (like shapes)
+          applyPenDefaults(pathEl);
           parentEl.appendChild(pathEl);
           drawingPathRef.current = pathEl;
           drawingPageIndexRef.current = pageIndex;
@@ -1269,6 +1274,11 @@ export const useCanvasPointerEvents = ({
   const handleSvgMouseMove = (pageIndex, e) => {
     // Fast-path: if an element is currently being dragged, suppress canvas hover scanning
     if (document.body.classList.contains('dragging-active') || document.querySelector('[data-dragging="true"]')) {
+      return;
+    }
+    // Screen colour picker open: no hover boxes on the page
+    if (document.body.classList.contains('screen-color-picking')) {
+      clearHover();
       return;
     }
 
@@ -2351,8 +2361,21 @@ export const useCanvasPointerEvents = ({
       selectedLayerIdRef.current = id;
     }
 
-    const targetEl = id ? document.getElementById(id) : null;
+    const safeTargetId = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+    const targetEl = id ? (document.getElementById(id) || document.querySelector(`.page-svg-container [id="${safeTargetId}"]`)) : null;
     const isRoot = isPageRootElement(targetEl, targetEl?.closest?.('svg') || null);
+
+    // Pen/pencil paths drawn before non-scaling strokes: convert once, keeping their current look,
+    // so resizing no longer changes the stroke width.
+    if (targetEl && targetEl.getAttribute('data-type') === 'vector-path' && !targetEl.getAttribute('vector-effect')) {
+      try {
+        const sw = parseFloat(targetEl.getAttribute('stroke-width'));
+        const m = targetEl.getScreenCTM();
+        const k = m ? Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) : 0;
+        if (sw > 0 && k > 0) targetEl.setAttribute('stroke-width', String(Math.max(0.5, Math.round(sw * k * 2) / 2)));
+        targetEl.setAttribute('vector-effect', 'non-scaling-stroke');
+      } catch { /* keep as is */ }
+    }
 
     const newSet = (id && !isRoot) ? new Set([id]) : new Set();
     multiSelectedIdsRef.current = newSet;
@@ -2429,6 +2452,10 @@ export const useCanvasPointerEvents = ({
           }
         });
       });
+      if (targetEl && !isRoot && typeof drawOverlayHighlight === 'function') {
+        const highlightType = targetEl.getAttribute('data-child-selected') === 'true' ? 'child-selected' : 'selected';
+        drawOverlayHighlight(targetEl, highlightType);
+      }
     } else {
       clearOverlayType('selected');
       clearOverlayType('child-selected');

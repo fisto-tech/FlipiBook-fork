@@ -7,7 +7,7 @@ import greenLeftWood from '../../../../assets/Bookshelf/greenshelf/Leftwood.png'
 import greenBase from '../../../../assets/Bookshelf/greenshelf/base.png';
 import greenLamp from '../../../../assets/Bookshelf/greenshelf/lamp.png';
 import greenDecor from '../../../../assets/Bookshelf/greenshelf/decor.png';
-import greenSwitch from '../../../../assets/Bookshelf/greenshelf/switch.png';
+import PullRopeSwitch from './PullRopeSwitch';
 
 // ============================================================================
 // GREEN SHELF CONFIGURATION - Adjust percentages easily here!
@@ -399,26 +399,19 @@ const GreenShelf = ({
 
                     {/* Wall Light Switch on right side */}
                     {showLightSwitch && (
-                      <div
-                        onClick={() => {
-                          if (typeof setDecors === 'function') {
-                            setDecors(prev => ({ ...prev, lights: !prev.lights }));
-                          }
-                        }}
-                        className="absolute pointer-events-auto cursor-pointer z-30 transition-transform duration-150 active:scale-95 hover:scale-105 group"
-                        style={{
-                          right: '4.2%',
-                          top: '12.0%',
-                          width: '2.8%'
-                        }}
-                        title={decors?.lights ? "Turn Lights Off" : "Turn Lights On"}
-                      >
-                        <img
-                          src={greenSwitch}
-                          alt="Switch"
-                          className="w-full h-auto block drop-shadow-md transition-all duration-200 opacity-100"
-                        />
-                      </div>
+                      <PullRopeSwitch
+          variant="green"
+          isOn={Boolean(decors?.lights)}
+          onToggle={() => {
+            if (typeof setDecors === 'function') {
+              setDecors(prev => ({ ...prev, lights: !prev.lights }));
+            }
+          }}
+          right="4.2%"
+          top="0%"
+          ropeLength={isFs ? 92 : 76}
+          zIndex={30}
+        />
                     )}
 
                     {/* Bottom Right: decor.png placed on credenza (moved to right edge) */}

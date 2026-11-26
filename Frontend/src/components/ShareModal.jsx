@@ -4,7 +4,7 @@ import { X, Link as LinkIcon, Copy, QrCode, Download, Share2, Mail, Edit3, Arrow
 import { Icon } from '@iconify/react';
 import QRCodeStyling from 'qr-code-styling';
 import html2canvas from 'html2canvas';
-import ColorPicker, { default as TemplateColorPicker } from './ColorPicker';
+import ColorPicker, { default as TemplateColorPicker } from './Color';
 import { getAssetBaseUrl, getSupabaseBaseUrl, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
 import { analyticsApi } from '../api/analyticsApi';
@@ -1137,24 +1137,50 @@ const ShareModal = ({ isOpen, onClose, flipbookUrl, flipbookThumbnail, currentBo
         currentBook?.shareAccess ||
         'public';
 
-    const rawAcc = String(accessVal).toLowerCase();
-    const accessPrefix = 
-        (rawAcc.includes('private') && !rawAcc.includes('protect')) || rawAcc === 'private'
-            ? 'share=private'
-            : rawAcc.includes('password') || rawAcc.includes('protect')
-            ? 'share=password'
-            : rawAcc.includes('invite')
-            ? 'share=invite'
-            : 'share=public';
+    // Resolve fallback v_id from current URL if not present on currentBook (e.g. /editor/:folder/:v_id or /editor/:v_id or /customized_editor/:folder/:v_id)
+    let urlDerivedVId = '';
+    if (typeof window !== 'undefined') {
+        const pathSegments = window.location.pathname.split('/').filter(Boolean);
+        // Look for candidate 16+ hex or alphanumeric id segment
+        const idSegment = [...pathSegments].reverse().find(s => s && s !== 'editor' && s !== 'customized_editor' && s !== 'threed_editor' && s !== 'preview' && !isNaN(Number('0x' + s)) && s.length >= 8);
+        if (idSegment) {
+            urlDerivedVId = idSegment;
+        } else if (pathSegments.length > 0) {
+            const lastSeg = pathSegments[pathSegments.length - 1];
+            if (lastSeg && lastSeg !== 'editor' && lastSeg !== 'customized_editor') {
+                urlDerivedVId = lastSeg;
+            }
+        }
+    }
+
+    // Resolve the flipbook's public identifier (shareId or v_id)
+    const targetVId = 
+        currentBook?.v_id || 
+        currentBook?.id || 
+        currentBook?._id || 
+        currentBook?.realName || 
+        (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('v_id') : '') ||
+        urlDerivedVId ||
+        '';
 
     const shareIdVal = 
         currentBook?.Customized_Settings?.Visibility?.shareId || 
         currentBook?.Visibility?.shareId || 
-        (currentBook?.share?.shareId && currentBook.share.shareId !== currentBook?.v_id ? currentBook.share.shareId : null) || 
-        (currentBook?.shareId && currentBook.shareId !== currentBook?.v_id ? currentBook.shareId : null) || 
-        '';
+        currentBook?.share?.shareId || 
+        currentBook?.shareId || 
+        (typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('shareId') || '') : '') ||
+        targetVId;
 
-    let publicUrl = `${window.location.origin}/${accessPrefix}/${shareIdVal}`;
+    // Prefer constructed clean share URL if shareIdVal is known; otherwise fallback to flipbookUrl or origin/share
+    let publicUrl = (shareIdVal ? `${window.location.origin}/share/${shareIdVal}` : '') || flipbookUrl || `${window.location.origin}/share`;
+    // If publicUrl has old visibility prefix format, sanitize it
+    if (publicUrl && publicUrl.includes('/share=')) {
+        publicUrl = publicUrl.replace(/\/share=[^/]+\//, '/share/');
+    }
+    // If publicUrl ended up as just /share/, strip the trailing slash
+    if (publicUrl.endsWith('/share/')) {
+        publicUrl = publicUrl.slice(0, -1);
+    }
 
     if (activeLayout) {
         try {

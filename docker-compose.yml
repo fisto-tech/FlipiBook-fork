@@ -38,8 +38,12 @@ services:
       - /home/flipibook/storage/testing:/app/storage
     environment:
       - MONGO_URI=${MONGO_URI}
+      - SMTP_HOST=${SMTP_HOST:-smtp.hostinger.com}
+      - SMTP_PORT=${SMTP_PORT:-465}
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_APP_PASSWORD=${EMAIL_APP_PASSWORD}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@flipibook.com}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-FlipiBook}
       - CLIENT_URL=${CLIENT_URL:-https://testing.flipibook.com}
       - GATEWAY_PORT=${GATEWAY_PORT:-8000}
       - AUTH_PORT=${AUTH_PORT:-5001}
@@ -58,10 +62,12 @@ services:
       - PAYMENT_PORT=${PAYMENT_PORT:-5007}
       - PAYMENT_SERVICE_PORT=${PAYMENT_SERVICE_PORT:-5007}
       - PAYMENT_SERVICE_URL=${PAYMENT_SERVICE_URL:-http://localhost:5007}
-      - USER_SERVICE_PORT=${USER_SERVICE_PORT:-5008}
-      - USER_SERVICE_URL=${USER_SERVICE_URL:-http://localhost:5008}
-      - ADMIN_SERVICE_PORT=${ADMIN_SERVICE_PORT:-5009}
-      - ADMIN_SERVICE_URL=${ADMIN_SERVICE_URL:-http://localhost:5009}
+      - APP_PORT=${APP_PORT:-5008}
+      - APP_SERVICE_PORT=${APP_SERVICE_PORT:-5008}
+      - APP_SERVICE_URL=${APP_SERVICE_URL:-http://localhost:5008}
+      - ADMIN_USER_PORT=${ADMIN_USER_PORT:-5009}
+      - ADMIN_USER_SERVICE_PORT=${ADMIN_USER_SERVICE_PORT:-5009}
+      - ADMIN_USER_SERVICE_URL=${ADMIN_USER_SERVICE_URL:-http://localhost:5009}
       - RSA_PRIVATE_KEY=${RSA_PRIVATE_KEY}
       - RSA_PUBLIC_KEY=${RSA_PUBLIC_KEY}
       - STORAGE_PATH=/app/storage

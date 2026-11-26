@@ -94,9 +94,8 @@ const FlipbookCard = ({ v_id, shareId, access, rawBook, authorPicture, authorBgC
 
     const handleOpenBook = () => {
         const targetShareId = shareId || v_id;
-        const rawAcc = String(access).toLowerCase();
         if (targetShareId) {
-            window.open(`/share=${rawAcc}/${targetShareId}`, '_blank');
+            window.open(`/share/${targetShareId}`, '_blank');
         }
     };
 
@@ -1154,26 +1153,26 @@ const Explore = () => {
 
             
             {/* ------------------------------------------------------------- */}
-            {/* ORIGINAL HERO SECTION BANNER (UNTOUCHED) */}
+            {/* ORIGINAL HERO SECTION BANNER */}
             {/* ------------------------------------------------------------- */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="w-full bg-[#f5f5f5] border-b border-gray-100 px-[5vw]"
+                className="w-full bg-[#f5f5f5] border-b border-gray-100 px-[5vw] overflow-hidden"
             >
                 <div className="max-w-[85vw] mx-auto flex flex-col md:flex-row items-center justify-between gap-[3vw]">
                     {/* Left Text Block */}
-                    <div className="max-w-[44vw] space-y-[1.8vh]">
-                        <h1 className="text-[3.2vw] text-gray-900 font-normal tracking-tight leading-tight">
+                    <div className="max-w-[44vw] py-[2.5vh] space-y-[1.3vh]">
+                        <h1 className="text-[2.6vw] text-gray-900 font-normal tracking-tight leading-tight">
                             Explore FlipiBook
                         </h1>
 
-                        <p className="text-[0.9vw] text-gray-600 font-normal leading-relaxed">
+                        <p className="text-[0.86vw] text-gray-600 font-normal leading-relaxed">
                             Discover immersive digital catalogues created by businesses, designers, and creators worldwide. Explore interactive flipbooks enhanced with 3D models, hotspots, videos, animations, and rich multimedia experiences.
                         </p>
 
-                        <div className="w-[7vw] h-[0.3vh] min-h-[2px] bg-gray-800 rounded-full mt-[1.8vh]"></div>
+                        <div className="w-[6vw] h-[0.3vh] min-h-[2px] bg-gray-800 rounded-full mt-[1.3vh]"></div>
                     </div>
 
                     {/* Right Hero Graphic */}
@@ -1181,7 +1180,7 @@ const Explore = () => {
                         <img
                             src={exploreHeroImg}
                             alt="Explore FlipiBook Hero Graphic"
-                            className="h-[35vh] max-h-[400px] w-auto object-contain object-bottom shrink-0 block"
+                            className="h-[27vh] max-h-[290px] w-auto object-contain object-bottom shrink-0 block"
                         />
                     </div>
                 </div>

@@ -58,16 +58,24 @@ export const AdminProvider = ({ children }) => {
 
       if (res.data?.success) {
         const userData = res.data.user || {};
+        const isSuper =
+          String(userData.userId || cleanId).toLowerCase() === 'admin' ||
+          String(userData.emailId || cleanId).toLowerCase() === 'admin@flipibook.com';
+
         const newAdmin = {
-          name: userData.name || 'Super Administrator',
-          email: userData.emailId || userData.email || 'admin@flipibook.com',
+          name: userData.name || (isSuper ? 'Super Administrator' : 'Staff Member'),
+          email: userData.emailId || userData.email || cleanId,
           userId: userData.userID || userData.userId || cleanId,
-          role: 'Super Admin',
+          designation: userData.designation || (isSuper ? 'Admin' : 'Staff'),
+          role: isSuper ? 'Super Admin' : (userData.role || userData.designation || 'Staff'),
+          roleId: userData.roleId || '',
+          permissions: userData.permissions || [],
           avatar: userData.picture || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          initials: (userData.name || 'Super Admin').slice(0, 2).toUpperCase()
+          initials: (userData.name || 'Admin').slice(0, 2).toUpperCase()
         };
         localStorage.setItem('flipibook_admin_user', JSON.stringify(newAdmin));
         setAdminUser(newAdmin);
+        window.dispatchEvent(new Event('flipibook_permissions_updated'));
         return { success: true, user: newAdmin };
       }
       return { success: false, message: res.data?.message || 'Login failed' };

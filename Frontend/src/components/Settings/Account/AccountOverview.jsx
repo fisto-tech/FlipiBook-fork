@@ -14,6 +14,7 @@ const AccountOverview = ({
   hasPassword,
   onAddPasswordClick,
   onChangePasswordClick,
+  onManageAccountClick,
   showToast,
 }) => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
@@ -767,18 +768,21 @@ const AccountOverview = ({
 
         {/* Options List */}
         <div className="flex flex-col gap-[0.75vw]">
-          {/* Option 1: Delete Account */}
-          <div className="w-full bg-[#f8f9fa] hover:bg-gray-100/70 border border-[#f0f2f5] rounded-[0.75vw] p-[1.1vw] flex items-center justify-between cursor-pointer transition-colors group">
+          {/* Option 1: Deactivate or Delete Account */}
+          <div
+            onClick={onManageAccountClick}
+            className="w-full bg-[#f8f9fa] hover:bg-gray-100/70 border border-[#f0f2f5] rounded-[0.75vw] p-[1.1vw] flex items-center justify-between cursor-pointer transition-colors group"
+          >
             <div className="flex items-center gap-[0.85vw]">
               <div className="w-[2.4vw] h-[2.4vw] rounded-[0.55vw] bg-red-50 text-red-500 border border-red-100 flex items-center justify-center shrink-0">
                 <Icon icon="lucide:trash-2" className="w-[1.05vw] h-[1.05vw]" strokeWidth="2" />
               </div>
               <div className="flex flex-col">
                 <span className="text-[0.85vw] font-semibold text-gray-800 leading-tight">
-                  Delete Account
+                  Deactivate or Delete Account
                 </span>
                 <span className="text-[0.72vw] text-gray-400 mt-[0.15vw]">
-                  Permanently delete your account and all associated flipbooks & data
+                  Temporarily deactivate your account or permanently delete all data
                 </span>
               </div>
             </div>

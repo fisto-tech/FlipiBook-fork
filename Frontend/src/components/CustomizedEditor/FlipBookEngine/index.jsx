@@ -353,7 +353,7 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
 
   const isInteractiveHtml = useCallback((rawHtml) => {
     if (!rawHtml || typeof rawHtml !== "string") return false;
-    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|data-scrollable=["']true|class=["'][^"']*interactive|<a\s+href/i.test(
+    return /<video|<audio|<iframe|data-type=["'](video|audio|embed|form|link|slideshow|map)|slideshow|map-root-container|map-stage|flipibook-swiper|data-interaction|hotspot|data-scrollable=["']true|class=["'][^"']*interactive|<a\s+href|data-animation|data-text-effect/i.test(
       rawHtml,
     );
   }, []);
@@ -755,9 +755,9 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       let startX = 0;
       let startY = 0;
 
-      const isLastPage =
-        i === augmentedPages.length - 1 ||
-        (i === augmentedPages.length - 2 && augmentedPages[i + 1]?.isPad);
+      // Back-cover styling only for a real final page. With an odd page count a transparent pad is
+      // appended, so the real last page is a right-hand page of a spread and needs its normal spine shadow.
+      const isLastPage = i === augmentedPages.length - 1 && i % 2 === 1 && !page.isPad;
       const directionClass = i % 2 === 0 ? "right" : "left";
 
       let sheetStyles = {};
@@ -1317,9 +1317,8 @@ const FlipBookEngine = forwardRef(function FlipBookEngine(
       }
 
       const isFirst = i === 0;
-      const isLast =
-        i === augmented.length - 1 ||
-        (i === augmented.length - 2 && augmented[i + 1]?.isPad);
+      // Real final page only (see note above) — a page followed by the odd-count pad is an inner page.
+      const isLast = i === augmented.length - 1 && i % 2 === 1 && !augmented[i]?.isPad;
       const positionClass =
         `${isFirst ? "fbe-page--first" : ""} ${isLast ? "fbe-page--last" : ""}`.trim();
       const directionClass = i % 2 === 0 ? "right" : "left";

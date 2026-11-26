@@ -19,7 +19,23 @@ ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN npm run build
 
 # ==============================================================================
-# Stage 2: Full-Stack Preview Runner (Nginx + Backend Microservices)
+# Stage 2: Build Admin Frontend React Bundle with Vite
+# ==============================================================================
+FROM node:22-bookworm-slim AS admin-frontend-builder
+
+WORKDIR /app/admin-frontend
+
+COPY Admin_Frontend/package.json ./
+RUN npm install
+
+COPY Admin_Frontend/ ./
+
+ENV VITE_BACKEND_URL=""
+
+RUN npm run build
+
+# ==============================================================================
+# Stage 3: Full-Stack Preview Runner (Nginx + Backend Microservices)
 # ==============================================================================
 FROM node:22-alpine
 
@@ -35,8 +51,9 @@ RUN cd /app/Backend && npm install
 # Copy Backend source code
 COPY Backend/ ./Backend/
 
-# Copy built Frontend static assets
+# Copy built Frontend and Admin Frontend static assets
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
+COPY --from=admin-frontend-builder /app/admin-frontend/dist /usr/share/nginx/admin
 
 # Configure Nginx for preview routing (Alpine uses /etc/nginx/http.d/ inside the http block)
 RUN rm -rf /etc/nginx/http.d/* /etc/nginx/conf.d/*
@@ -49,8 +66,8 @@ RUN mkdir -p /app/storage /run/nginx /var/log/nginx
 COPY preview-entrypoint.sh /app/preview-entrypoint.sh
 RUN chmod +x /app/preview-entrypoint.sh
 
-# Expose HTTP port for Dokploy Traefik routing
-EXPOSE 80
+# Expose HTTP ports for Dokploy Traefik routing (80 = Frontend, 5174 = Admin Frontend)
+EXPOSE 80 5174
 
 # Environment defaults for preview
 ENV NODE_ENV=production
@@ -71,6 +88,12 @@ ENV THREED_EDITOR_SERVICE_URL=http://127.0.0.1:5006
 ENV PAYMENT_PORT=5007
 ENV PAYMENT_SERVICE_PORT=5007
 ENV PAYMENT_SERVICE_URL=http://127.0.0.1:5007
+ENV APP_PORT=5008
+ENV APP_SERVICE_PORT=5008
+ENV APP_SERVICE_URL=http://127.0.0.1:5008
+ENV ADMIN_USER_PORT=5009
+ENV ADMIN_USER_SERVICE_PORT=5009
+ENV ADMIN_USER_SERVICE_URL=http://127.0.0.1:5009
 ENV STORAGE_PATH=/app/storage
 
 CMD ["/app/preview-entrypoint.sh"]

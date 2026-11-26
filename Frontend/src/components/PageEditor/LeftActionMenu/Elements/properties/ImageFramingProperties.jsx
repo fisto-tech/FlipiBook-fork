@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Plus,
   Trash2,
   Loader2
 } from 'lucide-react';
-import Color from '../../../properties/Color';
-import Effect from '../../../properties/Effect';
+import Color from '../../../properties/FillStrokeProperties';
+import Effect from '../../../properties/controls/Effect';
 import { DEFAULT_FRAME_IMAGE } from '../utils/imageFramingUtils';
 import { updateShapeMaskTransform, updateShapeMaskFilters, updateShapeMaskOpacity, ensurePatternImageNode, applySvgGradientOrSolid } from '../utils/shapeMaskUtils';
-import { parseGradient } from '../../../../ColorPicker';
+import { parseGradient } from '../../../../Color';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../../../modals/ImageAdjustmentModal';
-import { PropertySlider } from '../../../properties/propertiesShared';
+import { PropertySlider } from '../../../properties/controls/propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../../utils/imageOptimizer';
-import { createManagedBlobUrl, revokeManagedBlobUrl } from '../../../../../utils';
+import { createManagedBlobUrl } from '../../../../../utils';
 
 const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIndex, updateElementAttribute, selectedElementProps }) => {
   const [slots, setSlots] = useState([]);
@@ -818,11 +817,9 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
           : `${Math.max(1, Math.round(compBytes / 1024))}KB`)
         : '250KB';
 
-      // Revoke previous blob URL for this slot to maintain low memory usage
-      const oldSlotUrl = slotMeta[slotId]?.originalUrl;
-      if (oldSlotUrl && oldSlotUrl.startsWith('blob:')) {
-        revokeManagedBlobUrl(oldSlotUrl);
-      }
+      // Do NOT revoke the previous slot blob URL: undo/redo snapshots still reference it, and a
+      // revoked URL comes back as a broken image after Ctrl+Z. Memory stays bounded by the
+      // registry's LRU cap (blobUrlRegistry MAX_ACTIVE_BLOB_URLS).
 
       setSlotMeta(prev => ({
         ...prev,
@@ -851,10 +848,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
 
   const handleDeleteSlotImage = (slotId) => {
     if (!selectedElement) return;
-    const oldSlotUrl = slotMeta[slotId]?.originalUrl;
-    if (oldSlotUrl && oldSlotUrl.startsWith('blob:')) {
-      revokeManagedBlobUrl(oldSlotUrl);
-    }
+    // Keep the old blob URL alive — undo restores HTML that still points at it.
     setSlotMeta(prev => ({
       ...prev,
       [slotId]: {
@@ -1316,23 +1310,7 @@ const ImageFramingProperties = ({ selectedElement, selectedLayerId, activePageIn
         <div className="flex-1 h-[1px] bg-gray-200" />
       </div>
 
-      {/* ── 1. Top Section: Add Images Dashed Button (shown before upload) ── */}
-      {!slots.some(s => s.currentImage && s.currentImage !== DEFAULT_FRAME_IMAGE && !s.currentImage.startsWith('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD') && !s.currentImage.startsWith('data:image/svg+xml')) && (
-        <div
-          onClick={() => {
-            const targetSlot = slots.find(s => s.id === activeSlotId) || slots[0];
-            if (targetSlot && slotReplaceRefs.current[targetSlot.id]) {
-              slotReplaceRefs.current[targetSlot.id]?.click();
-            }
-          }}
-          className="w-full py-[1vw] border-2 border-dashed border-gray-300 rounded-[0.55vw] flex items-center justify-center gap-[0.5vw] text-gray-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/20 transition-all cursor-pointer font-medium text-[0.85vw]"
-        >
-          <Plus size="1vw" />
-          <span>Add Images</span>
-        </div>
-      )}
-
-      {/* ── 2. Images Slots List (exact layout of ShapeProperties) ── */}
+      {/* ── Images Slots List ── */}
       {slots.length > 0 && (
         <div className="flex flex-col gap-[0.6vw]">
           {slots.map((slot, idx) => {

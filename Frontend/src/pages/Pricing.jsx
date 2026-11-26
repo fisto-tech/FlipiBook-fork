@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import InvoiceModal from './InvoiceModal';
 
+// "Preview Sample Invoice" button in the trust-badge row — hidden for now, flip to true to show it
+const SHOW_SAMPLE_INVOICE = false;
+
 const Pricing = () => {
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'annual'
   const isAnnual = billingCycle === 'annual';
@@ -63,15 +66,15 @@ const Pricing = () => {
     },
     {
       q: 'Do you support custom domains and white-labeling?',
-      a: 'Yes! Standard and Premium plans allow you to remove FlipiBook branding, add your own custom domain, and upload custom logos and viewer colors.'
+      a: 'Yes! Silver and Gold plans allow you to remove FlipiBook branding, add your own custom domain, and upload custom logos and viewer colors.'
     },
     {
       q: 'What payment methods do you accept?',
-      a: 'We accept all major credit and debit cards (Visa, MasterCard, American Express), PayPal, and direct corporate wire invoices for Premium annual plans.'
+      a: 'We accept all major credit and debit cards (Visa, MasterCard, American Express), PayPal, and direct corporate wire invoices for Gold annual plans.'
     },
     {
       q: 'Is there a discount for annual billing?',
-      a: 'Yes. By choosing annual billing, you save 20% compared to month-to-month billing across all paid plans.'
+      a: 'Yes. By choosing annual billing, you save compared to month-to-month billing on every paid plan: ₹488 a year on Silver, ₹988 on Gold and ₹1,988 on Diamond (about 2% on each plan).'
     }
   ];
 
@@ -120,7 +123,7 @@ const Pricing = () => {
               >
                 <span>Annual billing</span>
                 <span className="bg-[#ec5137] text-white text-[0.62vw] font-semibold px-[0.45vw] py-[0.1vw] rounded-full uppercase tracking-wider">
-                  Save 20%
+                  Save up to ₹1,988
                 </span>
               </button>
             </div>
@@ -149,6 +152,8 @@ const Pricing = () => {
               <span>Secure 256-bit encryption</span>
             </div>
 
+            {/* Hidden for now (kept in code) — set SHOW_SAMPLE_INVOICE = true to show it again */}
+            {SHOW_SAMPLE_INVOICE && (
             <button
               type="button"
               onClick={() => openInvoiceForPlan('standard')}
@@ -158,6 +163,7 @@ const Pricing = () => {
               <Receipt className="w-[0.8vw] h-[0.8vw] text-[#ec5137] transition-transform group-hover:scale-110" />
               <span>Preview Sample Invoice</span>
             </button>
+            )}
           </div>
         </div>
       </section>
@@ -182,7 +188,7 @@ const Pricing = () => {
               <div className={`w-[2.6vw] h-[2.6vw] rounded-[0.6vw] border flex items-center justify-center mb-[0.9vw] ${
                 selectedCol === 'free' ? 'bg-[#fff1ee] border-[#fecaca] text-[#ec5137]' : 'bg-gray-100 border-gray-200 text-gray-700'
               }`}>
-                <Icon icon="carbon:cube" className="w-[1.3vw] h-[1.3vw]" />
+                <Icon icon="fa6-solid:seedling" className="w-[1.25vw] h-[1.25vw] text-[#22a06b]" />
               </div>
 
               {/* Title & Description */}
@@ -194,7 +200,7 @@ const Pricing = () => {
               {/* Price */}
               <div className="mb-[1.1vw] flex items-baseline gap-[0.3vw]">
                 <span className="text-[2vw] font-bold text-gray-800 tracking-tight leading-tight">
-                  $0
+                  ₹0
                 </span>
                 <span className="text-gray-400 font-normal text-[0.75vw]">/ forever</span>
               </div>
@@ -208,14 +214,6 @@ const Pricing = () => {
                   }`}
                 >
                   Get Started Free
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); openInvoiceForPlan('free'); }}
-                  className="w-full py-[0.25vw] px-[0.6vw] text-gray-400 hover:text-gray-700 font-medium text-[0.7vw] flex items-center justify-center gap-[0.3vw] transition-colors cursor-pointer"
-                >
-                  <Receipt className="w-[0.7vw] h-[0.7vw]" />
-                  <span>View Sample Invoice</span>
                 </button>
               </div>
 
@@ -274,11 +272,11 @@ const Pricing = () => {
               <div className={`w-[2.6vw] h-[2.6vw] rounded-[0.6vw] border flex items-center justify-center mb-[0.9vw] ${
                 selectedCol === 'basic' ? 'bg-[#fff1ee] border-[#fecaca] text-[#ec5137]' : 'bg-gray-100 border-gray-200 text-gray-700'
               }`}>
-                <Icon icon="bi:people" className="w-[1.3vw] h-[1.3vw]" />
+                <Icon icon="fa6-solid:medal" className="w-[1.25vw] h-[1.25vw] text-[#94a3b8]" />
               </div>
 
               {/* Title & Description */}
-              <h3 className="text-[1.2vw] font-semibold text-gray-800 mb-[0.2vw]">Basic</h3>
+              <h3 className="text-[1.2vw] font-semibold text-gray-800 mb-[0.2vw]">Silver</h3>
               <p className="text-gray-500 text-[0.72vw] font-normal mb-[0.9vw] leading-relaxed">
                 Ideal for growing creators with professional branding and custom backgrounds.
               </p>
@@ -287,13 +285,13 @@ const Pricing = () => {
               <div className="mb-[1.1vw]">
                 <div className="flex items-baseline gap-[0.3vw]">
                   <span className="text-[2vw] font-bold text-gray-800 tracking-tight leading-tight">
-                    {isAnnual ? '$31.99' : '$39.99'}
+                    {isAnnual ? '₹1,958' : '₹1,999'}
                   </span>
                   <span className="text-gray-400 font-normal text-[0.75vw]">/ month</span>
                 </div>
                 {isAnnual && (
                   <span className="text-[0.64vw] text-emerald-600 font-medium block mt-[0.12vw]">
-                    Billed annually ($383.88/yr) • Save $96
+                    Billed annually (₹23,500/yr) • Save ₹488 (2%)
                   </span>
                 )}
               </div>
@@ -306,15 +304,7 @@ const Pricing = () => {
                     selectedCol === 'basic' ? 'bg-[#ec5137] hover:bg-[#d94229] text-white' : 'border border-gray-300 hover:bg-gray-50 text-gray-700'
                   }`}
                 >
-                  Choose Basic
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); openInvoiceForPlan('standard'); }}
-                  className="w-full py-[0.25vw] px-[0.6vw] text-gray-400 hover:text-gray-700 font-medium text-[0.7vw] flex items-center justify-center gap-[0.3vw] transition-colors cursor-pointer"
-                >
-                  <Receipt className="w-[0.7vw] h-[0.7vw]" />
-                  <span>View Sample Invoice</span>
+                  Choose Silver
                 </button>
               </div>
 
@@ -381,11 +371,11 @@ const Pricing = () => {
               <div className={`w-[2.6vw] h-[2.6vw] rounded-[0.6vw] border flex items-center justify-center mb-[0.9vw] ${
                 selectedCol === 'premium' ? 'bg-[#fff1ee] border-[#fecaca] text-[#ec5137]' : 'bg-gray-100 border-gray-200 text-gray-700'
               }`}>
-                <Icon icon="bi:building" className="w-[1.3vw] h-[1.3vw]" />
+                <Icon icon="fa6-solid:crown" className="w-[1.3vw] h-[1.3vw] text-[#d4a017]" />
               </div>
 
               {/* Title & Description */}
-              <h3 className="text-[1.2vw] font-semibold text-gray-800 mb-[0.2vw]">Premium</h3>
+              <h3 className="text-[1.2vw] font-semibold text-gray-800 mb-[0.2vw]">Gold</h3>
               <p className="text-gray-500 text-[0.72vw] font-normal mb-[0.9vw] leading-relaxed">
                 Engage customers and capture leads with advanced marketing &amp; team workflows.
               </p>
@@ -394,13 +384,13 @@ const Pricing = () => {
               <div className="mb-[1.1vw]">
                 <div className="flex items-baseline gap-[0.3vw]">
                   <span className="text-[2vw] font-bold text-gray-800 tracking-tight leading-tight">
-                    {isAnnual ? '$79.99' : '$99.99'}
+                    {isAnnual ? '₹3,917' : '₹3,999'}
                   </span>
                   <span className="text-gray-400 font-normal text-[0.75vw]">/ month</span>
                 </div>
                 {isAnnual && (
                   <span className="text-[0.64vw] text-emerald-600 font-medium block mt-[0.12vw]">
-                    Billed annually ($959.88/yr) • Save $240
+                    Billed annually (₹47,000/yr) • Save ₹988 (2%)
                   </span>
                 )}
               </div>
@@ -413,22 +403,14 @@ const Pricing = () => {
                     selectedCol === 'premium' ? 'bg-[#ec5137] hover:bg-[#d94229] text-white' : 'border border-gray-300 hover:bg-gray-50 text-gray-700'
                   }`}
                 >
-                  <span>Choose Premium</span>
+                  <span>Choose Gold</span>
                   <ArrowRight className="w-[0.75vw] h-[0.75vw]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); openInvoiceForPlan('premium'); }}
-                  className="w-full py-[0.25vw] px-[0.6vw] text-gray-400 hover:text-gray-700 font-medium text-[0.7vw] flex items-center justify-center gap-[0.3vw] transition-colors cursor-pointer"
-                >
-                  <Receipt className="w-[0.7vw] h-[0.7vw]" />
-                  <span>View Sample Invoice</span>
                 </button>
               </div>
 
               {/* Features List */}
               <div className="space-y-[0.55vw] pt-[0.6vw] border-t border-orange-100">
-                <p className="text-[0.86vw] font-semibold text-gray-900">Everything in Basic, plus</p>
+                <p className="text-[0.86vw] font-semibold text-gray-900">Everything in Silver, plus</p>
                 <ul className="space-y-[0.5vw] text-[0.72vw] text-gray-700 font-normal">
                   <li className="flex items-start gap-[0.45vw]">
                     <Icon icon="teenyicons:tick-circle-solid" className={`w-[0.9vw] h-[0.9vw] shrink-0 mt-[0.1vw] ${selectedCol === 'premium' ? 'text-[#ec5137]' : 'text-gray-600'}`} />
@@ -481,11 +463,11 @@ const Pricing = () => {
               <div className={`w-[2.6vw] h-[2.6vw] rounded-[0.6vw] border flex items-center justify-center mb-[0.9vw] ${
                 selectedCol === 'pro' ? 'bg-[#fff1ee] border-[#fecaca] text-[#ec5137]' : 'bg-gray-100 border-gray-200 text-gray-700'
               }`}>
-                <Icon icon="carbon:enterprise" className="w-[1.3vw] h-[1.3vw]" />
+                <Icon icon="fa6-solid:gem" className="w-[1.3vw] h-[1.3vw] text-[#38bdf8]" />
               </div>
 
               {/* Title & Description */}
-              <h3 className="text-[1.2vw] font-semibold text-gray-800 mb-[0.2vw]">Pro</h3>
+              <h3 className="text-[1.2vw] font-semibold text-gray-800 mb-[0.2vw]">Diamond</h3>
               <p className="text-gray-500 text-[0.72vw] font-normal mb-[0.9vw] leading-relaxed">
                 Scale your team and integrations with enterprise-grade security and capabilities.
               </p>
@@ -494,13 +476,13 @@ const Pricing = () => {
               <div className="mb-[1.1vw]">
                 <div className="flex items-baseline gap-[0.3vw]">
                   <span className="text-[2vw] font-bold text-gray-800 tracking-tight leading-tight">
-                    {isAnnual ? '$159.99' : '$199.99'}
+                    {isAnnual ? '₹9,833' : '₹9,999'}
                   </span>
                   <span className="text-gray-400 font-normal text-[0.75vw]">/ month</span>
                 </div>
                 {isAnnual && (
                   <span className="text-[0.64vw] text-emerald-600 font-medium block mt-[0.12vw]">
-                    Billed annually ($1,919.88/yr) • Save $480
+                    Billed annually (₹1,18,000/yr) • Save ₹1,988 (2%)
                   </span>
                 )}
               </div>
@@ -513,22 +495,14 @@ const Pricing = () => {
                     selectedCol === 'pro' ? 'bg-[#ec5137] hover:bg-[#d94229] text-white' : 'border border-gray-300 hover:bg-gray-50 text-gray-700'
                   }`}
                 >
-                  <span>Choose Pro</span>
+                  <span>Choose Diamond</span>
                   <ArrowRight className="w-[0.75vw] h-[0.75vw]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); openInvoiceForPlan('pro'); }}
-                  className="w-full py-[0.25vw] px-[0.6vw] text-gray-400 hover:text-gray-700 font-medium text-[0.7vw] flex items-center justify-center gap-[0.3vw] transition-colors cursor-pointer"
-                >
-                  <Receipt className="w-[0.7vw] h-[0.7vw]" />
-                  <span>View Sample Invoice</span>
                 </button>
               </div>
 
               {/* Features List */}
               <div className="space-y-[0.55vw] pt-[0.6vw] border-t border-gray-100">
-                <p className="text-[0.86vw] font-semibold text-gray-900">Everything in Premium, plus</p>
+                <p className="text-[0.86vw] font-semibold text-gray-900">Everything in Gold, plus</p>
                 <ul className="space-y-[0.5vw] text-[0.72vw] text-gray-600 font-normal">
                   <li className="flex items-start gap-[0.45vw]">
                     <Icon icon="teenyicons:tick-circle-solid" className={`w-[0.9vw] h-[0.9vw] shrink-0 mt-[0.1vw] ${selectedCol === 'pro' ? 'text-[#ec5137]' : 'text-gray-600'}`} />
@@ -607,9 +581,9 @@ const Pricing = () => {
                     selectedCol === 'basic' ? 'bg-[#444444] text-white' : 'bg-[#333333] text-white hover:bg-[#3d3d3d]'
                   }`}
                 >
-                  <div className="font-bold text-[0.98vw] text-white">Basic</div>
+                  <div className="font-bold text-[0.98vw] text-white">Silver</div>
                   <div className={`text-[0.76vw] font-normal mt-[0.1vw] ${selectedCol === 'basic' ? 'text-gray-200' : 'text-gray-400'}`}>
-                    {isAnnual ? '$31.99 /mo' : '$39.99 /mo'}
+                    {isAnnual ? '₹1,958 /mo' : '₹1,999 /mo'}
                   </div>
                 </th>
                 <th 
@@ -618,9 +592,9 @@ const Pricing = () => {
                     selectedCol === 'premium' ? 'bg-[#444444] text-white' : 'bg-[#333333] text-white hover:bg-[#3d3d3d]'
                   }`}
                 >
-                  <div className="font-bold text-[0.98vw] text-white">Premium</div>
+                  <div className="font-bold text-[0.98vw] text-white">Gold</div>
                   <div className={`text-[0.76vw] font-normal mt-[0.1vw] ${selectedCol === 'premium' ? 'text-gray-200' : 'text-gray-400'}`}>
-                    {isAnnual ? '$79.99 /mo' : '$99.99 /mo'}
+                    {isAnnual ? '₹3,917 /mo' : '₹3,999 /mo'}
                   </div>
                 </th>
                 <th 
@@ -629,9 +603,9 @@ const Pricing = () => {
                     selectedCol === 'pro' ? 'bg-[#444444] text-white' : 'bg-[#333333] text-white hover:bg-[#3d3d3d]'
                   }`}
                 >
-                  <div className="font-bold text-[0.98vw] text-white">Pro</div>
+                  <div className="font-bold text-[0.98vw] text-white">Diamond</div>
                   <div className={`text-[0.76vw] font-normal mt-[0.1vw] ${selectedCol === 'pro' ? 'text-gray-200' : 'text-gray-400'}`}>
-                    {isAnnual ? '$159.99 /mo' : '$199.99 /mo'}
+                    {isAnnual ? '₹9,833 /mo' : '₹9,999 /mo'}
                   </div>
                 </th>
               </tr>

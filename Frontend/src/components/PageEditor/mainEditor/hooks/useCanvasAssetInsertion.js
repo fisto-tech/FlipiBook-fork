@@ -525,6 +525,10 @@ export const useCanvasAssetInsertion = ({
         iconGroup.appendChild(path);
       }
       g.appendChild(iconGroup);
+      // Same stroke model as shapes: on-screen width, independent of the icon's size
+      g.setAttribute('data-icon-nss', 'true');
+      iconGroup.querySelectorAll('path, circle, rect, polygon, polyline, line, ellipse')
+        .forEach((n) => n.setAttribute('vector-effect', 'non-scaling-stroke'));
 
       const isElementContainer = (node) => {
         if (!node || typeof node.getAttribute !== 'function') return false;

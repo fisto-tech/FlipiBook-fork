@@ -45,7 +45,8 @@ export const renderResizeHandles = ({
     const name = handleNames[i];
     const isSide = ['n', 'e', 's', 'w'].includes(name);
     const handleId = `resize-handle-${targetId}-${name}`;
-    let handle = htmlOverlay.querySelector(`[id="${handleId}"]`);
+    const safeHandleId = (window.CSS && CSS.escape) ? CSS.escape(handleId) : handleId;
+    let handle = htmlOverlay.querySelector(`[id="${safeHandleId}"]`) || document.getElementById(handleId);
 
     if (isSide && !showSideHandles) {
       if (handle) handle.remove();
@@ -64,6 +65,11 @@ export const renderResizeHandles = ({
     }
 
     handle.className = `resize-handle overlay-type-${type} absolute`;
+
+    const safeX = Number.isFinite(p?.x) ? p.x.toFixed(2) : '0';
+    const safeY = Number.isFinite(p?.y) ? p.y.toFixed(2) : '0';
+    const safeRot = Number.isFinite(rotation) ? rotation.toFixed(1) : '0';
+    const safeScale = (zoomScale && Number.isFinite(zoomScale) && zoomScale > 0) ? (1 / zoomScale).toFixed(3) : '1';
 
     if (isSide) {
       const targetStyle = isBlackSelection
@@ -92,7 +98,7 @@ export const renderResizeHandles = ({
         }
       }
 
-      handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / zoomScale).toFixed(3)}) translate(-50%, -50%)`;
+      handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
     } else if (!isLine && isLCorner) {
       const arm = 8.5;
       const barThickness = 2.5;
@@ -128,7 +134,7 @@ export const renderResizeHandles = ({
         `;
       }
 
-      handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / zoomScale).toFixed(3)}) translate(-50%, -50%)`;
+      handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
     } else {
       const targetStyle = `corner-${handleSize}-${handleBorderColor}`;
       if (handle.dataset.styled !== targetStyle) {
@@ -145,7 +151,7 @@ export const renderResizeHandles = ({
         handle.style.height = `${handleSize}px`;
       }
 
-      handle.style.transform = `translate3d(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px, 0) rotate(${rotation.toFixed(1)}deg) scale(${(1 / zoomScale).toFixed(3)}) translate(-50%, -50%)`;
+      handle.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) rotate(${safeRot}deg) scale(${safeScale}) translate(-50%, -50%)`;
     }
 
     if (!isSide && typeof onCornerHover === 'function') {

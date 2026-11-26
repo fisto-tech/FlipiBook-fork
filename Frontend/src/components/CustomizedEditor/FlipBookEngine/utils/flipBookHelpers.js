@@ -64,7 +64,11 @@ export const SPINE_SHADOW_EDGE = { left: 'right', right: 'left', cover: 'left', 
 export const getSpineShadowType = (pageIdx, pages = []) => {
     if (pageIdx === 0) return 'cover';
     const total = pages.length;
-    const isLast = pageIdx === total - 1 || (pageIdx === total - 2 && pages[pageIdx + 1]?.isPad);
+    // Back cover only for a real final page. With an odd page count a transparent pad follows the
+    // real last page, which is then a normal right-hand page of the spread (needs its spine shadow).
+    // Back cover only when the final page sits on the LEFT (odd index → even page count).
+    // With an odd page count the final page is a right-hand page of a spread: no back cover.
+    const isLast = pageIdx === total - 1 && pageIdx % 2 === 1 && !pages[pageIdx]?.isPad;
     if (isLast) return 'backCover';
     return pageIdx % 2 === 0 ? 'right' : 'left';
 };

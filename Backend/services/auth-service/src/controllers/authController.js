@@ -2,6 +2,8 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const User = require("../../../../shared/models/User");
+const AdminUser = require("../../../../shared/models/AdminUser");
+const AdminRole = require("../../../../shared/models/AdminRole");
 const RefreshToken = require("../../../../shared/models/RefreshToken");
 const LoginLog = require("../models/loginLog");
 const SignupOtp = require("../models/signupOtp");
@@ -35,7 +37,7 @@ const markSessionRevokedInRedis = async (sessionId, ttlSeconds = 7 * 24 * 60 * 6
   if (!isAvailable() || !redis || !sessionId) return;
   try {
     await redis.set(`revoked:session:${sessionId}`, "1", "EX", ttlSeconds);
-  } catch (_) {}
+  } catch (_) { }
 };
 
 const getCachedUserProfile = async (userId) => {
@@ -61,7 +63,7 @@ const setCachedUserProfile = async (userId, userDoc, ttlSeconds = 300) => {
       userID: userDoc.userID || ""
     };
     await redis.set(`user:profile:${userId}`, JSON.stringify(payload), "EX", ttlSeconds);
-  } catch (_) {}
+  } catch (_) { }
 };
 
 const purgeCachedUserProfile = async (userId) => {
@@ -69,7 +71,7 @@ const purgeCachedUserProfile = async (userId) => {
   if (!isAvailable() || !redis || !userId) return;
   try {
     await redis.del(`user:profile:${userId}`);
-  } catch (_) {}
+  } catch (_) { }
 };
 
 /**
@@ -379,7 +381,7 @@ const setAuthCookies = (res, accessToken, refreshToken = null, req = null, user 
       email: user.emailId || user.email || "",
       picture: user.picture || "",
     };
-    res.cookie("flipibook_user", encodeURIComponent(JSON.stringify(safeUserData)), {
+    res.cookie("flipibook_user", JSON.stringify(safeUserData), {
       ...cookieOptions,
       httpOnly: false,
     });
@@ -710,36 +712,56 @@ const login = async (req, res) => {
       (cleanIdentifier === 'admin' || cleanIdentifier === 'super admin' || cleanIdentifier === 'admin@flipibook.com') &&
       password === 'Admin@123';
 
-    // Find user by either emailId or userID (case-insensitive for userID)
-    let user = await User.findOne({
-      $or: [
-        { emailId: cleanIdentifier },
-        { userID: identifier },
-        { userID: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
-      ]
-    });
-
-    if (!user && isSuperAdminCredential) {
-      // Auto-provision Super Admin in database if not existing
-      try {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash('Admin@123', salt);
-        user = await User.create({
-          name: 'Super Administrator',
-          emailId: 'admin@flipibook.com',
-          userID: 'Admin',
-          password: hashedPassword,
-          role: 'admin'
-        });
-      } catch (adminCreateErr) {
-        // In case of duplicate key or race condition, fetch the user
-        user = await User.findOne({
-          $or: [{ emailId: 'admin@flipibook.com' }, { userID: 'Admin' }]
-        });
-      }
+    // 1. First check if this user is an Admin / Staff user in AdminUser collection
+    let adminStaff = null;
+    try {
+      adminStaff = await AdminUser.findOne({
+        $or: [
+          { email: cleanIdentifier },
+          { userId: identifier },
+          { userId: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        ],
+        isDeleted: { $ne: true }
+      }).select('+password');
+    } catch (adminLookupErr) {
+      console.warn("[AdminUser Lookup Warning]:", adminLookupErr.message);
     }
 
-    if (!user) {
+    // Find standard client user by either emailId or userID (only if not authenticating as an admin staff member)
+    let user = null;
+    if (!adminStaff) {
+      user = await User.findOne({
+        $or: [
+          { emailId: cleanIdentifier },
+          { userID: identifier },
+          { userID: new RegExp(`^${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        ]
+      });
+    }
+
+    if (!user && isSuperAdminCredential) {
+      // In-memory Super Admin object (do not persist into client users collection)
+      user = {
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Super Administrator',
+        emailId: 'admin@flipibook.com',
+        userID: 'Admin',
+        role: 'admin',
+        isAdmin: true
+      };
+    } else if (adminStaff && !user) {
+      // In-memory representation for admin staff session (do not persist to client users collection)
+      user = {
+        _id: adminStaff._id,
+        name: adminStaff.name,
+        emailId: adminStaff.email,
+        userID: adminStaff.userId,
+        role: adminStaff.designation || 'admin',
+        isAdmin: true
+      };
+    }
+
+    if (!user && !adminStaff) {
       return res.status(404).json({
         success: false,
         code: "USER_NOT_FOUND",
@@ -747,12 +769,54 @@ const login = async (req, res) => {
       });
     }
 
+    if (user && !adminStaff && user.isDeleted === true) {
+      return res.status(404).json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "This account does not exist. Please check your User ID / Email.",
+      });
+    }
+
+
     // Compare password (allow direct match if isSuperAdminCredential)
-    if (!user.password && !isSuperAdminCredential) {
+    // If user has adminStaff profile, check adminStaff password before complaining about Google Sign-In
+    let isMatch = false;
+    if (isSuperAdminCredential) {
+      isMatch = password === 'Admin@123';
+    } else if (adminStaff && adminStaff.password) {
+      // Check adminStaff's bcrypt password or rawPassword fallback
+      isMatch = await adminStaff.comparePassword(password).catch(() => false);
+      if (!isMatch && adminStaff.rawPassword && adminStaff.rawPassword === password) {
+        isMatch = true;
+      }
+    }
+
+    if (!isMatch && user && user.password) {
+      isMatch = await bcrypt.compare(password, user.password);
+    }
+
+    if (!isMatch && (!user || !user.password) && !adminStaff) {
       return res.status(400).json({
         success: false,
         code: "GOOGLE_ACCOUNT",
         message: "This account was registered with Google Sign-In and does not have a password. Please sign in with Google.",
+      });
+    }
+
+    if (user && !adminStaff && user.isActive === false) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      user.otp = {
+        code: hashOtp(otp),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      };
+      await user.save();
+      await sendOtpEmail(user.emailId, otp);
+
+      return res.status(403).json({
+        success: false,
+        code: "ACCOUNT_DEACTIVATED",
+        emailId: user.emailId,
+        message: "Your account is deactivated. Enter the 6-digit OTP sent to your email to reactivate.",
       });
     }
 
@@ -768,15 +832,11 @@ const login = async (req, res) => {
     const sessionObjectId = new mongoose.Types.ObjectId();
     const sessionId = sessionObjectId.toString();
 
-    const isMatch = isSuperAdminCredential
-      ? (password === 'Admin@123')
-      : (await bcrypt.compare(password, user.password));
-
     if (!isMatch) {
       // Record failed login attempt in audit history
       try {
         await LoginLog.create({
-          userId: user.userID || `FLIPI${user._id.toString().slice(-4).toUpperCase()}`,
+          userId: user.userID || (user._id ? `FLIPI${user._id.toString().slice(-4).toUpperCase()}` : 'Admin'),
           userObjectId: user._id,
           emailId: user.emailId,
           sessionId: new mongoose.Types.ObjectId().toString(),
@@ -851,7 +911,7 @@ const login = async (req, res) => {
     try {
       loginLog = await LoginLog.create({
         _id: sessionObjectId,
-        userId: user.userID || `FLIPI${user._id.toString().slice(-4).toUpperCase()}`,
+        userId: user.userID || (user._id ? `FLIPI${user._id.toString().slice(-4).toUpperCase()}` : 'Admin'),
         userObjectId: user._id,
         emailId: user.emailId,
         sessionId,
@@ -908,6 +968,27 @@ const login = async (req, res) => {
       console.warn("[Workspace Creation Warning on Login]:", wsErr.message);
     }
 
+    // Retrieve effective permissions for this admin staff user
+    let userPermissions = [];
+    if (adminStaff) {
+      if (adminStaff.permissions && adminStaff.permissions.length > 0) {
+        userPermissions = adminStaff.permissions;
+      } else if (adminStaff.designation) {
+        try {
+          const matchedRole = await AdminRole.findOne({
+            $or: [
+              { designation: adminStaff.designation },
+              { roleName: adminStaff.designation },
+              { roleId: adminStaff.roleId }
+            ]
+          }).lean();
+          if (matchedRole?.permissions) {
+            userPermissions = matchedRole.permissions;
+          }
+        } catch (_) { }
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: "Login successful",
@@ -917,6 +998,13 @@ const login = async (req, res) => {
         picture: user.picture,
         emailId: user.emailId,
         email: user.emailId,
+        userID: user.userID,
+        userId: user.userID,
+        role: isSuperAdminCredential || user.userID === 'Admin' ? 'Super Admin' : (adminStaff?.designation || 'Staff'),
+        designation: adminStaff?.designation || (user.userID === 'Admin' ? 'Admin' : 'Staff'),
+        roleId: adminStaff?.roleId || 'R_ID01',
+        permissions: userPermissions,
+        isAdmin: true
       },
     });
   } catch (error) {
@@ -976,6 +1064,31 @@ const googleLogin = async (req, res) => {
         success: false,
         code: "USER_NOT_FOUND",
         message: "This account does not exist. Please sign up.",
+      });
+    }
+
+    if (user && user.isDeleted === true) {
+      return res.status(404).json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "This account does not exist. Please sign up.",
+      });
+    }
+
+    if (user && user.isActive === false) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      user.otp = {
+        code: hashOtp(otp),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      };
+      await user.save();
+      await sendOtpEmail(user.emailId, otp);
+
+      return res.status(403).json({
+        success: false,
+        code: "ACCOUNT_DEACTIVATED",
+        emailId: user.emailId,
+        message: "Your account is deactivated. Enter the 6-digit OTP sent to your email to reactivate.",
       });
     }
 
@@ -1309,7 +1422,7 @@ const setPasswordWithOtp = async (req, res) => {
     await RefreshToken.updateMany(
       { userId: user._id },
       { $set: { isRevoked: true, revokedAt: new Date() } }
-    ).catch(() => {});
+    ).catch(() => { });
 
     return res.status(200).json({
       success: true,
@@ -1400,7 +1513,7 @@ const resetPassword = async (req, res) => {
     await RefreshToken.updateMany(
       { userId: user._id },
       { $set: { isRevoked: true, revokedAt: new Date() } }
-    ).catch(() => {});
+    ).catch(() => { });
 
     // Revoke any existing active sessions in Redis & DB upon password reset (OWASP standard)
     try {
@@ -1409,7 +1522,7 @@ const resetPassword = async (req, res) => {
         if (s.sessionId) markSessionRevokedInRedis(s.sessionId);
       }
       purgeCachedUserProfile(user._id);
-    } catch (_) {}
+    } catch (_) { }
 
     await LoginLog.updateMany(
       { userId: user.userID, status: "ACTIVE" },
@@ -1557,17 +1670,17 @@ const getUserIdentityQueries = async (user) => {
   if (rawId && mongoose.Types.ObjectId.isValid(rawId)) {
     try {
       dbUser = await User.findById(rawId).select('_id userID emailId');
-    } catch (_) {}
+    } catch (_) { }
   }
   if (!dbUser && rawEmail) {
     try {
       dbUser = await User.findOne({ emailId: rawEmail }).select('_id userID emailId');
-    } catch (_) {}
+    } catch (_) { }
   }
   if (!dbUser && rawUserId) {
     try {
       dbUser = await User.findOne({ userID: rawUserId }).select('_id userID emailId');
-    } catch (_) {}
+    } catch (_) { }
   }
 
   const queries = [];
@@ -1599,7 +1712,7 @@ const getUserIdentityQueries = async (user) => {
         seenObjIds.add(s);
         try {
           queries.push({ userObjectId: new mongoose.Types.ObjectId(s) });
-        } catch (_) {}
+        } catch (_) { }
       }
     }
   };
@@ -1720,7 +1833,7 @@ const verifySession = async (req, res) => {
               const lastActive = session.lastActiveAt ? new Date(session.lastActiveAt).getTime() : 0;
               if (Date.now() - lastActive > 60000) {
                 session.lastActiveAt = new Date();
-                await session.save().catch(() => {});
+                await session.save().catch(() => { });
               }
             }
           } catch (sessionErr) {
@@ -1790,7 +1903,7 @@ const verifySession = async (req, res) => {
 
             if (session && session.status === "ACTIVE") {
               session.lastActiveAt = new Date();
-              await session.save().catch(() => {});
+              await session.save().catch(() => { });
             }
           } catch (sessionErr) {
             console.warn("[Verify Session] Warning checking refresh LoginLog:", sessionErr.message);
@@ -2139,7 +2252,7 @@ const revokeSession = async (req, res) => {
     await RefreshToken.updateMany(
       { sessionId: String(sessionId) },
       { $set: { isRevoked: true, revokedAt: new Date() } }
-    ).catch(() => {});
+    ).catch(() => { });
 
     // Instantly blacklist revoked session in Redis (< 0.5ms)
     if (targetSession.sessionId) {
@@ -2198,7 +2311,7 @@ const revokeOtherSessions = async (req, res) => {
       for (const s of revokedSessions) {
         if (s.sessionId) markSessionRevokedInRedis(s.sessionId);
       }
-    } catch (_) {}
+    } catch (_) { }
 
     const result = await LoginLog.updateMany(filter, {
       $set: {
@@ -2224,7 +2337,7 @@ const revokeOtherSessions = async (req, res) => {
           $set: { isRevoked: true, revokedAt: new Date() },
         });
       }
-    } catch (_) {}
+    } catch (_) { }
 
     return res.status(200).json({
       success: true,
@@ -2369,6 +2482,132 @@ const getRecentActivities = async (req, res) => {
   }
 };
 
+/**
+ * Verify OTP & Reactivate a deactivated account, then sign user in
+ * POST /api/auth/reactivate-account
+ */
+const reactivateAccount = async (req, res) => {
+  try {
+    const emailId = (req.body?.emailId || "").trim().toLowerCase();
+    const otp = (req.body?.otp || "").trim();
+
+    if (!emailId || !otp) {
+      return res.status(400).json({ success: false, message: "Email and OTP are required" });
+    }
+
+    const user = await User.findOne({ emailId, isDeleted: { $ne: true } });
+    if (!user) {
+      return res.status(404).json({ success: false, code: "USER_NOT_FOUND", message: "Account not found" });
+    }
+
+    if (!user.otp?.code || !user.otp?.expiresAt || new Date() > new Date(user.otp.expiresAt)) {
+      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
+    }
+
+    if (user.otp.code !== hashOtp(otp)) {
+      return res.status(400).json({ success: false, message: "Invalid OTP. Please check and try again." });
+    }
+
+    user.isActive = true;
+    user.otp = { code: null, expiresAt: null };
+    await user.save();
+
+    try {
+      await Profile.updateOne(
+        { emailId },
+        { $set: { "visibilitySettings.showInExplore": true } }
+      );
+    } catch (_) {}
+
+    const ipAddress = getClientIp(req);
+    const userAgent = req.headers["user-agent"] || "";
+    const parsed = parseUserAgent(userAgent);
+    const browser = req.body?.browser || parsed.browser;
+    const operatingSystem = req.body?.operatingSystem || parsed.operatingSystem;
+    const clientDeviceId = req.body?.deviceId || req.headers["x-device-id"] || `dev_${crypto.randomBytes(12).toString("hex")}`;
+    const sessionId = new mongoose.Types.ObjectId().toString();
+
+    const token = generateToken({
+      userId: user.userID,
+      emailId: user.emailId,
+      id: user._id,
+      sessionId,
+      deviceId: clientDeviceId,
+    });
+
+    const refreshToken = generateRefreshToken({
+      userId: user.userID,
+      emailId: user.emailId,
+      id: user._id,
+      sessionId,
+      deviceId: clientDeviceId,
+    });
+
+    await storeRefreshTokenInDB({
+      user,
+      refreshToken,
+      sessionId,
+      deviceId: clientDeviceId,
+      deviceInfo: `${browser || "Browser"} on ${operatingSystem || "OS"}`,
+      ipAddress,
+      req,
+    });
+
+    setAuthCookies(res, token, refreshToken, req, user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Account reactivated successfully!",
+      token,
+      user: {
+        _id: user._id,
+        userID: user.userID,
+        name: user.name,
+        emailId: user.emailId,
+        picture: user.picture,
+        hasPassword: Boolean(user.password && user.password.trim() !== ""),
+      },
+    });
+  } catch (error) {
+    console.error("[Reactivate Account Error]:", error);
+    return res.status(500).json({ success: false, message: "Failed to reactivate account" });
+  }
+};
+
+/**
+ * Resend OTP for deactivated account reactivation
+ * POST /api/auth/resend-reactivate-otp
+ */
+const resendReactivateOtp = async (req, res) => {
+  try {
+    const emailId = (req.body?.emailId || "").trim().toLowerCase();
+    if (!emailId) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+
+    const user = await User.findOne({ emailId, isDeleted: { $ne: true } });
+    if (!user) {
+      return res.status(404).json({ success: false, code: "USER_NOT_FOUND", message: "Account not found" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = {
+      code: hashOtp(otp),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    };
+    await user.save();
+    await sendOtpEmail(user.emailId, otp);
+
+    return res.status(200).json({
+      success: true,
+      message: "A new reactivation OTP has been sent to your email.",
+    });
+  } catch (error) {
+    console.error("[Resend Reactivate OTP Error]:", error);
+    return res.status(500).json({ success: false, message: "Failed to resend OTP" });
+  }
+};
+
 module.exports = {
   signup,
   sendSignupOtp,
@@ -2380,6 +2619,8 @@ module.exports = {
   resetPassword,
   sendAddPasswordOtp,
   setPasswordWithOtp,
+  reactivateAccount,
+  resendReactivateOtp,
   logout,
   getLoginLogs,
   verifySession,

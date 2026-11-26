@@ -9,6 +9,12 @@ import React, { useEffect, useRef, useState } from 'react';
 // Change to the real launch moment (ISO 8601 with offset)
 const LAUNCH_DATE = '2026-12-11T12:00:00+05:30';
 
+// Shown under the tagline, derived from LAUNCH_DATE so the two never disagree.
+// e.g. "11 December 2026"
+const LAUNCH_DAY_LABEL = new Intl.DateTimeFormat('en-IN', {
+  day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata',
+}).format(new Date(LAUNCH_DATE));
+
 const pad = (n, len) => {
   const s = n.toString();
   return s.length < len ? pad('0' + s, len) : s;
@@ -277,6 +283,9 @@ export default function ComingSoon({ embedded = false }) {
 
           {/* 3. Coming soon text */}
           <div>
+            {!ended && (
+              <time className="launch-date" dateTime={LAUNCH_DATE}>{LAUNCH_DAY_LABEL}</time>
+            )}
             <h1 className="title">{ended ? "We're Live!" : 'Coming Soon'}</h1>
             <p className="tagline">
               {ended
@@ -382,6 +391,16 @@ const COMING_SOON_CSS = `
   font-size: clamp(.95rem, 2.1vw, 1.15rem);
   line-height: 1.6;
   color: var(--muted);
+}
+
+.coming-soon .launch-date {
+  display: block;
+  margin: 0 auto .6rem;
+  font-size: clamp(.75rem, 1.4vw, .9rem);
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--orange);
 }
 
 .coming-soon .social {

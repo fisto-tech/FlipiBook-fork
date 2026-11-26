@@ -1066,9 +1066,26 @@ export const useInteractEngine = ({
         }
       });
 
+    const handleGlobalPointerUp = (e) => {
+      if (!e || e.buttons === 0) {
+        if (document.body.classList.contains('dragging-active')) {
+          document.body.classList.remove('dragging-active');
+        }
+        document.querySelectorAll('[data-dragging="true"]').forEach(el => {
+          el.removeAttribute('data-dragging');
+        });
+      }
+    };
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('mouseup', handleGlobalPointerUp);
+
     return () => {
       interactable.unset();
       clearSmartGuides();
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('mouseup', handleGlobalPointerUp);
       document.body.classList.remove('dragging-active');
     };
   }, [zoom, activePageIndex]); // No longer depends on frequently changing callbacks
@@ -1670,7 +1687,14 @@ export const useInteractEngine = ({
                             (el.id && el.id.startsWith('table-')) ||
                             Boolean(el.querySelector?.('table'));
 
-            if (isButton || isSlideshow || isQRCode || isMap || isAudio || isEmbed) {
+            // Image frames: slot shapes + their <pattern> images must scale as ONE unit, proportionally,
+            // so uploaded images stay in sync with the frame and never stretch.
+            const isImageFrameEl = el.getAttribute?.('data-type') === 'image-frame' ||
+                                   el.getAttribute?.('data-is-image-frame') === 'true' ||
+                                   el.hasAttribute?.('data-frame-type') ||
+                                   (el.id && el.id.startsWith('image-frame-'));
+
+            if (isButton || isSlideshow || isQRCode || isMap || isAudio || isEmbed || isImageFrameEl) {
               if (isCorner) {
                 const dot = vCurrentLocal.x * vOriginalLocal.x + vCurrentLocal.y * vOriginalLocal.y;
                 const origLenSq = vOriginalLocal.x * vOriginalLocal.x + vOriginalLocal.y * vOriginalLocal.y;
@@ -2117,7 +2141,7 @@ export const useInteractEngine = ({
                   const isEmbed = el.getAttribute?.('data-type') === 'embed-frame' ||
                                   (el.id && el.id.startsWith('embed-'));
 
-                  if (isTypography || isDecorator || isButton || isSlideshow || isQRCode || isMap || isAudio || isEmbed) {
+                  if (isTypography || isDecorator || isButton || isSlideshow || isQRCode || isMap || isAudio || isEmbed || isImageFrameEl) {
                     try {
                       const scaleMatrix = new DOMMatrix()
                         .translate(worldAnchor.x, worldAnchor.y)

@@ -562,3 +562,67 @@ export function getTemplatePauseIconSvg(templateId = 'sunset-vibrant', color = '
       return `<rect x="5" y="3.5" width="3.5" height="11" rx="1" fill="${color}" ${fAttr} /><rect x="11.5" y="3.5" width="3.5" height="11" rx="1" fill="${color}" ${fAttr} />`;
   }
 }
+/**
+ * Fit the canvas track title to the space the player actually has.
+ * Short names show as before (name without extension). Long names are cut to the longest prefix
+ * that fits and keep their extension visible: "alex-morgan-audio-li….mp3".
+ * Free space = up to the player background's right edge, and up to anything sitting to the right
+ * on the title's row (e.g. the equalizer bars). Measured in screen px, so zoom/scale don't matter;
+ * the longest fitting prefix is found by binary search (O(log n) measurements).
+ */
+export const fitAudioTitle = (titleEl, fileName) => {
+  if (!titleEl) return;
+  const full = String(fileName || '').trim();
+  if (!full) return;
+  const m = full.match(/^(.*?)(\.[A-Za-z0-9]{1,5})?$/);
+  const base = (m && m[1]) || full;
+  const ext = (m && m[2]) || '';
+  titleEl.setAttribute('data-full-title', full);
+  titleEl.textContent = base;
+
+  const ellipsize = (n) => `${base.slice(0, n).trimEnd()}…${ext}`;
+  const tRect = titleEl.getBoundingClientRect();
+
+  // Not rendered yet (e.g. off-screen): fall back to a character budget
+  if (!tRect || tRect.width === 0 || tRect.height === 0) {
+    if (base.length > 28) titleEl.textContent = ellipsize(22);
+    return;
+  }
+
+  const root = titleEl.closest('[data-type="audio-frame"], g[id^="audio-"]') || titleEl.parentElement;
+  const pad = Math.max(4, tRect.height * 0.5);
+  let limit = Infinity;
+
+  // Player background = the largest rect in the player
+  let bg = null; let bgArea = 0;
+  root.querySelectorAll('rect').forEach((r) => {
+    const b = r.getBoundingClientRect();
+    if (b.width * b.height > bgArea) { bgArea = b.width * b.height; bg = b; }
+  });
+  if (bg && bg.left <= tRect.left) limit = bg.right - pad;
+
+  // Anything to the right of the title on the same row (equalizer bars, buttons…)
+  const rowTop = tRect.top; const rowBottom = tRect.bottom;
+  root.querySelectorAll('g[class], rect, circle, path, text, image, foreignObject').forEach((node) => {
+    if (node === titleEl || node.contains(titleEl)) return;
+    const b = node.getBoundingClientRect();
+    if (!b.width || !b.height) return;
+    if (bg && b.width * b.height >= bgArea * 0.5) return; // backgrounds / large layers
+    if (b.left < tRect.left + 4) return;
+    if (b.bottom <= rowTop || b.top >= rowBottom) return;
+    limit = Math.min(limit, b.left - pad);
+  });
+
+  if (!Number.isFinite(limit) || tRect.right <= limit) return; // fits as-is
+
+  const fits = (n) => {
+    titleEl.textContent = ellipsize(n);
+    return titleEl.getBoundingClientRect().right <= limit;
+  };
+  let lo = 1; let hi = base.length - 1; let best = 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (fits(mid)) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+  }
+  titleEl.textContent = ellipsize(best);
+};
