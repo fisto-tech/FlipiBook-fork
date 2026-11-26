@@ -13,7 +13,7 @@ const router = express.Router();
 router.use(verifyAdmin);
 
 // Sub-modules
-router.use('/dashboard',verifyAdmin, adminDashboardRoutes);
+router.use('/dashboard', adminDashboardRoutes);
 router.use('/users', adminUserRoutes);
 router.use('/flipbooks', adminBookRoutes);
 router.use('/forum', adminForumRoutes);

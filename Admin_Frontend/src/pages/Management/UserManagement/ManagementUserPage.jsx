@@ -27,6 +27,28 @@ import {
 
 const generateUserId = (num) => `FLIP_AD${String(num).padStart(4, '0')}`;
 
+export const validatePassword = (password) => {
+  if (!password || typeof password !== 'string') {
+    return 'Password is required.';
+  }
+  if (password.length < 8 || password.length > 16) {
+    return 'Password must be between 8 and 16 characters.';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least 1 uppercase letter.';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least 1 lowercase letter.';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least 1 number.';
+  }
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password)) {
+    return 'Password must contain at least 1 special character.';
+  }
+  return '';
+};
+
 export default function ManagementUserPage() {
   const [users, setUsers] = useState(() => getStoredUsers());
   const [roles, setRoles] = useState(() => getStoredRoles());
@@ -36,6 +58,8 @@ export default function ManagementUserPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [editingUserId, setEditingUserId] = useState(null);
   const [inlinePasswordVal, setInlinePasswordVal] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isDesignationOpen, setIsDesignationOpen] = useState(false);
 
   const handleSaveInlinePassword = async (userId) => {
     if (!inlinePasswordVal.trim()) {
@@ -43,6 +67,11 @@ export default function ManagementUserPage() {
       return;
     }
     const pass = inlinePasswordVal.trim();
+    const validationErr = validatePassword(pass);
+    if (validationErr) {
+      alert(validationErr);
+      return;
+    }
     const updated = users.map((u) =>
       u.userId === userId ? { ...u, password: pass } : u
     );
@@ -67,11 +96,15 @@ export default function ManagementUserPage() {
           getManagementStaffUsers().catch(() => null)
         ]);
 
+        let currentRolesMap = new Map();
         if (rolesRes?.success && rolesRes.roles) {
           const mappedRoles = rolesRes.roles.map((r) => {
             const roleName = r.Role || r.roleName || r.name || '';
+            const rId = String(r.roleId || r._id || '');
+            if (r._id) currentRolesMap.set(String(r._id), roleName);
+            if (r.roleId) currentRolesMap.set(String(r.roleId), roleName);
             return {
-              id: r.roleId || r._id,
+              id: rId,
               name: roleName,
               designation: r.designation || roleName
             };
@@ -79,27 +112,65 @@ export default function ManagementUserPage() {
           setRoles(mappedRoles);
         }
 
-        if (usersRes?.success && usersRes.users && usersRes.users.length > 0) {
-          const mappedUsers = usersRes.users.map((u, i) => ({
-            sNo: i + 1,
-            id: u._id,
-            name: u.name,
-            userId: u.userid || u.userId,
-            password: u.rawPassword || u.password || u.userid || u.userId,
-            designation: u.designation,
-            roleId: u.roleId || '',
-            teamHead: Boolean(u.teamHead),
-            createdDate: u.createddate
-              ? new Date(u.createddate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-              : (u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Nov 23, 2026'),
-            email: u.e_mailid || u.email,
-            status: u.status || 'Active',
-            Access: u.Access || []
-          }));
+        if (usersRes?.success && Array.isArray(usersRes.users) && usersRes.users.length > 0) {
+          const mappedUsers = usersRes.users.map((u, i) => {
+            const uid = u.userid || u.userId;
+            const pwd = u.password;
+            const isBcrypt = typeof pwd === 'string' && pwd.startsWith('$2b$');
+            const isAdminUser = String(uid || '').toUpperCase() === 'ADMIN' || String(u.designation || '').toLowerCase() === 'admin';
+            const defaultPassword = isAdminUser ? 'Admin@123' : uid;
+            const rawDesignation = String(u.designation || '').trim();
+            const resolvedDesignation = currentRolesMap.get(rawDesignation) || u.designation;
+
+            return {
+              sNo: i + 1,
+              id: u._id,
+              name: u.name,
+              userId: uid,
+              password: (!pwd || isBcrypt) ? defaultPassword : pwd,
+              designation: resolvedDesignation,
+              roleId: u.roleId || '',
+              teamHead: Boolean(u.teamHead),
+              createdDate: u.createddate
+                ? new Date(u.createddate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : (u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Nov 23, 2026'),
+              email: u.e_mailid || u.email,
+              status: u.status || 'Active',
+              Access: u.Access || []
+            };
+          });
           setUsers(mappedUsers);
           saveStoredUsers(mappedUsers);
         } else {
-          setUsers(getStoredUsers());
+          // If backend returned empty or was unreachable, fallback to localStorage;
+          // if localStorage is also empty, seed with the default Super Admin from seed.js
+          const stored = getStoredUsers();
+          if (stored && stored.length > 0) {
+            setUsers(stored);
+          } else {
+            const defaultSeedUser = [
+              {
+                sNo: 1,
+                id: 'default_admin',
+                userId: 'FLIP_ADMIN01',
+                name: 'Fist-O',
+                designation: 'Super Admin',
+                email: 'adminflipibook2026@gmail.com',
+                password: 'Admin@123',
+                createdDate: 'Nov 26, 2026',
+                status: 'Active',
+                Access: [
+                  { Dashboard: 1 },
+                  { '3D Editor Assets': 1 },
+                  { 'User Management': 1 },
+                  { 'Template Management': 1 },
+                  { Management: 1 }
+                ]
+              }
+            ];
+            setUsers(defaultSeedUser);
+            saveStoredUsers(defaultSeedUser);
+          }
         }
       } catch (err) {
         console.error('Failed to load users from backend:', err);
@@ -164,7 +235,8 @@ export default function ManagementUserPage() {
   });
   const [showPassword, setShowPassword] = useState(true);
 
-  const nextUserId = generateUserId(users.length + 1);
+  const staffOnly = users.filter((u) => String(u.userId || '').toLowerCase() !== 'admin');
+  const nextUserId = generateUserId(staffOnly.length + 1);
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -181,21 +253,23 @@ export default function ManagementUserPage() {
 
   const handleOpenAddModal = () => {
     setEditingUser(null);
+    setPasswordError('');
     setNewUser({
       name: '',
       email: '',
-      password: nextUserId,
+      password: '',
       roleId: '',
       designation: '',
       createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       status: 'Active'
     });
-    setShowPassword(true);
+    setShowPassword(false);
     setShowAddModal(true);
   };
 
   const handleOpenEditModal = (userToEdit) => {
     setEditingUser(userToEdit);
+    setPasswordError('');
     const isSuperAdmin =
       String(userToEdit.userId || '').toLowerCase() === 'admin' ||
       String(userToEdit.name || '').toLowerCase().includes('super administrator') ||
@@ -204,13 +278,13 @@ export default function ManagementUserPage() {
     setNewUser({
       name: userToEdit.name || '',
       email: userToEdit.email || '',
-      password: userToEdit.password || '',
+      password: '',
       roleId: isSuperAdmin ? 'Admin' : (userToEdit.roleId || userToEdit.designation || ''),
       designation: userToEdit.designation || '',
       createdDate: userToEdit.createdDate || '',
       status: userToEdit.status || 'Active'
     });
-    setShowPassword(true);
+    setShowPassword(false);
     setShowAddModal(true);
   };
 
@@ -219,8 +293,17 @@ export default function ManagementUserPage() {
     if (!newUser.name) return;
 
     if (editingUser) {
-      // Edit / Update existing user
-      const effectivePassword = newUser.password && newUser.password.trim() ? newUser.password.trim() : (editingUser.password || editingUser.userId);
+      // Edit / Update existing user: if password entered, validate it; otherwise keep current
+      let effectivePassword = editingUser.password;
+      if (newUser.password && newUser.password.trim()) {
+        const passErr = validatePassword(newUser.password.trim());
+        if (passErr) {
+          setPasswordError(passErr);
+          return;
+        }
+        effectivePassword = newUser.password.trim();
+      }
+
       const updatedUser = {
         ...editingUser,
         ...newUser,
@@ -244,11 +327,19 @@ export default function ManagementUserPage() {
       saveStoredUsers(updatedList);
       setShowAddModal(false);
       setEditingUser(null);
+      setPasswordError('');
       return;
     }
 
-    // Default password to auto-assigned User ID if left blank
-    const effectivePassword = newUser.password && newUser.password.trim() ? newUser.password.trim() : nextUserId;
+    // Creating new user: manual password is required with rules
+    const passToValidate = (newUser.password || '').trim();
+    const passErr = validatePassword(passToValidate);
+    if (passErr) {
+      setPasswordError(passErr);
+      return;
+    }
+
+    const effectivePassword = passToValidate;
 
     try {
       // 1. Save directly to MongoDB via Backend Service
@@ -260,7 +351,12 @@ export default function ManagementUserPage() {
         roleId: newUser.roleId
       });
 
-      const assignedId = res?.user?.userId || nextUserId;
+      if (!res?.success) {
+        alert(`Failed to save user: ${res?.message || 'Server error'}`);
+        return;
+      }
+
+      const assignedId = res?.user?.userid || res?.user?.userId || nextUserId;
 
       const newRecord = {
         ...newUser,
@@ -274,16 +370,8 @@ export default function ManagementUserPage() {
       saveStoredUsers(updated);
     } catch (err) {
       console.error('Save user backend error:', err);
-      // Fallback local save
-      const newRecord = {
-        ...newUser,
-        password: effectivePassword,
-        sNo: users.length + 1,
-        userId: nextUserId
-      };
-      const updated = [...users, newRecord];
-      setUsers(updated);
-      saveStoredUsers(updated);
+      const errMsg = err.response?.data?.message || err.message || 'Server error';
+      alert(`Error saving user to database: ${errMsg}`);
     }
 
     setShowAddModal(false);
@@ -296,7 +384,8 @@ export default function ManagementUserPage() {
       createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       status: 'Active'
     });
-    setShowPassword(true);
+    setPasswordError('');
+    setShowPassword(false);
   };
 
   const filteredUsers = users
@@ -398,9 +487,9 @@ export default function ManagementUserPage() {
 
             {/* Table Body */}
             <tbody className="divide-y divide-[#f5f5f5] bg-white text-[0.78vw] font-normal">
-              {filteredUsers.map((u) => (
+              {filteredUsers.map((u, idx) => (
                 <tr
-                  key={u.userId}
+                  key={u.id || u.userId || idx}
                   className="group hover:bg-[#fafafa] transition-colors duration-150 text-[#4b5563]"
                 >
                   {/* S.NO */}
@@ -424,7 +513,16 @@ export default function ManagementUserPage() {
                   <td className="py-[0.55vw] px-[1vw]">
                     <div>
                       <span className="text-[#374151] font-medium whitespace-nowrap">
-                        {u.designation || '-'}
+                        {(() => {
+                          const desig = String(u.designation || '').trim();
+                          // If designation is a MongoDB ObjectId (24 hex characters) or matches any role id
+                          if (/^[0-9a-fA-F]{24}$/.test(desig)) {
+                            const foundRole = roles.find((r) => String(r.id) === desig || String(r._id) === desig);
+                            if (foundRole) return foundRole.name || foundRole.Role || foundRole.designation || 'Super Admin';
+                            return 'Super Admin';
+                          }
+                          return desig || '-';
+                        })()}
                       </span>
                     </div>
                   </td>
@@ -441,8 +539,10 @@ export default function ManagementUserPage() {
                   </td>
 
                   {/* Password Column */}
-                  <td className="py-[0.55vw] px-[1vw] text-[#4b5563] whitespace-nowrap">
-                    {u.password || u.userId}
+                  <td className="py-[0.55vw] px-[1vw] text-[#4b5563] whitespace-nowrap font-mono text-[0.75vw]">
+                    {u.password && !u.password.startsWith('$2b$')
+                      ? u.password
+                      : (String(u.userId || '').toUpperCase() === 'ADMIN' ? 'Admin@123' : u.userId)}
                   </td>
 
                   {/* Created Date */}
@@ -518,9 +618,9 @@ export default function ManagementUserPage() {
       {/* Add User Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-[1vw] shadow-2xl w-full max-w-[28vw] overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-[1vw] shadow-2xl w-full max-w-[28vw] overflow-visible border border-gray-100 animate-in fade-in zoom-in-95 duration-150 transition-all">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-[1.5vw] py-[1.1vw] border-b border-gray-100 bg-[#f8fafc]">
+            <div className="flex items-center justify-between px-[1.5vw] py-[1.1vw] border-b border-gray-100 bg-[#f8fafc] rounded-t-[1vw]">
               <div>
                 <h3 className="text-[1.05vw] font-bold text-[#111827]">
                   {editingUser ? 'Update User' : 'Add New User'}
@@ -568,15 +668,18 @@ export default function ManagementUserPage() {
               {/* 3. Password */}
               <div className="space-y-[0.35vw]">
                 <label className="block text-[#334155] font-bold text-[0.8vw]">
-                  Password <span className="text-gray-400 font-normal">({editingUser ? `Current: ${editingUser.password || editingUser.userId}` : `Default: ${nextUserId}`})</span>
+                  Password {editingUser ? <span className="text-gray-400 font-normal">(Leave blank to keep current)</span> : <span className="text-red-500">*</span>}
                 </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={newUser.password}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    placeholder={editingUser ? 'Enter new password' : `e.g. ${nextUserId}`}
-                    className="w-full bg-[#f8fafc] border border-gray-200 text-[#1e293b] text-[0.82vw] rounded-[0.55vw] pl-[1vw] pr-[2.5vw] py-[0.55vw] focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition"
+                    onChange={(e) => {
+                      setNewUser({ ...newUser, password: e.target.value });
+                      if (passwordError) setPasswordError('');
+                    }}
+                    placeholder={editingUser ? 'Enter new password' : 'Enter password (8-16 characters)'}
+                    className={`w-full bg-[#f8fafc] border ${passwordError ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-blue-500'} text-[#1e293b] text-[0.82vw] rounded-[0.55vw] pl-[1vw] pr-[2.5vw] py-[0.55vw] focus:outline-none focus:ring-1 focus:bg-white transition`}
                   />
                   <button
                     type="button"
@@ -590,10 +693,17 @@ export default function ManagementUserPage() {
                     )}
                   </button>
                 </div>
+                {passwordError ? (
+                  <p className="text-[0.72vw] text-red-500 font-medium">{passwordError}</p>
+                ) : (
+                  <p className="text-[0.7vw] text-gray-400 leading-tight">
+                    Must be 8–16 characters with at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.
+                  </p>
+                )}
               </div>
 
               {/* 4. Select Designation */}
-              <div className="space-y-[0.35vw]">
+              <div className={`space-y-[0.35vw] transition-all duration-200 ${isDesignationOpen ? 'pb-[7.5vw]' : 'pb-0'}`}>
                 <label className="block text-[#334155] font-bold text-[0.8vw]">
                   Select Designation <span className="text-gray-400 font-normal">({availableRoles.length} available)</span>
                 </label>
@@ -605,6 +715,7 @@ export default function ManagementUserPage() {
                     }))}
                     value={newUser.roleId}
                     placeholder="Select Designation"
+                    onOpenChange={setIsDesignationOpen}
                     onChange={(selId) => {
                       const matched = availableRoles.find((r) => (r.id || r.roleId || r.name) === selId);
                       setNewUser({

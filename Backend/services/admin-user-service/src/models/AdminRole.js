@@ -5,7 +5,8 @@ const adminRoleSchema = new mongoose.Schema(
     Role: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      unique: true
     },
     createdDate: {
       type: Date,
@@ -16,7 +17,5 @@ const adminRoleSchema = new mongoose.Schema(
     versionKey: false
   }
 );
-
-adminRoleSchema.index({ Role: 1 });
 
 module.exports = mongoose.models.AdminRole || mongoose.model('AdminRole', adminRoleSchema);

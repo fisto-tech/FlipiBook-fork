@@ -3,10 +3,11 @@ const bcrypt = require('bcryptjs');
 
 const adminUserSchema = new mongoose.Schema(
   {
-    userid: {
+    userId: {
       type: String,
       trim: true,
       uppercase: true,
+      unique: true,
       index: true
       // e.g. 'FLIP_AD0001'
     },
@@ -20,7 +21,7 @@ const adminUserSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
-    e_mailid: {
+    email: {
       type: String,
       required: true,
       trim: true,
@@ -44,6 +45,10 @@ const adminUserSchema = new mongoose.Schema(
     Access: {
       type: Array,
       default: []
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false
     }
   },
   {
@@ -51,28 +56,32 @@ const adminUserSchema = new mongoose.Schema(
   }
 );
 
-// Pre-save hook: auto-generate userid (starting from FLIP_AD0001) & hash password
+// Pre-save hook: auto-generate userId (starting from FLIP_AD0001)
 adminUserSchema.pre('save', async function () {
-  // Auto-generate userid if not present
-  if (!this.userid) {
+  // Auto-generate userId if not present
+  if (!this.userId) {
     try {
-      const count = await this.constructor.countDocuments();
-      this.userid = `FLIP_AD${String(count + 1).padStart(4, '0')}`;
+      const staffCount = await this.constructor.countDocuments({ userId: /^FLIP_AD/i });
+      this.userId = `FLIP_AD${String(staffCount + 1).padStart(4, '0')}`;
     } catch (err) {
-      this.userid = `FLIP_AD${Date.now().toString().slice(-4)}`;
+      this.userId = `FLIP_AD${Date.now().toString().slice(-4)}`;
     }
   }
 
-  // Hash password if modified
-  if (this.isModified('password') && this.password) {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+  // Ensure default password is set if empty
+  if (!this.password) {
+    this.password = String(this.userId || '').toUpperCase() === 'ADMIN' ? 'Admin@123' : this.userId;
   }
 });
 
-// Helper instance method to compare passwords
+// Helper instance method to compare passwords (supports plain-text and legacy bcrypt hashes)
 adminUserSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  if (!this.password || !candidatePassword) return false;
+  if (this.password === candidatePassword) return true;
+  if (typeof this.password === 'string' && this.password.startsWith('$2b$')) {
+    return bcrypt.compare(candidatePassword, this.password);
+  }
+  return false;
 };
 
 module.exports = mongoose.models.AdminUser || mongoose.model('AdminUser', adminUserSchema);

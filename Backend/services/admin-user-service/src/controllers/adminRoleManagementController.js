@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { AdminRole, AdminUser } = require('../models');
 
 // Helper to convert permissions array [ { id, name, enabled } ]
@@ -11,20 +12,57 @@ const formatPermissionsToAccess = (permissions) => {
   });
 };
 
+const validatePasswordRules = (password) => {
+  if (!password || typeof password !== 'string') {
+    return 'Password is required.';
+  }
+  if (password.length < 8 || password.length > 16) {
+    return 'Password must be between 8 and 16 characters.';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least 1 uppercase letter.';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least 1 lowercase letter.';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least 1 number.';
+  }
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password)) {
+    return 'Password must contain at least 1 special character.';
+  }
+  return null;
+};
+
+// Helper to build a unified MongoDB query matcher for AdminUser (by userId, userid, _id, name, or email)
+const buildAdminUserQuery = (identifier, extraConditions = {}) => {
+  if (!identifier) return extraConditions;
+  const cleanId = String(identifier).trim();
+  const lowerId = cleanId.toLowerCase();
+
+  const isObjectId = mongoose.Types.ObjectId.isValid(cleanId);
+  const idOrConditions = [
+    { userid: cleanId },
+    { userId: cleanId },
+    { name: cleanId },
+    { e_mailid: lowerId },
+    { email: lowerId }
+  ];
+  if (isObjectId) {
+    idOrConditions.push({ _id: cleanId });
+  }
+
+  return {
+    $or: idOrConditions,
+    ...extraConditions
+  };
+};
+
 // ── ADMIN ROLES CONTROLLER ──────────────────────────────────────────────
 
 // GET /api/admin/roles
 const getRoles = async (req, res) => {
   try {
-    // Ensure default 'Admin' role document exists in 'adminroles' collection
-    const adminRoleExists = await AdminRole.findOne({ Role: { $regex: /^admin$/i } });
-    if (!adminRoleExists) {
-      await AdminRole.create({
-        Role: 'Admin',
-        createdDate: new Date()
-      }).catch((e) => console.warn('[Ensure Admin Role Warning]:', e.message));
-    }
-
     const roles = await AdminRole.find().sort({ createdAt: 1 }).lean();
     return res.status(200).json({ success: true, roles });
   } catch (err) {
@@ -36,13 +74,21 @@ const getRoles = async (req, res) => {
 // POST /api/admin/roles
 const createRole = async (req, res) => {
   try {
-    const { Role, roleName } = req.body;
+    const { Role, roleName, roleId } = req.body;
     const targetRole = (Role || roleName || '').trim();
     if (!targetRole) {
       return res.status(400).json({ success: false, message: 'Role Name is required' });
     }
 
+    // Auto-generate unique roleId (e.g. R_ID01, R_ID02) if not passed
+    let effectiveRoleId = (roleId || '').trim();
+    if (!effectiveRoleId) {
+      const count = await AdminRole.countDocuments();
+      effectiveRoleId = `R_ID${String(count + 1).padStart(2, '0')}`;
+    }
+
     const newRole = await AdminRole.create({
+      roleId: effectiveRoleId,
       Role: targetRole,
       createdDate: new Date()
     });
@@ -105,9 +151,7 @@ const updateRolePermissions = async (req, res) => {
 
     // 1. If an individual person was selected (or targetKey is a specific User ID or personId)
     const specificUserId = appliedPersonId || (targetKey && (targetKey.startsWith('FLIP_') || targetKey === 'Admin') ? targetKey : null);
-    const userMatch = specificUserId
-      ? await AdminUser.findOne({ $or: [{ userid: specificUserId }, { e_mailid: specificUserId.toLowerCase() }] })
-      : await AdminUser.findOne({ $or: [{ userid: targetKey }, { name: targetKey }, { e_mailid: targetKey.toLowerCase() }] });
+    const userMatch = await AdminUser.findOne(buildAdminUserQuery(specificUserId || targetKey));
 
     if (userMatch) {
       // Update individual user's Access in AdminUser
@@ -147,54 +191,70 @@ const updateRolePermissions = async (req, res) => {
 
 // ── ADMIN STAFF USERS CONTROLLER ────────────────────────────────────────
 
-// Default full access for Admin
-const DEFAULT_ADMIN_ACCESS = [
-  { "Dashboard": 1 },
-  { "3D Editor Assets": 1 },
-  { "User Management": 1 },
-  { "Template Management": 1 },
-  { "Management": 1 }
-];
-
 // GET /api/admin/management-users
 const getAdminUsers = async (req, res) => {
   try {
-    // Ensure default Super Admin exists in AdminUser collection
-    const superAdminExists = await AdminUser.findOne({
-      $or: [{ userid: { $regex: /^admin$/i } }, { e_mailid: 'admin@flipibook.com' }],
-      isDeleted: false
-    });
 
-    if (!superAdminExists) {
-      await AdminUser.create({
-        userid: 'ADMIN',
-        name: 'Fist-O',
-        designation: 'Admin',
-        e_mailid: 'admin@flipibook.com',
-        password: 'Admin@123',
-        createddate: new Date(),
-        status: 'Active',
-        Access: DEFAULT_ADMIN_ACCESS
-      }).catch((createErr) => {
-        console.warn('[Ensure SuperAdmin Warning]:', createErr.message);
-      });
-    } else {
-      let needsSave = false;
-      if (superAdminExists.name !== 'Fist-O') {
-        superAdminExists.name = 'Fist-O';
-        needsSave = true;
+    // Auto-normalize existing documents:
+    // 1. Move lowercase userid -> userId, e_mailid -> email
+    // 2. Remove legacy duplicate fields ($unset userid and e_mailid)
+    // 3. Normalize password to plain readable defaults
+    try {
+      const allUsers = await AdminUser.find({ isDeleted: { $ne: true } });
+      for (const u of allUsers) {
+        const uid = u.userId || u.userid;
+        const uEmail = u.email || u.e_mailid;
+        const isBcrypt = typeof u.password === 'string' && u.password.startsWith('$2b$');
+        const plainDefault = String(uid || '').toUpperCase() === 'ADMIN' ? 'Admin@123' : uid;
+        const passwordToSet = (!u.password || isBcrypt) ? plainDefault : u.password;
+
+        await AdminUser.collection.updateOne(
+          { _id: u._id },
+          {
+            $set: {
+              userId: uid,
+              email: uEmail,
+              password: passwordToSet
+            },
+            $unset: {
+              userid: "",
+              e_mailid: ""
+            }
+          }
+        );
       }
-      if (!Array.isArray(superAdminExists.Access) || superAdminExists.Access.length === 0) {
-        superAdminExists.Access = DEFAULT_ADMIN_ACCESS;
-        needsSave = true;
-      }
-      if (needsSave) {
-        await superAdminExists.save().catch(() => { });
-      }
+    } catch (normErr) {
+      console.warn('[getAdminUsers normalize error]:', normErr.message);
     }
 
-    const users = await AdminUser.find({ isDeleted: false }).sort({ createdAt: 1 }).lean();
-    return res.status(200).json({ success: true, users });
+    let users = [];
+    try {
+      users = await AdminUser.find({ isDeleted: { $ne: true } }).sort({ createdAt: 1 }).lean();
+    } catch (dbErr) {
+      console.error('[getAdminUsers DB query error]:', dbErr.message);
+    }
+
+    // Resolve ObjectId designations to Role names if applicable
+    let allRoles = [];
+    try {
+      allRoles = await AdminRole.find().lean();
+    } catch (_) {}
+    const roleMap = new Map();
+    allRoles.forEach((r) => {
+      if (r._id) roleMap.set(r._id.toString(), r.Role || r.roleName || '');
+      if (r.roleId) roleMap.set(r.roleId.toString(), r.Role || r.roleName || '');
+    });
+
+    const populatedUsers = users.map((u) => {
+      const desigStr = String(u.designation || '').trim();
+      const matchedRoleName = roleMap.get(desigStr);
+      return {
+        ...u,
+        designation: matchedRoleName || u.designation
+      };
+    });
+
+    return res.status(200).json({ success: true, users: populatedUsers });
   } catch (err) {
     console.error('[getAdminUsers error]:', err);
     return res.status(500).json({ success: false, message: err.message });
@@ -204,25 +264,32 @@ const getAdminUsers = async (req, res) => {
 // POST /api/admin/management-users
 const createAdminUser = async (req, res) => {
   try {
-    const { name, email, e_mailid, designation, password, status, Access, permissions } = req.body;
+    const { name, email, designation, password, status, Access, permissions } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Full name is required' });
     }
 
-    // Auto-generate userid (starting from FLIP_AD0001)
-    const userCount = await AdminUser.countDocuments();
-    const userid = `FLIP_AD${String(userCount + 1).padStart(4, '0')}`;
-    const cleanEmail = (e_mailid || email || `admin_${Date.now()}@flipibook.com`).trim().toLowerCase();
-    const effectivePassword = password && password.trim() ? password.trim() : userid;
+    const passErr = validatePasswordRules(password);
+    if (passErr) {
+      return res.status(400).json({ success: false, message: passErr });
+    }
+
+    // Auto-generate userId (staff users start from FLIP_AD0001)
+    const staffCount = await AdminUser.countDocuments({
+      $or: [{ userId: /^FLIP_AD/i }, { userid: /^FLIP_AD/i }]
+    });
+    const generatedUserId = `FLIP_AD${String(staffCount + 1).padStart(4, '0')}`;
+    const cleanEmail = (email || req.body.e_mailid || `admin_${Date.now()}@flipibook.com`).trim().toLowerCase();
+    const effectivePassword = password.trim();
     const effectiveAccess = Array.isArray(Access) && Access.length > 0
       ? Access
       : (Array.isArray(permissions) ? formatPermissionsToAccess(permissions) : []);
 
     const newUser = await AdminUser.create({
-      userid,
+      userId: generatedUserId,
       name: name.trim(),
       designation: (designation || 'Staff').trim(),
-      e_mailid: cleanEmail,
+      email: cleanEmail,
       password: effectivePassword,
       createddate: new Date(),
       status: status || 'Active',
@@ -242,12 +309,17 @@ const updateAdminUser = async (req, res) => {
     const { id } = req.params;
     const { name, email, e_mailid, designation, password, status, Access, permissions } = req.body;
 
-    const user = await AdminUser.findOne({
-      $or: [{ userid: id }, { _id: id }],
-      isDeleted: false
-    });
+    const user = await AdminUser.findOne(buildAdminUserQuery(id, { isDeleted: false }));
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (password && password.trim()) {
+      const passErr = validatePasswordRules(password.trim());
+      if (passErr) {
+        return res.status(400).json({ success: false, message: passErr });
+      }
+      user.password = password.trim();
     }
 
     if (name) user.name = name.trim();
@@ -258,9 +330,6 @@ const updateAdminUser = async (req, res) => {
     if (status) user.status = status;
     if (Access || permissions) {
       user.Access = Access || formatPermissionsToAccess(permissions);
-    }
-    if (password && password.trim()) {
-      user.password = password.trim();
     }
 
     await user.save();
@@ -280,7 +349,12 @@ const updateAdminUserPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password is required' });
     }
 
-    const user = await AdminUser.findOne({ $or: [{ userid: id }, { _id: id }] });
+    const passErr = validatePasswordRules(password.trim());
+    if (passErr) {
+      return res.status(400).json({ success: false, message: passErr });
+    }
+
+    const user = await AdminUser.findOne(buildAdminUserQuery(id));
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -300,7 +374,7 @@ const deleteAdminUser = async (req, res) => {
   try {
     const { id } = req.params;
     await AdminUser.findOneAndUpdate(
-      { $or: [{ userid: id }, { _id: id }] },
+      buildAdminUserQuery(id),
       { $set: { isDeleted: true } }
     );
     return res.status(200).json({ success: true, message: 'User marked as deleted' });

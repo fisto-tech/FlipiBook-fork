@@ -5,6 +5,7 @@ const AdminDropdown = ({
   options = [],
   value,
   onChange,
+  onOpenChange,
   placeholder = 'Select option...',
   className = '',
   buttonClassName = '',
@@ -15,10 +16,15 @@ const AdminDropdown = ({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
+  const handleToggle = (nextState) => {
+    setIsOpen(nextState);
+    if (onOpenChange) onOpenChange(nextState);
+  };
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
+        handleToggle(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -42,7 +48,7 @@ const AdminDropdown = ({
     >
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => handleToggle(!isOpen)}
         className={`w-full h-[2.35vw] min-h-[38px] bg-white rounded-[0.55vw] px-[0.9vw] py-[0.45vw] flex items-center justify-between transition-all duration-150 cursor-pointer shadow-2xs ${
           isOpen
             ? 'border-2 border-indigo-600 ring-2 ring-indigo-50 shadow-xs'
@@ -90,7 +96,7 @@ const AdminDropdown = ({
                     onClick={() => {
                       if (!opt.disabled) {
                         onChange(optVal);
-                        setIsOpen(false);
+                        handleToggle(false);
                       }
                     }}
                     className={`w-full text-left px-[1vw] py-[0.52vw] text-[0.82vw] flex items-center justify-between font-medium transition-colors cursor-pointer ${

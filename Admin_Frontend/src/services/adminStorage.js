@@ -155,43 +155,14 @@ export const saveStoredRoles = (roles) => {
   }
 };
 
-export const DEFAULT_ADMIN_USER = {
-  sNo: 1,
-  name: 'Fist-O',
-  userId: 'ADMIN',
-  password: 'Admin@123',
-  designation: 'Admin',
-  roleId: 'R_ID01',
-  teamHead: false,
-  createdDate: 'Nov 23, 2026',
-  email: 'admin@flipibook.com',
-  status: 'Active'
-};
-
 export const getStoredUsers = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.ADMIN_USERS);
     const parsed = data ? JSON.parse(data) : [];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return [DEFAULT_ADMIN_USER];
-    }
-    const hasAdmin = parsed.some((u) => String(u.userId || '').toLowerCase() === 'admin');
-    if (!hasAdmin) {
-      return [DEFAULT_ADMIN_USER, ...parsed];
-    }
-    return parsed.map((u) => {
-      if (String(u.userId || '').toLowerCase() === 'admin') {
-        return {
-          ...u,
-          name: 'Fist-O',
-          userId: 'ADMIN'
-        };
-      }
-      return u;
-    });
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.error('Failed to parse users from localStorage', e);
-    return [DEFAULT_ADMIN_USER];
+    return [];
   }
 };
 

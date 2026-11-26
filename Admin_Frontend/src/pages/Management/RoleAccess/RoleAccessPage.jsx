@@ -78,21 +78,44 @@ export default function RoleAccessPage() {
         }
 
         if (usersRes?.success && usersRes.users && usersRes.users.length > 0) {
-          const mappedUsers = usersRes.users.map((u, i) => ({
-            sNo: i + 1,
-            id: u._id,
-            name: u.name,
-            userId: u.userid || u.userId,
-            designation: u.designation,
-            roleId: u.roleId || '',
-            teamHead: Boolean(u.teamHead),
-            createdDate: u.createddate
-              ? new Date(u.createddate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-              : (u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Nov 23, 2026'),
-            email: u.e_mailid || u.email,
-            status: u.status || 'Active',
-            Access: u.Access || []
-          }));
+          const permMap = getStoredPermissionsMap();
+          const mappedUsers = usersRes.users.map((u, i) => {
+            const uid = u.userid || u.userId;
+            // If user has Access array from DB, populate/sync into permMap for this user
+            if (Array.isArray(u.Access) && u.Access.length > 0) {
+              const accessMap = {};
+              u.Access.forEach((item) => {
+                const [k, v] = Object.entries(item)[0] || [];
+                if (k) accessMap[k.toLowerCase()] = Boolean(v);
+              });
+              const convertedPerms = DEFAULT_MODULE_PERMISSIONS.map((p) => {
+                const key = p.name.toLowerCase();
+                const idKey = p.id.toLowerCase();
+                const isEnabled = accessMap[key] !== undefined ? accessMap[key] : Boolean(accessMap[idKey]);
+                return { ...p, enabled: isEnabled };
+              });
+              if (!permMap[uid]) {
+                permMap[uid] = convertedPerms;
+              }
+            }
+
+            return {
+              sNo: i + 1,
+              id: u._id,
+              name: u.name,
+              userId: uid,
+              designation: u.designation,
+              roleId: u.roleId || '',
+              teamHead: Boolean(u.teamHead),
+              createdDate: u.createddate
+                ? new Date(u.createddate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : (u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Nov 23, 2026'),
+              email: u.e_mailid || u.email,
+              status: u.status || 'Active',
+              Access: u.Access || []
+            };
+          });
+          saveStoredPermissionsMap(permMap);
           setUsersList(mappedUsers);
           saveStoredUsers(mappedUsers);
         } else {
@@ -117,34 +140,32 @@ export default function RoleAccessPage() {
     };
   }, []);
 
-  // Designations list populated by user-added roles AND any designations typed in User Management
+  // Designations list populated strictly by user-added roles AND designations typed in User Management
+  // Excludes Super Admin / Admin because Super Admin permissions are permanent and cannot be restricted
   const designationsList = React.useMemo(() => {
     const list = [];
-    // 1. Roles added via + Add Roles
+    const isSuperAdminRole = (name) => {
+      const lower = String(name || '').trim().toLowerCase();
+      return lower === 'super admin' || lower === 'admin' || lower === 'super administrator';
+    };
+
+    // 1. Roles added via + Add Roles (exclude Super Admin)
     rolesList.forEach((r) => {
       const name = (r.name || r.roleName || '').trim();
-      // Skip admin variations from dynamic list so "Admin" is placed cleanly at top
-      if (name.toLowerCase() === 'admin' || name.toLowerCase() === 'super administrator' || name.toLowerCase() === 'super admin') return;
-      if (name && !list.some((item) => item.toLowerCase() === name.toLowerCase())) {
+      if (name && !isSuperAdminRole(name) && !list.some((item) => item.toLowerCase() === name.toLowerCase())) {
         list.push(name);
       }
     });
-    // 2. Custom designations entered on users
+
+    // 2. Custom designations entered on users (exclude Super Admin)
     usersList.forEach((u) => {
       const desig = (u.designation || '').trim();
-      // Skip admin variations from dynamic list so "Admin" is placed cleanly at top
-      if (desig.toLowerCase() === 'admin' || desig.toLowerCase() === 'super administrator' || desig.toLowerCase() === 'super admin') return;
-      if (desig && !list.some((item) => item.toLowerCase() === desig.toLowerCase())) {
+      if (desig && !isSuperAdminRole(desig) && !list.some((item) => item.toLowerCase() === desig.toLowerCase())) {
         list.push(desig);
       }
     });
 
-    // Ensure "Admin" is always included and placed at the top as the Designation
-    const withoutAdmin = list.filter(
-      (item) => item.toLowerCase() !== 'super administrator' && item.toLowerCase() !== 'admin' && item.toLowerCase() !== 'super admin'
-    );
-
-    return ['Admin', ...withoutAdmin];
+    return list;
   }, [rolesList, usersList]);
 
   const [designation, setDesignation] = useState('');
@@ -238,14 +259,21 @@ export default function RoleAccessPage() {
       String(applyTo || '').toLowerCase() === 'admin' ||
       String(applyTo || '').toLowerCase().includes('super administrator');
 
+    // 1. Direct custom permissions for this specific user/group
     if (targetKey && permMap[targetKey]) {
       setPermissions(mergeWithDefaultPermissions(permMap[targetKey]));
     } else if (isSuperAdminTarget && (permMap['Super Administrator'] || permMap['Admin'])) {
       setPermissions(mergeWithDefaultPermissions(permMap['Super Administrator'] || permMap['Admin']));
     } else if (isSuperAdminTarget) {
       setPermissions(DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: true })));
+    } else if (permMap[`All ${designation}`]) {
+      // 2. Fall back to group permissions set on "All <Designation>"
+      setPermissions(mergeWithDefaultPermissions(permMap[`All ${designation}`]));
+    } else if (permMap[designation]) {
+      // 3. Fall back to designation permissions
+      setPermissions(mergeWithDefaultPermissions(permMap[designation]));
     } else {
-      // By default for any target (including "All <Designation>"), set all modules unselected
+      // By default, set all modules unselected
       setPermissions(DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: false })));
     }
   }, [applyTo, designation]);
@@ -264,6 +292,15 @@ export default function RoleAccessPage() {
       }
       if (applyTo === `All ${designation}`) {
         permMap[designation] = newPermissions;
+        // When setting permissions on "All <Designation>", also update all users under this designation
+        // who do not already have individual overrides
+        const assignedUsers = usersList.filter((u) => {
+          const userDesig = (u.designation || '').trim().toLowerCase();
+          return userDesig === designation.trim().toLowerCase();
+        });
+        assignedUsers.forEach((u) => {
+          permMap[u.userId] = newPermissions;
+        });
       }
       saveStoredPermissionsMap(permMap);
 
@@ -617,9 +654,15 @@ export default function RoleAccessPage() {
                     // 1. Save directly to MongoDB 'adminroles' collection
                     try {
                       const res = await createAdminRole({
+                        roleId: nextRoleId,
                         roleName: roleTitle,
+                        Role: roleTitle,
                         designation: roleTitle
                       });
+                      if (!res?.success) {
+                        alert(`Failed to create role: ${res?.message || 'Server error'}`);
+                        return;
+                      }
                       const createdId = res?.role?.roleId || nextRoleId;
                       const newRoleObj = {
                         id: createdId,
@@ -630,15 +673,9 @@ export default function RoleAccessPage() {
                       setRolesList(updated);
                       saveStoredRoles(updated);
                     } catch (e) {
-                      console.error('Backend role create failed, using local:', e);
-                      const newRoleObj = {
-                        id: nextRoleId,
-                        name: roleTitle,
-                        designation: roleTitle,
-                      };
-                      const updated = [...rolesList, newRoleObj];
-                      setRolesList(updated);
-                      saveStoredRoles(updated);
+                      console.error('Backend role create failed:', e);
+                      const errorMsg = e.response?.data?.message || e.message || 'Server error';
+                      alert(`Error creating role in database: ${errorMsg}`);
                     }
 
                     setDesignation(roleTitle);

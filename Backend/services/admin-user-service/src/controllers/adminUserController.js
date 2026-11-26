@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../../../../shared/models/User');
 const Profile = require('../../../../shared/models/Profile');
 const Flipbook = require('../../../../shared/models/Flipbook');
