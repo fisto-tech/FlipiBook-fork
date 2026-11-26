@@ -74,14 +74,46 @@ const getLayoutColorAlpha = (id, defaultRgb, alpha) => {
 };
 
 const SidebarButton = ({ icon, label, onClick }) => {
+    const [showTooltip, setShowTooltip] = useState(false);
     return (
-        <button 
-            onClick={onClick}
-            className="flex flex-col items-center justify-center p-[0.5cqw] rounded-[0.5cqw] transition-colors hover:opacity-80 group relative w-full"
-            title={label}
-        >
-            <Icon icon={icon} className="w-[2cqw] h-[2cqw]" style={{ color: getLayoutColor('toolbar-icon', '#FFFFFF') }} />
-        </button>
+        <div className="relative flex items-center justify-center w-full">
+            <button 
+                onClick={onClick}
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+                className="flex flex-col items-center justify-center p-[0.5cqw] rounded-[0.5cqw] transition-colors hover:opacity-80 active:scale-95 group relative"
+            >
+                <Icon icon={icon} className="w-[2cqw] h-[2cqw]" style={{ color: getLayoutColor('toolbar-icon', '#FFFFFF') }} />
+            </button>
+            {showTooltip && (
+                <div
+                    className="absolute left-full ml-[0.8cqw] top-1/2 -translate-y-1/2 whitespace-nowrap pointer-events-none z-[9999]"
+                    style={{
+                        background: 'rgba(25, 25, 28, 0.78)',
+                        backdropFilter: 'blur(24px)',
+                        WebkitBackdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#ffffff',
+                        padding: '0.35cqw 0.75cqw',
+                        borderRadius: '0.4cqw',
+                        fontSize: '0.95cqw',
+                        fontWeight: 500,
+                        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)',
+                    }}
+                >
+                    {label}
+                    {/* Arrow seamless connector pointing left */}
+                    <div
+                        className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0"
+                        style={{
+                            borderTop: '0.35cqw solid transparent',
+                            borderBottom: '0.35cqw solid transparent',
+                            borderRight: '0.4cqw solid rgba(25, 25, 28, 0.78)',
+                        }}
+                    />
+                </div>
+            )}
+        </div>
     );
 };
 
@@ -120,7 +152,8 @@ const TabletLayout4 = ({
     setShowExportPopupMemo,
     offset = 0,
     currentBook,
-    activeLayout
+    activeLayout,
+    layoutColors
 }) => {
     const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery || '');
     const [isShareOpen, setIsShareOpen] = useState(false);
@@ -225,13 +258,13 @@ const TabletLayout4 = ({
                 
                 {/* Left Sidebar */}
                 <div 
-                    className="w-[6cqw] flex flex-col items-center pt-[4cqh] pb-[2cqh] gap-[4cqh] shrink-0 shadow-lg z-40"
+                    className="w-[6cqw] flex flex-col items-center justify-evenly py-[4cqh] shrink-0 shadow-lg z-40"
                     style={{ backgroundColor: getLayoutColor('toolbar-bg', '#555555') }}
                 >
                     {(settings?.navigation?.tableOfContents ?? true) && (
                         <SidebarButton 
                             icon="fluent:text-bullet-list-24-filled" 
-                            label="Table of Contents" 
+                            label="TOC" 
                             onClick={() => setShowTOCMemo(!showTOC)} 
                         />
                     )}
@@ -260,13 +293,7 @@ const TabletLayout4 = ({
                         />
                     )}
                     
-                    {(settings?.brandingProfile?.profile ?? true) && (
-                        <SidebarButton 
-                            icon="fluent:person-24-filled" 
-                            label="Profile" 
-                            onClick={() => setShowProfilePopup(!showProfilePopup)} 
-                        />
-                    )}
+
                     
                     {(settings?.shareExport?.share ?? true) && (
                         <SidebarButton 
@@ -309,6 +336,7 @@ const TabletLayout4 = ({
                             onNavigate={onPageClick}
                             settings={settings}
                             variant="layout4"
+                            layoutColors={layoutColors}
                         />
                     )}
                     

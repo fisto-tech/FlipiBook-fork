@@ -8,7 +8,7 @@ import goldenShelfPlank from '../../../../assets/Bookshelf/golden_shelf/shelf.pn
 import goldenShelfLight from '../../../../assets/Bookshelf/golden_shelf/light.png';
 import goldenShelfDecor from '../../../../assets/Bookshelf/golden_shelf/decor.png';
 import goldenShelfPlant from '../../../../assets/Bookshelf/golden_shelf/plant.png';
-import goldenShelfSwitch from '../../../../assets/Bookshelf/golden_shelf/switch.png';
+import PullRopeSwitch from './PullRopeSwitch';
 
 // ============================================================================
 // MANUAL PERCENTAGE ADJUSTMENT CONFIGURATION FOR GOLDEN SHELF
@@ -91,26 +91,19 @@ const GoldenShelf = ({
 
       {/* 1b. Wall Light Switch in top-right - Clickable to toggle lights on/off; hidden/disabled when toggle is off */}
       {showLightSwitch && (
-        <div
-          onClick={() => {
+        <PullRopeSwitch
+          variant="golden"
+          isOn={Boolean(decors?.lights)}
+          onToggle={() => {
             if (typeof setDecors === 'function') {
               setDecors(prev => ({ ...prev, lights: !prev.lights }));
             }
           }}
-          className="absolute pointer-events-auto cursor-pointer z-15 transition-transform duration-150 active:scale-95 hover:scale-105 group"
-          style={{
-            right: '5.2%',
-            top: '10.5%',
-            width: '3.2%'
-          }}
-          title={decors.lights ? "Turn Lights Off" : "Turn Lights On"}
-        >
-          <img
-            src={goldenShelfSwitch}
-            alt="Switch"
-            className="w-full h-auto block drop-shadow-sm transition-all duration-200 opacity-100"
-          />
-        </div>
+          right="5.2%"
+          top="0%"
+          ropeLength={isFs ? 92 : 76}
+          zIndex={15}
+        />
       )}
 
       {/* 2. Top Spotlight Beam / Fixture */}

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Link2, Link2Off } from 'lucide-react';
-import { handleScrubHelper } from './FillStrokeProperties';
+import { handleScrubHelper } from '../FillStrokeProperties';
 
 const CornerRadius = ({
   radius,

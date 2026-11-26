@@ -253,17 +253,7 @@ const TabletLayout3 = ({ children, bookRef, currentPage, pages, offset = 0, onPa
                             <Icon icon="solar:music-notes-bold" className="w-[1.9cqw] h-[1.9cqw]" />
                         </button>
                     )}
-                    <button
-                        className="transition-colors hover:opacity-80"
-                        style={{ color: getLayoutColor('toolbar-icon', '#FFFFFF'), opacity: 'var(--toolbar-icon-opacity, 1)' }}
-                        onClick={() => {
-                            if (setShowProfilePopupMemo) {
-                                setShowProfilePopupMemo(!showProfilePopup);
-                            }
-                        }}
-                    >
-                        <Icon icon="fluent:person-24-filled" className="w-[1.9cqw] h-[1.9cqw]" />
-                    </button>
+
                     <button 
                         className="transition-colors hover:opacity-80"
                         style={{ color: getLayoutColor('toolbar-icon', '#FFFFFF'), opacity: 'var(--toolbar-icon-opacity, 1)' }}

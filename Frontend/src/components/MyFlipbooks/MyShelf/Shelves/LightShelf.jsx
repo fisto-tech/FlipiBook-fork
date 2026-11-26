@@ -11,7 +11,7 @@ import lightShelfBottomTier from '../../../../assets/Bookshelf/light_shelf/shelf
 import lightShelfLamp from '../../../../assets/Bookshelf/light_shelf/lamp.png';
 import lightShelfPlant from '../../../../assets/Bookshelf/light_shelf/plantpot.png';
 import lightShelfBase from '../../../../assets/Bookshelf/light_shelf/base.png';
-import lightShelfSwitch from '../../../../assets/Bookshelf/light_shelf/switch.png';
+import PullRopeSwitch from './PullRopeSwitch';
 
 // ============================================================================
 // LIGHT SHELF CONFIGURATION - Adjust percentages easily here!
@@ -268,16 +268,16 @@ const LightShelf = ({
                                       setAddBookSearch('');
                                       setShowAddBookModal(true);
                                     }}
-                                    className="w-full h-full rounded-[6px] border border-dashed border-amber-900/30 hover:border-amber-900/60 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer group bg-amber-500/10 hover:bg-amber-500/20 backdrop-blur-[1px] shadow-sm"
+                                    className="w-full h-full rounded-[6px] border border-dashed border-white/60 hover:border-white transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer group bg-white/10 hover:bg-white/20 backdrop-blur-[1px] shadow-sm"
                                     title="Add Book"
                                   >
-                                    <div className="relative flex items-center justify-center text-amber-950 transition-transform group-hover:scale-110">
-                                      <Icon icon="mdi:book-open-outline" className="w-5 h-5 text-amber-900/90" />
-                                      <span className="absolute -bottom-1 -right-1 text-[10px] font-black text-amber-950 leading-none">
+                                    <div className="relative flex items-center justify-center text-white transition-transform group-hover:scale-110">
+                                      <Icon icon="mdi:book-open-outline" className="w-5 h-5 text-white/90" />
+                                      <span className="absolute -bottom-1 -right-1 text-[10px] font-black text-white leading-none">
                                         +
                                       </span>
                                     </div>
-                                    <span className="text-[9px] font-medium text-amber-950/90 group-hover:text-amber-950 tracking-wide">
+                                    <span className="text-[9px] font-medium text-white/90 group-hover:text-white tracking-wide">
                                       Add Book
                                     </span>
                                   </div>
@@ -429,27 +429,20 @@ const LightShelf = ({
                     )}
 
                     {/* Wall Light Switch on right side */}
-                    {showLightSwitch && (
-                      <div
-                        onClick={() => {
-                          if (typeof setDecors === 'function') {
-                            setDecors(prev => ({ ...prev, lights: !prev.lights }));
-                          }
-                        }}
-                        className="absolute pointer-events-auto cursor-pointer z-30 transition-transform duration-150 active:scale-95 hover:scale-105 group"
-                        style={{
-                          right: '4.2%',
-                          top: '12.0%',
-                          width: '2.8%'
-                        }}
-                        title={decors?.lights ? "Turn Lights Off" : "Turn Lights On"}
-                      >
-                        <img
-                          src={lightShelfSwitch}
-                          alt="Switch"
-                          className="w-full h-auto block drop-shadow-md transition-all duration-200 opacity-100"
-                        />
-                      </div>
+                    {showLightSwitch && decors?.lamp !== false && (
+                      <PullRopeSwitch
+          variant="light"
+          isOn={Boolean(decors?.lights)}
+          onToggle={() => {
+            if (typeof setDecors === 'function') {
+              setDecors(prev => ({ ...prev, lights: !prev.lights }));
+            }
+          }}
+          right="4.2%"
+          top="0%"
+          ropeLength={isFs ? 92 : 76}
+          zIndex={30}
+        />
                     )}
 
                     {/* Bottom Right: plantpot.png on credenza */}

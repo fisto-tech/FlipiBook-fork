@@ -1186,6 +1186,7 @@ const Layer = ({
 
                     {/* Translate Option if text selection exists */}
                     {(() => {
+                      if (isPdfProject) return null;
                       const sel = typeof window !== 'undefined' ? window.getSelection() : null;
                       const hasDomSelection = (sel && !sel.isCollapsed && sel.toString().trim().length > 0) ||
                         (window.__lastTextSelection && window.__lastTextSelection.text && (Date.now() - window.__lastTextSelection.timestamp < 120000));
@@ -1204,7 +1205,7 @@ const Layer = ({
                             className="w-full flex items-center justify-between px-[0.6vw] py-[0.4vw] text-[0.75vw] font-medium text-gray-700 hover:bg-gray-50 rounded-[0.4vw] text-left cursor-pointer group-hover/translate-root:bg-gray-50"
                           >
                             <div className="flex items-center gap-[0.6vw]">
-                              <Icon icon="bi:translate" className="w-[0.9vw] h-[0.9vw] text-indigo-600" />
+                              <Icon icon="bi:translate" className="w-[0.9vw] h-[0.9vw] text-gray-700" />
                               <span>Translate Selection</span>
                             </div>
                             <Icon icon="mdi:chevron-right" className="w-[0.8vw] h-[0.8vw] text-gray-400" />
@@ -1229,7 +1230,7 @@ const Layer = ({
                                 }}
                                 className={`flex items-center justify-between px-[0.5vw] py-[0.35vw] text-[0.7vw] font-medium rounded-[0.3vw] text-left cursor-pointer transition-colors ${
                                   lang.code === 'tam_Taml'
-                                    ? 'bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100'
+                                    ? 'bg-gray-100 text-gray-900 font-semibold hover:bg-gray-200/70'
                                     : 'text-gray-700 hover:bg-gray-100'
                                 }`}
                               >
@@ -1321,6 +1322,7 @@ const Layer = ({
 
                   {/* Translate Option */}
                   {(() => {
+                    if (isPdfProject) return null;
                     const doc = document.getElementById('main-flipbook-editor')?.contentDocument || document;
                     const el = doc.getElementById(activeLayerMenu?.layerId);
                     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
@@ -1348,7 +1350,7 @@ const Layer = ({
                           className="w-full flex items-center justify-between px-[0.6vw] py-[0.4vw] text-[0.75vw] font-medium text-gray-700 hover:bg-gray-50 rounded-[0.4vw] text-left cursor-pointer group-hover/translate:bg-gray-50"
                         >
                           <div className="flex items-center gap-[0.6vw]">
-                            <Icon icon="bi:translate" className="w-[0.9vw] h-[0.9vw] text-indigo-600" />
+                            <Icon icon="bi:translate" className="w-[0.9vw] h-[0.9vw] text-gray-700" />
                             <span>Translate</span>
                           </div>
                           <Icon icon="mdi:chevron-right" className="w-[0.8vw] h-[0.8vw] text-gray-400" />
@@ -1374,7 +1376,7 @@ const Layer = ({
                               }}
                               className={`flex items-center justify-between px-[0.5vw] py-[0.35vw] text-[0.7vw] font-medium rounded-[0.3vw] text-left cursor-pointer transition-colors ${
                                 lang.code === 'tam_Taml'
-                                  ? 'bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100'
+                                  ? 'bg-gray-100 text-gray-900 font-semibold hover:bg-gray-200/70'
                                   : 'text-gray-700 hover:bg-gray-100'
                               }`}
                             >

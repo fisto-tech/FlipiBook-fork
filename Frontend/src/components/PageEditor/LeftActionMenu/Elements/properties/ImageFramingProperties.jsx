@@ -4,12 +4,12 @@ import {
   Loader2
 } from 'lucide-react';
 import Color from '../../../properties/FillStrokeProperties';
-import Effect from '../../../properties/Effect';
+import Effect from '../../../properties/controls/Effect';
 import { DEFAULT_FRAME_IMAGE } from '../utils/imageFramingUtils';
 import { updateShapeMaskTransform, updateShapeMaskFilters, updateShapeMaskOpacity, ensurePatternImageNode, applySvgGradientOrSolid } from '../utils/shapeMaskUtils';
 import { parseGradient } from '../../../../Color';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../../../modals/ImageAdjustmentModal';
-import { PropertySlider } from '../../../properties/propertiesShared';
+import { PropertySlider } from '../../../properties/controls/propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../../../utils/imageOptimizer';
 import { createManagedBlobUrl } from '../../../../../utils';
 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import Effect from './Effect';
+import Effect from './controls/Effect';
 import ColorPicker from '../../Color';
-import { handleScrubHelper, normalizeHex, getIntAttr, getFloatAttr } from './propertiesShared';
+import { handleScrubHelper, normalizeHex, getIntAttr, getFloatAttr } from './controls/propertiesShared';
 
 export default function GroupProperties({
   selectedElement,

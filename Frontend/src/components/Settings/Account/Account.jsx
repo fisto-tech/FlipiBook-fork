@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import axios from 'axios';
@@ -9,6 +9,7 @@ import { getInitialUser } from '../../../utils/auth/authUtils';
 import AccountOverview from './AccountOverview';
 import AddPassword from './AddPassword';
 import ChangePassword from './ChangePassword';
+import AccountManagement from './AccountManagement';
 
 const Account = () => {
   const context = useOutletContext();
@@ -37,8 +38,15 @@ const Account = () => {
         : resolveUploadsPath(contextUser.picture)
       : null;
 
-  // Track active sub-view in Account page: 'overview' | 'add-password' | 'change-password'
+  // Track active sub-view in Account page: 'overview' | 'add-password' | 'change-password' | 'manage-account'
   const [activeView, setActiveView] = useState('overview');
+  const scrollContainerRef = useRef(null);
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [activeView]);
 
   // Track hasPassword status locally with sync
   const [hasPassword, setHasPassword] = useState(() => {
@@ -130,7 +138,7 @@ const Account = () => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-white p-[1.5vw] overflow-y-auto custom-scrollbar relative font-sans">
+    <div ref={scrollContainerRef} className="w-full h-full flex flex-col bg-white p-[1.5vw] overflow-y-auto custom-scrollbar relative font-sans">
       {/* Toast Notification matching Notifications.jsx */}
       {notification.show && (
         <div className="fixed top-[1.5vw] right-[2vw] z-50 bg-gray-900 text-white text-[0.78vw] px-[1.2vw] py-[0.6vw] rounded-[0.5vw] shadow-lg flex items-center gap-[0.5vw] animate-in fade-in slide-in-from-top-2">
@@ -152,6 +160,7 @@ const Account = () => {
           hasPassword={hasPassword}
           onAddPasswordClick={() => setActiveView('add-password')}
           onChangePasswordClick={() => setActiveView('change-password')}
+          onManageAccountClick={() => setActiveView('manage-account')}
           showToast={showToast}
         />
       )}
@@ -170,6 +179,16 @@ const Account = () => {
         <ChangePassword
           onBack={() => setActiveView('overview')}
           onSuccess={handleChangePasswordSuccess}
+        />
+      )}
+
+      {/* View 4: Deactivate or Delete Account (Inline View with Top Back button) */}
+      {activeView === 'manage-account' && (
+        <AccountManagement
+          userEmail={userEmail}
+          hasPassword={hasPassword}
+          onBack={() => setActiveView('overview')}
+          showToast={showToast}
         />
       )}
     </div>

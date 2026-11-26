@@ -18,7 +18,7 @@ import { resolveUploadsPath } from '../../../../../utils/assets/assetUtils';
 import sampleAudio from '../../../../../assets/Audios/bg music1.mp3';
 import ColorPicker, { parseGradient, generateGradientString } from '../../../../Color';
 import { handleScrubHelper } from '../../../properties/FillStrokeProperties';
-import Effect from '../../../properties/Effect';
+import Effect from '../../../properties/controls/Effect';
 import {
   AUDIO_TEMPLATES,
   getAudioSvgCode,

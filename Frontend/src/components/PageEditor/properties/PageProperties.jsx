@@ -1,15 +1,116 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { parseGradient } from '../../Color';
-import ColorPropertyRow from './pageProperties/ColorPropertyRow';
-import DocumentInfoCard from './pageProperties/DocumentInfoCard';
-import {
-  getDocumentInfo,
-  resolveOverlayElement,
-  buildOverlayBackgroundString,
-  extractPageColors
-} from './pageProperties/pagePropertiesUtils';
+import { createPortal } from 'react-dom';
+import ColorPicker, { parseGradient, generateGradientString } from '../../Color';
+import { handleScrubHelper } from './FillStrokeProperties';
 
-export { getDocumentInfo };
+export const getDocumentInfo = (w, h) => {
+  const roundedW = Math.round(w || 210);
+  const roundedH = Math.round(h || 297);
+  const minDim = Math.min(roundedW, roundedH);
+  const maxDim = Math.max(roundedW, roundedH);
+
+  let formatName = 'Custom Sheet';
+  if (Math.abs(minDim - 210) <= 3 && Math.abs(maxDim - 297) <= 3) {
+    formatName = 'A4';
+  } else if (Math.abs(minDim - 297) <= 3 && Math.abs(maxDim - 420) <= 3) {
+    formatName = 'A3';
+  } else if (Math.abs(minDim - 148) <= 3 && Math.abs(maxDim - 210) <= 3) {
+    formatName = 'A5';
+  } else if (Math.abs(minDim - 216) <= 3 && Math.abs(maxDim - 279) <= 3) {
+    formatName = 'Letter';
+  } else if (Math.abs(minDim - 216) <= 3 && Math.abs(maxDim - 356) <= 3) {
+    formatName = 'Legal';
+  } else if (Math.abs(minDim - 99) <= 3 && Math.abs(maxDim - 210) <= 3) {
+    formatName = 'DL';
+  } else if (Math.abs(roundedW - roundedH) <= 3) {
+    formatName = 'Square';
+  }
+
+  let orientationName = 'Portrait';
+  if (roundedW > roundedH) {
+    orientationName = 'Landscape';
+  } else if (roundedW === roundedH) {
+    orientationName = 'Square';
+  }
+
+  return {
+    format: formatName,
+    orientation: orientationName,
+    dimensions: `${roundedW} x ${roundedH} mm`
+  };
+};
+
+const resolveOverlayElement = (overlay, pages, activePageIndex) => {
+  if (overlay) return overlay;
+  if (!pages || !pages[activePageIndex]) return null;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(pages[activePageIndex]?.html || '', 'image/svg+xml');
+    return doc.querySelector('[data-name="Overlay"]');
+  } catch (e) {
+    console.error('Error parsing overlay in PageProperties', e);
+    return null;
+  }
+};
+
+const buildOverlayBackgroundString = (effectiveOverlay) => {
+  const currentBg = effectiveOverlay?.getAttribute('fill') || '#FFFFFF';
+  const fillType = effectiveOverlay?.getAttribute('fill-type') || 'solid';
+
+  if (fillType === 'gradient' || currentBg.toLowerCase().includes('url(#')) {
+    const stopsJson = effectiveOverlay?.getAttribute('fill-stops');
+    try {
+      const stops = stopsJson ? JSON.parse(stopsJson) : [];
+      const gType = effectiveOverlay?.getAttribute('fill-gradient-type') || 'linear';
+      if (stops.length > 0) {
+        return generateGradientString(
+          gType.charAt(0).toUpperCase() + gType.slice(1),
+          stops.map((s) => ({ ...s, opacity: (s.opacity !== undefined ? s.opacity : 1) * 100 })),
+          parseInt(effectiveOverlay?.getAttribute('fill-angle') || '0', 10),
+          parseInt(effectiveOverlay?.getAttribute('fill-radius') || '100', 10)
+        );
+      }
+    } catch (e) {
+      console.error('Error parsing fill-stops in PageProperties', e);
+    }
+  }
+
+  return currentBg;
+};
+
+const extractPageColors = (pages, activePageIndex) => {
+  const colors = new Set();
+  const currentPage = pages?.[activePageIndex];
+  if (currentPage?.html) {
+    const hexMatches = currentPage.html.match(/#[0-9A-Fa-f]{6}\b/g) || [];
+    hexMatches.forEach((c) => colors.add(c.toUpperCase()));
+    const hex3Matches = currentPage.html.match(/#[0-9A-Fa-f]{3}\b/g) || [];
+    hex3Matches.forEach((c) => colors.add(c.toUpperCase()));
+  }
+  if (typeof document !== 'undefined') {
+    const pageEl =
+      document.querySelector(`.page-svg-container[data-page-index="${activePageIndex}"]`) ||
+      document.querySelector('.page-svg-container');
+    if (pageEl) {
+      pageEl.querySelectorAll('*').forEach((el) => {
+        ['fill', 'stroke', 'color'].forEach((attr) => {
+          const val = el.getAttribute(attr);
+          if (val && val.startsWith('#')) colors.add(val.toUpperCase());
+        });
+        if (el.style) {
+          ['fill', 'stroke', 'color', 'backgroundColor'].forEach((prop) => {
+            const val = el.style[prop];
+            if (val && val.startsWith('#')) colors.add(val.toUpperCase());
+          });
+        }
+      });
+    }
+  }
+  colors.add('#DADBE8');
+  colors.add('#FFFFFF');
+  colors.add('#000000');
+  return Array.from(colors).slice(0, 12);
+};
 
 const getCanvaSwatchBackground = (canvaColor, canvaOpacity) => {
   if (!canvaColor.startsWith('#')) return canvaColor;
@@ -19,6 +120,96 @@ const getCanvaSwatchBackground = (canvaColor, canvaOpacity) => {
   const g = parseInt(hex.substring(2, 4), 16) || 0;
   const b = parseInt(hex.substring(4, 6), 16) || 0;
   return `rgba(${r}, ${g}, ${b}, ${canvaOpacity})`;
+};
+
+const ColorPropertyRow = ({
+  label,
+  swatchBackground,
+  hexValue,
+  isGradient = false,
+  opacity,
+  isPickerOpen,
+  onTogglePicker,
+  onClosePicker,
+  onHexChange,
+  onColorChange,
+  onOpacityChange,
+  pickerColor,
+  colorsOnPage,
+  disableGradient = false,
+  title
+}) => {
+  const opacityPct = Math.round(opacity * 100);
+
+  return (
+    <div className="flex flex-col gap-[0.35vw]">
+      <span className="text-[0.82vw] font-medium text-gray-800">{label}</span>
+      <div className="flex items-center gap-[0.6vw]">
+        <button
+          type="button"
+          onClick={onTogglePicker}
+          className="w-[3.6vw] h-[2vw] rounded-[0.4vw] border border-gray-300 shadow-2xs cursor-pointer flex-shrink-0 relative overflow-hidden transition-transform hover:scale-105"
+          style={{ background: swatchBackground }}
+          title={title}
+        />
+        <div className="flex-1 h-[2vw] rounded-[0.4vw] border border-gray-300 bg-white flex items-center justify-between px-[0.7vw] hover:border-gray-400 transition-colors">
+          {isGradient ? (
+            <span
+              onClick={onTogglePicker}
+              className="text-[0.8vw] font-medium text-gray-700 cursor-pointer flex-1 truncate"
+            >
+              Gradient
+            </span>
+          ) : (
+            <input
+              type="text"
+              value={hexValue}
+              onChange={onHexChange}
+              className="text-[0.8vw] font-mono font-medium text-gray-800 outline-none bg-transparent w-[5.5vw] uppercase"
+              maxLength={7}
+            />
+          )}
+          <div
+            className="flex items-center cursor-ew-resize select-none px-[0.2vw] hover:bg-gray-50 rounded"
+            onPointerDown={(e) => {
+              handleScrubHelper(e, opacityPct, (val) => {
+                const num = parseInt(val, 10);
+                const clamped = Math.min(Math.max(num, 0), 100);
+                onOpacityChange(clamped / 100);
+              });
+            }}
+            title="Drag horizontally to adjust opacity"
+          >
+            <span className="text-[0.8vw] font-medium text-gray-700">{opacityPct}%</span>
+          </div>
+        </div>
+      </div>
+
+      {isPickerOpen && createPortal(
+        <div
+          className="fixed z-[5000]"
+          style={{
+            top: '50%',
+            right: '25vw',
+            transform: 'translateY(-50%)'
+          }}
+        >
+          <div className="animate-in fade-in zoom-in-95 duration-200 relative">
+            <ColorPicker
+              color={pickerColor}
+              colorsOnPage={colorsOnPage}
+              disableGradient={disableGradient}
+              onChange={onColorChange}
+              opacity={opacityPct}
+              onOpacityChange={(newOp) => onOpacityChange(newOp / 100)}
+              onClose={onClosePicker}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
 };
 
 const PageProperties = ({
@@ -182,7 +373,26 @@ const PageProperties = ({
       </div>
 
       {/* ── Document Info Section ── */}
-      <DocumentInfoCard info={info} />
+      <div className="flex flex-col gap-[0.8vw]">
+        <div className="flex items-center gap-[0.8vw]">
+          <span className="text-[0.9vw] font-semibold text-gray-900 whitespace-nowrap">Document info</span>
+          <div className="flex-1 h-[1px] bg-gray-200" />
+        </div>
+        <div className="bg-white rounded-[0.5vw] border border-gray-200 p-[0.9vw] shadow-2xs flex flex-col gap-[0.7vw]">
+          <div className="flex justify-between items-center text-[0.8vw]">
+            <span className="text-gray-500 font-medium">Format</span>
+            <span className="text-gray-900 font-semibold">{info.format}</span>
+          </div>
+          <div className="flex justify-between items-center text-[0.8vw]">
+            <span className="text-gray-500 font-medium">Orientation</span>
+            <span className="text-gray-900 font-semibold">{info.orientation}</span>
+          </div>
+          <div className="flex justify-between items-center text-[0.8vw]">
+            <span className="text-gray-500 font-medium">Dimensions</span>
+            <span className="text-gray-900 font-semibold">{info.dimensions}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

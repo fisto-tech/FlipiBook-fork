@@ -9,7 +9,7 @@ export default function TranslateBookModal({
   book,
   onStartTranslation
 }) {
-  const [srcLang, setSrcLang] = useState('eng_Latn');
+  const srcLang = 'eng_Latn';
   const [tgtLang, setTgtLang] = useState('tam_Taml');
   const [newBookTitle, setNewBookTitle] = useState('');
 
@@ -64,9 +64,6 @@ export default function TranslateBookModal({
               <div>
                 <h3 className="text-[1vw] font-bold text-gray-900 flex items-center gap-[0.4vw]">
                   Translate to Indian Language
-                  <span className="px-[0.4vw] py-[0.1vw] text-[0.6vw] font-semibold bg-orange-100 text-[#ea543a] rounded-full">
-                    AI4Bharat
-                  </span>
                 </h3>
                 <p className="text-[0.7vw] text-gray-500">
                   Translates all pages and creates a new cloned flipbook
@@ -100,22 +97,15 @@ export default function TranslateBookModal({
 
             {/* Language Selectors */}
             <div className="grid grid-cols-2 gap-[1vw]">
-              {/* Source Language */}
+              {/* Source Language (English Only) */}
               <div>
                 <label className="block text-[0.72vw] font-bold text-gray-700 mb-[0.35vw]">
                   Source Language
                 </label>
-                <select
-                  value={srcLang}
-                  onChange={(e) => setSrcLang(e.target.value)}
-                  className="w-full text-[0.78vw] bg-white border border-gray-300 rounded-[0.5vw] px-[0.8vw] py-[0.55vw] focus:outline-none focus:ring-2 focus:ring-[#ea543a]/30 focus:border-[#ea543a] text-gray-800 font-medium cursor-pointer"
-                >
-                  {SUPPORTED_LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.name} {l.native !== l.name ? `(${l.native})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full text-[0.78vw] bg-gray-100 border border-gray-200 rounded-[0.5vw] px-[0.8vw] py-[0.55vw] text-gray-700 font-semibold flex items-center justify-between cursor-not-allowed">
+                  <span>English</span>
+                  <span className="text-[0.62vw] text-gray-400 font-medium">Fixed</span>
+                </div>
               </div>
 
               {/* Target Language */}
@@ -128,7 +118,7 @@ export default function TranslateBookModal({
                   onChange={(e) => setTgtLang(e.target.value)}
                   className="w-full text-[0.78vw] bg-white border border-gray-300 rounded-[0.5vw] px-[0.8vw] py-[0.55vw] focus:outline-none focus:ring-2 focus:ring-[#ea543a]/30 focus:border-[#ea543a] text-gray-800 font-medium cursor-pointer"
                 >
-                  {SUPPORTED_LANGUAGES.filter(l => l.code !== srcLang).map((l) => (
+                  {SUPPORTED_LANGUAGES.filter(l => l.code !== 'eng_Latn').map((l) => (
                     <option key={l.code} value={l.code}>
                       {l.name} ({l.native})
                     </option>

@@ -16,7 +16,7 @@ export { default as ElementTableProperties } from '../LeftActionMenu/Elements/pr
 export { default as ElementQRCodeProperties } from '../LeftActionMenu/Elements/properties/ElementQRCodeProperties';
 export { default as ImageProperties, default as ImageEditor } from './ImageProperties';
 export { default as GifProperties, default as GifEditor } from './GifProperties';
-export { default as Model3DEditor, CustomQRCode } from './Model3DEditor';
+export { default as Model3DEditor, CustomQRCode } from '../Interaction/Model3DEditor';
 export { default as PenToolProperties } from './PenToolProperties';
 export { default as GroupProperties } from './GroupProperties';
 export {
@@ -26,13 +26,13 @@ export {
   getIntAttr,
   getFloatAttr,
   PropertySlider
-} from './propertiesShared';
+} from './controls/propertiesShared';
 
 export { default as Color, ColorField, default as FillStrokeProperties } from './FillStrokeProperties';
 export { default as ColorPicker, parseGradient } from '../../Color';
-export { default as Crop, default as CropController, isElementCropped } from './Crop';
-export { default as CornerRadius } from './CornerRadius';
-export { default as Effect } from './Effect';
+export { default as Crop, default as CropController, isElementCropped } from './controls/Crop';
+export { default as CornerRadius } from './controls/CornerRadius';
+export { default as Effect } from './controls/Effect';
 export { default as MediaGalleryPopup } from '../modals/MediaGalleryPopup';
 export { default as ReplaceMediaModal } from '../modals/ReplaceMediaModal';
 export { default as ImportViaUrlModal } from '../modals/ImportViaUrlModal';
