@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 import UserManagementPage from './pages/UserManagement/UserManagementPage';
 import UserDetailPage from './pages/UserManagement/User/UserDetailPage';
 import TemplateManagementPage from './pages/TemplateManagement/TemplateManagementPage';
+import TemplateDetails from './pages/TemplateManagement/TemplateDetails';
 import ManagementPage from './pages/Management/ManagementPage';
 import RoleAccessPage from './pages/Management/RoleAccess/RoleAccessPage';
 import ManagementUserPage from './pages/Management/UserManagement/ManagementUserPage';
@@ -32,6 +33,7 @@ function ProtectedLayout() {
           <Route path="/users" element={<UserManagementPage />} />
           <Route path="/users/:id" element={<UserDetailPage />} />
           <Route path="/templates" element={<TemplateManagementPage />} />
+          <Route path="/templates/:id" element={<TemplateDetails />} />
           <Route path="/management" element={<ManagementPage />} />
           <Route path="/management/role-access" element={<RoleAccessPage />} />
           <Route path="/management/users" element={<ManagementUserPage />} />

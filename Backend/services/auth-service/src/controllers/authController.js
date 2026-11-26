@@ -785,9 +785,9 @@ const login = async (req, res) => {
     if (isSuperAdminCredential) {
       isMatch = password === 'Admin@123';
     } else if (adminStaff && adminStaff.password) {
-      // Check adminStaff's bcrypt password or rawPassword fallback
+      // Check adminStaff's bcrypt password or raw/plain text password fallback
       isMatch = await adminStaff.comparePassword(password).catch(() => false);
-      if (!isMatch && adminStaff.rawPassword && adminStaff.rawPassword === password) {
+      if (!isMatch && (adminStaff.password === password || (adminStaff.rawPassword && adminStaff.rawPassword === password))) {
         isMatch = true;
       }
     }

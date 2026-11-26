@@ -43,13 +43,13 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
         </p>
       </div>
 
-      {/* 4 Metric Cards Grid */}
+      {/* 4 Metric Cards Grid - Exact Figma: rounded-[16px], shadow-[1px_2px_6px_rgba(0,0,0,0.16)] */}
       <div className="grid grid-cols-4 gap-[1.1vw]">
         {/* Flipbooks Card */}
-        <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.2vw] shadow-xs flex flex-col justify-between h-[8.5vw]">
+        <div className="bg-white rounded-[16px] p-[1.2vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex flex-col justify-between h-[8.5vw]">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[1.8vw] font-semibold text-gray-900 leading-none">
+              <span className="text-[1.8vw] font-bold text-[#000000] leading-none">
                 {flipbooksCount}
               </span>
               <p className="text-[0.8vw] font-semibold text-[#ec5137] mt-[0.4vw]">
@@ -66,10 +66,10 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
         </div>
 
         {/* Total Views Card */}
-        <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.2vw] shadow-xs flex flex-col justify-between h-[8.5vw]">
+        <div className="bg-white rounded-[16px] p-[1.2vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex flex-col justify-between h-[8.5vw]">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[1.8vw] font-semibold text-gray-900 leading-none">
+              <span className="text-[1.8vw] font-bold text-[#000000] leading-none">
                 {totalViews}
               </span>
               <p className="text-[0.8vw] font-semibold text-[#0284c7] mt-[0.4vw]">
@@ -86,10 +86,10 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
         </div>
 
         {/* 3D Requests Card */}
-        <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.2vw] shadow-xs flex flex-col justify-between h-[8.5vw]">
+        <div className="bg-white rounded-[16px] p-[1.2vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex flex-col justify-between h-[8.5vw]">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[1.8vw] font-semibold text-gray-900 leading-none">
+              <span className="text-[1.8vw] font-bold text-[#000000] leading-none">
                 {requests3DCount}
               </span>
               <p className="text-[0.8vw] font-semibold text-[#a855f7] mt-[0.4vw]">
@@ -106,10 +106,10 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
         </div>
 
         {/* Total Payments Card */}
-        <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.2vw] shadow-xs flex flex-col justify-between h-[8.5vw]">
+        <div className="bg-white rounded-[16px] p-[1.2vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)] flex flex-col justify-between h-[8.5vw]">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[1.8vw] font-semibold text-gray-900 leading-none">
+              <span className="text-[1.8vw] font-bold text-[#000000] leading-none">
                 {totalPayments}
               </span>
               <p className="text-[0.8vw] font-semibold text-[#16a34a] mt-[0.4vw]">
@@ -127,7 +127,7 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
       </div>
 
       {/* Subscription Overview Section */}
-      <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.4vw] shadow-xs">
+      <div className="bg-white rounded-[16px] p-[1.4vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)]">
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[0.55vw]">
@@ -174,7 +174,7 @@ export default function OverviewTab({ user, profile, flipbooks = [] }) {
       </div>
 
       {/* Last Login Section */}
-      <div className="bg-white rounded-[0.85vw] border border-gray-100/90 p-[1.4vw] shadow-xs">
+      <div className="bg-white rounded-[16px] p-[1.4vw] shadow-[1px_2px_6px_rgba(0,0,0,0.16)]">
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[0.55vw]">

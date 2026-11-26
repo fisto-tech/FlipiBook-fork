@@ -279,9 +279,17 @@ const createAdminUser = async (req, res) => {
     const generatedUserId = `FLIP_AD${String(staffCount + 1).padStart(4, '0')}`;
     const cleanEmail = (email || req.body.e_mailid || `admin_${Date.now()}@flipibook.com`).trim().toLowerCase();
     const effectivePassword = password.trim();
+    const defaultAccessList = [
+      { "Dashboard": 0 },
+      { "3D Editor Assets": 0 },
+      { "User Management": 0 },
+      { "Template Management": 0 },
+      { "Management": 0 }
+    ];
+
     const effectiveAccess = Array.isArray(Access) && Access.length > 0
       ? Access
-      : (Array.isArray(permissions) ? formatPermissionsToAccess(permissions) : []);
+      : (Array.isArray(permissions) && permissions.length > 0 ? formatPermissionsToAccess(permissions) : defaultAccessList);
 
     const newUser = await AdminUser.create({
       userId: generatedUserId,

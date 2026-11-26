@@ -44,7 +44,13 @@ const adminUserSchema = new mongoose.Schema(
     // Access: Array [{"Access module name": 0 or 1}]
     Access: {
       type: Array,
-      default: []
+      default: () => [
+        { "Dashboard": 0 },
+        { "3D Editor Assets": 0 },
+        { "User Management": 0 },
+        { "Template Management": 0 },
+        { "Management": 0 }
+      ]
     },
     isDeleted: {
       type: Boolean,
