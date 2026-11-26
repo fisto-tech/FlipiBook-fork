@@ -9,7 +9,7 @@ import { Icon } from '@iconify/react';
 import { createPortal } from 'react-dom';
 import ColorPicker, { parseGradient, generateGradientString, cssColorToHex } from '../../Color';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import { handleScrubHelper } from './propertiesShared';
+import { handleScrubHelper } from './controls/propertiesShared';
 export { handleScrubHelper };
 
 export const ColorField = ({ label, color, opacity, onColorChange, onOpacityChange, onPickerToggle, baseAttr, selectedElementProps }) => (

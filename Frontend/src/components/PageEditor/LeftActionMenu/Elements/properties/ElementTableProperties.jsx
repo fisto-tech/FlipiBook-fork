@@ -36,7 +36,7 @@ import { TableMatrix } from '../helpers/TableMatrix';
 import { normalizeForeignObjectNamespaces } from '../utils/tableElementUtils';
 import Color from '../../../properties/FillStrokeProperties';
 import ColorPicker from '../../../../Color';
-import { PropertySlider, handleScrubHelper } from '../../../properties/propertiesShared';
+import { PropertySlider, handleScrubHelper } from '../../../properties/controls/propertiesShared';
 import {
   fontFamilies,
   fontWeights,

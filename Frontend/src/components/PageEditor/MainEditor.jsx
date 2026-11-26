@@ -11,7 +11,7 @@ import {
   usePenNodeEngine
 } from './penTool';
 
-import { CropController } from './properties/Crop';
+import { CropController } from './properties/controls/Crop';
 
 
 import CanvasRuler from './toolbar/CanvasRuler';

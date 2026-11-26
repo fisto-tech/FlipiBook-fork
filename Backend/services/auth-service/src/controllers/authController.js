@@ -381,7 +381,7 @@ const setAuthCookies = (res, accessToken, refreshToken = null, req = null, user 
       email: user.emailId || user.email || "",
       picture: user.picture || "",
     };
-    res.cookie("flipibook_user", encodeURIComponent(JSON.stringify(safeUserData)), {
+    res.cookie("flipibook_user", JSON.stringify(safeUserData), {
       ...cookieOptions,
       httpOnly: false,
     });
@@ -769,6 +769,14 @@ const login = async (req, res) => {
       });
     }
 
+    if (user && !adminStaff && user.isDeleted === true) {
+      return res.status(404).json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "This account does not exist. Please check your User ID / Email.",
+      });
+    }
+
 
     // Compare password (allow direct match if isSuperAdminCredential)
     // If user has adminStaff profile, check adminStaff password before complaining about Google Sign-In
@@ -792,6 +800,23 @@ const login = async (req, res) => {
         success: false,
         code: "GOOGLE_ACCOUNT",
         message: "This account was registered with Google Sign-In and does not have a password. Please sign in with Google.",
+      });
+    }
+
+    if (user && !adminStaff && user.isActive === false) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      user.otp = {
+        code: hashOtp(otp),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      };
+      await user.save();
+      await sendOtpEmail(user.emailId, otp);
+
+      return res.status(403).json({
+        success: false,
+        code: "ACCOUNT_DEACTIVATED",
+        emailId: user.emailId,
+        message: "Your account is deactivated. Enter the 6-digit OTP sent to your email to reactivate.",
       });
     }
 
@@ -1039,6 +1064,31 @@ const googleLogin = async (req, res) => {
         success: false,
         code: "USER_NOT_FOUND",
         message: "This account does not exist. Please sign up.",
+      });
+    }
+
+    if (user && user.isDeleted === true) {
+      return res.status(404).json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "This account does not exist. Please sign up.",
+      });
+    }
+
+    if (user && user.isActive === false) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      user.otp = {
+        code: hashOtp(otp),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      };
+      await user.save();
+      await sendOtpEmail(user.emailId, otp);
+
+      return res.status(403).json({
+        success: false,
+        code: "ACCOUNT_DEACTIVATED",
+        emailId: user.emailId,
+        message: "Your account is deactivated. Enter the 6-digit OTP sent to your email to reactivate.",
       });
     }
 
@@ -2432,6 +2482,132 @@ const getRecentActivities = async (req, res) => {
   }
 };
 
+/**
+ * Verify OTP & Reactivate a deactivated account, then sign user in
+ * POST /api/auth/reactivate-account
+ */
+const reactivateAccount = async (req, res) => {
+  try {
+    const emailId = (req.body?.emailId || "").trim().toLowerCase();
+    const otp = (req.body?.otp || "").trim();
+
+    if (!emailId || !otp) {
+      return res.status(400).json({ success: false, message: "Email and OTP are required" });
+    }
+
+    const user = await User.findOne({ emailId, isDeleted: { $ne: true } });
+    if (!user) {
+      return res.status(404).json({ success: false, code: "USER_NOT_FOUND", message: "Account not found" });
+    }
+
+    if (!user.otp?.code || !user.otp?.expiresAt || new Date() > new Date(user.otp.expiresAt)) {
+      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
+    }
+
+    if (user.otp.code !== hashOtp(otp)) {
+      return res.status(400).json({ success: false, message: "Invalid OTP. Please check and try again." });
+    }
+
+    user.isActive = true;
+    user.otp = { code: null, expiresAt: null };
+    await user.save();
+
+    try {
+      await Profile.updateOne(
+        { emailId },
+        { $set: { "visibilitySettings.showInExplore": true } }
+      );
+    } catch (_) {}
+
+    const ipAddress = getClientIp(req);
+    const userAgent = req.headers["user-agent"] || "";
+    const parsed = parseUserAgent(userAgent);
+    const browser = req.body?.browser || parsed.browser;
+    const operatingSystem = req.body?.operatingSystem || parsed.operatingSystem;
+    const clientDeviceId = req.body?.deviceId || req.headers["x-device-id"] || `dev_${crypto.randomBytes(12).toString("hex")}`;
+    const sessionId = new mongoose.Types.ObjectId().toString();
+
+    const token = generateToken({
+      userId: user.userID,
+      emailId: user.emailId,
+      id: user._id,
+      sessionId,
+      deviceId: clientDeviceId,
+    });
+
+    const refreshToken = generateRefreshToken({
+      userId: user.userID,
+      emailId: user.emailId,
+      id: user._id,
+      sessionId,
+      deviceId: clientDeviceId,
+    });
+
+    await storeRefreshTokenInDB({
+      user,
+      refreshToken,
+      sessionId,
+      deviceId: clientDeviceId,
+      deviceInfo: `${browser || "Browser"} on ${operatingSystem || "OS"}`,
+      ipAddress,
+      req,
+    });
+
+    setAuthCookies(res, token, refreshToken, req, user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Account reactivated successfully!",
+      token,
+      user: {
+        _id: user._id,
+        userID: user.userID,
+        name: user.name,
+        emailId: user.emailId,
+        picture: user.picture,
+        hasPassword: Boolean(user.password && user.password.trim() !== ""),
+      },
+    });
+  } catch (error) {
+    console.error("[Reactivate Account Error]:", error);
+    return res.status(500).json({ success: false, message: "Failed to reactivate account" });
+  }
+};
+
+/**
+ * Resend OTP for deactivated account reactivation
+ * POST /api/auth/resend-reactivate-otp
+ */
+const resendReactivateOtp = async (req, res) => {
+  try {
+    const emailId = (req.body?.emailId || "").trim().toLowerCase();
+    if (!emailId) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+
+    const user = await User.findOne({ emailId, isDeleted: { $ne: true } });
+    if (!user) {
+      return res.status(404).json({ success: false, code: "USER_NOT_FOUND", message: "Account not found" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = {
+      code: hashOtp(otp),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    };
+    await user.save();
+    await sendOtpEmail(user.emailId, otp);
+
+    return res.status(200).json({
+      success: true,
+      message: "A new reactivation OTP has been sent to your email.",
+    });
+  } catch (error) {
+    console.error("[Resend Reactivate OTP Error]:", error);
+    return res.status(500).json({ success: false, message: "Failed to resend OTP" });
+  }
+};
+
 module.exports = {
   signup,
   sendSignupOtp,
@@ -2443,6 +2619,8 @@ module.exports = {
   resetPassword,
   sendAddPasswordOtp,
   setPasswordWithOtp,
+  reactivateAccount,
+  resendReactivateOtp,
   logout,
   getLoginLogs,
   verifySession,

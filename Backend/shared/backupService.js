@@ -580,7 +580,7 @@ const recordUserDeletion = (userDoc, options = {}) => {
     const profilesCol = conn.collection('Profiles');
     const query = raw._id ? { _id: raw._id } : { userID: raw.userID };
 
-    await usersCol.updateOne(query, { $set: { status: 'DELETED', ...audit } });
+    await usersCol.updateOne(query, { $set: { status: 'DELETED', isActive: false, ...audit } });
     await profilesCol.updateOne({ user_id: raw._id }, { $set: { ...audit } });
 
     console.log(`[Backup DB] Successfully recorded account deletion for user: "${raw.userID || raw.emailId}"`);

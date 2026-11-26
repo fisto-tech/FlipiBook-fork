@@ -1,5 +1,5 @@
 import { getVisualBBox, getElementMatrix, matrixToTransform } from './geometryUtils';
-import { isElementCropped } from '../../properties/Crop';
+import { isElementCropped } from '../../properties/controls/Crop';
 import { isElementCompletelyOutside } from './trimViewUtils';
 
 /**

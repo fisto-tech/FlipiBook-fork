@@ -21,6 +21,7 @@ router.put('/preferences', authenticateUser, userController.updatePreferences);
 
 // Account security
 router.post('/change-password', authenticateUser, userController.changePassword);
+router.post('/account/deactivate', authenticateUser, userController.deactivateAccount);
 router.delete('/account', authenticateUser, userController.deleteAccount);
 
 // Admin listing

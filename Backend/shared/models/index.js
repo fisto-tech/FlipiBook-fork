@@ -14,6 +14,7 @@ module.exports = {
   RefreshToken: require('./RefreshToken'),
   Lead: require('./Lead'),
   AdminUser: require('./AdminUser'),
-  AdminRole: require('./AdminRole')
+  AdminRole: require('./AdminRole'),
+  AccountDeletionLog: require('./AccountDeletionLog')
 };
 

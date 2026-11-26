@@ -16,7 +16,7 @@ import {
   getMotionGraphicProperties,
   updateMotionGraphicAttributes
 } from '../utils/motionGraphicUtils';
-import { handleScrubHelper } from '../../../properties/propertiesShared';
+import { handleScrubHelper } from '../../../properties/controls/propertiesShared';
 import { CUSTOM_FONT_FAMILIES } from '../../../../../utils/customFonts';
 
 const SectionHeader = ({ title, rightElement }) => (
