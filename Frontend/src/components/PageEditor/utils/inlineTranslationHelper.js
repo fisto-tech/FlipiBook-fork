@@ -97,6 +97,44 @@ function showSpinnerBadge(targetRect, langName) {
   return badge;
 }
 
+function showNoticeBadge(targetRect, message) {
+  if (typeof document === 'undefined') return;
+  const existing = document.getElementById('inline-translate-spinner-badge');
+  if (existing) existing.remove();
+
+  const rect = targetRect && (targetRect.width > 0 || targetRect.height > 0)
+    ? targetRect
+    : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+
+  const badge = document.createElement('div');
+  badge.id = 'inline-translate-spinner-badge';
+  badge.style.position = 'fixed';
+  badge.style.left = `${Math.max(80, rect.left + (rect.width / 2))}px`;
+  badge.style.top = `${Math.max(50, rect.top - 42)}px`;
+  badge.style.transform = 'translate(-50%, 0)';
+  badge.style.zIndex = '999999';
+  badge.style.pointerEvents = 'none';
+  badge.innerHTML = `
+    <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(153, 27, 27, 0.95); color:#ffffff; padding:6px 14px; border-radius:20px; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.2); white-space:nowrap;">
+      <span>${message}</span>
+    </div>
+  `;
+  document.body.appendChild(badge);
+  setTimeout(() => {
+    if (badge.parentNode) badge.remove();
+  }, 3000);
+}
+
+/**
+ * Checks whether selected text appears to be non-English Indic script without English words.
+ */
+function isNonEnglishIndicText(text) {
+  if (!text) return false;
+  const hasIndic = /[\u0900-\u0D7F]/.test(text);
+  const hasLatin = /[A-Za-z]/.test(text);
+  return hasIndic && !hasLatin;
+}
+
 /**
  * Translates either the currently highlighted text range or the specified layer element.
  */
@@ -166,6 +204,15 @@ export async function executeInlineTranslation({
 
     if (!textToTranslate) {
       const msg = 'Please select a word, sentence, or text layer to translate.';
+      showNoticeBadge(null, msg);
+      if (onError) onError(msg);
+      return false;
+    }
+
+    if (isNonEnglishIndicText(textToTranslate)) {
+      const rect = rangeToReplace ? rangeToReplace.getBoundingClientRect() : targetContainer?.getBoundingClientRect();
+      const msg = 'Only English to Indian language translation is enabled. Please select English text.';
+      showNoticeBadge(rect, msg);
       if (onError) onError(msg);
       return false;
     }
@@ -287,7 +334,14 @@ export async function executeInlineTranslation({
       targetContainer.classList.remove('translating-element-pulse');
     }
 
-    if (onError) onError(err.message || 'Translation failed. Please try again.');
+    if (spinnerBadge) {
+      spinnerBadge.remove();
+      spinnerBadge = null;
+    }
+
+    const errMsg = err.message || 'Translation failed. Please try again.';
+    showNoticeBadge(targetContainer?.getBoundingClientRect?.(), errMsg);
+    if (onError) onError(errMsg);
     return false;
   } finally {
     if (spinnerBadge) {
