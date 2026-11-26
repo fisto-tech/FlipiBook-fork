@@ -1183,7 +1183,16 @@ const PreviewArea = React.memo(({
 
     // BOOK page index — what the counter, page input, thumbnails and progress bar use
     const onPageClick = useCallback((index) => {
-        bookRef.current?.pageFlip()?.turnToPage(index);
+        if (index === undefined || index === null || isNaN(index)) return;
+        const target = Math.max(0, parseInt(index, 10));
+        try {
+            const flip = bookRef.current?.pageFlip();
+            if (flip) {
+                flip.turnToPage(target);
+            }
+        } catch (e) {
+            console.warn('Page navigation failed', e);
+        }
     }, []);
 
     // Listen to page navigation events sent from the page iframe

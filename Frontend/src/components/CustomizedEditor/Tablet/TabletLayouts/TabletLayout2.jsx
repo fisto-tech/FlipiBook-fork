@@ -51,7 +51,7 @@ import TabletTableOfContentsPopup from './TabletTableOfContentsPopup';
 import TabletLayoutSound from './TabletLayoutSound';
 import ShareModal from '../../../ShareModal';
 
-const TabletLayout2 = ({ children, bookRef, currentPage, pages, offset = 0, onPageClick, settings, bookName = "Name of the Book", showSoundPopup, setShowSoundPopupMemo, showProfilePopup, setShowProfilePopupMemo, handleDownload, currentBook, activeLayout, searchQuery, setSearchQuery, handleQuickSearch }) => {
+const TabletLayout2 = ({ children, bookRef, currentPage, pages, offset = 0, onPageClick, settings, bookName = "Name of the Book", showSoundPopup, setShowSoundPopupMemo, showProfilePopup, setShowProfilePopupMemo, showGalleryPopup, setShowGalleryPopupMemo, handleDownload, currentBook, activeLayout, searchQuery, setSearchQuery, handleQuickSearch, isAutoFlipping, setIsPlaying }) => {
   const [inputPage, setInputPage] = useState(currentPage === 0 ? 1 : (currentPage || 1));
   const [showTOC, setShowTOC] = useState(false);
 
@@ -344,7 +344,17 @@ const TabletLayout2 = ({ children, bookRef, currentPage, pages, offset = 0, onPa
             >
               <Icon icon="ph:squares-four-fill" className="w-[1.6cqw] h-[1.6cqw]" />
             </button>
-            <button className="hover:text-gray-200 transition-colors">
+            <button 
+              className="hover:text-gray-200 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowTOC(false);
+                setShowSoundPopupMemo?.(false);
+                setShowProfilePopupMemo?.(false);
+                setShowGalleryPopupMemo?.(!showGalleryPopup);
+              }}
+              style={{ opacity: showGalleryPopup ? 0.7 : 1 }}
+            >
               <Icon icon="clarity:image-gallery-solid" className="w-[1.6cqw] h-[1.6cqw]" />
             </button>
             {(settings?.media?.backgroundAudio ?? true) && (
@@ -361,21 +371,47 @@ const TabletLayout2 = ({ children, bookRef, currentPage, pages, offset = 0, onPa
                 <Icon icon="solar:music-notes-bold" className="w-[1.6cqw] h-[1.6cqw]" />
               </button>
             )}
-            <button className="hover:text-gray-200 transition-colors">
-              <Icon icon="ph:play-fill" className="w-[1.8cqw] h-[1.8cqw]" />
-            </button>
+            {(settings?.navigation?.startEndNav ?? true) && (
+              <button 
+                className="hover:text-gray-200 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTOC(false);
+                  setShowSoundPopupMemo?.(false);
+                  setShowProfilePopupMemo?.(false);
+                  if (onPageClick) onPageClick(0);
+                }}
+                title="First Page"
+              >
+                <Icon icon="ph:skip-back" className="w-[1.6cqw] h-[1.6cqw]" />
+              </button>
+            )}
             <button 
-              className="hover:text-gray-200 transition-colors relative"
+              className="hover:text-gray-200 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
-                setShowTOC(false);
-                setShowSoundPopupMemo?.(false);
-                setShowProfilePopupMemo?.(!showProfilePopup);
+                setIsPlaying?.(!isAutoFlipping);
               }}
-              style={{ opacity: showProfilePopup ? 0.7 : 1 }}
             >
-              <Icon icon="fluent:person-24-filled" className="w-[1.6cqw] h-[1.6cqw]" />
+              <Icon icon={isAutoFlipping ? "ph:pause-fill" : "ph:play-fill"} className="w-[1.8cqw] h-[1.8cqw]" />
             </button>
+            {(settings?.navigation?.startEndNav ?? true) && (
+              <button 
+                className="hover:text-gray-200 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTOC(false);
+                  setShowSoundPopupMemo?.(false);
+                  setShowProfilePopupMemo?.(false);
+                  const total = Array.isArray(pages) ? pages.length : (pages || 12);
+                  if (onPageClick) onPageClick(total - 1);
+                }}
+                title="Last Page"
+              >
+                <Icon icon="ph:skip-forward" className="w-[1.6cqw] h-[1.6cqw]" />
+              </button>
+            )}
+
             <button 
               className="hover:text-gray-200 transition-colors"
               onClick={(e) => {

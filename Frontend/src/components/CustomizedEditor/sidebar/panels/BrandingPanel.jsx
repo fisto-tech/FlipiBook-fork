@@ -2697,6 +2697,7 @@ const Branding = ({
             size="small"
             titleText="Add Image"
             buttonText="Add Image"
+            hideImportViaUrl={true}
             onClose={() => setReplaceTarget(null)}
             onReplace={(file) => {
               if (replaceTarget === "logo") {
