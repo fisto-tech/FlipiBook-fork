@@ -4753,7 +4753,7 @@ exports.translateCloneBook = async (req, res) => {
                     src_lang,
                     tgt_lang
                   }),
-                  signal: AbortSignal.timeout(180000)
+                  signal: AbortSignal.timeout(240000)
                 });
 
                 if (response.ok) {
@@ -4878,7 +4878,7 @@ exports.translateTextSnippet = async (req, res) => {
         src_lang,
         tgt_lang
       }),
-      signal: AbortSignal.timeout(60000)
+      signal: AbortSignal.timeout(240000)
     });
 
     if (!response.ok) {
@@ -4901,6 +4901,19 @@ exports.translateTextSnippet = async (req, res) => {
     });
   } catch (err) {
     console.error("[Translation] translateTextSnippet error:", err);
+    if (err?.name === "TimeoutError" || err?.name === "AbortError") {
+      return res.status(504).json({
+        success: false,
+        message: "Translation timed out while waiting for the language model. Please try again in a moment."
+      });
+    }
+    const causeCode = err?.cause?.code || err?.code || "";
+    if (err?.message === "fetch failed" || causeCode === "ECONNREFUSED" || causeCode === "ECONNRESET") {
+      return res.status(503).json({
+        success: false,
+        message: "Translation service is unavailable or still warming up. Ensure the translation service is running and try again."
+      });
+    }
     return res.status(500).json({ success: false, message: err.message || "Failed to translate text" });
   }
 };
