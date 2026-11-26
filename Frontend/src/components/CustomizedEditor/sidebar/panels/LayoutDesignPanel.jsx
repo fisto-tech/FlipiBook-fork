@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { ChevronsLeft } from 'lucide-react';
 import LayoutColorCustomizer from '../../LayoutColorCustomizer';
-import ColorPicker from '../../../ColorPallet';
+import { ColorPallet as ColorPicker } from '../../../Color';
 import { LAYOUT_DEFAULT_COLORS } from '../../utils/layoutColors';
 
 import layout1 from '../../../../assets/layout/Layout1.webp';

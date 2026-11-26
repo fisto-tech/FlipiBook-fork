@@ -17,7 +17,7 @@ import { normalizeForeignObjectNamespaces, healTableElementNode } from '../../Le
 import { applyTrimViewToSvg } from '../utils/trimViewUtils';
 import { DEFAULT_FRAME_IMAGE } from '../../LeftActionMenu/Elements/utils/imageFramingUtils';
 
-import { insertPixabayImage } from '../../LeftActionMenu/Elements/components/PixabayImagesPanel';
+import { insertPixabayImage } from '../../LeftActionMenu/Images';
 export const CanvasViewport = ({
   zoomContainerRef,
   pan = { x: 0, y: 0 },

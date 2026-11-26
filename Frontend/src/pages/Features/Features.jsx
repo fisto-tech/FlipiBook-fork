@@ -5,7 +5,7 @@ import { Icon } from '@iconify/react';
 import Footer from '../Footer';
 import FAQSection from '../Home/FAQSection';
 
-import exploreHeroImg from '../../assets/Explore/explore-hero-section.png';
+import exploreHeroImg from '../../assets/Features/Features-hero-section.png';
 
 // FeaturesHome images
 import creationImg from '../../assets/Features/FeaturesHome/CreationFeatures.webp';
@@ -131,20 +131,20 @@ export default function Features() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="w-full bg-[#f5f5f5] border-b border-gray-100 px-4 sm:px-6 md:px-[5vw]"
+          className="w-full bg-[#f5f5f5] border-b border-gray-100 px-4 sm:px-6 md:px-[5vw] overflow-hidden"
         >
           <div className="max-w-[85vw] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 md:gap-[3vw]">
             {/* Left Text Block */}
-            <div className="w-full md:max-w-[44vw] space-y-3 md:space-y-[1.8vh] py-6 md:py-[3vh] text-center md:text-left">
-              <h1 className="text-2xl sm:text-3xl lg:text-[3.2vw] text-gray-900 font-semibold md:font-normal tracking-tight leading-tight">
+            <div className="w-full md:max-w-[44vw] space-y-3 md:space-y-[1.3vh] py-4 md:py-[2.5vh] text-center md:text-left">
+              <h1 className="text-2xl sm:text-3xl lg:text-[2.6vw] text-gray-900 font-semibold md:font-normal tracking-tight leading-tight">
                 Key Features
               </h1>
 
-              <p className="text-sm sm:text-base md:text-[0.9vw] text-gray-600 font-normal leading-relaxed">
+              <p className="text-sm sm:text-base md:text-[0.86vw] text-gray-600 font-normal leading-relaxed">
                 Discover immersive digital catalogues created by businesses, designers, and creators worldwide. Explore interactive flipbooks enhanced with 3D models, hotspots, videos, animations, and rich multimedia experiences.
               </p>
 
-              <div className="w-14 md:w-[7vw] h-1 md:h-[0.3vh] min-h-[2px] bg-gray-800 rounded-full mt-3 md:mt-[1.8vh] mx-auto md:mx-0"></div>
+              <div className="w-14 md:w-[6vw] h-1 md:h-[0.3vh] min-h-[2px] bg-gray-800 rounded-full mt-3 md:mt-[1.3vh] mx-auto md:mx-0"></div>
             </div>
 
             {/* Right Hero Graphic */}
@@ -152,7 +152,7 @@ export default function Features() {
               <img
                 src={exploreHeroImg}
                 alt="FlipiBook Key Features Hero Graphic"
-                className="h-[220px] sm:h-[280px] md:h-[35vh] max-h-[400px] w-auto object-contain object-bottom shrink-0 block"
+                className="h-[180px] sm:h-[220px] md:h-[27vh] max-h-[290px] w-auto object-contain object-bottom shrink-0 block"
               />
             </div>
           </div>

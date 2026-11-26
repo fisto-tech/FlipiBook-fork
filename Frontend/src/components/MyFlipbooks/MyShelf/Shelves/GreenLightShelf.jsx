@@ -10,7 +10,7 @@ import greenLightLamp from '../../../../assets/Bookshelf/greenlight/lamp.png';
 import greenLightPlant from '../../../../assets/Bookshelf/greenlight/plant.png';
 import greenLightBase from '../../../../assets/Bookshelf/greenlight/base.png';
 import greenLightFixture from '../../../../assets/Bookshelf/greenlight/light.png';
-import greenLightSwitch from '../../../../assets/Bookshelf/greenlight/switch.png';
+import PullRopeSwitch from './PullRopeSwitch';
 
 // ============================================================================
 // GREEN LIGHT SHELF CONFIGURATION - Adjust percentages easily here!
@@ -116,27 +116,20 @@ const GreenLightShelf = ({
                     </div>
 
                     {/* Wall Light Switch in top-right */}
-                    {showLightSwitch && (
-                      <div
-                        onClick={() => {
-                          if (typeof setDecors === 'function') {
-                            setDecors(prev => ({ ...prev, lights: !prev.lights }));
-                          }
-                        }}
-                        className="absolute pointer-events-auto cursor-pointer z-35 transition-transform duration-150 active:scale-95 hover:scale-105 group"
-                        style={{
-                          right: '4.5%',
-                          top: '10.0%',
-                          width: '2.5%'
-                        }}
-                        title={decors?.lights !== false ? "Turn Lights Off" : "Turn Lights On"}
-                      >
-                        <img
-                          src={greenLightSwitch}
-                          alt="Switch"
-                          className="w-full h-auto block drop-shadow-md transition-all duration-200"
-                        />
-                      </div>
+                    {showLightSwitch && decors?.lamp !== false && (
+                      <PullRopeSwitch
+          variant="greenlight"
+          isOn={Boolean(decors?.lights)}
+          onToggle={() => {
+            if (typeof setDecors === 'function') {
+              setDecors(prev => ({ ...prev, lights: !prev.lights }));
+            }
+          }}
+          right="4.5%"
+          top="0%"
+          ropeLength={isFs ? 92 : 76}
+          zIndex={35}
+        />
                     )}
 
                     {/* 2 Tiers of Shelves and Spotlights */}

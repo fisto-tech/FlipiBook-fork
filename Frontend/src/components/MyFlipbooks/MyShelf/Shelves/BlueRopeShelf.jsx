@@ -8,7 +8,7 @@ import blueFrameLeftShelf from '../../../../assets/Bookshelf/blue_frame/leftshel
 import blueFrameLight from '../../../../assets/Bookshelf/blue_frame/light.png';
 import blueFrameDecor from '../../../../assets/Bookshelf/blue_frame/decor.png';
 import blueFrameRopeShelf from '../../../../assets/Bookshelf/blue_frame/rope_shelf.png';
-import blueFrameSwitch from '../../../../assets/Bookshelf/blue_frame/switch.png';
+import PullRopeSwitch from './PullRopeSwitch';
 
 // ============================================================================
 // MANUAL PERCENTAGE ADJUSTMENT CONFIGURATION FOR BLUE ROPE SHELF
@@ -231,26 +231,19 @@ const BlueRopeShelf = ({
 
                     {/* 3b. Light Switch on Right Side of Lamp */}
                     {showLightSwitch && (
-                      <div
-                        onClick={() => {
-                          if (typeof setDecors === 'function') {
-                            setDecors(prev => ({ ...prev, lights: !prev.lights }));
-                          }
-                        }}
-                        className="absolute pointer-events-auto cursor-pointer z-30 transition-transform duration-150 active:scale-95 hover:scale-105 group"
-                        style={{
-                          right: '2.4%',
-                          top: '12.0%',
-                          width: '2.8%'
-                        }}
-                        title={decors?.lights ? "Turn Lights Off" : "Turn Lights On"}
-                      >
-                        <img
-                          src={blueFrameSwitch}
-                          alt="Switch"
-                          className="w-full h-auto block drop-shadow-md transition-all duration-200 opacity-100"
-                        />
-                      </div>
+                      <PullRopeSwitch
+          variant="bluerope"
+          isOn={Boolean(decors?.lights)}
+          onToggle={() => {
+            if (typeof setDecors === 'function') {
+              setDecors(prev => ({ ...prev, lights: !prev.lights }));
+            }
+          }}
+          right="2.4%"
+          top="0%"
+          ropeLength={isFs ? 92 : 76}
+          zIndex={30}
+        />
                     )}
 
                     {/* 4. Bottom-Left Vase/Plant Decor placed on credenza */}

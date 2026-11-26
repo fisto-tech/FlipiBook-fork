@@ -73,9 +73,15 @@ export const usePageManager = ({
   };
 
   const undo = () => {
+    // While drawing with the Pen, Undo removes the last point only
+    if (window.__penPointHistory?.undo?.()) return;
     if (history.length === 0) return;
 
     isUndoRedoActiveRef.current = true;
+    // Undo/redo must ALWAYS repaint the canvas. A leftover "skip next canvas update" flag (set by
+    // panels that already edited the live DOM, e.g. Image Framing's syncDomChanges) would otherwise
+    // swallow this repaint: the state is restored but a deleted element never reappears.
+    window.__skipCanvasUpdateForPage = -1;
 
     const currentSnap = {
       pages: pages.map(p => ({ ...p })),
@@ -124,9 +130,15 @@ export const usePageManager = ({
   };
 
   const redo = () => {
+    // While drawing with the Pen, Redo brings back the last removed point
+    if (window.__penPointHistory?.redo?.()) return;
     if (redoStack.length === 0) return;
 
     isUndoRedoActiveRef.current = true;
+    // Undo/redo must ALWAYS repaint the canvas. A leftover "skip next canvas update" flag (set by
+    // panels that already edited the live DOM, e.g. Image Framing's syncDomChanges) would otherwise
+    // swallow this repaint: the state is restored but a deleted element never reappears.
+    window.__skipCanvasUpdateForPage = -1;
 
     const currentSnap = {
       pages: pages.map(p => ({ ...p })),

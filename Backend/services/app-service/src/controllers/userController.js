@@ -2,6 +2,18 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const User = require('../../../../shared/models/User');
 const Profile = require('../../../../shared/models/Profile');
+const Flipbook = require('../../../../shared/models/Flipbook');
+const FlipbookAsset = require('../../../../shared/models/FlipbookAsset');
+const CustomizedSettings = require('../../../../shared/models/CustomizedSettings');
+const PageEditorSettings = require('../../../../shared/models/PageEditorSettings');
+const ShelfCustomizations = require('../../../../shared/models/ShelfCustomizations');
+const UserGallery = require('../../../../shared/models/UserGallery');
+const ThreedModel = require('../../../../shared/models/ThreedModel');
+const InteractionThreedModel = require('../../../../shared/models/InteractionThreedModel');
+const Lead = require('../../../../shared/models/Lead');
+const RefreshToken = require('../../../../shared/models/RefreshToken');
+const AccountDeletionLog = require('../../../../shared/models/AccountDeletionLog');
+const backupService = require('../../../../shared/backupService');
 
 /**
  * Helper to extract email from request
@@ -403,33 +415,207 @@ const updatePreferences = async (req, res) => {
   }
 };
 
+const clearAuthSessionCookies = (res) => {
+  const clearOpts = { path: '/', httpOnly: true, sameSite: 'lax' };
+  res.clearCookie('token', clearOpts);
+  res.clearCookie('accessToken', clearOpts);
+  res.clearCookie('refreshToken', clearOpts);
+  res.clearCookie('flipibook_logged_in', { path: '/', httpOnly: false, sameSite: 'lax' });
+  res.clearCookie('flipibook_user', { path: '/', httpOnly: false, sameSite: 'lax' });
+};
+
+const verifyUserIdentityForAccountAction = async (user, password, confirmText, expectedKeyword) => {
+  const hasPassword = Boolean(user.password && typeof user.password === 'string' && user.password.trim() !== '');
+  if (hasPassword) {
+    if (!password) {
+      return { ok: false, message: 'Password confirmation is required' };
+    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return { ok: false, message: 'Incorrect password' };
+    }
+  } else {
+    if (String(confirmText || '').trim().toUpperCase() !== expectedKeyword) {
+      return { ok: false, message: `Please type ${expectedKeyword} to confirm` };
+    }
+  }
+  return { ok: true };
+};
+
+/**
+ * POST /api/user/account/deactivate
+ * Temporarily deactivate account (keeps all data intact; user can reactivate via OTP on login)
+ */
+const deactivateAccount = async (req, res) => {
+  try {
+    const email = getRequestEmail(req);
+    const { password, confirmText, reasonCategory = '', feedback = '' } = req.body || {};
+
+    if (!email) return res.status(400).json({ success: false, message: 'User email is required' });
+
+    const user = await User.findOne({ emailId: email, isDeleted: { $ne: true } }).select('+password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const check = await verifyUserIdentityForAccountAction(user, password, confirmText, 'DEACTIVATE');
+    if (!check.ok) return res.status(400).json({ success: false, message: check.message });
+
+    const now = new Date();
+    const combinedReason = [reasonCategory, feedback].filter(Boolean).join(' - ') || 'USER_SELF_DEACTIVATE';
+
+    user.isActive = false;
+    user.deletionReason = combinedReason;
+    await user.save();
+
+    let sessionsRevoked = false;
+    let profileHidden = false;
+
+    try {
+      await RefreshToken.updateMany(
+        { emailId: email, isRevoked: { $ne: true } },
+        { $set: { isRevoked: true, revokedAt: now } }
+      );
+      sessionsRevoked = true;
+    } catch (rtErr) {
+      console.warn('[User Service] deactivateAccount RefreshToken revoke warning:', rtErr.message);
+    }
+
+    try {
+      await Profile.updateOne(
+        { emailId: email },
+        { $set: { 'visibilitySettings.showInExplore': false } }
+      );
+      profileHidden = true;
+    } catch (profErr) {
+      console.warn('[User Service] deactivateAccount Profile hide warning:', profErr.message);
+    }
+
+    try {
+      await AccountDeletionLog.create({
+        userId: user._id,
+        userID: user.userID || '',
+        emailId: email,
+        initiatedBy: 'USER',
+        reasonCategory: String(reasonCategory || ''),
+        feedback: String(feedback || ''),
+        status: 'DEACTIVATED',
+        cleanupProgress: { sessionsRevoked, profileHidden, flipbooksHidden: false },
+        requestedAt: now,
+        ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '',
+        userAgent: req.headers['user-agent'] || ''
+      });
+    } catch (logErr) {
+      console.warn('[User Service] AccountDeletionLog create warning:', logErr.message);
+    }
+
+    clearAuthSessionCookies(res);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Account deactivated successfully. You can reactivate anytime by signing in with OTP.'
+    });
+  } catch (error) {
+    console.error('[User Service] deactivateAccount error:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
+
 /**
  * DELETE /api/user/account
- * Deactivate or delete user account
+ * Permanently delete user account & live data while preserving record in Backup DB
  */
 const deleteAccount = async (req, res) => {
   try {
     const email = getRequestEmail(req);
-    const { password } = req.body;
+    const { password, confirmText, reasonCategory = '', feedback = '' } = req.body || {};
 
     if (!email) return res.status(400).json({ success: false, message: 'User email is required' });
-    if (!password) return res.status(400).json({ success: false, message: 'Password confirmation is required' });
 
     const user = await User.findOne({ emailId: email }).select('+password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ success: false, message: 'Incorrect password' });
+    const check = await verifyUserIdentityForAccountAction(user, password, confirmText, 'DELETE');
+    if (!check.ok) return res.status(400).json({ success: false, message: check.message });
+
+    const now = new Date();
+    const combinedReason = [reasonCategory, feedback].filter(Boolean).join(' - ') || 'USER_SELF_DELETE';
+    const userID = user.userID || '';
+    const ownerQuery = userID
+      ? { $or: [{ emailId: email }, { userEmail: email }, { userID }, { userId: userID }] }
+      : { $or: [{ emailId: email }, { userEmail: email }] };
+
+    // 1. Preserve user deletion audit in Backup DB (with isActive: false) before purging live collections
+    user.isActive = false;
+    user.isDeleted = true;
+    user.deletedAt = now;
+    user.deletionReason = combinedReason;
+    try {
+      backupService.recordUserDeletion(user, { req, reason: combinedReason });
+    } catch (_) {}
+
+    const cleanupProgress = {
+      sessionsRevoked: false,
+      profileHidden: false,
+      flipbooksHidden: false
+    };
+
+    // 2. Purge all live user data from main DB
+    try {
+      await RefreshToken.deleteMany({ emailId: email });
+      cleanupProgress.sessionsRevoked = true;
+    } catch (e) {
+      console.warn('[User Service] RefreshToken purge warning:', e.message);
     }
 
-    // Soft delete by deactivating
-    user.isActive = false;
-    await user.save();
+    try {
+      await Promise.allSettled([
+        Flipbook.deleteMany(ownerQuery),
+        FlipbookAsset.deleteMany(ownerQuery),
+        CustomizedSettings.deleteMany(ownerQuery),
+        PageEditorSettings.deleteMany(ownerQuery),
+        ShelfCustomizations.deleteMany(ownerQuery),
+        UserGallery.deleteMany(ownerQuery),
+        ThreedModel.deleteMany(ownerQuery),
+        InteractionThreedModel.deleteMany(ownerQuery),
+        Lead.deleteMany(ownerQuery)
+      ]);
+      cleanupProgress.flipbooksHidden = true;
+    } catch (e) {
+      console.warn('[User Service] Live flipbooks/assets purge warning:', e.message);
+    }
+
+    try {
+      await Profile.deleteOne({ emailId: email });
+      cleanupProgress.profileHidden = true;
+    } catch (e) {
+      console.warn('[User Service] Profile purge warning:', e.message);
+    }
+
+    try {
+      await AccountDeletionLog.create({
+        userId: user._id,
+        userID,
+        emailId: email,
+        initiatedBy: 'USER',
+        reasonCategory: String(reasonCategory || ''),
+        feedback: String(feedback || ''),
+        status: 'COMPLETED',
+        cleanupProgress,
+        requestedAt: now,
+        completedAt: new Date(),
+        ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '',
+        userAgent: req.headers['user-agent'] || ''
+      });
+    } catch (logErr) {
+      console.warn('[User Service] AccountDeletionLog create warning:', logErr.message);
+    }
+
+    await User.deleteOne({ _id: user._id });
+
+    clearAuthSessionCookies(res);
 
     return res.status(200).json({
       success: true,
-      message: 'Account deactivated successfully'
+      message: 'Account permanently deleted'
     });
   } catch (error) {
     console.error('[User Service] deleteAccount error:', error);
@@ -483,6 +669,7 @@ module.exports = {
   changePassword,
   getPreferences,
   updatePreferences,
+  deactivateAccount,
   deleteAccount,
   listUsers
 };

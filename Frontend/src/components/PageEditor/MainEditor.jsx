@@ -11,7 +11,7 @@ import {
   usePenNodeEngine
 } from './penTool';
 
-import { CropController } from './properties/Crop';
+import { CropController } from './properties/controls/Crop';
 
 
 import CanvasRuler from './toolbar/CanvasRuler';
@@ -43,6 +43,7 @@ import { executeInlineTranslation } from './utils/inlineTranslationHelper';
 import {
   LeftActionMenu,
   AddElementsModal,
+  ImagesModal,
   IconsModal
 } from './LeftActionMenu';
 import { getTopLevelFrames, hitTest as hitTestExt, isPageRootElement } from './mainEditor/utils/frameHierarchyUtils';
@@ -151,6 +152,7 @@ const MainEditor = ({
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const [openMenuIndex, setOpenMenuIndex] = useState(null); // Track which page's menu is open
   const [isElementsModalOpen, setIsElementsModalOpen] = useState(false);
+  const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
   const [isIconsModalOpen, setIsIconsModalOpen] = useState(false);
 
 
@@ -168,6 +170,7 @@ const MainEditor = ({
   useEffect(() => {
     if (isConvertedFlipbook) {
       setIsElementsModalOpen(false);
+      setIsImagesModalOpen(false);
       setIsIconsModalOpen(false);
       if (!pdfDefaultsSetRef.current) {
         if (setActiveTopTool) setActiveTopTool('interaction');
@@ -266,6 +269,7 @@ const MainEditor = ({
     activeTopToolRef.current = activeTopTool;
     if (activeTopTool === 'interaction' || activeTopTool === 'animation') {
       setIsElementsModalOpen(false);
+      setIsImagesModalOpen(false);
       setIsIconsModalOpen(false);
       if (marqueeOverlayRef1.current) {
         marqueeOverlayRef1.current.style.display = 'none';
@@ -897,6 +901,8 @@ const MainEditor = ({
       // Clear pen tool nodes and Vectra overlay on tool switch
       document.querySelectorAll('.pen-tool-node').forEach(n => n.remove());
       if (activeMainTool !== 'pen' || selectedPenTool !== 'pen') {
+        // Leaving the pen: end its node-edit session too (left on, it hides every selection's handles)
+        if (nodeEditModeRef.current) exitNodeEditMode();
         vectraPenSessionRef.current.reset();
         clearVectraOverlay(activePageIndex);
         document.querySelectorAll('[id^="highlight-overlay-"]').forEach(overlay => {
@@ -947,12 +953,87 @@ const MainEditor = ({
 
 
 
+  // ── Handle watchdog: a single selection ALWAYS gets visible, correctly placed resize dots ────
+  // Insertions, drag-and-drop, tool switches and page re-renders can wipe, hide or strand the HTML
+  // handle layer after the selection box was drawn. Leftover drag flags (dragging-active /
+  // data-dragging) from a gesture that already ended are cleared here instead of blocking the repair.
+  useEffect(() => {
+    if (!selectedLayerId || activeTopTool !== 'editor') return undefined;
+    if (multiSelectedIds && multiSelectedIds.size > 1) return undefined;
+    const id = selectedLayerId;
+    const esc = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+    // Elements that legitimately have no 4 corner dots (lines use start/end handles, etc.) would
+    // "fail" forever — after 2 redraws that don't produce healthy handles, stop for this selection.
+    let failedRedraws = 0;
+
+    const handlesHealthy = (box) => {
+      const handles = Array.from(document.querySelectorAll(`[id^="resize-handle-${esc}-"]`));
+      const corners = handles.filter((h) => /-(nw|ne|se|sw)$/.test(h.id));
+      if (corners.length < 4) return false;
+      const b = box.getBoundingClientRect();
+      const slack = 16;
+      return corners.every((h) => {
+        if (!h.isConnected || h.style.display === 'none') return false;
+        const cs = getComputedStyle(h);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return false;
+        const r = h.getBoundingClientRect();
+        if (!r.width || !r.height) return false;
+        const cx = r.left + r.width / 2; const cy = r.top + r.height / 2;
+        // a handle stranded at an old position (element moved / re-rendered) is not healthy
+        return cx >= b.left - slack && cx <= b.right + slack && cy >= b.top - slack && cy <= b.bottom + slack;
+      });
+    };
+
+    const check = () => {
+      if (nodeEditModeRef.current || window.__isAdjustingShapeImage) return;
+      const body = document.body;
+      if (body.classList.contains('shape-adjust-active') || body.classList.contains('screen-color-picking')) return;
+      // A gesture is really in progress → leave it alone. Otherwise drag flags are leftovers: clear them.
+      if (window.__fbePointerDown) return;
+      if (body.classList.contains('dragging-active')) body.classList.remove('dragging-active');
+      document.querySelectorAll('[data-dragging="true"]').forEach((n) => n.removeAttribute('data-dragging'));
+
+      const el = document.getElementById(id);
+      if (!el || !el.isConnected) return;
+      if (isEditingTextRef.current && el.querySelector?.('[data-editing="true"], [contenteditable="true"]')) return;
+      const box = document.querySelector(`[id="overlay-poly-selected-${esc}"], [id="overlay-poly-child-selected-${esc}"]`);
+      if (!box) return; // nothing selectable drawn (locked, background, frame…)
+      if (handlesHealthy(box)) { failedRedraws = 0; return; }
+      if (failedRedraws >= 2) return;
+      failedRedraws += 1;
+      // Broken: drop whatever is left and redraw from scratch
+      document.querySelectorAll(`[id^="resize-handle-${esc}-"]`).forEach((h) => h.remove());
+      const fn = drawOverlayHighlightRef.current || drawOverlayHighlight;
+      if (typeof fn === 'function') {
+        fn(el, el.getAttribute('data-child-selected') === 'true' ? 'child-selected' : 'selected');
+      }
+    };
+
+    const timers = [60, 250, 700].map((ms) => setTimeout(check, ms));
+    const iv = setInterval(check, 600);
+    // Re-check right after any gesture ends (pointer up, native drop, drag end)
+    const afterGesture = () => requestAnimationFrame(() => setTimeout(check, 30));
+    const evs = ['pointerup', 'mouseup', 'drop', 'dragend'];
+    evs.forEach((t) => window.addEventListener(t, afterGesture, true));
+    return () => {
+      timers.forEach(clearTimeout);
+      clearInterval(iv);
+      evs.forEach((t) => window.removeEventListener(t, afterGesture, true));
+    };
+  }, [selectedLayerId, multiSelectedIds, activeTopTool, pages]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Sync refs and perform page-level DOM highlights ──────────────────────────
   useEffect(() => {
     if (activeTopTool === 'interaction' || activeTopTool === 'animation') {
       if (nodeEditModeRef.current) {
         exitNodeEditMode();
       }
+    }
+
+    // A node-edit session whose path is gone or no longer selected is stale — end it so handles show
+    if (nodeEditModeRef.current && activeMainTool !== 'pen') {
+      const nPath = nodeEditPathRef.current;
+      if (!nPath || !nPath.isConnected || (selectedLayerId && nPath.id !== selectedLayerId)) exitNodeEditMode();
     }
 
     // Suppress regular selection box and resize handles when in Path Node Edit Mode or Shape Image Adjust Mode
@@ -1843,18 +1924,38 @@ const getDraggableElement = (target, canvasRoot) => {
               activeMainTool={activeMainTool}
               baseWidth={baseWidth}
               baseHeight={baseHeight}
+              isImagesModalOpen={isImagesModalOpen}
+              onToggleImagesModal={() => {
+                setIsElementsModalOpen(false);
+                setIsIconsModalOpen(false);
+                setIsImagesModalOpen(prev => !prev);
+              }}
+              onCloseImagesModal={() => setIsImagesModalOpen(false)}
               isElementsModalOpen={isElementsModalOpen}
               onToggleElementsModal={() => {
+                setIsImagesModalOpen(false);
                 setIsIconsModalOpen(false);
                 setIsElementsModalOpen(prev => !prev);
               }}
               onCloseElementsModal={() => setIsElementsModalOpen(false)}
               isIconsModalOpen={isIconsModalOpen}
               onToggleIconsModal={() => {
+                setIsImagesModalOpen(false);
                 setIsElementsModalOpen(false);
                 setIsIconsModalOpen(prev => !prev);
               }}
               onCloseIconsModal={() => setIsIconsModalOpen(false)}
+            />
+          )}
+
+          {/* Draggable Images Modal */}
+          {!isPdfMode && (
+            <ImagesModal
+              isOpen={isImagesModalOpen}
+              onClose={() => setIsImagesModalOpen(false)}
+              isRulerEnabled={localRulerEnabled}
+              activePageIndex={activePageIndex}
+              dragConstraintsRef={editorContainerRef}
             />
           )}
 

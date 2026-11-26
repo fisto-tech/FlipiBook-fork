@@ -1,4 +1,4 @@
-# Coming Soon flow (pre-launch lock) — currently DISABLED
+# Coming Soon flow (pre-launch lock) — currently ENABLED
 
 This folder keeps the pre-launch "Coming Soon" flow so it can be switched back on quickly.
 When enabled:
@@ -64,7 +64,7 @@ independently of this flow.
    ```
 
 Open pages during the lock are listed in `config/launchLock.js` (`LAUNCH_ALLOWED_PATHS` /
-`LAUNCH_ALLOWED_PREFIXES`) — currently Home, Features and the legal pages.
+`LAUNCH_ALLOWED_PREFIXES`) — currently Home, Features, Pricing and the legal pages.
 
 To open the site again later, either undo steps 2–4 or simply set `LAUNCH_LOCK = false`
 (the gate, header blocker and popup then all switch off).

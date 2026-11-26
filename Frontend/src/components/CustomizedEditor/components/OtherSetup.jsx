@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import PremiumDropdown from './PremiumDropdown';
-import ColorPicker from '../../ColorPallet';
+import { ColorPallet as ColorPicker } from '../../Color';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import {

@@ -83,7 +83,7 @@ function CameraSlider({ label, value, onChange, min = 0, max = 100, step = 1, un
 import React, { useState, useRef, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import * as THREE from "three";
-import ColorPicker from "../../ColorPicker";
+import ColorPicker from "../../../Color";
 import { AxisInput } from "../common/PanelInputs";
 
 export const CAMERA_BG_PRESETS = [

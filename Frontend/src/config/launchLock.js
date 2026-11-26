@@ -12,6 +12,7 @@ export const LAUNCH_ALLOWED_PATHS = ['/', '/home', '/coming-soon'];
 // Path prefixes that stay open (the page and anything under it)
 export const LAUNCH_ALLOWED_PREFIXES = [
   '/features',
+  '/pricing',
   // Legal & policy pages (pages/LegalFile)
   '/terms', '/privacy', '/cookie', '/refund', '/copyright',
 ];

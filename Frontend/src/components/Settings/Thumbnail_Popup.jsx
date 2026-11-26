@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
-import ColorPallet from '../ColorPallet';
-import ColorPicker from '../ColorPicker';
+import { ColorPallet, ColorPicker } from '../Color';
 import { resolveUploadsPath } from '../../utils/assets/assetUtils';
 
 const ThumbnailPopup = ({ isOpen, onClose, bannerBg, setBannerBg, onStartCrop }) => {

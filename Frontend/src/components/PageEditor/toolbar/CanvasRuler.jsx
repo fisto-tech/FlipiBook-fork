@@ -388,7 +388,7 @@ const CanvasRuler = ({
   };
 
   return (
-    <div ref={containerRef} className="absolute inset-0 pointer-events-none z-40 overflow-hidden">
+    <div ref={containerRef} data-picker-ui="true" className="absolute inset-0 pointer-events-none z-40 overflow-hidden">
       {/* Horizontal Ruler */}
       <canvas
         ref={horizontalCanvasRef}

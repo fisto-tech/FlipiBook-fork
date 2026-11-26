@@ -16,6 +16,9 @@ export default function Signin({ onSwitchToSignup, onSwitchToForgotPassword }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [reactivateEmail, setReactivateEmail] = useState("");
+  const [reactivateOtp, setReactivateOtp] = useState("");
+  const [isReactivating, setIsReactivating] = useState(false);
   const [formData, setFormData] = useState({
     emailId: "",
     password: "",
@@ -70,6 +73,12 @@ export default function Signin({ onSwitchToSignup, onSwitchToForgotPassword }) {
           }
         } catch (err) {
           console.error("Google Auth Error:", err);
+          if (err.response?.data?.code === 'ACCOUNT_DEACTIVATED') {
+            setReactivateEmail(err.response?.data?.emailId || '');
+            setReactivateOtp('');
+            toast.info(err.response?.data?.message || "Account deactivated. Enter the OTP sent to your email.");
+            return;
+          }
           const errorMsg = getErrorMessage(err, "Google Authentication failed. Please try again.");
           toast.error(errorMsg);
 
@@ -148,6 +157,12 @@ export default function Signin({ onSwitchToSignup, onSwitchToForgotPassword }) {
       }
     } catch (err) {
       console.error("Login error:", err);
+      if (err.response?.data?.code === 'ACCOUNT_DEACTIVATED') {
+        setReactivateEmail(err.response?.data?.emailId || email);
+        setReactivateOtp('');
+        toast.info(err.response?.data?.message || "Account deactivated. Enter the OTP sent to your email.");
+        return;
+      }
       const errorMsg = getErrorMessage(err, "Invalid email or password");
       toast.error(errorMsg);
 
@@ -161,6 +176,105 @@ export default function Signin({ onSwitchToSignup, onSwitchToForgotPassword }) {
       setIsLoading(false);
     }
   };
+
+  const handleReactivateSubmit = async (e) => {
+    e.preventDefault();
+    if (!reactivateOtp.trim()) {
+      toast.error("Please enter the 6-digit OTP");
+      return;
+    }
+    setIsReactivating(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
+      const deviceInfo = getClientDeviceInfo();
+      const res = await axios.post(
+        `${backendUrl}/api/auth/reactivate-account`,
+        {
+          emailId: reactivateEmail,
+          otp: reactivateOtp.trim(),
+          ...deviceInfo,
+        },
+        { withCredentials: true }
+      );
+      if (res.data?.success) {
+        if (res.data.token) setSessionToken(res.data.token);
+        setUser(res.data.user || { emailId: reactivateEmail });
+        prefetchMyFlipbooks(res.data.user?.emailId || reactivateEmail);
+        toast.success("Account reactivated! Welcome back.");
+        setReactivateEmail("");
+        setReactivateOtp("");
+        closeAuthModal?.();
+        if (authRedirectPath) navigate(authRedirectPath);
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Invalid or expired OTP"));
+    } finally {
+      setIsReactivating(false);
+    }
+  };
+
+  const handleResendReactivateOtp = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
+      const res = await axios.post(`${backendUrl}/api/auth/resend-reactivate-otp`, { emailId: reactivateEmail });
+      if (res.data?.success) {
+        toast.success("A new reactivation OTP has been sent to your email.");
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to resend OTP"));
+    }
+  };
+
+  if (reactivateEmail) {
+    return (
+      <div className="w-full h-full flex flex-col py-[2vw]">
+        <div className="text-center">
+          <h1 className="text-[1.6vw] font-semibold font-poppins tracking-tight text-gray-900 uppercase leading-tight">
+            REACTIVATE ACCOUNT
+          </h1>
+          <p className="text-[0.8vw] text-gray-500 font-inter mt-[0.4vw]">
+            Your account <span className="font-semibold text-gray-800">{reactivateEmail}</span> is deactivated. Enter the 6-digit OTP sent to your email to reactivate.
+          </p>
+        </div>
+
+        <form onSubmit={handleReactivateSubmit} className="flex-1 flex flex-col justify-center gap-[1vw] mt-[1vw]">
+          <input
+            type="text"
+            maxLength={6}
+            value={reactivateOtp}
+            onChange={(e) => setReactivateOtp(e.target.value.replace(/[^0-9]/g, ""))}
+            placeholder="Enter 6-digit OTP"
+            className="w-full text-center tracking-[0.4em] font-mono py-[0.75vw] px-[1vw] bg-white border border-gray-200 rounded-[0.65vw] text-[1vw] text-gray-900 focus:outline-none focus:border-[#EC5137]"
+            autoFocus
+          />
+          <button
+            type="submit"
+            disabled={isReactivating}
+            className="w-full py-[0.7vw] rounded-[0.65vw] bg-[#EC5137] hover:bg-[#d9442b] text-white font-semibold text-[0.85vw] flex items-center justify-center gap-[0.4vw] cursor-pointer disabled:opacity-60"
+          >
+            {isReactivating ? <Loader2 className="w-[1vw] h-[1vw] animate-spin" /> : null}
+            <span>{isReactivating ? "Reactivating..." : "Verify & Reactivate"}</span>
+          </button>
+          <div className="flex items-center justify-between text-[0.76vw] pt-[0.2vw]">
+            <button
+              type="button"
+              onClick={handleResendReactivateOtp}
+              className="text-[#EC5137] font-medium hover:underline cursor-pointer"
+            >
+              Resend OTP
+            </button>
+            <button
+              type="button"
+              onClick={() => { setReactivateEmail(""); setReactivateOtp(""); }}
+              className="text-gray-500 hover:text-gray-800 cursor-pointer"
+            >
+              Back to Sign In
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full flex flex-col  py-[2vw]">

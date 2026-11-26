@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, AlertCircle, Loader2, X, Copy, Check } from 'lucide-react';
 import { Icon } from '@iconify/react';
-import ColorPicker from '../../../properties/ColorPicker';
+import ColorPicker from '../../../../Color';
 import { DEFAULT_MAP_DATA, MAP_TEMPLATES, generateOverlayHtml, escapeXml } from '../utils/mapElementUtils';
 import { ElementToggle, ElementDropdown, ElementSlider } from './ElementUIControls';
-import { handleScrubHelper } from '../../../properties/propertiesShared';
+import { handleScrubHelper } from '../../../properties/controls/propertiesShared';
 
 // Section header matching editor design standards
 const SectionHeader = ({ title, rightElement }) => (

@@ -11,6 +11,8 @@ const {
   resetPassword,
   sendAddPasswordOtp,
   setPasswordWithOtp,
+  reactivateAccount,
+  resendReactivateOtp,
   logout,
   getLoginLogs,
   verifySession,
@@ -34,6 +36,8 @@ router.post('/forgot-password', otpLimiter, forgotPassword);
 router.post('/reset-password', otpVerifyLimiter, resetPassword);
 router.post('/send-add-password-otp', otpLimiter, sendAddPasswordOtp);
 router.post('/set-password-otp', otpVerifyLimiter, setPasswordWithOtp);
+router.post('/reactivate-account', otpVerifyLimiter, reactivateAccount);
+router.post('/resend-reactivate-otp', otpLimiter, resendReactivateOtp);
 router.post('/logout', logout);
 
 // Session Verification Endpoint (reads HttpOnly cookie)

@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronUp, Trash2, Plus, X, Pipette, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Icon } from '@iconify/react';
-import { handleScrubHelper } from './Color';
-import ColorPicker from './ColorPicker';
-import { ElementToggle } from '../LeftActionMenu/Elements/properties/ElementUIControls';
+import { handleScrubHelper } from '../FillStrokeProperties';
+import ColorPicker from '../../../Color';
+import { ElementToggle } from '../../LeftActionMenu/Elements/properties/ElementUIControls';
 
-import { createScreenEyeDropper, canPickScreenColor } from '../../../utils/screenColorPicker';
+import { createScreenEyeDropper, canPickScreenColor } from '../../../../utils/screenColorPicker';
 export const EffectDecimalInput = ({ value, onChange, min, max, className = '' }) => {
   const [localVal, setLocalVal] = useState(() => (value !== undefined && value !== null && !isNaN(value) ? String(value) : '0'));
   const [isFocused, setIsFocused] = useState(false);

@@ -5,7 +5,7 @@
  * preset shapes and user-drawn shapes (paths, rects, ellipses, polygons, stars).
  */
 import { DEFAULT_FRAME_IMAGE } from './imageFramingUtils';
-import { parseGradient } from '../../../../ColorPicker';
+import { parseGradient } from '../../../../Color';
 
 /**
  * Applies either an SVG linear/radial gradient (via <defs>) or a solid color to an element.

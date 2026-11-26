@@ -32,7 +32,7 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
       setLanguage(currentBook?.language || currentBook?.meta?.language || 'English');
       setErrors({});
       setTagInput('');
-      
+
       if (currentBook?.tags && Array.isArray(currentBook.tags)) {
         setTags(currentBook.tags);
       } else if (currentBook?.meta?.tags && Array.isArray(currentBook.meta.tags)) {
@@ -164,13 +164,13 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
   const modalJsx = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center p-[1vw]">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" 
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
       {/* Modal Container */}
-      <div 
+      <div
         className="relative bg-white w-[54vw] max-h-[94vh] rounded-[1.2vw] shadow-2xl animate-in fade-in zoom-in-95 duration-300 font-sans p-[1.6vw] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -198,21 +198,21 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
             <div className="relative rounded-[0.9vw] bg-gray-50 w-full aspect-[4/3] flex items-center justify-center shadow-inner overflow-hidden border border-gray-200/50">
               {coverPicture?.type === 'template' ? (
                 <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gray-100 rounded-[0.5vw]">
-                  <TemplatePreview 
-                    {...coverPicture} 
-                    pages={currentBook?.pages || []} 
+                  <TemplatePreview
+                    {...coverPicture}
+                    pages={currentBook?.pages || []}
                   />
                 </div>
               ) : coverPicture?.url ? (
-                <img 
-                  src={coverPicture.url} 
-                  alt="Flipbook Cover" 
+                <img
+                  src={coverPicture.url}
+                  alt="Flipbook Cover"
                   className="w-full h-full object-cover"
                 />
               ) : thumbnailUrl ? (
-                <img 
-                  src={thumbnailUrl} 
-                  alt="Flipbook Cover" 
+                <img
+                  src={thumbnailUrl}
+                  alt="Flipbook Cover"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -383,8 +383,8 @@ const PublishModal = ({ isOpen, onClose, currentBook, onPublishSuccess }) => {
                   {tags.map((tag, idx) => (
                     <div key={idx} className="bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-[0.35vw] px-[0.5vw] py-[0.2vw] flex items-center gap-[0.3vw] text-[0.72vw] font-semibold text-gray-700 whitespace-nowrap transition-colors flex-shrink-0">
                       <span>{tag}</span>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => handleRemoveTag(idx)}
                         className="text-gray-400 hover:text-gray-700 cursor-pointer"
                       >

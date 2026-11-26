@@ -1167,12 +1167,23 @@ const copyThemeAsset = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getTransporter = () => {
   const user = (process.env.EMAIL_USER || '').trim();
-  const pass = (process.env.EMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
+  const pass = (process.env.EMAIL_APP_PASSWORD || '').trim();
+  if (process.env.SMTP_HOST) {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: user,
+        pass: pass,
+      },
+    });
+  }
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: user,
-      pass: pass,
+      pass: pass.replace(/\s+/g, ''),
     },
   });
 };
@@ -1558,7 +1569,7 @@ const submitLead = async (req, res) => {
 
         const transporter = getTransporter();
         const senderDisplayName = (leadNotification.senderName || 'Flipibook Lead Form').trim();
-        const fromHeader = `"${senderDisplayName}" <${process.env.EMAIL_USER || 'no-reply@fistotech.com'}>`;
+        const fromHeader = `"${senderDisplayName}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@flipibook.com'}>`;
 
         // 1. Send Alert Email to Primary Recipient + CC Additional Recipients
         if (primaryRecipient) {

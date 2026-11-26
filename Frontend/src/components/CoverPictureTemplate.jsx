@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { Icon } from '@iconify/react';
 import PremiumDropdown from './CustomizedEditor/components/PremiumDropdown';
 import { ImageCropOverlay } from './CustomizedEditor/AppearanceShared';
-import ColorPicker from './ColorPicker';
+import ColorPicker from './Color';
 import Switch from './CustomizedEditor/components/Switch';
 
 export const scrollbarStyles = `

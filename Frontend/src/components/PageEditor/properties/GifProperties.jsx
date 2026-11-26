@@ -9,13 +9,13 @@ import {
 } from "lucide-react";
 import { Icon } from '@iconify/react';
 
-import CornerRadius from './CornerRadius';
-import Effect from './Effect';
+import CornerRadius from './controls/CornerRadius';
+import Effect from './controls/Effect';
 import ReplaceMediaModal from '../modals/ReplaceMediaModal';
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
-import Color from './Color';
-import { parseGradient } from './ColorPicker';
-import { formatBytes } from './propertiesShared';
+import Color from './FillStrokeProperties';
+import { parseGradient } from '../../Color';
+import { formatBytes } from './controls/propertiesShared';
 
 const GifProperties = ({
   selectedElement,
