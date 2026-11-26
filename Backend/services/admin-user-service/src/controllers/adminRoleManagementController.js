@@ -111,23 +111,28 @@ const updateRolePermissions = async (req, res) => {
 
     const accessList = formatPermissionsToAccess(permissions);
 
-    // Identify if the target refers to Super Admin / Fist-O / Admin
+    // Identify if the target refers to super_admin
     const isSuperAdminTarget =
+      String(targetKey).toLowerCase() === 'super_admin' ||
+      String(targetKey).toLowerCase() === 'super admin' ||
       String(targetKey).toLowerCase() === 'admin' ||
       String(targetKey).toLowerCase() === 'super administrator' ||
       String(targetKey).toLowerCase() === 'fist-o' ||
+      String(applyTo || '').toLowerCase() === 'super_admin' ||
+      String(applyTo || '').toLowerCase() === 'super admin' ||
       String(applyTo || '').toLowerCase() === 'admin' ||
       String(applyTo || '').toLowerCase() === 'fist-o' ||
       String(applyTo || '').toLowerCase() === 'super administrator' ||
+      String(appliedPersonName || '').toLowerCase() === 'super_admin' ||
       String(appliedPersonName || '').toLowerCase() === 'fist-o';
 
     if (isSuperAdminTarget) {
-      // Also update or ensure Admin entry exists in AdminRole
+      // Also update or ensure super_admin entry exists in AdminRole
       await AdminRole.findOneAndUpdate(
-        { Role: 'Admin' },
+        { Role: 'super_admin' },
         {
           $set: {
-            Role: 'Admin',
+            Role: 'super_admin',
             createdDate: new Date()
           }
         },
@@ -136,8 +141,9 @@ const updateRolePermissions = async (req, res) => {
 
       const adminUser = await AdminUser.findOne({
         $or: [
+          { role: { $regex: /^super_admin$/i } },
           { userid: { $regex: /^admin$/i } },
-          { name: { $regex: /super administrator|fist-o/i } },
+          { name: { $regex: /super_admin|super administrator|fist-o/i } },
           { e_mailid: 'admin@flipibook.com' }
         ]
       });

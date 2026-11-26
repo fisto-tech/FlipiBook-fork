@@ -50,13 +50,10 @@ export default function RoleAccessPage() {
 
           // Populate permissions map from DB roles
           const permMap = getStoredPermissionsMap();
-          // Ensure default for Admin only if not yet set
-          if (!permMap['Admin'] && !permMap['Super Administrator']) {
+          // Ensure default for super_admin only if not yet set
+          if (!permMap['super_admin']) {
             const allAdminEnabled = DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: true }));
-            permMap['Admin'] = allAdminEnabled;
-            permMap['All Admin'] = allAdminEnabled;
-            permMap['Super Administrator'] = allAdminEnabled;
-            permMap['Super Administrator (Admin)'] = allAdminEnabled;
+            permMap['super_admin'] = allAdminEnabled;
           }
 
           rolesRes.roles.forEach((r) => {
@@ -141,15 +138,15 @@ export default function RoleAccessPage() {
   }, []);
 
   // Designations list populated strictly by user-added roles AND designations typed in User Management
-  // Excludes Super Admin / Admin because Super Admin permissions are permanent and cannot be restricted
+  // Excludes super_admin because super_admin permissions are permanent and cannot be restricted
   const designationsList = React.useMemo(() => {
     const list = [];
     const isSuperAdminRole = (name) => {
       const lower = String(name || '').trim().toLowerCase();
-      return lower === 'super admin' || lower === 'admin' || lower === 'super administrator';
+      return lower === 'super_admin' || lower === 'super admin' || lower === 'admin' || lower === 'super administrator';
     };
 
-    // 1. Roles added via + Add Roles (exclude Super Admin)
+    // 1. Roles added via + Add Roles (exclude super_admin)
     rolesList.forEach((r) => {
       const name = (r.name || r.roleName || '').trim();
       if (name && !isSuperAdminRole(name) && !list.some((item) => item.toLowerCase() === name.toLowerCase())) {
@@ -157,7 +154,7 @@ export default function RoleAccessPage() {
       }
     });
 
-    // 2. Custom designations entered on users (exclude Super Admin)
+    // 2. Custom designations entered on users (exclude super_admin)
     usersList.forEach((u) => {
       const desig = (u.designation || '').trim();
       if (desig && !isSuperAdminRole(desig) && !list.some((item) => item.toLowerCase() === desig.toLowerCase())) {
@@ -178,13 +175,14 @@ export default function RoleAccessPage() {
 
     const desigClean = designation.trim().toLowerCase();
     const isSuperAdminDesig =
+      desigClean === 'super_admin' ||
       desigClean === 'admin' ||
       desigClean === 'super admin' ||
       desigClean === 'super administrator';
 
-    // 1. If Super Administrator is selected, Apply To should show Super Administrator
+    // 1. If super_admin is selected, Apply To should show super_admin
     if (isSuperAdminDesig) {
-      return [{ label: 'Super Administrator', value: 'Super Administrator' }];
+      return [{ label: 'super_admin', value: 'super_admin' }];
     }
 
     // Filter users assigned to this role or designation
@@ -193,9 +191,13 @@ export default function RoleAccessPage() {
       const userRoleName = (matchedRole?.name || u.roleId || '').trim().toLowerCase();
       const userDesig = (u.designation || '').trim().toLowerCase();
       const userName = (u.name || '').trim().toLowerCase();
-      const isUserAdmin = String(u.userId || '').toLowerCase() === 'admin' || userName.includes('super administrator');
+      const isUserAdmin =
+        String(u.userId || '').toLowerCase() === 'admin' ||
+        String(u.role || '').toLowerCase() === 'super_admin' ||
+        userName.includes('super administrator') ||
+        userName.includes('super_admin');
 
-      // If viewing any other designation: NEVER include the Super Admin user
+      // If viewing any other designation: NEVER include the super_admin user
       if (isUserAdmin) {
         return false;
       }
@@ -253,17 +255,20 @@ export default function RoleAccessPage() {
     const permMap = getStoredPermissionsMap();
     const targetKey = applyTo;
     const isSuperAdminTarget =
+      String(designation || '').toLowerCase() === 'super_admin' ||
       String(designation || '').toLowerCase() === 'admin' ||
       String(designation || '').toLowerCase() === 'super admin' ||
       String(designation || '').toLowerCase() === 'super administrator' ||
+      String(applyTo || '').toLowerCase() === 'super_admin' ||
       String(applyTo || '').toLowerCase() === 'admin' ||
-      String(applyTo || '').toLowerCase().includes('super administrator');
+      String(applyTo || '').toLowerCase().includes('super administrator') ||
+      String(applyTo || '').toLowerCase().includes('super_admin');
 
     // 1. Direct custom permissions for this specific user/group
     if (targetKey && permMap[targetKey]) {
       setPermissions(mergeWithDefaultPermissions(permMap[targetKey]));
-    } else if (isSuperAdminTarget && (permMap['Super Administrator'] || permMap['Admin'])) {
-      setPermissions(mergeWithDefaultPermissions(permMap['Super Administrator'] || permMap['Admin']));
+    } else if (isSuperAdminTarget && permMap['super_admin']) {
+      setPermissions(mergeWithDefaultPermissions(permMap['super_admin']));
     } else if (isSuperAdminTarget) {
       setPermissions(DEFAULT_MODULE_PERMISSIONS.map((p) => ({ ...p, enabled: true })));
     } else if (permMap[`All ${designation}`]) {
@@ -286,9 +291,8 @@ export default function RoleAccessPage() {
     if (targetKey) {
       const permMap = getStoredPermissionsMap();
       permMap[targetKey] = newPermissions;
-      if (applyTo === 'Super Administrator' || designation === 'Admin') {
-        permMap['Super Administrator'] = newPermissions;
-        permMap['Admin'] = newPermissions;
+      if (applyTo === 'super_admin' || designation === 'super_admin' || applyTo === 'Super Administrator' || designation === 'Admin') {
+        permMap['super_admin'] = newPermissions;
       }
       if (applyTo === `All ${designation}`) {
         permMap[designation] = newPermissions;
@@ -404,6 +408,7 @@ export default function RoleAccessPage() {
                 // Dynamically pick initial default:
                 const desigClean = (val || '').trim().toLowerCase();
                 const isSuperAdminDesig =
+                  desigClean === 'super_admin' ||
                   desigClean === 'admin' ||
                   desigClean === 'super admin' ||
                   desigClean === 'super administrator';
@@ -413,10 +418,14 @@ export default function RoleAccessPage() {
                   const userRoleName = (matchedRole?.name || u.roleId || '').trim().toLowerCase();
                   const userDesig = (u.designation || '').trim().toLowerCase();
                   const userName = (u.name || '').trim().toLowerCase();
-                  const isUserAdmin = String(u.userId || '').toLowerCase() === 'admin' || userName.includes('super administrator');
+                  const isUserAdmin =
+                    String(u.userId || '').toLowerCase() === 'admin' ||
+                    String(u.role || '').toLowerCase() === 'super_admin' ||
+                    userName.includes('super administrator') ||
+                    userName.includes('super_admin');
 
                   if (isSuperAdminDesig) {
-                    return isUserAdmin || userDesig === 'admin' || userRoleName === 'admin';
+                    return isUserAdmin || userDesig === 'admin' || userRoleName === 'admin' || userDesig === 'super_admin';
                   }
 
                   if (isUserAdmin) {
@@ -431,7 +440,7 @@ export default function RoleAccessPage() {
                   );
                 });
                 if (isSuperAdminDesig) {
-                  setApplyTo('Fist-O');
+                  setApplyTo('super_admin');
                 } else if (assigned.length >= 2) {
                   setApplyTo(`All ${val}`);
                 } else if (assigned.length === 1) {
