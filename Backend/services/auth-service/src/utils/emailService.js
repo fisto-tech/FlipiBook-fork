@@ -1,8 +1,8 @@
 const nodemailer = require('nodemailer');
 
 const createTransporter = () => {
-  const emailUser = process.env.EMAIL_USER;
-  const emailPass = process.env.EMAIL_APP_PASSWORD;
+  const emailUser = (process.env.EMAIL_USER || '').trim();
+  const emailPass = (process.env.EMAIL_APP_PASSWORD || '').trim();
 
   if (!emailUser || !emailPass) {
     console.warn('[Email Service] Warning: EMAIL_USER or EMAIL_APP_PASSWORD not set in environment.');
@@ -37,7 +37,7 @@ const createTransporter = () => {
  */
 const sendOtpEmail = async (toEmail, otp) => {
   const transporter = createTransporter();
-  const senderEmail = process.env.EMAIL_FROM || 'no-reply@flipibook.com';
+  const senderEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@flipibook.com';
   const fromHeader = process.env.EMAIL_FROM_NAME
     ? `"${process.env.EMAIL_FROM_NAME}" <${senderEmail}>`
     : `"Flipbook" <${senderEmail}>`;
@@ -100,7 +100,7 @@ const sendOtpEmail = async (toEmail, otp) => {
 const sendSignupOtpEmail = async (toEmail, otp, userName = '') => {
   const transporter = createTransporter();
   const greeting = userName ? `Hello ${userName},` : 'Hello,';
-  const senderEmail = process.env.EMAIL_USER || 'no-reply@flipibook.com';
+  const senderEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@flipibook.com';
   const fromHeader = process.env.EMAIL_FROM_NAME
     ? `"${process.env.EMAIL_FROM_NAME}" <${senderEmail}>`
     : `"Flipbook" <${senderEmail}>`;
