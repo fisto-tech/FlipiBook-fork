@@ -653,6 +653,7 @@ const MainEditor = ({
 
   useEffect(() => {
     const handleTriggerInlineTranslate = async (e) => {
+      if (isPdfMode) return;
       const { targetLang = 'tam_Taml', layerId = null } = e?.detail || {};
       await executeInlineTranslation({
         targetLang,
@@ -669,7 +670,7 @@ const MainEditor = ({
     };
     window.addEventListener('trigger-inline-translate', handleTriggerInlineTranslate);
     return () => window.removeEventListener('trigger-inline-translate', handleTriggerInlineTranslate);
-  }, [activePageIndex, selectedLayerId, saveModifiedPageHtml]);
+  }, [isPdfMode, activePageIndex, selectedLayerId, saveModifiedPageHtml]);
 
   const computedCanvaBackground = useMemo(() => {
     if (isPopupEditor) return 'transparent';

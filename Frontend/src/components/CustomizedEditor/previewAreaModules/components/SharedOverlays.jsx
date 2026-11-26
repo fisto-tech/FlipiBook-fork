@@ -391,7 +391,7 @@ const SharedOverlays = ({
 
         const imgElement = (
           <div
-            className={`absolute z-[90] pointer-events-auto transition-all ${bottomClass} ${rightClass} select-none flex flex-col items-end`}
+            className={`absolute z-[90] pointer-events-auto ${bottomClass} ${rightClass} select-none flex flex-col items-end`}
             style={{
               opacity,
               transform: `translate(${posX}px, ${posY}px)`,
@@ -403,7 +403,7 @@ const SharedOverlays = ({
             <img
               src={watermarkSettings.src}
               alt="Watermark"
-              className="max-w-[7.5vw] max-h-[3.5vw] object-contain transition-transform"
+              className="max-w-[7.5vw] max-h-[3.5vw] object-contain"
               style={{
                 filter: filterStr,
                 transform: `scale(${scale}) rotate(${rotate}deg)`,
