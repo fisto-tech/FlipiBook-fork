@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronUp, Trash2, Plus, X, Pipette, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Icon } from '@iconify/react';
-import { handleScrubHelper } from './Color';
-import ColorPicker from './ColorPicker';
+import { handleScrubHelper } from './FillStrokeProperties';
+import ColorPicker from '../../Color';
 import { ElementToggle } from '../LeftActionMenu/Elements/properties/ElementUIControls';
 
 import { createScreenEyeDropper, canPickScreenColor } from '../../../utils/screenColorPicker';

@@ -38,6 +38,13 @@ export const exitNodeEditModeHelper = ({
   });
 
   const pathEl = nodeEditPathRef ? nodeEditPathRef.current : null;
+  // Clear node-edit markers — left behind they suppress the selection handles on the path
+  if (pathEl) {
+    pathEl.removeAttribute('data-node-edit');
+    pathEl.removeAttribute('data-image-adjust-active');
+  }
+  document.querySelectorAll('[data-node-edit-active="true"]').forEach(el => el.removeAttribute('data-node-edit-active'));
+  document.querySelectorAll('.page-svg-container [data-node-edit="true"]').forEach(el => el.removeAttribute('data-node-edit'));
   nodeEditModeRef.current = false;
   if (nodeEditPathRef) nodeEditPathRef.current = null;
   if (drawingPathRef) drawingPathRef.current = null;

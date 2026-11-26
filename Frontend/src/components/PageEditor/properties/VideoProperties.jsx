@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 import ReplaceMediaModal from "../modals/ReplaceMediaModal";
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
-import Color from './Color';
+import Color from './FillStrokeProperties';
 import CornerRadius from './CornerRadius';
 import Effect from './Effect';
-import { parseGradient } from "./ColorPicker";
+import { parseGradient } from "../../Color";
 import { syncGradient, getEmbedVideoUrl } from '../utils/editorUtils';
 import { formatBytes } from './propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';

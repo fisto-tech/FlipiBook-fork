@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { StrokeWidthInput } from '../../../properties/Color';
+import { StrokeWidthInput } from '../../../properties/FillStrokeProperties';
 import { createPortal } from 'react-dom';
 import {
   Copy,
   Check,
   Loader2
 } from 'lucide-react';
-import ColorPicker from '../../../properties/ColorPicker';
+import ColorPicker from '../../../../Color';
 import Effect from '../../../properties/Effect';
 import { ElementToggle, ElementDropdown } from './ElementUIControls';
 import { getEmbedOverlayHtml } from '../utils/embedElementUtils';

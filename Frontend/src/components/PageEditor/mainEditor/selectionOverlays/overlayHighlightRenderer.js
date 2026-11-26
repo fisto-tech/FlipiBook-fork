@@ -9,6 +9,33 @@ import {
   purgeElementOverlays
 } from './overlayDomUtils';
 
+// Live pointer state: a drag / text-edit flag that outlived its gesture must never hide the handles.
+// Native drag-and-drop (e.g. dragging an element in from the Elements panel) never fires
+// pointerup — only dragend/drop — so those must end the gesture too, otherwise the editor thinks the
+// mouse is still held and keeps the resize dots hidden. A pointermove with no buttons pressed is the
+// final safety net. The state is mirrored on window.__fbePointerDown for the handle watchdog.
+let pointerIsDown = false;
+const setPointerDown = (v) => {
+  pointerIsDown = v;
+  if (typeof window !== 'undefined') window.__fbePointerDown = v;
+};
+if (typeof window !== 'undefined' && !window.__fbeHandlePointerTrack2) {
+  window.__fbeHandlePointerTrack2 = true;
+  window.addEventListener('pointerdown', () => setPointerDown(true), true);
+  const up = () => setPointerDown(false);
+  ['pointerup', 'pointercancel', 'mouseup', 'dragend', 'drop'].forEach((t) => window.addEventListener(t, up, true));
+  window.addEventListener('blur', up);
+  window.addEventListener('pointermove', (e) => { if (pointerIsDown && e.buttons === 0) setPointerDown(false); }, true);
+}
+const isLiveTextEdit = (el) => !!(el && (el.getAttribute?.('data-editing') === 'true' ||
+  el.querySelector?.('[data-editing="true"], [contenteditable="true"]')));
+const clearStaleDrag = (el) => {
+  if (pointerIsDown) return;
+  if (el?.getAttribute?.('data-dragging') === 'true') el.removeAttribute('data-dragging');
+  document.querySelectorAll('[data-dragging="true"]').forEach((n) => n.removeAttribute('data-dragging'));
+  document.body.classList.remove('dragging-active');
+};
+
 export { isElementHidden, purgeElementOverlays };
 
 /**
@@ -52,7 +79,12 @@ export const createOverlayHighlightRenderer = ({
     if (el.getAttribute('data-is-animating') === 'true') return;
 
     // Suppress object selection box, hover highlights, and resize handles during Path Node Edit Mode
-    if (nodeEditModeRef?.current || el.getAttribute('data-node-edit') === 'true' || el.closest?.('[data-node-edit-active="true"]')) {
+    // (the data-node-edit markers only count while node-edit mode is really on; stale ones are dropped)
+    if (!nodeEditModeRef?.current && (el.getAttribute('data-node-edit') === 'true' || el.closest?.('[data-node-edit-active="true"]'))) {
+      el.removeAttribute('data-node-edit');
+      el.closest?.('[data-node-edit-active="true"]')?.removeAttribute('data-node-edit-active');
+    }
+    if (nodeEditModeRef?.current) {
       const overlay = getOverlayForElement(el);
       if (overlay) {
         overlay.querySelectorAll(`[id*="${el.id}"]`).forEach(node => {
@@ -234,7 +266,7 @@ export const createOverlayHighlightRenderer = ({
       isAudioInInteraction;
 
     // Skip if this text element is currently in text-edit mode
-    const isBeingEdited = isEditingTextRef.current && el.id === selectedLayerIdRef.current;
+    const isBeingEdited = isEditingTextRef.current && el.id === selectedLayerIdRef.current && isLiveTextEdit(el);
 
     if (isOverlay) {
       purgeElementOverlays(el);
@@ -302,7 +334,7 @@ export const createOverlayHighlightRenderer = ({
 
         if (localBBox && localBBox.width > 0 && localBBox.height > 0 && elScreenCtm) {
           el.dataset.overlayRetries = '0';
-          const isBeingEditedCheck = isEditingTextRef.current && el.id === selectedLayerIdRef.current;
+          const isBeingEditedCheck = isEditingTextRef.current && el.id === selectedLayerIdRef.current && isLiveTextEdit(el);
 
           const localToOverlay = overlayCtm.inverse().multiply(elScreenCtm);
           const pt1 = overlay.createSVGPoint(); pt1.x = localBBox.x; pt1.y = localBBox.y;
@@ -425,7 +457,9 @@ export const createOverlayHighlightRenderer = ({
 
           // Draw resize handles for selected elements (single selection only)
           const isMultiSelectionBox = el.id === 'multi' || el.id === 'multi-selection-bounds';
-          const hasMultipleSelection = !isMultiSelectionBox && multiSelectedIdsRef.current && multiSelectedIdsRef.current.size > 1 && multiSelectedIdsRef.current.has(el.id);
+          const liveMultiCount = multiSelectedIdsRef.current
+            ? Array.from(multiSelectedIdsRef.current).filter((mid) => document.getElementById(mid)?.isConnected).length : 0;
+          const hasMultipleSelection = !isMultiSelectionBox && liveMultiCount > 1 && multiSelectedIdsRef.current.has(el.id);
           const selectionCount = isMultiSelectionBox ? 1 : (hasMultipleSelection ? multiSelectedIdsRef.current.size : 1);
           if (selectionCount === 1 && (type === 'selected' || type === 'child-selected') && !isBeingEditedCheck) {
             const htmlOverlay = getHtmlOverlayForElement(el);
@@ -438,6 +472,7 @@ export const createOverlayHighlightRenderer = ({
             const showSideHandles = activeTopToolRef.current !== 'interaction' && activeTopToolRef.current !== 'animation' || isInteractiveResizable;
 
             if (htmlOverlay) {
+              clearStaleDrag(el);
               const isDragging = el.getAttribute('data-dragging') === 'true' || document.body.classList.contains('dragging-active');
               if (isDragging) {
                 const existingHandles = htmlOverlay.querySelectorAll(`[id^="resize-handle-${el.id}-"], [id^="rotate-handle-${el.id}"], [id^="rotation-degree-badge-${el.id}"], [id^="rotate-hotspot-${el.id}-"]`);
@@ -768,7 +803,9 @@ export const createOverlayHighlightRenderer = ({
 
       // â”€â”€ RESIZE HANDLES (8 handles) - Fallback path â”€â”€
       const isMultiSelectionBox = el.id === 'multi' || el.id === 'multi-selection-bounds';
-      const hasMultipleSelection = !isMultiSelectionBox && multiSelectedIdsRef.current && multiSelectedIdsRef.current.size > 1 && multiSelectedIdsRef.current.has(el.id);
+      const liveMultiCountFB = multiSelectedIdsRef.current
+        ? Array.from(multiSelectedIdsRef.current).filter((mid) => document.getElementById(mid)?.isConnected).length : 0;
+      const hasMultipleSelection = !isMultiSelectionBox && liveMultiCountFB > 1 && multiSelectedIdsRef.current.has(el.id);
       const selectionCount = isMultiSelectionBox ? 1 : (hasMultipleSelection ? multiSelectedIdsRef.current.size : 1);
       if (selectionCount === 1 && (type === 'selected' || type === 'child-selected') && !isBeingEdited) {
         const htmlOverlay = getHtmlOverlayForElement(el);
@@ -781,6 +818,7 @@ export const createOverlayHighlightRenderer = ({
         const showSideHandlesFB = activeTopToolRef.current !== 'interaction' && activeTopToolRef.current !== 'animation' || isInteractiveResizableFB;
 
         if (htmlOverlay) {
+          clearStaleDrag(el);
           const isDragging = el.getAttribute('data-dragging') === 'true' || document.body.classList.contains('dragging-active');
           if (isDragging) {
             htmlOverlay.querySelectorAll(`[id^="resize-handle-${el.id}-"], [id^="rotate-handle-${el.id}"], [id^="rotation-degree-badge-${el.id}"], [id^="rotate-hotspot-${el.id}-"]`).forEach(h => {

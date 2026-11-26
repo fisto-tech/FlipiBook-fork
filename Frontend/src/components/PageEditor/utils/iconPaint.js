@@ -29,10 +29,47 @@ export const neutralizeIconHitBox = (icon) => {
   });
 };
 
+
+const DRAWABLE = 'path, circle, rect, polygon, polyline, line, ellipse';
+const getPaintGroup = (icon) => icon.querySelector('[data-icon-paint="true"]') ||
+  Array.from(icon.querySelectorAll('g, ' + DRAWABLE))
+    .find((n) => !isIconHitBox(n) && (n.hasAttribute('stroke') || n.hasAttribute('fill')));
+
+const round = (v) => Math.round(v * 2) / 2;
+
+// Screen px per local unit of the icon's paint group (1 when not rendered).
+const screenScale = (el) => {
+  try {
+    const m = el.getScreenCTM?.();
+    const k = m ? Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) : 0;
+    return k > 0 ? k : 1;
+  } catch { return 1; }
+};
+
+/**
+ * Icons use the same stroke model as shapes: `non-scaling-stroke`, so the panel's Stroke Width is
+ * the real on-screen width (not the icon's 24-unit grid width scaled by its size). Older icons are
+ * converted once, keeping their current look.
+ */
+export const ensureIconNonScalingStroke = (icon) => {
+  if (!isIconElement(icon)) return;
+  const paint = getPaintGroup(icon);
+  if (!paint) return;
+  if (icon.getAttribute('data-icon-nss') !== 'true') {
+    const sw = parseFloat(paint.getAttribute('stroke-width'));
+    if (sw > 0) paint.setAttribute('stroke-width', String(Math.max(0.5, round(sw * screenScale(paint)))));
+    icon.setAttribute('data-icon-nss', 'true');
+  }
+  icon.querySelectorAll(DRAWABLE).forEach((n) => {
+    if (!isIconHitBox(n)) n.setAttribute('vector-effect', 'non-scaling-stroke');
+  });
+};
+
 /** Applies one paint attribute to an icon's paint group / shapes. */
 export const applyIconPaint = (icon, attr, val) => {
   if (!isIconElement(icon) || !PAINT_ATTRS.includes(attr)) return;
   neutralizeIconHitBox(icon);
+  if (attr.startsWith('stroke')) ensureIconNonScalingStroke(icon);
   const value = val === null || val === undefined || val === '#' ? 'none' : String(val);
   Array.from(icon.querySelectorAll('g, path, rect, circle, polygon, ellipse, line, polyline'))
     .filter((n) => !isIconHitBox(n))
@@ -48,6 +85,9 @@ export const applyIconPaint = (icon, attr, val) => {
           if (stroked) c.setAttribute('data-icon-stroked', 'true');
           c.setAttribute('stroke', value);
         }
+      } else if (attr === 'stroke-width') {
+        if (isPaintGroup) c.setAttribute(attr, value);
+        else if (c.hasAttribute('stroke-width')) c.removeAttribute('stroke-width');
       } else if (isPaintGroup || stroked) {
         if (attr === 'stroke-dasharray' && value === 'none') c.removeAttribute('stroke-dasharray');
         else c.setAttribute(attr, value);
@@ -57,16 +97,18 @@ export const applyIconPaint = (icon, attr, val) => {
 
 /** Paint values shown in the properties panel (read from the paint group). */
 export const readIconPaint = (icon) => {
-  const paint = icon.querySelector('[data-icon-paint="true"]') ||
-    Array.from(icon.querySelectorAll('g, path, circle, polygon, polyline, line, ellipse, rect'))
-      .find((n) => !isIconHitBox(n) && (n.hasAttribute('stroke') || n.hasAttribute('fill')));
+  const paint = getPaintGroup(icon);
   if (!paint) return null;
   const stroke = paint.getAttribute('stroke');
   const hasStroke = stroke && stroke !== 'none';
+  let sw = parseFloat(paint.getAttribute('stroke-width'));
+  if (!(sw >= 0)) sw = 1;
+  // older icons: show the width as it looks on screen (same model as shapes)
+  if (icon.getAttribute('data-icon-nss') !== 'true') sw = Math.max(0.5, round(sw * screenScale(paint)));
   return {
     fill: paint.getAttribute('fill') || 'none',
     stroke: hasStroke ? stroke : 'none',
-    strokeWidth: hasStroke ? (paint.getAttribute('stroke-width') || '1') : '0',
+    strokeWidth: hasStroke ? String(sw) : '0',
     strokeLinejoin: paint.getAttribute('stroke-linejoin') || null,
   };
 };

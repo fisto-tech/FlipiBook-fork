@@ -28,8 +28,8 @@ export {
   PropertySlider
 } from './propertiesShared';
 
-export { default as Color, ColorField } from './Color';
-export { default as ColorPicker, parseGradient } from './ColorPicker';
+export { default as Color, ColorField, default as FillStrokeProperties } from './FillStrokeProperties';
+export { default as ColorPicker, parseGradient } from '../../Color';
 export { default as Crop, default as CropController, isElementCropped } from './Crop';
 export { default as CornerRadius } from './CornerRadius';
 export { default as Effect } from './Effect';

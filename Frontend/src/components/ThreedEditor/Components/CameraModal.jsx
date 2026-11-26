@@ -5,7 +5,7 @@ import { Icon } from "@iconify/react";
 import * as THREE from "three";
 import { jsPDF } from "jspdf";
 import RenderModel from "./ModelLoaders";
-import ColorPicker from "../ColorPicker";
+import { ColorPallet as ColorPicker } from "../../Color";
 import axios from "axios";
 import { useAuth } from "../../../context/AuthContext";
 export default function CameraModal({ 

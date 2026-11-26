@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-import ColorPicker from '../ColorPallet';
+import { ColorPallet as ColorPicker } from '../Color';
 import { LAYOUT_DEFAULT_COLORS } from './utils/layoutColors';
 
 const LayoutColorCustomizer = ({ colorPopup, setColorPopup, colors, setColors, onUpdateLayoutColors }) => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
-import ColorPicker from '../properties/ColorPicker';
+import ColorPicker from '../../Color';
 import { PRESETS, generateHotspotSVG, generateButtonSVG, generateSvgGradient } from './hotspotSvgUtils';
 
 const ALL_ICON_ASSETS = import.meta.glob('../../../assets/hotspot preset icon/**/*.svg', { query: '?url', import: 'default', eager: true });

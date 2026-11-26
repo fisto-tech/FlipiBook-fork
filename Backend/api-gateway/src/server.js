@@ -33,6 +33,7 @@ const ADMIN_USER_SERVICE_URL = process.env.ADMIN_USER_SERVICE_URL || 'http://127
 // Static allowlist of frontend and gateway origins
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:3000',
   'http://localhost:8000',
   'https://testing.flipibook.com',

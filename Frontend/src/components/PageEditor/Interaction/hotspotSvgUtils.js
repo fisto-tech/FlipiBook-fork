@@ -1,4 +1,4 @@
-import { parseGradient } from '../properties/ColorPicker';
+import { parseGradient } from '../../Color';
 
 export const generateSvgGradient = (colorStr, idPrefix) => {
   if (!colorStr || typeof colorStr !== 'string' || !colorStr.includes('gradient')) {

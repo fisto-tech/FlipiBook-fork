@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Icon } from '@iconify/react';
-import ColorPicker from './ThreedEditor/ColorPicker';
+import { ColorPallet as ColorPicker } from './Color';
 
 const TypographyPanel = ({ 
     isT1, 

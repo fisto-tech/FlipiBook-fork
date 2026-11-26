@@ -149,138 +149,141 @@ export default function UserDetailPage() {
         </div>
       ) : (
         <>
-          {/* User Header Profile Card */}
-          <div className="bg-[#f8f8f8] rounded-[0.85vw] border border-gray-100/90 px-[1.2vw] py-[0.7vw] shadow-xs flex items-center justify-between">
-            <div className="flex items-start gap-[1.2vw]">
-              {/* Profile Avatar */}
-              <div
-                className="w-[3.6vw] h-[3.6vw] rounded-full flex items-center justify-center shrink-0 overflow-hidden shadow-xs mt-[0.1vw]"
-                style={{ backgroundColor: avatarSrc ? 'transparent' : avatarBgColor }}
-              >
-                {avatarSrc ? (
-                  <img
-                    src={avatarSrc}
-                    alt={name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      if (e.currentTarget.nextElementSibling) {
-                        e.currentTarget.nextElementSibling.style.display = 'flex';
-                      }
-                    }}
-                  />
-                ) : null}
+          {/* Sticky Header Wrapper: Profile Card + Navigation Tabs */}
+          <div className="sticky top-[-2vw] z-30 bg-white pt-[0.4vw] pb-[0.6vw] space-y-[1vw] shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]">
+            {/* User Header Profile Card */}
+            <div className="bg-[#f8f8f8] rounded-[0.85vw] border border-gray-100/90 px-[1.2vw] py-[0.7vw] shadow-xs flex items-center justify-between">
+              <div className="flex items-start gap-[1.2vw]">
+                {/* Profile Avatar */}
                 <div
-                  className={`w-full h-full flex items-center justify-center text-white ${avatarSrc ? 'hidden' : 'flex'}`}
-                  style={{ backgroundColor: avatarBgColor }}
+                  className="w-[3.6vw] h-[3.6vw] rounded-full flex items-center justify-center shrink-0 overflow-hidden shadow-xs mt-[0.1vw]"
+                  style={{ backgroundColor: avatarSrc ? 'transparent' : avatarBgColor }}
                 >
-                  <span className="text-white text-[1.5vw] font-bold select-none">
-                    {initialLetter}
-                  </span>
-                </div>
-              </div>
-
-              {/* User Identity Details */}
-              <div className="space-y-[0.25vw] text-[0.8vw]">
-                <div className="flex items-center gap-[0.4vw]">
-                  <span className="text-gray-400 font-semibold">User ID :</span>
-                  <span className="font-semibold text-[#ec5137]">{userIdDisplay}</span>
-                </div>
-                <div className="flex items-center gap-[0.4vw]">
-                  <span className="text-gray-400 font-semibold">User Name :</span>
-                  <span className="font-semibold text-gray-900">{displayName}</span>
-                </div>
-                <div className="flex items-center gap-[0.4vw]">
-                  <span className="text-gray-400 font-semibold">Disp Name :</span>
-                  <span className="font-semibold text-gray-900">{name}</span>
-                </div>
-                <div className="flex items-center gap-[0.4vw]">
-                  <span className="text-gray-400 font-semibold">Email Address :</span>
-                  <span className="font-semibold text-gray-900">{email}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Meta Stats / Status on Right */}
-            <div className="flex items-start gap-[2.4vw] pt-[0.2vw]">
-              <div className="text-left">
-                <span className="text-[0.7vw] text-gray-400 block font-semibold">Acc Type</span>
-                <span className="text-[0.8vw] font-semibold text-gray-900">{accType}</span>
-              </div>
-
-              <div className="h-[2vw] w-[1px] bg-gray-200" />
-
-              <div className="text-left">
-                <span className="text-[0.7vw] text-gray-400 block font-semibold">Join Date</span>
-                <span className="text-[0.8vw] font-semibold text-gray-900">{joinDate}</span>
-              </div>
-
-              <div className="h-[2vw] w-[1px] bg-gray-200" />
-
-              <div className="text-left">
-                <span className="text-[0.7vw] text-gray-400 block font-semibold">Plan</span>
-                <span className="text-[0.8vw] font-semibold text-gray-900">{plan}</span>
-              </div>
-
-              <div className="h-[2vw] w-[1px] bg-gray-200" />
-
-              <div className="text-left">
-                <span className="text-[0.7vw] text-gray-400 block font-semibold">Status</span>
-                <span className="text-[0.8vw] font-semibold text-gray-900">{status}</span>
-              </div>
-
-              {/* Three dots action */}
-              <button className="text-gray-400 hover:text-gray-600 p-[0.3vw] rounded-full hover:bg-gray-100 transition cursor-pointer ml-[0.5vw]">
-                <MoreVertical size="1.1vw" />
-              </button>
-            </div>
-          </div>
-
-          {/* Navigation Pill Capsule (matching UserManagement filter style) */}
-          <div className="flex items-center pt-[0.2vw]">
-            <div className="inline-flex items-center bg-[#FAFAFA] rounded-full p-[0.25vw] border border-gray-200/60">
-              {tabs.map((tab) => {
-                const isSelected = activeTab === tab.name;
-
-                // If this is Flipbooks and a specific book is selected, render nested breadcrumb pill: Flipbooks > FB-BK-001
-                if (tab.name === 'Flipbooks' && isSelected && selectedFlipbookId) {
-                  return (
-                    <div
-                      key={tab.name}
-                      className="inline-flex items-center gap-[0.35vw] px-[0.7vw] py-[0.2vw] text-[0.8vw] font-semibold text-gray-500"
-                    >
-                      <button
-                        onClick={() => setSelectedFlipbookId(null)}
-                        className="hover:text-gray-800 transition cursor-pointer"
-                      >
-                        Flipbooks
-                      </button>
-                      <ChevronRight size="0.75vw" className="text-[#ec5137] stroke-[2.5]" />
-                      <span className="bg-[#ec5137] text-white px-[0.6vw] py-[0.2vw] rounded-full text-[0.7vw] font-semibold">
-                        {selectedFlipbookId}
-                      </span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <button
-                    key={tab.name}
-                    onClick={() => {
-                      setActiveTab(tab.name);
-                      if (tab.name !== 'Flipbooks') {
-                        setSelectedFlipbookId(null);
-                      }
-                    }}
-                    className={`px-[1.2vw] py-[0.4vw] rounded-full text-[0.8vw] font-semibold transition duration-150 cursor-pointer ${isSelected
-                      ? 'bg-[#ec5137] text-white font-semibold'
-                      : 'text-[#8c95a0] hover:text-[#374151]'
-                      }`}
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt={name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        if (e.currentTarget.nextElementSibling) {
+                          e.currentTarget.nextElementSibling.style.display = 'flex';
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={`w-full h-full flex items-center justify-center text-white ${avatarSrc ? 'hidden' : 'flex'}`}
+                    style={{ backgroundColor: avatarBgColor }}
                   >
-                    {tab.label}
-                  </button>
-                );
-              })}
+                    <span className="text-white text-[1.5vw] font-bold select-none">
+                      {initialLetter}
+                    </span>
+                  </div>
+                </div>
+
+                {/* User Identity Details */}
+                <div className="space-y-[0.25vw] text-[0.8vw]">
+                  <div className="flex items-center gap-[0.4vw]">
+                    <span className="text-gray-400 font-semibold">User ID :</span>
+                    <span className="font-semibold text-[#ec5137]">{userIdDisplay}</span>
+                  </div>
+                  <div className="flex items-center gap-[0.4vw]">
+                    <span className="text-gray-400 font-semibold">User Name :</span>
+                    <span className="font-semibold text-gray-900">{displayName}</span>
+                  </div>
+                  <div className="flex items-center gap-[0.4vw]">
+                    <span className="text-gray-400 font-semibold">Disp Name :</span>
+                    <span className="font-semibold text-gray-900">{name}</span>
+                  </div>
+                  <div className="flex items-center gap-[0.4vw]">
+                    <span className="text-gray-400 font-semibold">Email Address :</span>
+                    <span className="font-semibold text-gray-900">{email}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Meta Stats / Status on Right */}
+              <div className="flex items-start gap-[2.4vw] pt-[0.2vw]">
+                <div className="text-left">
+                  <span className="text-[0.7vw] text-gray-400 block font-semibold">Acc Type</span>
+                  <span className="text-[0.8vw] font-semibold text-gray-900">{accType}</span>
+                </div>
+
+                <div className="h-[2vw] w-[1px] bg-gray-200" />
+
+                <div className="text-left">
+                  <span className="text-[0.7vw] text-gray-400 block font-semibold">Join Date</span>
+                  <span className="text-[0.8vw] font-semibold text-gray-900">{joinDate}</span>
+                </div>
+
+                <div className="h-[2vw] w-[1px] bg-gray-200" />
+
+                <div className="text-left">
+                  <span className="text-[0.7vw] text-gray-400 block font-semibold">Plan</span>
+                  <span className="text-[0.8vw] font-semibold text-gray-900">{plan}</span>
+                </div>
+
+                <div className="h-[2vw] w-[1px] bg-gray-200" />
+
+                <div className="text-left">
+                  <span className="text-[0.7vw] text-gray-400 block font-semibold">Status</span>
+                  <span className="text-[0.8vw] font-semibold text-gray-900">{status}</span>
+                </div>
+
+                {/* Three dots action */}
+                <button className="text-gray-400 hover:text-gray-600 p-[0.3vw] rounded-full hover:bg-gray-100 transition cursor-pointer ml-[0.5vw]">
+                  <MoreVertical size="1.1vw" />
+                </button>
+              </div>
+            </div>
+
+            {/* Navigation Pill Capsule (matching UserManagement filter style) */}
+            <div className="flex items-center">
+              <div className="inline-flex items-center bg-[#FAFAFA] rounded-full p-[0.25vw] border border-gray-200/60">
+                {tabs.map((tab) => {
+                  const isSelected = activeTab === tab.name;
+
+                  // If this is Flipbooks and a specific book is selected, render nested breadcrumb pill: Flipbooks > FB-BK-001
+                  if (tab.name === 'Flipbooks' && isSelected && selectedFlipbookId) {
+                    return (
+                      <div
+                        key={tab.name}
+                        className="inline-flex items-center gap-[0.35vw] px-[0.7vw] py-[0.2vw] text-[0.8vw] font-semibold text-gray-500"
+                      >
+                        <button
+                          onClick={() => setSelectedFlipbookId(null)}
+                          className="hover:text-gray-800 transition cursor-pointer"
+                        >
+                          Flipbooks
+                        </button>
+                        <ChevronRight size="0.75vw" className="text-[#ec5137] stroke-[2.5]" />
+                        <span className="bg-[#ec5137] text-white px-[0.6vw] py-[0.2vw] rounded-full text-[0.7vw] font-semibold">
+                          {selectedFlipbookId}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={tab.name}
+                      onClick={() => {
+                        setActiveTab(tab.name);
+                        if (tab.name !== 'Flipbooks') {
+                          setSelectedFlipbookId(null);
+                        }
+                      }}
+                      className={`px-[1.2vw] py-[0.4vw] rounded-full text-[0.8vw] font-semibold transition duration-150 cursor-pointer ${isSelected
+                        ? 'bg-[#ec5137] text-white font-semibold'
+                        : 'text-[#8c95a0] hover:text-[#374151]'
+                        }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

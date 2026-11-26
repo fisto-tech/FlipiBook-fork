@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Icon } from "@iconify/react";
-import ColorPicker from "../../ColorPicker";
+import ColorPicker from "../../../Color";
 import { AxisInput, ToggleSwitch } from "../common/PanelInputs";
 import { builtInHdris, fetchHdris } from "../../../../data/hdriData";
 import FloorPresetSelector from "../../Components/FloorPresetSelector";
