@@ -19,6 +19,7 @@ import pageCacheManager from '../utils/PageCacheManager';
 import { parseLayersFromSVG } from '../utils/editorUtils';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirm } from '../../../context/ConfirmationContext';
+import { queryClient } from '../../../queryClient';
 import CustomScrollbar from '../../CustomScrollbar';
 import { MaskIcon, FlattenIcon } from '../mainEditor/components/editorIcons';
 import { getCachedPageThumbnail, renderPageThumbnail } from '../utils/pageThumbnailRenderer';
@@ -821,6 +822,30 @@ const Layer = ({
 
   const confirm = useConfirm();
 
+  const handleNavigateWithConfirm = async (to) => {
+    queryClient.invalidateQueries({ queryKey: ["flipbook-books"] });
+    queryClient.invalidateQueries({ queryKey: ["flipbook-folders"] });
+    if (hasUnsavedChanges) {
+      if (!isAutoSaveEnabled) {
+        const result = await confirm({
+          title: "Leave Site?",
+          message: "Changes you made may not be saved.",
+          confirmText: "Leave",
+          cancelText: "Stay",
+          type: "danger",
+        });
+        if (!result) return;
+      } else {
+        try {
+          if (onSave) await onSave();
+        } catch (err) {
+          console.warn("[Layer] Auto-save before navigation error:", err);
+        }
+      }
+    }
+    navigate(to);
+  };
+
   const handleGoToCustomize = async () => {
     if (hasUnsavedChanges) {
       if (!isAutoSaveEnabled) {
@@ -1568,10 +1593,54 @@ const Layer = ({
             transition={{ duration: 0.2 }}
             className="flex flex-col px-[0.8vw] pb-[1.5vh] select-none h-full w-[16vw] overflow-hidden"
           >
-            {/* Sidebar Header */}
-            <div className="flex items-center justify-between px-[0.2vw] flex-shrink-0" style={{ height: '8vh', gap: '0.8vw' }}>
-              <div className={`flex-1 min-w-0 flex items-center bg-[#F1F3F4] px-[0.6vw] py-[0.5vh] rounded-[0.5vw] border transition-all ${isNameDuplicate ? 'border-red-500 bg-red-50' : 'border-transparent focus-within:border-[#EC5137] focus-within:bg-white'
-                }`}>
+            {/* Top Workspace Navigation: My Flipbooks & 3D Editor */}
+            <div className="flex items-center bg-gray-100/90 p-[0.22vw] rounded-[0.55vw] border border-gray-200/70 gap-[0.2vw] mt-[1.2vh] mb-[0.8vh] flex-shrink-0">
+              <button
+                onClick={() => handleNavigateWithConfirm('/my-flipbooks')}
+                className="flex-1 h-[2vw] flex items-center justify-center gap-[0.3vw] px-[0.35vw] rounded-[0.42vw] text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-xs transition-all cursor-pointer"
+                title="Go to My Flipbooks"
+              >
+                <Icon
+                  icon="boxicons:home-alt"
+                  className="w-[0.95vw] h-[0.95vw] text-[#EC5137] flex-shrink-0"
+                />
+                <span className="font-semibold text-[0.68vw] whitespace-nowrap truncate">
+                  My Flipbooks
+                </span>
+              </button>
+
+              <button
+                onClick={() => handleNavigateWithConfirm('/editor/threed_editor')}
+                className="flex-1 h-[2vw] flex items-center justify-center gap-[0.3vw] px-[0.35vw] rounded-[0.42vw] text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-xs transition-all cursor-pointer"
+                title="Switch to 3D Editor"
+              >
+                <svg
+                  className="w-[0.95vw] h-[0.95vw] flex-shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M12 2L21.5 7.5L12 13L2.5 7.5L12 2Z" fill="#EC5137" />
+                  <path d="M2.5 7.5L12 13V24L2.5 18.5V7.5Z" fill="#4A3AFF" />
+                  <path d="M21.5 7.5L12 13V24L21.5 18.5V7.5Z" fill="#22C55E" />
+                </svg>
+                <span className="font-semibold text-[0.68vw] whitespace-nowrap truncate">
+                  3D Editor
+                </span>
+              </button>
+            </div>
+
+            {/* Sidebar Header: Editable Book Name & Back Button */}
+            <div className="flex items-center justify-between mb-[1.2vh] flex-shrink-0 gap-[0.5vw]">
+              <div
+                onClick={() => nameInputRef.current?.focus()}
+                title="Click to edit flipbook name"
+                className={`group/name flex-1 min-w-0 flex items-center gap-[0.35vw] bg-[#F1F3F4] hover:bg-gray-200/70 px-[0.55vw] py-[0.5vh] rounded-[0.5vw] border transition-all cursor-text ${
+                  isNameDuplicate
+                    ? 'border-red-500 bg-red-50'
+                    : 'border-gray-200/80 hover:border-gray-300 focus-within:border-[#EC5137] focus-within:bg-white focus-within:shadow-2xs'
+                }`}
+              >
                 <input
                   ref={nameInputRef}
                   type="text"
@@ -1611,16 +1680,24 @@ const Layer = ({
                       }
                     }
                   }}
-                  className={`w-full bg-transparent border-none outline-none text-[0.75vw] font-bold truncate ${isNameDuplicate ? 'text-red-600 placeholder-red-300' : 'text-[#374151] placeholder-gray-400'
-                    }`}
+                  className={`w-full bg-transparent border-none outline-none text-[0.75vw] font-bold truncate ${
+                    isNameDuplicate ? 'text-red-600 placeholder-red-300' : 'text-[#374151] placeholder-gray-400'
+                  }`}
                   placeholder="Flipbook Name..."
                 />
+                <Edit2
+                  size="0.72vw"
+                  className="text-gray-400 group-hover/name:text-gray-600 group-focus-within/name:text-[#EC5137] flex-shrink-0 transition-colors"
+                />
               </div>
+
               <button
                 onClick={() => setIsVisible(false)}
-                className="text-[#374151] hover:bg-gray-100 p-[0.4vw] rounded-full transition-colors flex items-center justify-center cursor-pointer"
+                title="Collapse sidebar"
+                aria-label="Go back / Collapse sidebar"
+                className="group/back flex-shrink-0 bg-gray-100 hover:bg-gray-200/80 border border-gray-200/80 text-[#374151] hover:text-gray-900 p-[0.42vw] rounded-[0.45vw] transition-all flex items-center justify-center cursor-pointer shadow-2xs"
               >
-                <ArrowLeft size="1.2vw" strokeWidth={2.5} />
+                <ArrowLeft size="1.05vw" strokeWidth={2.4} className="group-hover/back:-translate-x-[0.12vw] transition-transform" />
               </button>
             </div>
 
