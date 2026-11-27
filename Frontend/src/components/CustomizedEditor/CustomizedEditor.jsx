@@ -693,6 +693,28 @@ const CustomizedEditor = () => {
   const layoutColorVars = useLayoutColorVars(layoutSettings, layoutColors);
   const visiblePages = useMemo(() => pages.filter(p => !p.isHidden), [pages]);
 
+  const isPdfProject = useMemo(() => {
+    const bookType = String(currentBook?.bookType || currentBook?.meta?.bookType || '').toLowerCase();
+    if (bookType === 'pdf') return true;
+    return pages.some(
+      (p) =>
+        p?.html &&
+        (p.html.includes('data-name="PDF Background"') ||
+          p.html.includes('data-type="pdf-vector-layer"') ||
+          p.html.includes('Document Shield'))
+    );
+  }, [currentBook?.bookType, currentBook?.meta?.bookType, pages]);
+
+  useEffect(() => {
+    if (setCurrentBook) {
+      setCurrentBook((prev) => {
+        if (!prev) return prev;
+        if (Boolean(prev.isPdfProject) === isPdfProject) return prev;
+        return { ...prev, isPdfProject };
+      });
+    }
+  }, [isPdfProject, setCurrentBook]);
+
   return (
     <div
       className="flex flex-col h-full w-full bg-[#D9D9D9] overflow-hidden font-sans select-none relative"

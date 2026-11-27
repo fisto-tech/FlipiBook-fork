@@ -9,14 +9,14 @@ import {
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { ElementDropdown, ElementSlider } from './ElementUIControls';
-import ColorPicker from '../../../../ColorPicker';
+import ColorPicker from '../../../../Color';
 import { IconsModal } from '../../Icons';
 import {
   MOTION_GRAPHIC_TEMPLATES,
   getMotionGraphicProperties,
   updateMotionGraphicAttributes
 } from '../utils/motionGraphicUtils';
-import { handleScrubHelper } from '../../../properties/propertiesShared';
+import { handleScrubHelper } from '../../../properties/controls/propertiesShared';
 import { CUSTOM_FONT_FAMILIES } from '../../../../../utils/customFonts';
 
 const SectionHeader = ({ title, rightElement }) => (

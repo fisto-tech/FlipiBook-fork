@@ -34,7 +34,14 @@ export const getInitialUser = () => {
       if (trimmed.startsWith("flipibook_user=")) {
         const raw = trimmed.substring("flipibook_user=".length);
         if (!raw) return null;
-        return JSON.parse(decodeURIComponent(raw));
+        let decoded = raw;
+        for (let i = 0; i < 3; i++) {
+          if (!decoded.startsWith("%")) break;
+          const next = decodeURIComponent(decoded);
+          if (next === decoded) break;
+          decoded = next;
+        }
+        return JSON.parse(decoded);
       }
     }
   } catch (err) {

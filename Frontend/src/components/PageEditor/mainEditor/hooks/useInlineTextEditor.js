@@ -2,7 +2,7 @@ import { convertTextToForeignObject } from '../utils/textConversionUtils';
 import { clearOverlayType } from '../utils/geometryUtils';
 import { clearSmartGuides } from '../utils/smartGuides';
 import { getTopLevelFrames } from '../utils/frameHierarchyUtils';
-import { TYPE_CURSOR, PENCIL_CURSOR, PEN_CURSOR, SHAPE_CURSOR } from '../utils/constants';
+import { TYPE_CURSOR, TEXT_TOOL_CURSOR, PENCIL_CURSOR, PEN_CURSOR, SHAPE_CURSOR } from '../utils/constants';
 import editCacheManager from '../../utils/EditCacheManager';
 
 /**
@@ -110,7 +110,7 @@ export const useInlineTextEditor = ({
     if (svgContainer) {
       svgContainer.classList.add('text-editing-mode');
       const divWrapper = svgContainer.querySelector('div');
-      if (divWrapper) divWrapper.style.cursor = TYPE_CURSOR;
+      if (divWrapper) divWrapper.style.cursor = 'default'; // I-beam only inside the edited text (CSS)
     }
 
     // Remove selection handles during active editing
@@ -261,7 +261,7 @@ export const useInlineTextEditor = ({
           const isPenToolActive = activeMainToolRef.current === 'pen';
           const isShapeActive = activeMainToolRef.current === 'shapes';
           const isTypeActive = activeMainToolRef.current === 'type';
-          divWrapper.style.cursor = isPencilActive ? PENCIL_CURSOR : (isPenToolActive ? PEN_CURSOR : (isShapeActive ? SHAPE_CURSOR : (isTypeActive ? TYPE_CURSOR : 'default')));
+          divWrapper.style.cursor = isPencilActive ? PENCIL_CURSOR : (isPenToolActive ? PEN_CURSOR : (isShapeActive ? SHAPE_CURSOR : (isTypeActive ? TEXT_TOOL_CURSOR : 'default')));
         }
       }
     };
@@ -363,7 +363,9 @@ export const useInlineTextEditor = ({
         const currentH = parseFloat(foTarget.getAttribute('height')) || 0;
         const currentX = parseFloat(foTarget.getAttribute('x')) || 0;
 
-        if (Math.abs(contentW - currentW) > 2) {
+        // Width follows the text ONLY in Auto width. A Fixed box (drawn by dragging) keeps the size the
+        // user gave it — extra text simply overflows until the user resizes it; Auto height keeps width.
+        if (sizingMode === 'auto-width' && Math.abs(contentW - currentW) > 2) {
           const widthDiff = contentW - currentW;
           const currentAlign = div.style.textAlign || foTarget.getAttribute('data-text-align') || 'left';
           foTarget.setAttribute('width', Math.max(contentW + 4, 10));

@@ -6,7 +6,15 @@
 
 import * as THREE from 'three';
 import JSZip from 'jszip';
-import { GLTFLoader } from 'three-stdlib';
+import { GLTFLoader, DRACOLoader } from 'three-stdlib';
+
+function createGLTFLoader(manager) {
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+  const loader = manager ? new GLTFLoader(manager) : new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+  return loader;
+}
 import { OBJLoader } from 'three-stdlib';
 import { FBXLoader } from 'three-stdlib';
 import { STLLoader } from 'three-stdlib';
@@ -139,7 +147,7 @@ const load3DModel = async (file, onProgress) => {
       let loadedRoot = null;
 
       if (primaryExt === 'glb' || primaryExt === 'gltf') {
-        const loader = new GLTFLoader(manager);
+        const loader = createGLTFLoader(manager);
         loadedRoot = await new Promise((resolve, reject) => {
           loader.load(
             primaryEntry.objectUrl,
@@ -279,7 +287,7 @@ const load3DModel = async (file, onProgress) => {
   await yieldToMain();
 
   if (ext === 'glb' || ext === 'gltf') {
-    const loader = new GLTFLoader();
+    const loader = createGLTFLoader();
     return new Promise((resolve, reject) => {
       loader.parse(
         buffer,
@@ -617,7 +625,7 @@ const export3DModel = async (scene, targetFormat, compressionPreset, onProgress)
           embedImages: true,
           maxTextureSize: maxTextureSize,
           truncateDrawRange: true,
-          animations: animations.length > 0 ? animations : undefined
+          animations: animations
         }
       );
     });
@@ -634,7 +642,7 @@ const export3DModel = async (scene, targetFormat, compressionPreset, onProgress)
     // - Texture Only: Downscales and compresses textures (geometry untouched)
     // - Draco + Meshopt: Full quantization + texture compression (highest reduction)
     try {
-      const isLossless = compressionPreset?.includes('Lossless');
+      const isLossless = compressionPreset?.includes('Lossless') && !compressionPreset?.includes('Original');
       onProgress?.(85, 'Applying preset-specific compression...');
       await yieldToMain();
 
@@ -666,8 +674,9 @@ const export3DModel = async (scene, targetFormat, compressionPreset, onProgress)
       // 3. Texture Compression: Applied for "Texture Only" and "Draco + Meshopt"
       // (Leaves textures 100% untouched for "Lossless")
       if (isTextureOnly || isMeshOpt) {
-        const targetDim = isTextureOnly ? 1024 : 1024;
-        const quality = isTextureOnly ? 0.70 : 0.78;
+        // High (Draco + Meshopt) applies higher texture compression (65% / 1024px) than Texture Only (70% / 1024px)
+        const targetDim = isMeshOpt ? 1024 : 1024;
+        const quality = isMeshOpt ? 0.65 : 0.70;
 
         const textures = doc.getRoot().listTextures();
         for (const tex of textures) {
@@ -715,7 +724,7 @@ const export3DModel = async (scene, targetFormat, compressionPreset, onProgress)
 
   // Fallback to GLB export
   const exporter = new GLTFExporter();
-  const animations = scene.animations && Array.isArray(scene.animations) ? scene.animations : undefined;
+  const animations = scene.animations && Array.isArray(scene.animations) ? scene.animations : [];
   return new Promise((resolve, reject) => {
     exporter.parse(
       scene,

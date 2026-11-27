@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Lock, Unlock } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { getVisualBBox } from '../mainEditor/utils/geometryUtils';
-import { handleScrubHelper } from './Color';
+import { handleScrubHelper } from './FillStrokeProperties';
 
 export const DimensionInput = ({ targetId, targetAttr, value, readOnly, onChange, className }) => {
   const [localVal, setLocalVal] = useState('');
@@ -182,23 +182,43 @@ const TransformProperties = ({
     });
   };
 
-  // Helper to extract rotation from DOM element matrix
+  // Helper to extract rotation from DOM element matrix (or drawn angle for <line>)
   const getElementRotation = (el) => {
     if (!el) return 0;
     try {
       const transform = el.getAttribute('transform');
+      let domM = new DOMMatrix();
+      let m = [1, 0, 0, 1, 0, 0];
       if (transform) {
-        let m = [1, 0, 0, 1, 0, 0];
         try {
-          const domM = new DOMMatrix(transform);
+          domM = new DOMMatrix(transform);
           m = [domM.a, domM.b, domM.c, domM.d, domM.e, domM.f];
         } catch {
           const match = transform.match(/matrix\(([^)]+)\)/);
           if (match) {
             const parsed = match[1].split(/[\s,]+/).map(parseFloat);
-            if (parsed.length === 6) m = parsed;
+            if (parsed.length === 6) {
+              m = parsed;
+              domM = new DOMMatrix(parsed);
+            }
           }
         }
+      }
+
+      if (el.tagName?.toLowerCase() === 'line') {
+        const x1 = parseFloat(el.getAttribute('x1'));
+        const y1 = parseFloat(el.getAttribute('y1'));
+        const x2 = parseFloat(el.getAttribute('x2'));
+        const y2 = parseFloat(el.getAttribute('y2'));
+        if (![x1, y1, x2, y2].some(isNaN) && (x1 !== x2 || y1 !== y2)) {
+          const p1 = new DOMPoint(x1, y1).matrixTransform(domM);
+          const p2 = new DOMPoint(x2, y2).matrixTransform(domM);
+          const lineAngle = Math.round(Math.atan2(p2.y - p1.y, p2.x - p1.x) * (180 / Math.PI));
+          return ((lineAngle % 360) + 360) % 360;
+        }
+      }
+
+      if (transform) {
         const isFlipH = el.getAttribute('data-flip-h') === 'true';
         const isFlipV = el.getAttribute('data-flip-v') === 'true';
         let angle = Math.round(Math.atan2(m[1], m[0]) * (180 / Math.PI));
@@ -465,7 +485,7 @@ const TransformProperties = ({
 
   // Scrub rotation horizontally with mouse drag
   const handleRotateMouseDown = (e) => {
-    if (isDimensionDisabled) return;
+    if (isDimensionDisabled || e.target.tagName === 'INPUT') return;
     e.stopPropagation();
     e.preventDefault();
     setIsScrubbingRotate(true);

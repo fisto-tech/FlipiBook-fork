@@ -484,9 +484,7 @@ const TabletLayout5 = ({
                         {(settings?.media?.backgroundAudio ?? true) && (
                             <ToolbarBtn icon={isMuted ? "solar:music-notes-bold-duotone" : "solar:music-notes-bold"} onClick={(e) => { e.stopPropagation(); setShowSoundPopupMemo?.(!showSoundPopup); }} color={getLayoutColor('toolbar-text-main', '#FFFFFF')} />
                         )}
-                        {(settings?.brandingProfile?.profile ?? true) && (
-                            <ToolbarBtn icon="fluent:person-24-filled" onClick={() => setShowProfilePopup(!showProfilePopup)} color={getLayoutColor('toolbar-text-main', '#FFFFFF')} />
-                        )}
+
                         {(settings?.shareExport?.share ?? true) && (
                             <ToolbarBtn icon="mage:share-fill" onClick={() => {
                                 setShowTOCMemo?.(false);

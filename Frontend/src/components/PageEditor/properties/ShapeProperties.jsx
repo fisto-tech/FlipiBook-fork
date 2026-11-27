@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '@iconify/react';
-import { handleScrubHelper } from './Color';
-import Color from './Color';
-import CornerRadius from './CornerRadius';
-import Effect from './Effect';
+import { handleScrubHelper } from './FillStrokeProperties';
+import Color from './FillStrokeProperties';
+import CornerRadius from './controls/CornerRadius';
+import Effect from './controls/Effect';
 import { ElementSlider } from '../LeftActionMenu/Elements/properties/ElementUIControls';
 import { MaskIcon, FlattenIcon } from '../mainEditor/components/editorIcons';
 import {
@@ -28,8 +28,8 @@ import {
   updateShapeMaskTransform,
   applySvgGradientOrSolid
 } from '../LeftActionMenu/Elements/utils/shapeMaskUtils';
-import { parseGradient } from './ColorPicker';
-import { PropertySlider } from './propertiesShared';
+import { parseGradient } from '../../Color';
+import { PropertySlider } from './controls/propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
 import { applyIconPaint, isIconElement } from '../utils/iconPaint';

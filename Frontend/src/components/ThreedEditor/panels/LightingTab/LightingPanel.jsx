@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Icon } from "@iconify/react";
-import ColorPicker from "../../ColorPicker";
+import ColorPicker from "../../../Color";
 import { AxisInput, ToggleSwitch } from "../common/PanelInputs";
 import { builtInHdris, fetchHdris } from "../../../../data/hdriData";
 import FloorPresetSelector from "../../Components/FloorPresetSelector";
@@ -210,8 +210,8 @@ export function LightingPanel({
     };
   }, [showAllEnvironments]);
 
-  // State for dynamic HDRI list loaded from backend database
-  const [dynamicHdris, setDynamicHdris] = useState(() => [...builtInHdris]);
+  // State for dynamic HDRI list loaded exclusively from backend database API
+  const [dynamicHdris, setDynamicHdris] = useState([]);
 
   useEffect(() => {
     fetchHdris().then((loaded) => {

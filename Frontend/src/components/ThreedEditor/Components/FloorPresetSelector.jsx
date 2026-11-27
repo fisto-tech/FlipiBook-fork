@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { FLOOR_PRESETS, FLOOR_CATEGORIES } from "../data/floorPresets";
-import ColorPicker from "../ColorPicker";
+import { ColorPallet as ColorPicker } from "../../Color";
 import { SliderRow } from "../panels/common/PanelInputs";
 
 export default function FloorPresetSelector({

@@ -249,7 +249,7 @@ const DEFAULT_FLIPBOOK_INFO = {
   category: '',
   language: '',
   tags: [],
-  quotes: '“Bring your content to life with a real, interactive experience”',
+  quotes: '',
   about: '',
   publisher: '',
   publishedAt: null,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { ChevronsLeft } from 'lucide-react';
 import LayoutColorCustomizer from '../../LayoutColorCustomizer';
-import ColorPicker from '../../../ColorPallet';
+import { ColorPallet as ColorPicker } from '../../../Color';
 import { LAYOUT_DEFAULT_COLORS } from '../../utils/layoutColors';
 
 import layout1 from '../../../../assets/layout/Layout1.webp';
@@ -128,7 +128,7 @@ const Layout = ({ onBack, activeLayout, onUpdateLayout, layoutColors, onUpdateLa
                     if (toolbarP && ['toolbar-bg', 'bottom-toolbar-bg', 'page-number-bg'].includes(c.id)) {
                         hexVal = toolbarP;
                     } else if (toolbarP && ['search-bg-v1', 'search-bg-v2', 'reset-bg'].includes(c.id)) {
-                        hexVal = getTint(toolbarP, 0.75);
+                        hexVal = getTint(toolbarP, idx === 6 ? 0.2 : 0.75);
                     } else if (toolbarS && ['toolbar-text-main', 'toolbar-icon', 'search-text-v1', 'reset-text', 'page-number-text'].includes(c.id)) {
                         if (c.id === 'search-text-v1') {
                             const isLightBar = isLightColor(toolbarP || c.hex);

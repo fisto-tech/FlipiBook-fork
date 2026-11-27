@@ -800,23 +800,73 @@ export const useCanvasPointerEvents = ({
 
 
 
-    // ── Creation Tool: Text (Type) Tool ─────────────────────────────────────────
+    // ── Creation Tool: Text (Type) Tool — Figma style ───────────────────────────
+    //  • drag  → draws a box; on release a FIXED-size text box of that size (text wraps inside)
+    //  • click → AUTO-WIDTH text at the point
+    // Either way the new text starts empty with a caret (empty text is removed if left unedited).
     if (activeMainTool === 'type') {
-      let parentEl = resolveTargetParentForCreation(svg, e.clientX, e.clientY);
+      const parentEl = resolveTargetParentForCreation(svg, e.clientX, e.clientY);
       if (!parentEl) return;
 
-      const pt = getLocalPoint(svg, parentEl, e.clientX, e.clientY);
+      const startPt = getLocalPoint(svg, parentEl, e.clientX, e.clientY);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const DRAG_THRESHOLD = 4; // px — below this it's a click
 
-      if (parentEl) {
+      // Rubber-band box shown while dragging (fixed-positioned: independent of canvas zoom/scroll)
+      const band = document.createElement('div');
+      band.setAttribute('data-text-draw-band', 'true');
+      // Same look as the editor's hover / selection box (1px #5255CA, no fill) → hands over seamlessly
+      band.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;box-sizing:border-box;border:1px solid #5255CA;background:transparent;pointer-events:none;z-index:2147483646;display:none;';
+      document.body.appendChild(band);
+      // While drawing, hide other elements' hover boxes so only the box being drawn is visible
+      if (!document.getElementById('pe-text-drawing-style')) {
+        const st = document.createElement('style');
+        st.id = 'pe-text-drawing-style';
+        st.textContent = 'body.pe-text-drawing [id^="highlight-overlay-"] [id*="hover"] { display: none !important; }';
+        document.head.appendChild(st);
+      }
+      document.body.classList.add('pe-text-drawing');
+
+      const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) { band.style.display = 'none'; return; }
+        band.style.display = 'block';
+        band.style.left = `${Math.min(startX, ev.clientX)}px`;
+        band.style.top = `${Math.min(startY, ev.clientY)}px`;
+        band.style.width = `${Math.abs(dx)}px`;
+        band.style.height = `${Math.abs(dy)}px`;
+      };
+      const onUp = (ev) => {
+        window.removeEventListener('mousemove', onMove, true);
+        window.removeEventListener('mouseup', onUp, true);
+        document.body.classList.remove('pe-text-drawing');
+        const dragged = Math.abs(ev.clientX - startX) >= DRAG_THRESHOLD || Math.abs(ev.clientY - startY) >= DRAG_THRESHOLD;
+        const endPt = dragged ? getLocalPoint(svg, parentEl, ev.clientX, ev.clientY) : null;
+        if (!dragged) band.remove();
+        // Dragged: keep the drawn box on screen until the new text's selection box replaces it (no gap)
+        createTextElement(parentEl, startPt, endPt, dragged ? band : null);
+      };
+      window.addEventListener('mousemove', onMove, true);
+      window.addEventListener('mouseup', onUp, true);
+
+      const createTextElement = (parentEl, p1, p2, drawnBand = null) => {
         const id = `text-${Math.random().toString(36).substr(2, 9)}`;
         const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
         const ptToMmScale = 0.2645833333333333;
+        const isFixed = Boolean(p2);
+        // Box in the parent's local units → foreignObject units (it is scaled by ptToMmScale)
+        const left = isFixed ? Math.min(p1.x, p2.x) : p1.x;
+        const top = isFixed ? Math.min(p1.y, p2.y) : p1.y;
+        const boxW = isFixed ? Math.max(Math.abs(p2.x - p1.x) / ptToMmScale, 40) : 190;
+        const boxH = isFixed ? Math.max(Math.abs(p2.y - p1.y) / ptToMmScale, 38) : 38;
+
         fo.setAttribute('id', id);
-        // Scale the local x,y,width,height inversely so it renders at the mouse cursor
-        fo.setAttribute('x', pt.x / ptToMmScale);
-        fo.setAttribute('y', pt.y / ptToMmScale);
-        fo.setAttribute('width', '190');
-        fo.setAttribute('height', '38');
+        fo.setAttribute('x', left / ptToMmScale);
+        fo.setAttribute('y', top / ptToMmScale);
+        fo.setAttribute('width', String(boxW));
+        fo.setAttribute('height', String(boxH));
         fo.setAttribute('transform', `matrix(${ptToMmScale} 0 0 ${ptToMmScale} 0 0)`);
         fo.setAttribute('fill', '#000000');
         fo.setAttribute('stroke', 'none');
@@ -826,12 +876,12 @@ export const useCanvasPointerEvents = ({
         fo.setAttribute('font-weight', 'normal');
         fo.setAttribute('data-font-weight', 'normal');
         fo.setAttribute('letter-spacing', '0');
-        fo.setAttribute('data-auto-wrap', 'false');
-        fo.setAttribute('data-sizing-mode', 'auto-width');
+        fo.setAttribute('data-auto-wrap', isFixed ? 'true' : 'false');
+        fo.setAttribute('data-sizing-mode', isFixed ? 'fixed' : 'auto-width');
         fo.setAttribute('data-type', 'text');
 
         const div = document.createElement('div');
-        div.style.width = 'max-content'; // Allows scrollWidth to perfectly match text
+        div.style.width = isFixed ? '100%' : 'max-content'; // auto-width: scrollWidth matches the text
         div.style.height = '100%';
         div.style.minHeight = '100%';
         div.style.display = 'block'; // keep styled runs inline (no flex column)
@@ -845,9 +895,17 @@ export const useCanvasPointerEvents = ({
         div.style.textAlign = 'left';
         div.style.lineHeight = '1.2';
         div.style.letterSpacing = '0px';
-        div.style.wordBreak = 'normal';
-        div.style.overflowWrap = 'normal';
-        div.style.whiteSpace = 'pre'; // 'pre' ensures text never automatically wraps or breaks down unless user presses Enter
+        if (isFixed) {
+          // Same setup as Text Properties → Fixed: wraps inside the drawn box, starts at the top
+          div.style.setProperty('white-space', 'pre-wrap', 'important');
+          div.style.setProperty('overflow-wrap', 'break-word', 'important');
+          div.style.setProperty('word-break', 'normal');
+          div.style.setProperty('overflow', 'visible', 'important');
+        } else {
+          div.style.wordBreak = 'normal';
+          div.style.overflowWrap = 'normal';
+          div.style.whiteSpace = 'pre'; // never wraps unless the user presses Enter
+        }
         div.style.padding = '0px';
         div.style.margin = '0';
         div.style.boxSizing = 'border-box';
@@ -856,7 +914,7 @@ export const useCanvasPointerEvents = ({
         div.style.userSelect = 'none';
         div.style.pointerEvents = 'none';
 
-        div.innerText = 'Type your text';
+        div.innerText = ''; // starts empty with a caret (Figma); removed on exit if nothing typed
         fo.appendChild(div);
 
         parentEl.appendChild(fo);
@@ -882,19 +940,61 @@ export const useCanvasPointerEvents = ({
             multiSelectedIdsRef.current = new Set([id]);
           }
 
-          // Highlight it instantly
+          // Highlight it instantly and put the caret in it
           const mountedText = container.querySelector(`[id="${id}"]`);
           if (mountedText) {
+            // Click-created text (Figma): only a blinking caret until the first character is typed —
+            // no selection box yet. A dragged box (fixed) shows its box immediately.
+            if (!isFixed) {
+              if (!document.getElementById('pe-text-caret-only-style')) {
+                const st = document.createElement('style');
+                st.id = 'pe-text-caret-only-style';
+                st.textContent = 'body.pe-text-caret-only [id^="highlight-overlay-"], body.pe-text-caret-only [id^="overlay-poly-"], body.pe-text-caret-only [id^="overlay-path-"], body.pe-text-caret-only .resize-handle { opacity: 0 !important; transition: none !important; }';
+                document.head.appendChild(st);
+              }
+              document.body.classList.add('pe-text-caret-only');
+            }
             drawOverlayHighlight(mountedText, 'selected');
-            // Enter edit mode immediately for newly created text and fully select it
             enterTextEditMode(mountedText, null, null, true);
+            // Selection box is drawn now — remove the drag box in the same frame
+            if (drawnBand) requestAnimationFrame(() => drawnBand.remove());
+            if (!isFixed) {
+              const editDiv = mountedText.querySelector('[contenteditable="true"]') || mountedText.firstElementChild;
+              const showBox = () => {
+                document.body.classList.remove('pe-text-caret-only');
+                if (editDiv) {
+                  editDiv.removeEventListener('input', onFirstInput);
+                  editDiv.removeEventListener('focusout', showBox);
+                }
+              };
+              const onFirstInput = () => {
+                if (!(editDiv?.innerText || '').trim()) return; // still empty → keep caret only
+                showBox();
+                if (mountedText.isConnected) {
+                  drawOverlayHighlight(mountedText, 'selected');
+                  window.dispatchEvent(new CustomEvent('force-update-selection-box', { detail: { elementId: id } }));
+                }
+              };
+              if (editDiv) {
+                editDiv.addEventListener('input', onFirstInput);
+                editDiv.addEventListener('focusout', showBox); // left without typing → empty text is removed; restore boxes
+              } else {
+                showBox();
+              }
+              // Safety net: never leave selection boxes hidden
+              setTimeout(() => { if (!editDiv || !editDiv.isConnected) showBox(); }, 30000);
+            }
           }
 
+          if (drawnBand && drawnBand.isConnected) requestAnimationFrame(() => drawnBand.remove()); // safety
           suppressClickRef.current = false;
         }, 100);
 
         suppressClickRef.current = true;
-      }
+      };
+
+      suppressClickRef.current = true;
+      e.stopPropagation();
       return;
     }
 

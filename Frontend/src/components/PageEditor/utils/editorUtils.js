@@ -1,4 +1,5 @@
 import { consolidateTransforms } from '../mainEditor/utils/geometryUtils';
+import { createOrUpdateSvgPatternGradient } from '../../Color/utils/colorUtils';
 
 export const syncGradient = (doc, element, baseAttr) => {
   const type = element.getAttribute(`${baseAttr}-type`);
@@ -45,41 +46,56 @@ export const syncGradient = (doc, element, baseAttr) => {
   Array.from(defs.querySelectorAll(`[id^="${gradIdPrefix}"]`)).forEach(oldGrad => oldGrad.remove());
 
   const gradId = `${gradIdPrefix}-${Math.random().toString(36).substr(2, 4)}`;
-  let gradEl = null;
+  const normGradType = String(gradType || 'linear').toLowerCase();
 
-  const svgGradType = (gradType === 'angular' || gradType === 'diamond') ? (gradType === 'angular' ? 'linear' : 'radial') : gradType;
+  if (normGradType === 'angular' || normGradType === 'diamond') {
+    const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
+    const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '100');
+    createOrUpdateSvgPatternGradient({
+      doc: ownerDoc,
+      defs,
+      gradId,
+      type: normGradType,
+      stops,
+      angle,
+      radius,
+    });
+  } else {
+    let gradEl = null;
+    const svgGradType = normGradType === 'radial' ? 'radial' : 'linear';
 
-  if (!gradEl) {
-    gradEl = ownerDoc.createElementNS("http://www.w3.org/2000/svg", `${svgGradType}Gradient`);
-    gradEl.id = gradId;
-    if (svgGradType === 'linear') {
-      const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
-      const angleRad = (angle * Math.PI) / 180;
-      // CSS gradient angle uses bearings (0deg = up, 90deg = right)
-      // SVG y-axis points down
-      const dx = Math.sin(angleRad) * 50;
-      const dy = -Math.cos(angleRad) * 50;
-      gradEl.setAttribute('x1', Math.round(50 - dx) + '%');
-      gradEl.setAttribute('y1', Math.round(50 - dy) + '%');
-      gradEl.setAttribute('x2', Math.round(50 + dx) + '%');
-      gradEl.setAttribute('y2', Math.round(50 + dy) + '%');
-    } else {
-      const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '50');
-      gradEl.setAttribute('cx', '50%');
-      gradEl.setAttribute('cy', '50%');
-      gradEl.setAttribute('r', radius + '%');
+    if (!gradEl) {
+      gradEl = ownerDoc.createElementNS("http://www.w3.org/2000/svg", `${svgGradType}Gradient`);
+      gradEl.id = gradId;
+      if (svgGradType === 'linear') {
+        const angle = parseFloat(element.getAttribute(`${baseAttr}-angle`) || '0');
+        const angleRad = (angle * Math.PI) / 180;
+        // CSS gradient angle uses bearings (0deg = up, 90deg = right)
+        // SVG y-axis points down
+        const dx = Math.sin(angleRad) * 50;
+        const dy = -Math.cos(angleRad) * 50;
+        gradEl.setAttribute('x1', Math.round(50 - dx) + '%');
+        gradEl.setAttribute('y1', Math.round(50 - dy) + '%');
+        gradEl.setAttribute('x2', Math.round(50 + dx) + '%');
+        gradEl.setAttribute('y2', Math.round(50 + dy) + '%');
+      } else {
+        const radius = parseFloat(element.getAttribute(`${baseAttr}-radius`) || '50');
+        gradEl.setAttribute('cx', '50%');
+        gradEl.setAttribute('cy', '50%');
+        gradEl.setAttribute('r', radius + '%');
+      }
+      defs.appendChild(gradEl);
     }
-    defs.appendChild(gradEl);
-  }
 
-  while (gradEl.firstChild) gradEl.removeChild(gradEl.firstChild);
-  stops.forEach(s => {
-    const stop = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "stop");
-    stop.setAttribute('offset', `${s.offset}%`);
-    stop.setAttribute('stop-color', s.color);
-    stop.setAttribute('stop-opacity', (s.opacity !== undefined && s.opacity !== null) ? s.opacity : 1);
-    gradEl.appendChild(stop);
-  });
+    while (gradEl.firstChild) gradEl.removeChild(gradEl.firstChild);
+    stops.forEach(s => {
+      const stop = ownerDoc.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop.setAttribute('offset', `${s.offset}%`);
+      stop.setAttribute('stop-color', s.color);
+      stop.setAttribute('stop-opacity', (s.opacity !== undefined && s.opacity !== null) ? s.opacity : 1);
+      gradEl.appendChild(stop);
+    });
+  }
 
   const finalUrl = `url(#${gradId})`;
   element.setAttribute(baseAttr, finalUrl);

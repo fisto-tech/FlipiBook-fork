@@ -4,7 +4,7 @@ import { X, Link as LinkIcon, Copy, QrCode, Download, Share2, Mail, Edit3, Arrow
 import { Icon } from '@iconify/react';
 import QRCodeStyling from 'qr-code-styling';
 import html2canvas from 'html2canvas';
-import ColorPicker, { default as TemplateColorPicker } from './ColorPicker';
+import ColorPicker, { default as TemplateColorPicker } from './Color';
 import { getAssetBaseUrl, getSupabaseBaseUrl, rewriteHtmlUploadsToSupabase } from '../utils/assets/assetUtils';
 import { useAuth } from '../context/AuthContext';
 import { analyticsApi } from '../api/analyticsApi';

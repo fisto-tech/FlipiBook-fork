@@ -14,12 +14,12 @@ import {
 } from "lucide-react";
 import ReplaceMediaModal from "../modals/ReplaceMediaModal";
 import ImageAdjustmentModal, { AdjustmentIcon } from '../modals/ImageAdjustmentModal';
-import Color from './Color';
-import CornerRadius from './CornerRadius';
-import Effect from './Effect';
-import { parseGradient } from "./ColorPicker";
+import Color from './FillStrokeProperties';
+import CornerRadius from './controls/CornerRadius';
+import Effect from './controls/Effect';
+import { parseGradient } from "../../Color";
 import { syncGradient, getEmbedVideoUrl } from '../utils/editorUtils';
-import { formatBytes } from './propertiesShared';
+import { formatBytes } from './controls/propertiesShared';
 import { optimizeImageForWeb, shouldOptimizeImage } from '../../../utils/imageOptimizer';
 
 const resizeAndCenter = (el, targetW, targetH) => {
