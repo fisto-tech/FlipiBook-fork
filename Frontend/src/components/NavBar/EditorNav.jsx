@@ -257,10 +257,11 @@ const EditorNavbar = ({
             />
           </Link>
 
-          <div className="w-[1px] h-[1.6vw] bg-gray-200 flex-shrink-0" />
-
-          {/* Meaningful Compact Workspace Navigation */}
-          <div className="flex items-center bg-gray-100/80 p-[0.2vw] rounded-[0.55vw] border border-gray-200/70 gap-[0.2vw]">
+          {/* Meaningful Compact Workspace Navigation - Shown in 3D Editor & Customized Editor (moved to Left Panel in Page Editor) */}
+          {(isThreedEditor || isCustomizedEditor) && (
+            <>
+              <div className="w-[1px] h-[1.6vw] bg-gray-200 flex-shrink-0" />
+              <div className="flex items-center bg-gray-100/80 p-[0.2vw] rounded-[0.55vw] border border-gray-200/70 gap-[0.2vw]">
             <div className="relative group/tooltip flex items-center">
               <Link
                 to="/my-flipbooks"
@@ -326,6 +327,8 @@ const EditorNavbar = ({
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* Center Section - Device Switcher (Customized Editor) or Book Name Badge */}
